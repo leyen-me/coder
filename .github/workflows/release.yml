@@ -35,7 +35,7 @@ jobs:
       matrix:
         include:
           - platform: ubuntu-22.04
-          args: ""
+            args: ""
           - platform: macos-latest
             args: ""
           - platform: windows-latest
