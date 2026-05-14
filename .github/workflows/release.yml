@@ -1,0 +1,100 @@
+# push 到指定分支后自动构建 Tauri 安装包并发布到 GitHub Release。
+# 每次发布使用「时间戳」作为 tag / 发布名，避免与 package 版本号冲突、且按时间唯一排序。
+name: Build and release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.tag.outputs.TAG }}
+    steps:
+      - name: 生成按时间的 release 标签（UTC）
+        id: tag
+        run: |
+          TAG="release-$(date -u +'%Y%m%d-%H%M%S')"
+          echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
+          echo "本次发布标签: $TAG"
+
+  publish:
+    needs: prepare-tag
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+          args: ""
+          - platform: macos-latest
+            args: ""
+          - platform: windows-latest
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Linux system dependencies (Tauri)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            pkg-config \
+            libgtk-3-dev
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 可选：配置仓库 Secrets 后启用代码签名 / 更新器
+          # TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: src-tauri
+          tagName: ${{ needs.prepare-tag.outputs.tag_name }}
+          releaseName: ${{ needs.prepare-tag.outputs.tag_name }}
+          releaseBody: |
+            自动构建（UTC 时间戳标签）
+
+            - 提交: ${{ github.sha }}
+            - 工作流: ${{ github.run_id }}
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
