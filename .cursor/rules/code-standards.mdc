@@ -1,0 +1,265 @@
+---
+description: 全栈代码规范，约束 React/TypeScript 与 Rust/Tauri 的目录、命名、边界、错误处理与质量门槛
+alwaysApply: true
+---
+
+# 代码规范
+
+面向 `React + TypeScript + Tauri + Rust`。代码必须优雅、克制、可维护，让人和 AI 都能快速理解边界、数据流和失败路径。
+
+## 总原则
+
+- 最小修改：优先做最小且正确的 diff，不顺手重构无关代码。
+- 显式优于隐式：类型、边界、依赖、失败路径都应一眼可见。
+- 单一职责：文件、函数、组件、模块都只处理一个主要问题。
+- 延迟抽象：第二个真实用例出现后再抽象，避免为“将来可能复用”增加复杂度。
+- 先读后写：先观察周边文件风格，再决定命名、结构和实现方式。
+- 可维护优先：不要用魔法技巧换取短期“聪明”，未来维护成本更重要。
+
+## 项目目录约定
+
+前端按功能域组织，后端按职责边界组织。不要把所有代码堆进 `App.tsx` 或一个大而全的 `utils` 文件。
+
+```txt
+src/
+  app/                # AppShell、路由、providers、全局入口
+  features/           # chat/ tasks/ workspace/ settings/
+  components/         # 跨功能通用组件
+  components/ui/      # shadcn/ui 基础组件
+  hooks/              # 通用 hooks
+  lib/                # tauri-client、utils、i18n、formatters
+  types/              # 共享类型
+
+src-tauri/src/
+  commands/           # Tauri command 边界
+  domain/             # 可测试的纯业务逻辑
+  state/              # 应用级共享状态
+  config/             # 配置读取与默认值
+  window/             # 窗口与桌面能力
+```
+
+- 页面或 feature 入口负责组合，不承担底层通用逻辑。
+- 通用组件不直接了解业务流程。
+- 与 Tauri 的通信统一收口到 `src/lib/tauri/` 或 feature 服务层，不要在组件里散落 `invoke(...)`。
+- 工具文件按能力命名，如 `format-date.ts`、`parse-task-output.ts`，不要让 `utils.ts` 无限膨胀。
+
+## 命名规则
+
+| 类型 | 规则 | 示例 |
+| --- | --- | --- |
+| React 组件 | `PascalCase` | `TaskStatusBadge.tsx` |
+| Hook | `use` + `camelCase` | `useAgentTask.ts` |
+| 工具/服务文件 | `kebab-case` | `tauri-client.ts` |
+| TypeScript 类型 | `PascalCase` | `AgentTask`, `TaskStatus` |
+| 常量 | 语义化 `UPPER_SNAKE_CASE` | `DEFAULT_PANEL_WIDTH` |
+| Rust 模块 | `snake_case` | `task_runner.rs` |
+| Tauri command | `snake_case` 动词短语 | `start_agent_task` |
+
+- 命名体现业务意图，不用 `data`、`item`、`handler2` 这类含糊名字。
+- 布尔值优先使用正向命名，如 `isRunning`、`hasError`、`canRetry`。
+- 临时变量作用域一旦超过几行，就应使用有意义的名称。
+
+## 前端代码规范
+
+### React 组件
+
+- 使用函数组件。
+- 公共组件必须显式声明 props 类型。
+- 单个组件如果超过约 `150` 行，或同时承担布局、状态、副作用、数据转换，应拆分为子组件、hook 或纯函数。
+- 页面组件负责组合与流程，展示组件负责 UI 契约，不直接发起业务编排。
+
+```tsx
+// ❌ BAD：组件同时做请求、转换、布局、错误映射
+export function TaskPage() {
+  // 太多状态、太多副作用、太多 JSX
+}
+
+// ✅ GOOD：页面组合，逻辑拆到 hook 和子组件
+export function TaskPage() {
+  const task = useAgentTask();
+  return <TaskLayout task={task} />;
+}
+```
+
+### Props 与数据流
+
+- props 命名以使用者心智为主，而不是内部实现细节。
+- 布尔 props 使用正向语义，如 `disabled`、`open`、`loading`。
+- 不通过 props 传递一整个“大对象”再在子组件里随意取字段；优先传递明确契约。
+- 数据流优先单向流动，避免多层双向修改同一份状态。
+
+### State 与 Effect
+
+- 本地状态靠近使用处，先用 `useState`。
+- 跨组件状态先提升到最近公共父级，再考虑 `Context`，复杂且高频共享后再引入状态库。
+- `useEffect` 只用于同步外部系统，如网络、事件订阅、窗口 API，不用于派生本可同步计算的值。
+- 异步状态必须明确 `loading / success / error`，避免模糊状态。
+
+```tsx
+// ❌ BAD：用 effect 派生同步值
+const [fullName, setFullName] = useState("");
+useEffect(() => {
+  setFullName(`${firstName} ${lastName}`);
+}, [firstName, lastName]);
+
+// ✅ GOOD：直接计算
+const fullName = `${firstName} ${lastName}`;
+```
+
+### JSX 与样式
+
+- JSX 保持声明式，复杂条件优先提取为命名变量或小组件。
+- 避免多层嵌套三元表达式。
+- 使用 `shadcn/ui` 时通过 `cn()` 合并 class，保留组件语义和可访问性。
+- 样式优先使用 Tailwind 语义类和设计 token，不在业务代码里散落硬编码色值。
+- 能用现有组件表达，不新增“一次性抽象组件”。
+
+### 事件与交互
+
+- 事件函数命名使用 `handle*`，如 `handleSubmit`、`handleStopTask`。
+- 异步事件必须处理 pending、失败、重复点击与过期响应。
+- 列表渲染使用稳定业务 key，不用数组索引做可变列表 key。
+
+## TypeScript 规范
+
+- 禁止随手使用 `any`；优先使用精确类型、联合类型、泛型和 `unknown` 后收窄。
+- 类型表达真实约束，不用类型断言掩盖建模问题。
+- 共享协议类型集中管理，避免前后端各写一份相似但不一致的定义。
+- 当一个对象存在离散状态时，优先使用判别联合而不是多个容易冲突的布尔字段。
+
+```ts
+// ❌ BAD
+type TaskState = {
+  isRunning: boolean;
+  isDone: boolean;
+  error?: string;
+};
+
+// ✅ GOOD
+type TaskState =
+  | { status: "pending" }
+  | { status: "running" }
+  | { status: "completed"; result: string }
+  | { status: "failed"; message: string };
+```
+
+## Rust / Tauri 规范
+
+### 模块边界
+
+- `main.rs` 只保留入口。
+- `lib.rs` 负责组装 builder、插件、命令注册和启动流程。
+- `commands/` 是前后端协议边界，只负责参数校验、状态协调和调用领域逻辑。
+- 复杂业务逻辑放在普通 Rust 函数或 `domain/` 模块，确保可单测。
+- 平台差异使用 `#[cfg(...)]` 显式隔离，不让条件分支散落在主流程里。
+
+### 错误处理
+
+- 可恢复路径使用 `Result<T, E>`。
+- 禁止在可恢复路径滥用 `unwrap()` 或 `expect()`。
+- `expect()` 只允许出现在真正不可恢复的启动期断言，并且错误消息要可诊断。
+- 返回给前端的错误必须可序列化、可理解，不暴露敏感路径、token、内部堆栈。
+
+```rust
+// ❌ BAD
+let content = std::fs::read_to_string(path).unwrap();
+
+// ✅ GOOD
+let content = std::fs::read_to_string(path)
+    .map_err(|err| AppError::ReadFileFailed { source: err })?;
+```
+
+### 数据结构与协议
+
+- 前后端共享结构使用 `serde::{Serialize, Deserialize}`。
+- 字段命名、可选字段和默认值策略必须稳定。
+- 如果协议变化会影响前端，必须同时更新 TypeScript 封装和错误展示。
+- 不为图省事把所有数据都做成 `String`。
+
+### 异步与共享状态
+
+- 异步逻辑要考虑取消、安全退出和资源释放。
+- 避免长时间持锁跨 `await`。
+- 共享状态的写入边界要明确，不让多个命令偷偷修改同一事实源。
+
+## 前后端通信规范
+
+- 所有 Tauri command 在 `lib.rs` 或集中注册位置统一管理。
+- 前端不直接在组件中写 `invoke("xxx")`，统一通过 `src/lib/tauri/` 封装。
+- 每新增一个 command，都要同步考虑以下四件事：
+  1. Rust 实现与错误映射
+  2. TypeScript 封装方法
+  3. 共享类型或返回结构
+  4. 至少一种验证方式（测试或手动验证）
+
+```ts
+// ❌ BAD：组件直接依赖 command 名称
+const result = await invoke("start_agent_task", { input });
+
+// ✅ GOOD：通过封装层收口
+const result = await agentClient.startTask(input);
+```
+
+- UI 展示的是用户可理解错误，而不是底层技术细节原样外露。
+
+## 状态管理规范
+
+- UI 临时状态由前端本地管理，例如展开、输入值、选中项。
+- 任务事实状态、执行结果、日志、持久化数据以后端或数据库为事实源。
+- 不允许多个组件分别维护同一个任务状态的真相副本。
+- 当状态切换存在明确阶段时，使用状态机思维，而不是一堆零散布尔值。
+
+## 注释规范
+
+- 注释解释“为什么”，不要复述“这行代码把值赋给变量”。
+- 复杂业务约束、平台限制、协议兼容原因值得写注释。
+- 公共 Rust API 优先使用文档注释说明契约、失败语义与限制。
+- 不保留失效注释和误导性 TODO。
+
+```ts
+// ❌ BAD：描述显而易见的动作
+// Set name to user name
+setName(user.name);
+
+// ✅ GOOD：解释非显而易见的约束
+// 任务一旦进入 cancelling，不允许重新回到 running，避免 UI 与执行器状态分叉。
+```
+
+## 测试与验证
+
+- 纯函数、数据转换、错误映射、序列化协议优先写自动化测试。
+- 共享 hook、共享组件、Tauri 封装层发生变化时，应补充相应测试或至少明确验证路径。
+- 窄范围 UI 调整可以手动验证，但必须覆盖主路径和错误路径。
+- Rust 业务逻辑尽量从 Tauri 壳层中拆出来，以便单元测试。
+
+推荐检查：
+
+- 前端改动后运行 `pnpm build`
+- Rust 改动后运行 `cargo fmt`
+- Rust 改动后运行 `cargo clippy`
+- Rust 改动后运行 `cargo test`
+- 协议改动后同时验证前端构建
+
+## 依赖与重构
+
+- 新增依赖前先确认现有依赖或标准库是否足够。
+- 优先选择官方、稳定、生态成熟的依赖。
+- 不引入大型依赖只为解决一个很小的问题。
+- 没有清晰收益时，不做跨模块大重构。
+- 重构必须伴随明确收益，如边界更清晰、重复更少、测试更容易。
+
+## 禁止事项
+
+- 禁止为了通过类型检查而滥用 `as any`、`as unknown as`。
+- 禁止为了省事在组件里直接堆业务流程和 Tauri 调用。
+- 禁止为了“看起来高级”引入过早抽象、过深继承或过多中间层。
+- 禁止把错误吃掉不处理。
+- 禁止提交死代码、未使用依赖、无解释的大块注释代码。
+
+## AI 修改原则
+
+- 修改前先读相邻文件，跟随现有命名、结构、导入风格和抽象层级。
+- 优先补边界和类型，而不是用断言掩盖问题。
+- 新增目录前确认它代表长期稳定边界，而不是临时分类。
+- 不顺手整理无关文件，不扩大 diff。
+- 生成的代码必须像是同一个项目作者写的，而不是拼接出来的模板。
