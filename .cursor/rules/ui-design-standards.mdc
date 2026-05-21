@@ -87,7 +87,7 @@ alwaysApply: false
 
 - 布局风格参考 `VS Code`：分区明确、导航稳定、操作入口固定。
 - 视觉风格参考 `Notion/Linear`：留白充足、边框柔和、颜色克制、层次自然。
-- 默认避免高饱和大面积纯色背景，优先使用中性底色 + 少量主色点缀。
+- 默认避免高饱和大面积纯色背景，优先使用中性黑白灰，彩色仅用于状态语义（成功、警告、失败）。
 - 阴影只用于表达浮层和层级，不用于“装饰”。
 - 圆角保持温和统一，优先使用 `rounded-lg` 与 `rounded-xl`，不要同页混用多个极端圆角。
 
@@ -102,8 +102,8 @@ alwaysApply: false
 | `--card` | 卡片背景 | `#FFFFFF` | `#18181B` |
 | `--muted` | 次级背景 | `#F4F4F5` | `#1A1A1A` |
 | `--muted-foreground` | 次级文字 | `#71717A` | `#A1A1AA` |
-| `--primary` | 主操作色 | `#2563EB` | `#3B82F6` |
-| `--primary-foreground` | 主按钮文字 | `#FFFFFF` | `#FFFFFF` |
+| `--primary` | 主操作色 | `#171717` | `#FAFAFA` |
+| `--primary-foreground` | 主按钮文字 | `#FFFFFF` | `#171717` |
 | `--border` | 边框与分隔线 | `#E4E4E7` | `#27272A` |
 | `--destructive` | 危险操作/失败 | `#DC2626` | `#EF4444` |
 | `--warning` | 警告 | `#D97706` | `#F59E0B` |
@@ -170,7 +170,7 @@ alwaysApply: false
 建议映射：
 
 - `pending`: 中性灰
-- `running`: 主色或蓝色
+- `running`: 主色或中性强调
 - `waiting_user`: 警告色
 - `cancelling`: 橙色
 - `cancelled`: 中性灰
