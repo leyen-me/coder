@@ -12,9 +12,16 @@ import { TITLE_BAR_NAV_BUTTON_CLASS } from "./constants";
 type TitleBarNavButtonProps = {
   label: string;
   icon: LucideIcon;
+  onClick?: () => void;
+  isActive?: boolean;
 };
 
-export function TitleBarNavButton({ label, icon: Icon }: TitleBarNavButtonProps) {
+export function TitleBarNavButton({
+  label,
+  icon: Icon,
+  onClick,
+  isActive,
+}: TitleBarNavButtonProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -24,6 +31,8 @@ export function TitleBarNavButton({ label, icon: Icon }: TitleBarNavButtonProps)
           size="icon-sm"
           className={TITLE_BAR_NAV_BUTTON_CLASS}
           aria-label={label}
+          aria-pressed={isActive}
+          onClick={onClick}
         >
           <Icon className="size-4" />
         </Button>

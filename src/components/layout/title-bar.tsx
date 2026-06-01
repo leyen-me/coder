@@ -5,13 +5,12 @@ import { TitleBarDragRegion } from "./title-bar-drag-region";
 import { TitleBarNavButton } from "./title-bar-nav-button";
 import { WindowControls } from "./window-controls";
 
-const NAV_ITEMS = [
-  { label: "切换侧栏", icon: PanelLeft },
-  { label: "后退", icon: ArrowLeft },
-  { label: "前进", icon: ArrowRight },
-] as const;
+type TitleBarProps = {
+  isSidebarOpen: boolean;
+  onToggleSidebar: () => void;
+};
 
-export function TitleBar() {
+export function TitleBar({ isSidebarOpen, onToggleSidebar }: TitleBarProps) {
   return (
     <header
       className={`flex ${TITLE_BAR_CLASS} items-stretch overflow-hidden border-b bg-background`}
@@ -22,9 +21,14 @@ export function TitleBar() {
         aria-label="窗口导航"
         className="flex items-center gap-0.5 self-center pl-2"
       >
-        {NAV_ITEMS.map(({ label, icon }) => (
-          <TitleBarNavButton key={label} label={label} icon={icon} />
-        ))}
+        <TitleBarNavButton
+          label="切换侧栏"
+          icon={PanelLeft}
+          isActive={isSidebarOpen}
+          onClick={onToggleSidebar}
+        />
+        <TitleBarNavButton label="后退" icon={ArrowLeft} />
+        <TitleBarNavButton label="前进" icon={ArrowRight} />
       </nav>
 
       <TitleBarDragRegion />

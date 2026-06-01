@@ -6,6 +6,7 @@ import { SessionHeader } from "@/features/chat/components/session-header";
 import { NewChatPage } from "@/features/chat/pages/new-chat-page";
 
 export function AppShell() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
 
   const handleNewChat = () => {
@@ -14,10 +15,14 @@ export function AppShell() {
 
   return (
     <div className="flex h-svh flex-col overflow-hidden bg-background">
-      <TitleBar />
+      <TitleBar
+        isSidebarOpen={isSidebarOpen}
+        onToggleSidebar={() => setIsSidebarOpen((open) => !open)}
+      />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <AppSidebar
+          open={isSidebarOpen}
           selectedChatId={selectedChatId}
           onSelectChat={setSelectedChatId}
           onNewChat={handleNewChat}

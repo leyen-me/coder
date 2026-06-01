@@ -8,24 +8,42 @@ import {
 } from "lucide-react";
 
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 import { MOCK_CHAT_HISTORY } from "../data/mock-chats";
 import { ChatHistoryList } from "./chat-history-list";
 import { SidebarNavItem } from "./sidebar-nav-item";
 
+const SIDEBAR_WIDTH = 260;
+
 type AppSidebarProps = {
+  open: boolean;
   selectedChatId: string | null;
   onSelectChat: (id: string) => void;
   onNewChat: () => void;
 };
 
 export function AppSidebar({
+  open,
   selectedChatId,
   onSelectChat,
   onNewChat,
 }: AppSidebarProps) {
   return (
-    <aside className="flex w-[260px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+    <div
+      className={cn(
+        "shrink-0 overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width,border-color] duration-300 ease-in-out",
+        open ? "w-[260px]" : "w-0 border-transparent"
+      )}
+      aria-hidden={!open}
+    >
+      <aside
+        style={{ width: SIDEBAR_WIDTH }}
+        className={cn(
+          "flex h-full flex-col text-sidebar-foreground transition-opacity duration-300 ease-in-out",
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        )}
+      >
       <nav className="flex shrink-0 flex-col gap-0.5 px-2 pb-2 pt-2">
         <SidebarNavItem icon={Plus} label="新建聊天" isActive onClick={onNewChat} />
         <SidebarNavItem icon={Search} label="搜索" />
@@ -45,6 +63,7 @@ export function AppSidebar({
       <div className="shrink-0 border-t border-sidebar-border p-2">
         <SidebarNavItem icon={Settings} label="设置" />
       </div>
-    </aside>
+      </aside>
+    </div>
   );
 }
