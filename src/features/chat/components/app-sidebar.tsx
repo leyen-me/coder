@@ -20,6 +20,7 @@ type AppSidebarProps = {
   selectedChatId: string | null;
   onSelectChat: (id: string) => void;
   onNewChat: () => void;
+  onOpenSettings: () => void;
 };
 
 export function AppSidebar({
@@ -27,6 +28,7 @@ export function AppSidebar({
   selectedChatId,
   onSelectChat,
   onNewChat,
+  onOpenSettings,
 }: AppSidebarProps) {
   return (
     <div
@@ -61,7 +63,11 @@ export function AppSidebar({
         />
 
         <div className="shrink-0 border-t border-sidebar-border p-2">
-          <SidebarNavItem icon={Settings} label="设置" />
+          <SidebarNavItem
+            icon={Settings}
+            label="设置"
+            onClick={onOpenSettings}
+          />
         </div>
       </aside>
     </div>

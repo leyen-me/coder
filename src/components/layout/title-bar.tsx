@@ -8,9 +8,14 @@ import { WindowControls } from "./window-controls";
 type TitleBarProps = {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
+  onBack?: () => void;
 };
 
-export function TitleBar({ isSidebarOpen, onToggleSidebar }: TitleBarProps) {
+export function TitleBar({
+  isSidebarOpen,
+  onToggleSidebar,
+  onBack,
+}: TitleBarProps) {
   return (
     <header
       className={`flex ${TITLE_BAR_CLASS} items-stretch overflow-hidden border-b bg-background`}
@@ -27,7 +32,7 @@ export function TitleBar({ isSidebarOpen, onToggleSidebar }: TitleBarProps) {
           isActive={isSidebarOpen}
           onClick={onToggleSidebar}
         />
-        <TitleBarNavButton label="后退" icon={ArrowLeft} />
+        <TitleBarNavButton label="后退" icon={ArrowLeft} onClick={onBack} />
         <TitleBarNavButton label="前进" icon={ArrowRight} />
       </nav>
 
