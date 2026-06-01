@@ -49,7 +49,7 @@ export function PromptComposer({
   return (
     <Card
       className={cn(
-        "w-full max-w-3xl gap-0 overflow-hidden py-0 ring-1 ring-border",
+        "w-full max-w-3xl gap-0 overflow-hidden rounded-3xl py-0 ring-1 ring-border",
         className
       )}
     >
@@ -67,7 +67,7 @@ export function PromptComposer({
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="text-muted-foreground"
+            className="rounded-xl text-muted-foreground"
             aria-label="添加附件"
           >
             <Plus className="size-4" />
@@ -79,7 +79,7 @@ export function PromptComposer({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="gap-1 text-muted-foreground"
+                className="gap-1 rounded-xl text-muted-foreground"
               >
                 默认权限
                 <ChevronDown className="size-3.5 opacity-60" />
@@ -100,7 +100,7 @@ export function PromptComposer({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="gap-1 text-muted-foreground"
+                className="gap-1 rounded-xl text-muted-foreground"
               >
                 GPT-4o
                 <ChevronDown className="size-3.5 opacity-60" />
@@ -119,7 +119,7 @@ export function PromptComposer({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="min-w-8 text-muted-foreground"
+                className="min-w-8 rounded-xl text-muted-foreground"
               >
                 中
                 <ChevronDown className="size-3.5 opacity-60" />
@@ -145,15 +145,15 @@ export function PromptComposer({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t bg-muted/40 px-3 py-2">
-        <Badge variant="secondary" className="gap-1 rounded-md px-2 py-1 font-normal">
+        <Badge variant="secondary" className="gap-1 rounded-lg px-2.5 py-1 font-normal">
           <FolderOpen className="size-3" />
           {DEFAULT_PROJECT_NAME}
         </Badge>
-        <Badge variant="secondary" className="gap-1 rounded-md px-2 py-1 font-normal">
+        <Badge variant="secondary" className="gap-1 rounded-lg px-2.5 py-1 font-normal">
           <Laptop className="size-3" />
           本地工作
         </Badge>
-        <Badge variant="secondary" className="gap-1 rounded-md px-2 py-1 font-normal">
+        <Badge variant="secondary" className="gap-1 rounded-lg px-2.5 py-1 font-normal">
           <FolderGit2 className="size-3" />
           main
         </Badge>

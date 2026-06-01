@@ -49,7 +49,7 @@ export function SessionHeader({ title }: SessionHeaderProps) {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="outline" size="sm" className="gap-1">
+            <Button type="button" variant="outline" size="sm" className="gap-1 rounded-xl">
               提交
               <ChevronDown className="size-3.5 opacity-60" />
             </Button>

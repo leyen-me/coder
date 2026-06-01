@@ -22,7 +22,7 @@ export function SidebarNavItem({
       variant="ghost"
       onClick={onClick}
       className={cn(
-        "h-9 w-full justify-start gap-2.5 px-2 font-normal text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+        "h-9 w-full justify-start gap-2.5 rounded-xl px-2 font-normal text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         isActive && "bg-sidebar-accent text-sidebar-accent-foreground"
       )}
     >

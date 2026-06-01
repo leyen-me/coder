@@ -21,7 +21,7 @@ export function StarterPromptList({ onSelect, className }: StarterPromptListProp
             <Button
               type="button"
               variant="ghost"
-              className="h-auto w-full justify-start gap-2.5 px-2 py-2.5 text-left font-normal text-muted-foreground hover:text-foreground"
+              className="h-auto w-full justify-start gap-2.5 rounded-xl px-2 py-2.5 text-left font-normal text-muted-foreground hover:text-foreground"
               onClick={() => onSelect(item.prompt)}
             >
               <Icon className="size-4 shrink-0 opacity-60" />
