@@ -41,7 +41,20 @@ export type Messages = {
     readOnly: string;
     confirmBeforeRun: string;
     send: string;
+    stop: string;
     localWork: string;
+    thinking: string;
+    thinkingInProgress: string;
+    thinkingPlaceholder: string;
+    noModel: string;
+  };
+  time: {
+    justNow: string;
+    minutesAgo: string;
+    hoursAgo: string;
+    daysAgo: string;
+    weeksAgo: string;
+    monthsAgo: string;
   };
   settings: {
     title: string;

@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
-import type { ChatHistoryItem } from "../data/mock-chats";
+import type { ChatHistoryItem } from "@/lib/db";
 
 type ChatHistoryListProps = {
   items: ReadonlyArray<ChatHistoryItem>;

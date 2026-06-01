@@ -1,0 +1,81 @@
+import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
+
+import { cancelBrowserAgent, startBrowserAgent } from "./browser-runner";
+import type { AgentEvent, AgentStartInput } from "./types";
+
+type TauriAgentStatus =
+  | "pending"
+  | "running"
+  | "cancelling"
+  | "cancelled"
+  | "completed"
+  | "failed";
+
+type TauriAgentEvent =
+  | { type: "status"; taskId: string; status: TauriAgentStatus }
+  | { type: "thinkingDelta"; taskId: string; delta: string }
+  | { type: "contentDelta"; taskId: string; delta: string }
+  | { type: "done"; taskId: string }
+  | { type: "error"; taskId: string; message: string };
+
+function mapTauriEvent(event: TauriAgentEvent): AgentEvent {
+  switch (event.type) {
+    case "status":
+      return { type: "status", taskId: event.taskId, status: event.status };
+    case "thinkingDelta":
+      return { type: "thinking_delta", taskId: event.taskId, delta: event.delta };
+    case "contentDelta":
+      return { type: "content_delta", taskId: event.taskId, delta: event.delta };
+    case "done":
+      return { type: "done", taskId: event.taskId };
+    case "error":
+      return { type: "error", taskId: event.taskId, message: event.message };
+  }
+}
+
+export async function startAgent(
+  input: AgentStartInput,
+  onEvent: (event: AgentEvent) => void
+): Promise<void> {
+  if (isTauri()) {
+    const channel = new Channel<TauriAgentEvent>();
+    channel.onmessage = (event) => {
+      onEvent(mapTauriEvent(event));
+    };
+
+    await invoke("agent_start", {
+      params: {
+        taskId: input.taskId,
+        baseUrl: input.baseUrl,
+        apiKey: input.apiKey || null,
+        apiKeySource: input.apiKeySource,
+        apiKeyEnvVar: input.apiKeyEnvVar,
+        model: input.model,
+        messages: input.messages,
+      },
+      onEvent: channel,
+    });
+    return;
+  }
+
+  await startBrowserAgent(input, onEvent);
+}
+
+export async function cancelAgent(taskId: string): Promise<void> {
+  if (isTauri()) {
+    await invoke("agent_cancel", { taskId });
+    return;
+  }
+
+  await cancelBrowserAgent(taskId);
+}
+
+export async function getAgentStatus(
+  taskId: string
+): Promise<{ taskId: string; status: TauriAgentStatus } | null> {
+  if (!isTauri()) {
+    return null;
+  }
+
+  return invoke("agent_get_status", { taskId });
+}

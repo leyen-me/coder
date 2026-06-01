@@ -12,6 +12,7 @@ import { useMatch } from "react-router-dom";
 import { paths } from "@/app/paths";
 import { APP_SIDEBAR_WIDTH_PX } from "@/components/layout/constants";
 import { Separator } from "@/components/ui/separator";
+import { useChatSessions } from "@/features/chat/hooks/use-chat-sessions";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +25,8 @@ type AppSidebarProps = {
 };
 
 export function AppSidebar({ open }: AppSidebarProps) {
-  const { messages, t } = useLocale();
+  const { t } = useLocale();
+  const { sessions } = useChatSessions();
   const [searchOpen, setSearchOpen] = useState(false);
 
   const chatMatch = useMatch("/chat/:chatId");
@@ -84,7 +86,7 @@ export function AppSidebar({ open }: AppSidebarProps) {
           <Separator className="bg-sidebar-border" />
 
           <ChatHistoryList
-            items={messages.mockChats}
+            items={sessions}
             selectedId={selectedChatId}
             historyActive={historyMatch != null}
           />

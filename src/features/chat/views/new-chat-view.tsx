@@ -1,6 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
+import { paths } from "@/app/paths";
+import { resolveDefaultModel } from "@/features/agent/model-preference";
+import { useAgentStore } from "@/features/agent/store/agent-store";
+import { createSession, deriveSessionTitle } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
+import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
 import { PromptComposer } from "../components/prompt-composer";
 import { StarterPromptList } from "../components/starter-prompt-list";
@@ -8,14 +14,35 @@ import { DEFAULT_PROJECT_NAME } from "../data/mock-chats";
 
 export function NewChatView() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { resolved } = useModelProvider();
+  const { sendMessage } = useAgentStore();
   const [prompt, setPrompt] = useState("");
+  const [model, setModel] = useState(() => resolveDefaultModel(resolved));
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSend = () => {
-    if (!prompt.trim()) {
+  const handleSend = async () => {
+    const trimmed = prompt.trim();
+    if (!trimmed || isSubmitting) {
       return;
     }
-    // 后续接入 Agent：createSession → navigate(paths.chat(id))
-    console.info("send:", prompt);
+
+    setIsSubmitting(true);
+    try {
+      const session = await createSession({
+        title: deriveSessionTitle(trimmed),
+        model,
+      });
+      navigate(paths.chat(session.id));
+      setPrompt("");
+      await sendMessage({
+        sessionId: session.id,
+        content: trimmed,
+        model,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -27,7 +54,14 @@ export function NewChatView() {
       <PromptComposer
         value={prompt}
         onChange={setPrompt}
-        onSend={handleSend}
+        onSend={() => {
+          void handleSend();
+        }}
+        model={model}
+        models={resolved.models}
+        onModelChange={setModel}
+        variant="full"
+        isRunning={isSubmitting}
       />
 
       <StarterPromptList onSelect={setPrompt} />

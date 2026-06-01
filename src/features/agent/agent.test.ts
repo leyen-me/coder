@@ -1,0 +1,43 @@
+import { describe, expect, it } from "vitest";
+
+import { chatCompletionsUrl } from "@/features/agent/openai-url";
+import {
+  readLastSelectedModel,
+  resolveDefaultModel,
+  writeLastSelectedModel,
+} from "@/features/agent/model-preference";
+
+describe("chatCompletionsUrl", () => {
+  it("appends /v1/chat/completions when base url has no /v1 suffix", () => {
+    expect(chatCompletionsUrl("https://api.deepseek.com")).toBe(
+      "https://api.deepseek.com/v1/chat/completions"
+    );
+  });
+
+  it("appends /chat/completions when base url already ends with /v1", () => {
+    expect(chatCompletionsUrl("https://api.example.com/v1/")).toBe(
+      "https://api.example.com/v1/chat/completions"
+    );
+  });
+});
+
+describe("model preference", () => {
+  it("remembers last selected model when still available", () => {
+    if (typeof localStorage === "undefined") {
+      return;
+    }
+
+    writeLastSelectedModel("glm-5");
+    expect(readLastSelectedModel()).toBe("glm-5");
+    expect(
+      resolveDefaultModel({
+        provider: "glm",
+        baseUrl: "https://example.com",
+        apiKeySource: "manual",
+        apiKey: "",
+        apiKeyEnvVar: "GLM_API_KEY",
+        models: ["glm-5", "glm-4.7"],
+      })
+    ).toBe("glm-5");
+  });
+});

@@ -9,6 +9,7 @@ import { LocaleProvider } from "@/lib/i18n/locale-provider";
 import { initThemeBeforeRender } from "@/lib/theme/init-theme";
 import { ModelProviderProvider } from "@/lib/model-provider/model-provider-provider";
 import { ThemeProvider } from "@/lib/theme/theme-provider";
+import { AgentStoreProvider } from "@/features/agent/store/agent-store";
 
 initLocaleBeforeRender();
 initThemeBeforeRender();
@@ -18,9 +19,11 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <LocaleProvider>
       <ThemeProvider>
         <ModelProviderProvider>
-          <TooltipProvider>
-            <App />
-          </TooltipProvider>
+          <AgentStoreProvider>
+            <TooltipProvider>
+              <App />
+            </TooltipProvider>
+          </AgentStoreProvider>
         </ModelProviderProvider>
       </ThemeProvider>
     </LocaleProvider>

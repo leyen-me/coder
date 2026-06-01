@@ -2,13 +2,10 @@ import type { KeyboardEvent } from "react";
 import {
   ArrowUp,
   ChevronDown,
-  FolderGit2,
-  FolderOpen,
-  Laptop,
+  Loader2,
   Plus,
 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -18,16 +15,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
-import { LOCALE_VALUES } from "@/lib/i18n/constants";
-import { useLocale } from "@/lib/i18n/locale-provider";
+import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
-
-import { DEFAULT_PROJECT_NAME } from "../data/mock-chats";
 
 type PromptComposerProps = {
   value: string;
   onChange: (value: string) => void;
   onSend?: () => void;
+  onStop?: () => void;
+  model: string;
+  models: readonly string[];
+  onModelChange: (model: string) => void;
+  variant?: "full" | "compact";
+  isRunning?: boolean;
   className?: string;
 };
 
@@ -35,14 +35,24 @@ export function PromptComposer({
   value,
   onChange,
   onSend,
+  onStop,
+  model,
+  models,
+  onModelChange,
+  variant = "full",
+  isRunning = false,
   className,
 }: PromptComposerProps) {
-  const { locale, setLocale, t } = useLocale();
+  const { t } = useTranslation();
   const canSend = value.trim().length > 0;
+  const isCompact = variant === "compact";
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
+      if (isRunning) {
+        return;
+      }
       if (canSend) {
         onSend?.();
       }
@@ -53,6 +63,7 @@ export function PromptComposer({
     <Card
       className={cn(
         "w-full max-w-3xl gap-0 overflow-hidden rounded-3xl py-0 ring-1 ring-border",
+        isCompact && "shadow-lg",
         className
       )}
     >
@@ -61,39 +72,25 @@ export function PromptComposer({
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={t("chat.composerPlaceholder")}
-        className="min-h-[120px] resize-none rounded-none border-0 bg-transparent px-4 py-4 text-base shadow-none focus-visible:ring-0"
+        className={cn(
+          "resize-none rounded-none border-0 bg-transparent px-4 py-4 text-base shadow-none focus-visible:ring-0",
+          isCompact ? "min-h-[72px]" : "min-h-[120px]"
+        )}
       />
 
       <div className="flex items-center justify-between gap-2 border-t px-3 py-2">
         <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="rounded-xl text-muted-foreground"
-            aria-label={t("chat.addAttachment")}
-          >
-            <Plus className="size-4" />
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="gap-1 rounded-xl text-muted-foreground"
-              >
-                {t("chat.defaultPermission")}
-                <ChevronDown className="size-3.5 opacity-60" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem>{t("chat.defaultPermission")}</DropdownMenuItem>
-              <DropdownMenuItem>{t("chat.readOnly")}</DropdownMenuItem>
-              <DropdownMenuItem>{t("chat.confirmBeforeRun")}</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {!isCompact ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="rounded-xl text-muted-foreground"
+              aria-label={t("chat.addAttachment")}
+            >
+              <Plus className="size-4" />
+            </Button>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-1">
@@ -103,66 +100,48 @@ export function PromptComposer({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="gap-1 rounded-xl text-muted-foreground"
+                className="max-w-40 gap-1 truncate rounded-xl text-muted-foreground"
+                disabled={isRunning}
               >
-                GPT-4o
-                <ChevronDown className="size-3.5 opacity-60" />
+                <span className="truncate">{model || t("chat.noModel")}</span>
+                <ChevronDown className="size-3.5 shrink-0 opacity-60" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>GPT-4o</DropdownMenuItem>
-              <DropdownMenuItem>Claude Sonnet</DropdownMenuItem>
-              <DropdownMenuItem>Composer</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="min-w-8 rounded-xl text-muted-foreground"
-              >
-                {locale === "zh" ? "中" : "En"}
-                <ChevronDown className="size-3.5 opacity-60" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {LOCALE_VALUES.map((value) => (
-                <DropdownMenuItem key={value} onClick={() => setLocale(value)}>
-                  {t(`locale.${value}`)}
+              {models.map((item) => (
+                <DropdownMenuItem
+                  key={item}
+                  onClick={() => onModelChange(item)}
+                >
+                  {item}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button
-            type="button"
-            size="icon"
-            className="rounded-full"
-            disabled={!canSend}
-            onClick={onSend}
-            aria-label={t("chat.send")}
-          >
-            <ArrowUp className="size-4" />
-          </Button>
+          {isRunning ? (
+            <Button
+              type="button"
+              size="icon"
+              className="rounded-full bg-foreground text-background hover:bg-foreground/90"
+              onClick={onStop}
+              aria-label={t("chat.stop")}
+            >
+              <Loader2 className="size-4 animate-spin" />
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="icon"
+              className="rounded-full bg-foreground text-background hover:bg-foreground/90"
+              disabled={!canSend}
+              onClick={onSend}
+              aria-label={t("chat.send")}
+            >
+              <ArrowUp className="size-4" />
+            </Button>
+          )}
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 border-t bg-muted/40 px-3 py-2">
-        <Badge variant="secondary" className="gap-1 rounded-lg px-2.5 py-1 font-normal">
-          <FolderOpen className="size-3" />
-          {DEFAULT_PROJECT_NAME}
-        </Badge>
-        <Badge variant="secondary" className="gap-1 rounded-lg px-2.5 py-1 font-normal">
-          <Laptop className="size-3" />
-          {t("chat.localWork")}
-        </Badge>
-        <Badge variant="secondary" className="gap-1 rounded-lg px-2.5 py-1 font-normal">
-          <FolderGit2 className="size-3" />
-          main
-        </Badge>
       </div>
     </Card>
   );
