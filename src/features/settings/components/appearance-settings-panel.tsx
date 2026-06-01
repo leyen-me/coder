@@ -1,19 +1,24 @@
-import { DEFAULT_THEME, THEME_OPTIONS } from "../constants";
-import { SettingRow } from "./setting-row";
-import { SettingValueTrigger } from "./setting-value-trigger";
+import { THEME_PREFERENCE_OPTIONS } from "@/lib/theme/constants";
+import { useTheme } from "@/lib/theme/theme-provider";
 
-const defaultThemeLabel =
-  THEME_OPTIONS.find((option) => option.value === DEFAULT_THEME)?.label ??
-  "浅色";
+import { SettingRow } from "./setting-row";
+import { SettingSelect } from "./setting-select";
 
 export function AppearanceSettingsPanel() {
+  const { preference, setPreference } = useTheme();
+
   return (
     <section className="divide-y">
       <SettingRow
         label="主题"
         description="选择应用的颜色主题"
         control={
-          <SettingValueTrigger value={defaultThemeLabel} aria-label="主题" />
+          <SettingSelect
+            value={preference}
+            options={THEME_PREFERENCE_OPTIONS}
+            onValueChange={setPreference}
+            aria-label="主题"
+          />
         }
       />
     </section>

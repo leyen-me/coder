@@ -21,11 +21,3 @@ export const LANGUAGE_OPTIONS = [
 ] as const;
 
 export const DEFAULT_LANGUAGE = "zh" as const;
-
-export const THEME_OPTIONS = [
-  { value: "light", label: "浅色" },
-  { value: "dark", label: "深色" },
-  { value: "system", label: "跟随系统" },
-] as const;
-
-export const DEFAULT_THEME = "light" as const;
