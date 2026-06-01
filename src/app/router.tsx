@@ -1,8 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import { AutomationsPage } from "@/features/automations/pages/automations-page";
-import { ChatSessionPage } from "@/features/chat/pages/chat-session-page";
-import { NewChatPage } from "@/features/chat/pages/new-chat-page";
+import { ChatPage } from "@/features/chat/pages/chat-page";
 import { HistoryPage } from "@/features/history/pages/history-page";
 import { PluginsPage } from "@/features/plugins/pages/plugins-page";
 import { SkillsPage } from "@/features/skills/pages/skills-page";
@@ -21,8 +20,8 @@ export const router = createBrowserRouter([
       {
         element: <MainLayout />,
         children: [
-          { path: "chat/new", element: <NewChatPage /> },
-          { path: "chat/:chatId", element: <ChatSessionPage /> },
+          { path: "chat/new", element: <ChatPage /> },
+          { path: "chat/:chatId", element: <ChatPage /> },
           { path: "history", element: <HistoryPage /> },
           { path: "skills", element: <SkillsPage /> },
           { path: "plugins", element: <PluginsPage /> },

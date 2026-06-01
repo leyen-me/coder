@@ -2,11 +2,11 @@ import { useState } from "react";
 
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
-import { DEFAULT_PROJECT_NAME } from "../data/mock-chats";
 import { PromptComposer } from "../components/prompt-composer";
 import { StarterPromptList } from "../components/starter-prompt-list";
+import { DEFAULT_PROJECT_NAME } from "../data/mock-chats";
 
-export function NewChatPage() {
+export function NewChatView() {
   const { t } = useTranslation();
   const [prompt, setPrompt] = useState("");
 
@@ -14,7 +14,7 @@ export function NewChatPage() {
     if (!prompt.trim()) {
       return;
     }
-    // 后续接入 Agent 会话流
+    // 后续接入 Agent：createSession → navigate(paths.chat(id))
     console.info("send:", prompt);
   };
 
