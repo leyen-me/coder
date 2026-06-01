@@ -1,80 +1,37 @@
-import { isTauri } from "@tauri-apps/api/core";
-import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
 import { Copy, Minus, Square, X } from "lucide-react";
-import { useCallback, useEffect, useState, type MouseEvent } from "react";
 
-import { cn } from "@/lib/utils";
+import { stopMouseDownPropagation } from "@/lib/tauri/title-bar-handlers";
+import { useAppWindow } from "@/lib/tauri/use-app-window";
+import { useWindowMaximized } from "@/lib/tauri/use-window-maximized";
 
-function useAppWindow() {
-  const [appWindow] = useState<Window | null>(() =>
-    isTauri() ? getCurrentWindow() : null,
-  );
-
-  return appWindow;
-}
-
-const controlButtonClass =
-  "inline-flex h-11 w-[46px] shrink-0 items-center justify-center border-0 bg-transparent p-0 text-muted-foreground outline-none transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none dark:hover:bg-foreground/10";
+import { TITLE_BAR_HEIGHT_CLASS } from "./constants";
+import { WindowControlButton } from "./window-control-button";
 
 export function WindowControls() {
   const appWindow = useAppWindow();
-  const [isMaximized, setIsMaximized] = useState(false);
-
-  const syncMaximized = useCallback(async () => {
-    if (!appWindow) {
-      return;
-    }
-
-    setIsMaximized(await appWindow.isMaximized());
-  }, [appWindow]);
-
-  useEffect(() => {
-    if (!appWindow) {
-      return;
-    }
-
-    void syncMaximized();
-
-    let unlisten: (() => void) | undefined;
-    void appWindow.onResized(() => {
-      void syncMaximized();
-    }).then((dispose) => {
-      unlisten = dispose;
-    });
-
-    return () => {
-      unlisten?.();
-    };
-  }, [appWindow, syncMaximized]);
+  const isMaximized = useWindowMaximized(appWindow);
 
   if (!appWindow) {
     return null;
   }
 
-  const handleMouseDown = (event: MouseEvent) => {
-    event.stopPropagation();
-  };
-
   return (
     <div
-      className="flex h-11 shrink-0 items-stretch"
+      className={`flex ${TITLE_BAR_HEIGHT_CLASS} shrink-0 items-stretch`}
       data-tauri-drag-region={false}
-      onMouseDown={handleMouseDown}
+      onMouseDown={stopMouseDownPropagation}
     >
-      <button
-        type="button"
-        className={controlButtonClass}
-        aria-label="最小化"
+      <WindowControlButton
+        label="最小化"
         onClick={() => {
           void appWindow.minimize();
         }}
       >
         <Minus className="size-4" />
-      </button>
-      <button
-        type="button"
-        className={controlButtonClass}
-        aria-label={isMaximized ? "还原" : "最大化"}
+      </WindowControlButton>
+
+      <WindowControlButton
+        label={isMaximized ? "还原" : "最大化"}
         onClick={() => {
           void appWindow.toggleMaximize();
         }}
@@ -84,20 +41,17 @@ export function WindowControls() {
         ) : (
           <Square className="size-3.5" />
         )}
-      </button>
-      <button
-        type="button"
-        className={cn(
-          controlButtonClass,
-          "hover:bg-[#c42b1c] hover:text-white dark:hover:bg-[#c42b1c] dark:hover:text-white",
-        )}
-        aria-label="关闭"
+      </WindowControlButton>
+
+      <WindowControlButton
+        label="关闭"
+        variant="close"
         onClick={() => {
           void appWindow.close();
         }}
       >
         <X className="size-4" />
-      </button>
+      </WindowControlButton>
     </div>
   );
 }

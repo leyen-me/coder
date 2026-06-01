@@ -1,65 +1,31 @@
 import { ArrowLeft, ArrowRight, PanelLeft } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { WindowControls } from "./window-controls";
+import { TITLE_BAR_CLASS } from "./constants";
 import { TitleBarDragRegion } from "./title-bar-drag-region";
+import { TitleBarNavButton } from "./title-bar-nav-button";
+import { WindowControls } from "./window-controls";
+
+const NAV_ITEMS = [
+  { label: "切换侧栏", icon: PanelLeft },
+  { label: "后退", icon: ArrowLeft },
+  { label: "前进", icon: ArrowRight },
+] as const;
 
 export function TitleBar() {
   return (
     <header
-      className="flex h-11 shrink-0 select-none items-stretch overflow-hidden border-b bg-background"
+      className={`flex ${TITLE_BAR_CLASS} items-stretch overflow-hidden border-b bg-background`}
       role="banner"
       aria-label="标题栏"
     >
-      <div className="flex items-center gap-0.5 self-center pl-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="text-muted-foreground"
-              aria-label="切换侧栏"
-            >
-              <PanelLeft className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">切换侧栏</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="text-muted-foreground"
-              aria-label="后退"
-            >
-              <ArrowLeft className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">后退</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="text-muted-foreground"
-              aria-label="前进"
-            >
-              <ArrowRight className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">前进</TooltipContent>
-        </Tooltip>
-      </div>
+      <nav
+        aria-label="窗口导航"
+        className="flex items-center gap-0.5 self-center pl-2"
+      >
+        {NAV_ITEMS.map(({ label, icon }) => (
+          <TitleBarNavButton key={label} label={label} icon={icon} />
+        ))}
+      </nav>
 
       <TitleBarDragRegion />
 

@@ -1,34 +1,57 @@
+//! Platform-specific native window chrome customization.
+
+/// Applies the host platform's native window chrome policies.
+pub fn apply(window: &tauri::WebviewWindow) {
+    #[cfg(windows)]
+    windows::apply_round_corners(window);
+
+    #[cfg(not(windows))]
+    let _ = window;
+}
+
 #[cfg(windows)]
-pub fn apply_native_round_corners(window: &tauri::WebviewWindow) {
+mod windows {
     use std::ffi::c_void;
+
+    use tauri::WebviewWindow;
 
     const DWMWA_WINDOW_CORNER_PREFERENCE: u32 = 33;
     const DWMWCP_ROUND: u32 = 2;
+    const S_OK: i32 = 0;
 
     #[link(name = "dwmapi")]
     extern "system" {
         fn DwmSetWindowAttribute(
             hwnd: isize,
-            dwattribute: u32,
-            pvattribute: *const c_void,
-            cbattribute: u32,
+            attribute: u32,
+            value: *const c_void,
+            value_size: u32,
         ) -> i32;
     }
 
-    let Ok(hwnd) = window.hwnd() else {
-        return;
-    };
+    /// Opts the frameless window into Windows 11 DWM-managed rounded corners.
+    ///
+    /// Corner radius is owned by the compositor and scales with DPI automatically.
+    /// There is no supported API to read the exact pixel radius.
+    pub fn apply_round_corners(window: &WebviewWindow) {
+        let Ok(hwnd) = window.hwnd() else {
+            return;
+        };
 
-    let preference = DWMWCP_ROUND;
-    unsafe {
-        DwmSetWindowAttribute(
-            hwnd.0 as isize,
-            DWMWA_WINDOW_CORNER_PREFERENCE,
-            &preference as *const u32 as *const c_void,
-            std::mem::size_of::<u32>() as u32,
-        );
+        let preference = DWMWCP_ROUND;
+        let result = unsafe {
+            DwmSetWindowAttribute(
+                hwnd.0 as isize,
+                DWMWA_WINDOW_CORNER_PREFERENCE,
+                &preference as *const u32 as *const c_void,
+                std::mem::size_of::<u32>() as u32,
+            )
+        };
+
+        if result != S_OK {
+            log::warn!(
+                "DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE) failed: {result}"
+            );
+        }
     }
 }
-
-#[cfg(not(windows))]
-pub fn apply_native_round_corners(_window: &tauri::WebviewWindow) {}

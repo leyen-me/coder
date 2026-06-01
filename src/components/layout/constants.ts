@@ -1,0 +1,8 @@
+/** Shared layout tokens for the desktop shell chrome. */
+export const TITLE_BAR_HEIGHT_CLASS = "h-11";
+
+export const TITLE_BAR_CLASS = `${TITLE_BAR_HEIGHT_CLASS} shrink-0 select-none`;
+
+export const WINDOW_CONTROL_BUTTON_WIDTH_CLASS = "w-[46px]";
+
+export const TITLE_BAR_NAV_BUTTON_CLASS = "text-muted-foreground";

@@ -1,27 +1,22 @@
-import { isTauri } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useAppWindow } from "@/lib/tauri/use-app-window";
+import { handleTitleBarMouseDown } from "@/lib/tauri/title-bar-handlers";
 import type { MouseEvent } from "react";
 
 export function TitleBarDragRegion() {
-  const handleMouseDown = (event: MouseEvent<HTMLDivElement>) => {
-    if (!isTauri() || event.button !== 0) {
+  const appWindow = useAppWindow();
+
+  const onMouseDown = (event: MouseEvent<HTMLDivElement>) => {
+    if (!appWindow) {
       return;
     }
 
-    const appWindow = getCurrentWindow();
-    if (event.detail === 2) {
-      event.preventDefault();
-      void appWindow.toggleMaximize();
-      return;
-    }
-
-    void appWindow.startDragging();
+    handleTitleBarMouseDown(event, appWindow);
   };
 
   return (
     <div
       className="min-w-0 flex-1 self-stretch"
-      onMouseDown={handleMouseDown}
+      onMouseDown={onMouseDown}
     />
   );
 }
