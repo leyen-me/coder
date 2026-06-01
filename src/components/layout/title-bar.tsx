@@ -7,15 +7,16 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { WindowControls } from "./window-controls";
+import { TitleBarDragRegion } from "./title-bar-drag-region";
 
 export function TitleBar() {
   return (
     <header
-      className="flex h-11 shrink-0 items-center border-b bg-background"
+      className="flex h-11 shrink-0 select-none items-stretch border-b bg-background"
       role="banner"
       aria-label="标题栏"
     >
-      <div className="flex items-center gap-0.5 pl-2">
+      <div className="flex items-center gap-0.5 self-center pl-2">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -60,7 +61,7 @@ export function TitleBar() {
         </Tooltip>
       </div>
 
-      <div className="min-w-0 flex-1" data-tauri-drag-region />
+      <TitleBarDragRegion />
 
       <WindowControls />
     </header>
