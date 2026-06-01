@@ -48,6 +48,7 @@ export type Messages = {
     categories: {
       general: string;
       appearance: string;
+      modelProvider: string;
     };
     general: {
       languageLabel: string;
@@ -58,6 +59,42 @@ export type Messages = {
       themeLabel: string;
       themeDescription: string;
       themeAriaLabel: string;
+    };
+    modelProvider: {
+      providerLabel: string;
+      providerDescription: string;
+      providerAriaLabel: string;
+      providers: {
+        deepseek: string;
+        glm: string;
+        custom: string;
+      };
+      endpointLabel: string;
+      endpointDescription: string;
+      baseUrlLabel: string;
+      baseUrlDescription: string;
+      baseUrlPlaceholder: string;
+      baseUrlAriaLabel: string;
+      apiKeySourceLabel: string;
+      apiKeySourceDescription: string;
+      apiKeySourceAriaLabel: string;
+      apiKeySources: {
+        manual: string;
+        env: string;
+      };
+      apiKeyLabel: string;
+      apiKeyDescription: string;
+      apiKeyPlaceholder: string;
+      apiKeyAriaLabel: string;
+      apiKeyEnvVarLabel: string;
+      apiKeyEnvVarDescription: string;
+      apiKeyEnvVarPlaceholder: string;
+      apiKeyEnvVarAriaLabel: string;
+      modelsLabel: string;
+      modelsDescription: string;
+      presetModelsDescription: string;
+      modelsPlaceholder: string;
+      modelsAriaLabel: string;
     };
   };
   theme: {

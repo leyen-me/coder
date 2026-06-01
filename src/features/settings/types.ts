@@ -1,1 +1,1 @@
-export type SettingsCategoryId = "general" | "appearance";
+export type SettingsCategoryId = "general" | "appearance" | "modelProvider";

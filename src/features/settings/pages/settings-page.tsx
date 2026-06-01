@@ -6,12 +6,14 @@ import { useTranslation } from "@/lib/i18n/locale-provider";
 import { DEFAULT_SETTINGS_CATEGORY } from "../constants";
 import { AppearanceSettingsPanel } from "../components/appearance-settings-panel";
 import { GeneralSettingsPanel } from "../components/general-settings-panel";
+import { ModelProviderSettingsPanel } from "../components/model-provider-settings-panel";
 import { SettingsSidebar } from "../components/settings-sidebar";
 import type { SettingsCategoryId } from "../types";
 
 const SETTINGS_PANELS: Record<SettingsCategoryId, ComponentType> = {
   general: GeneralSettingsPanel,
   appearance: AppearanceSettingsPanel,
+  modelProvider: ModelProviderSettingsPanel,
 };
 
 type SettingsPageProps = {

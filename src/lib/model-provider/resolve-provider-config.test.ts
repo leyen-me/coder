@@ -1,0 +1,46 @@
+import { describe, expect, it } from "vitest";
+
+import { PRESET_PROVIDERS } from "./constants";
+import { resolveProviderConfig } from "./resolve-provider-config";
+
+describe("resolveProviderConfig", () => {
+  it("resolves preset provider configuration", () => {
+    expect(
+      resolveProviderConfig({
+        provider: "deepseek",
+        apiKeySource: "env",
+        apiKey: "",
+        apiKeyEnvVar: "DEEPSEEK_API_KEY",
+        customBaseUrl: "",
+        customModels: [],
+      })
+    ).toEqual({
+      provider: "deepseek",
+      baseUrl: PRESET_PROVIDERS.deepseek.baseUrl,
+      apiKeySource: "env",
+      apiKey: "",
+      apiKeyEnvVar: "DEEPSEEK_API_KEY",
+      models: PRESET_PROVIDERS.deepseek.models,
+    });
+  });
+
+  it("resolves custom provider configuration", () => {
+    expect(
+      resolveProviderConfig({
+        provider: "custom",
+        apiKeySource: "manual",
+        apiKey: "sk-custom",
+        apiKeyEnvVar: "",
+        customBaseUrl: "https://example.com/v1",
+        customModels: ["custom-model"],
+      })
+    ).toEqual({
+      provider: "custom",
+      baseUrl: "https://example.com/v1",
+      apiKeySource: "manual",
+      apiKey: "sk-custom",
+      apiKeyEnvVar: "",
+      models: ["custom-model"],
+    });
+  });
+});
