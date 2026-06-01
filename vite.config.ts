@@ -2,13 +2,17 @@ import path from "path";
 import tailwindcss from "@tailwindcss/vite";
 
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react(), tailwindcss()],
+  test: {
+    environment: "node",
+    include: ["src/**/*.test.ts"],
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

@@ -3,10 +3,11 @@ import { useState } from "react";
 import { TitleBar } from "@/components/layout/title-bar";
 import { AppSidebar } from "@/features/chat/components/app-sidebar";
 import { SessionHeader } from "@/features/chat/components/session-header";
+import { useSidebarOpen } from "@/features/chat/hooks/use-sidebar-open";
 import { NewChatPage } from "@/features/chat/pages/new-chat-page";
 
 export function AppShell() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const { isOpen: isSidebarOpen, toggle: toggleSidebar } = useSidebarOpen();
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
 
   const handleNewChat = () => {
@@ -17,7 +18,7 @@ export function AppShell() {
     <div className="flex h-svh flex-col overflow-hidden bg-background">
       <TitleBar
         isSidebarOpen={isSidebarOpen}
-        onToggleSidebar={() => setIsSidebarOpen((open) => !open)}
+        onToggleSidebar={toggleSidebar}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">

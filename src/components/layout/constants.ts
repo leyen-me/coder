@@ -1,4 +1,6 @@
 /** Shared layout tokens for the desktop shell chrome. */
+export const APP_SIDEBAR_WIDTH_PX = 260;
+
 export const TITLE_BAR_HEIGHT_CLASS = "h-11";
 
 export const TITLE_BAR_CLASS = `${TITLE_BAR_HEIGHT_CLASS} shrink-0 select-none`;
