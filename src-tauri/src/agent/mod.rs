@@ -4,11 +4,11 @@ mod types;
 
 use std::sync::Mutex;
 
-use registry::AgentRegistry;
+use registry::{generate_session_title, AgentRegistry};
 use tauri::ipc::Channel;
 use tauri::State;
 pub use types::{
-    AgentEvent, AgentStartParams, AgentStatusResponse,
+    AgentEvent, AgentStartParams, AgentStatusResponse, GenerateSessionTitleParams,
 };
 
 pub struct AgentState(pub Mutex<AgentRegistry>);
@@ -29,6 +29,21 @@ pub fn agent_cancel(state: State<'_, AgentState>, task_id: String) -> Result<(),
         .lock()
         .map_err(|_| "Agent registry lock poisoned".to_string())?;
     registry.cancel(&task_id)
+}
+
+#[tauri::command]
+pub async fn agent_generate_session_title(
+    state: State<'_, AgentState>,
+    params: GenerateSessionTitleParams,
+) -> Result<Option<String>, String> {
+    let client = {
+        let registry = state
+            .0
+            .lock()
+            .map_err(|_| "Agent registry lock poisoned".to_string())?;
+        registry.http_client()
+    };
+    generate_session_title(&client, params).await
 }
 
 #[tauri::command]

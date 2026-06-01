@@ -4,9 +4,13 @@ use reqwest::Client;
 use tauri::ipc::Channel;
 use tokio_util::sync::CancellationToken;
 
-use super::openai::{build_http_client, chat_completions_url, stream_chat_completion};
+use super::openai::{
+    build_http_client, chat_completions_url, complete_chat_completion,
+    stream_chat_completion, SESSION_TITLE_SYSTEM_PROMPT,
+};
 use super::types::{
-    AgentEvent, AgentStartParams, AgentStatus, AgentStatusResponse,
+    AgentEvent, AgentStartParams, AgentStatus, AgentStatusResponse, ChatMessage,
+    GenerateSessionTitleParams,
 };
 
 struct AgentRun {
@@ -34,6 +38,72 @@ impl AgentRegistry {
         })
     }
 
+    pub fn http_client(&self) -> Client {
+        self.client.clone()
+    }
+}
+
+pub async fn generate_session_title(
+    client: &Client,
+    params: GenerateSessionTitleParams,
+) -> Result<Option<String>, String> {
+        let api_key = resolve_api_key(
+            params.api_key_source.as_str(),
+            params.api_key.as_deref(),
+            params.api_key_env_var.as_str(),
+        )?;
+
+        if params.base_url.trim().is_empty() {
+            return Err("Base URL is required".to_string());
+        }
+
+        if params.model.trim().is_empty() {
+            return Err("Model is required".to_string());
+        }
+
+        let user_message = params.user_message.trim();
+        if user_message.is_empty() {
+            return Ok(None);
+        }
+
+        let assistant_snippet: String = params
+            .assistant_message
+            .trim()
+            .chars()
+            .take(600)
+            .collect();
+
+        let user_prompt = if assistant_snippet.is_empty() {
+            format!("User message:\n{user_message}")
+        } else {
+            format!(
+                "User message:\n{user_message}\n\nAssistant reply (excerpt):\n{assistant_snippet}"
+            )
+        };
+
+        let messages = vec![
+            ChatMessage {
+                role: "system".to_string(),
+                content: SESSION_TITLE_SYSTEM_PROMPT.to_string(),
+            },
+            ChatMessage {
+                role: "user".to_string(),
+                content: user_prompt,
+            },
+        ];
+
+        let url = chat_completions_url(&params.base_url);
+        complete_chat_completion(
+            client,
+            url,
+            &api_key,
+            params.model.trim(),
+            &messages,
+        )
+        .await
+}
+
+impl AgentRegistry {
     pub fn cancel(&mut self, task_id: &str) -> Result<(), String> {
         let Some(run) = self.runs.get_mut(task_id) else {
             return Err(format!("Task not found: {task_id}"));

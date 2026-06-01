@@ -17,8 +17,10 @@ import {
   type MessageRecord,
 } from "@/lib/db";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
+import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
 import { buildAgentMessages } from "../build-agent-messages";
+import { applyGeneratedSessionTitle } from "../generate-session-title";
 import {
   resolveApiKey,
   resolveApiKeyEnvVar,
@@ -60,6 +62,8 @@ function isTerminalStatus(status: AgentStatus): boolean {
 
 export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const { resolved } = useModelProvider();
+  const resolvedRef = useRef(resolved);
+  resolvedRef.current = resolved;
   const tasksRef = useRef(new Map<string, ActiveTaskState>());
   const listenersRef = useRef(new Set<() => void>());
   const eventChainsRef = useRef(new Map<string, Promise<void>>());
@@ -132,7 +136,26 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               messageStatus,
               task.error
             );
+
+            const shouldGenerateTitle =
+              event.status === "completed" && task.isFirstTurn;
+            const titleInput = shouldGenerateTitle
+              ? {
+                  sessionId: task.sessionId,
+                  model: task.model,
+                  userMessage: task.userContent,
+                  assistantMessageId,
+                }
+              : null;
+
             tasksRef.current.delete(event.taskId);
+
+            if (titleInput) {
+              void scheduleSessionTitleGeneration(
+                titleInput,
+                resolvedRef.current
+              );
+            }
           }
 
           emit();
@@ -215,6 +238,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         assistantMessageId: assistantMessage.id,
         status: "running",
         error: null,
+        isFirstTurn: existingMessages.length === 0,
+        model: input.model,
+        userContent: trimmed,
       };
       tasksRef.current.set(taskId, activeTask);
       emit();
@@ -321,6 +347,29 @@ export function useAgentStore(): AgentStoreValue {
     throw new Error("useAgentStore must be used within AgentStoreProvider");
   }
   return context;
+}
+
+function scheduleSessionTitleGeneration(
+  input: {
+    sessionId: string;
+    model: string;
+    userMessage: string;
+    assistantMessageId: string;
+  },
+  provider: ResolvedProviderConfig
+): void {
+  void applyGeneratedSessionTitle({
+    sessionId: input.sessionId,
+    baseUrl: provider.baseUrl,
+    apiKey: resolveApiKey(provider),
+    apiKeySource: provider.apiKeySource,
+    apiKeyEnvVar: provider.apiKeyEnvVar,
+    model: input.model,
+    userMessage: input.userMessage,
+    assistantMessageId: input.assistantMessageId,
+  }).catch(() => {
+    // Title generation is best-effort; keep the placeholder title on failure.
+  });
 }
 
 function toAgentMessage(message: MessageRecord): AgentChatMessage {

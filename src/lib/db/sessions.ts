@@ -40,6 +40,26 @@ export async function getSession(sessionId: string): Promise<SessionRecord | nul
   return (await db.get(SESSIONS_STORE, sessionId)) ?? null;
 }
 
+export async function updateSessionTitle(
+  sessionId: string,
+  title: string
+): Promise<SessionRecord | null> {
+  const db = await getDb();
+  const session = await db.get(SESSIONS_STORE, sessionId);
+  if (!session) {
+    return null;
+  }
+
+  const next: SessionRecord = {
+    ...session,
+    title,
+    updatedAt: Date.now(),
+  };
+  await db.put(SESSIONS_STORE, next);
+  notifyDbChange();
+  return next;
+}
+
 export async function touchSession(sessionId: string): Promise<void> {
   const db = await getDb();
   const session = await db.get(SESSIONS_STORE, sessionId);

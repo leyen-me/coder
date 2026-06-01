@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { paths } from "@/app/paths";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
-import { createSession, deriveSessionTitle } from "@/lib/db";
+import { createSession } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
@@ -30,7 +30,7 @@ export function NewChatView() {
     setIsSubmitting(true);
     try {
       const session = await createSession({
-        title: deriveSessionTitle(trimmed),
+        title: t("session.newChat"),
         model,
       });
       navigate(paths.chat(session.id));

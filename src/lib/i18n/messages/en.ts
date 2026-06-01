@@ -27,6 +27,7 @@ export const enMessages = {
   },
   session: {
     newChat: "New chat",
+    generatingTitle: "Generating title",
     fastMode: "Fast mode",
     commit: "Commit",
     exportSession: "Export session",

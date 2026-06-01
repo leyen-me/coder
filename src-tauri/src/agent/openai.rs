@@ -39,7 +39,33 @@ struct ChatCompletionRequest<'a> {
     model: &'a str,
     messages: &'a [ChatMessage],
     stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
 }
+
+#[derive(Debug, Deserialize)]
+struct CompletionResponse {
+    choices: Vec<CompletionChoice>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CompletionChoice {
+    message: Option<CompletionMessage>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CompletionMessage {
+    content: Option<String>,
+}
+
+pub const SESSION_TITLE_SYSTEM_PROMPT: &str = r#"You write short chat session titles for a sidebar history list.
+Rules:
+- Output ONLY the title text, no quotes, no markdown, no explanation.
+- Use the same language as the user's message (Chinese if the user wrote in Chinese, etc.).
+- Capture the main task or topic in at most 12 words or ~20 Chinese characters.
+- Prefer concrete nouns (feature, bug, file, API) over vague phrases like "help me" or "question"."#;
 
 pub async fn stream_chat_completion(
     client: &Client,
@@ -55,6 +81,8 @@ pub async fn stream_chat_completion(
         model,
         messages,
         stream: true,
+        max_tokens: None,
+        temperature: None,
     };
 
     let response = client
@@ -164,6 +192,53 @@ fn process_sse_line(
     }
 
     false
+}
+
+pub async fn complete_chat_completion(
+    client: &Client,
+    url: String,
+    api_key: &str,
+    model: &str,
+    messages: &[ChatMessage],
+) -> Result<Option<String>, String> {
+    let request_body = ChatCompletionRequest {
+        model,
+        messages,
+        stream: false,
+        max_tokens: Some(64),
+        temperature: Some(0.3),
+    };
+
+    let response = client
+        .post(&url)
+        .bearer_auth(api_key)
+        .json(&request_body)
+        .timeout(REQUEST_TIMEOUT)
+        .send()
+        .await
+        .map_err(|error| format!("Request failed: {error}"))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "<unable to read body>".to_string());
+        return Err(format!("API error ({status}): {body}"));
+    }
+
+    let parsed: CompletionResponse = response
+        .json()
+        .await
+        .map_err(|error| format!("Failed to parse response: {error}"))?;
+
+    Ok(parsed
+        .choices
+        .first()
+        .and_then(|choice| choice.message.as_ref())
+        .and_then(|message| message.content.as_ref())
+        .map(|content| content.trim().to_string())
+        .filter(|content| !content.is_empty()))
 }
 
 pub fn build_http_client() -> Result<Client, String> {

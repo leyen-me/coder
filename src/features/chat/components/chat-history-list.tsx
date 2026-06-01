@@ -7,17 +7,20 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
+import { SessionTitleLabel } from "@/features/chat/components/session-title-label";
 import type { ChatHistoryItem } from "@/lib/db";
 
 type ChatHistoryListProps = {
   items: ReadonlyArray<ChatHistoryItem>;
   selectedId: string | null;
+  generatingTitleIds?: ReadonlySet<string>;
   historyActive?: boolean;
 };
 
 export function ChatHistoryList({
   items,
   selectedId,
+  generatingTitleIds,
   historyActive = false,
 }: ChatHistoryListProps) {
   const { t } = useTranslation();
@@ -47,23 +50,30 @@ export function ChatHistoryList({
 
       <ScrollArea className="min-h-0 flex-1">
         <ul className="flex flex-col gap-0.5 pr-2">
-          {items.map((item) => (
-            <li key={item.id}>
-              <Link
-                to={paths.chat(item.id)}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm transition-colors hover:bg-sidebar-accent",
-                  selectedId === item.id &&
-                    "bg-sidebar-accent text-sidebar-accent-foreground"
-                )}
-              >
-                <span className="min-w-0 flex-1 truncate">{item.title}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {item.relativeTime}
-                </span>
-              </Link>
-            </li>
-          ))}
+          {items.map((item) => {
+            const isGeneratingTitle = generatingTitleIds?.has(item.id) ?? false;
+
+            return (
+              <li key={item.id}>
+                <Link
+                  to={paths.chat(item.id)}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm transition-colors hover:bg-sidebar-accent",
+                    selectedId === item.id &&
+                      "bg-sidebar-accent text-sidebar-accent-foreground"
+                  )}
+                >
+                  <SessionTitleLabel
+                    title={item.title}
+                    isGenerating={isGeneratingTitle}
+                  />
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {item.relativeTime}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </ScrollArea>
 

@@ -12,6 +12,7 @@ import { useMatch } from "react-router-dom";
 import { paths } from "@/app/paths";
 import { APP_SIDEBAR_WIDTH_PX } from "@/components/layout/constants";
 import { Separator } from "@/components/ui/separator";
+import { useGeneratingSessionTitles } from "@/features/agent/session-title-store";
 import { useChatSessions } from "@/features/chat/hooks/use-chat-sessions";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ type AppSidebarProps = {
 export function AppSidebar({ open }: AppSidebarProps) {
   const { t } = useLocale();
   const { sessions } = useChatSessions();
+  const generatingTitleIds = useGeneratingSessionTitles();
   const [searchOpen, setSearchOpen] = useState(false);
 
   const chatMatch = useMatch("/chat/:chatId");
@@ -88,6 +90,7 @@ export function AppSidebar({ open }: AppSidebarProps) {
           <ChatHistoryList
             items={sessions}
             selectedId={selectedChatId}
+            generatingTitleIds={generatingTitleIds}
             historyActive={historyMatch != null}
           />
 

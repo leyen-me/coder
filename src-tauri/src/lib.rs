@@ -3,7 +3,9 @@ mod window_chrome;
 
 use std::sync::Mutex;
 
-use agent::{AgentState, agent_cancel, agent_get_status, agent_start};
+use agent::{
+    agent_cancel, agent_generate_session_title, agent_get_status, agent_start, AgentState,
+};
 use agent::registry::AgentRegistry;
 use tauri::Manager;
 
@@ -34,7 +36,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             agent_start,
             agent_cancel,
-            agent_get_status
+            agent_get_status,
+            agent_generate_session_title
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

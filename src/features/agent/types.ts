@@ -34,6 +34,10 @@ export type ActiveTaskState = {
   assistantMessageId: string;
   status: AgentStatus;
   error: string | null;
+  /** First user turn in this session — triggers AI title after completion. */
+  isFirstTurn: boolean;
+  model: string;
+  userContent: string;
 };
 
 export type AgentEventHandler = (event: AgentEvent) => void;

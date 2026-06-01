@@ -59,3 +59,15 @@ pub struct AgentStatusResponse {
     pub task_id: String,
     pub status: AgentStatus,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerateSessionTitleParams {
+    pub base_url: String,
+    pub api_key: Option<String>,
+    pub api_key_source: String,
+    pub api_key_env_var: String,
+    pub model: String,
+    pub user_message: String,
+    pub assistant_message: String,
+}

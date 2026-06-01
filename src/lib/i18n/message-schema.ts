@@ -25,6 +25,7 @@ export type Messages = {
   };
   session: {
     newChat: string;
+    generatingTitle: string;
     fastMode: string;
     commit: string;
     exportSession: string;

@@ -27,6 +27,7 @@ export const zhMessages = {
   },
   session: {
     newChat: "新建聊天",
+    generatingTitle: "正在生成标题",
     fastMode: "快速模式",
     commit: "提交",
     exportSession: "导出会话",
