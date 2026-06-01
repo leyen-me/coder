@@ -11,6 +11,13 @@ export function MessageItem({ message }: MessageItemProps) {
   const isUser = message.role === "user";
   const isStreaming =
     message.status === "pending" || message.status === "streaming";
+  const answerText =
+    message.content ||
+    (!isStreaming && message.thinking ? message.thinking : "");
+  const hasThinking =
+    Boolean(message.thinking) &&
+    Boolean(message.content) &&
+    message.thinking !== answerText;
 
   if (isUser) {
     return (
@@ -25,21 +32,21 @@ export function MessageItem({ message }: MessageItemProps) {
   return (
     <div className="flex justify-start">
       <div className="flex w-full max-w-3xl flex-col gap-2">
-        {(message.thinking || isStreaming) && (
+        {(hasThinking || (message.thinking && isStreaming && !message.content)) && (
           <ThinkingBlock
             content={message.thinking}
             isStreaming={isStreaming && !message.content}
           />
         )}
-        {message.content ? (
+        {answerText ? (
           <div className="text-sm leading-relaxed">
-            <p className="whitespace-pre-wrap break-words">{message.content}</p>
+            <p className="whitespace-pre-wrap break-words">{answerText}</p>
           </div>
         ) : null}
         {message.status === "failed" && message.error ? (
           <p className="text-sm text-destructive">{message.error}</p>
         ) : null}
-        {isStreaming && !message.content && !message.thinking ? (
+        {isStreaming && !answerText ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span
               className={cn(

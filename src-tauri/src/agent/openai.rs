@@ -25,7 +25,7 @@ struct StreamChunk {
 
 #[derive(Debug, Deserialize)]
 struct StreamChoice {
-    delta: StreamDelta,
+    delta: Option<StreamDelta>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -77,6 +77,7 @@ pub async fn stream_chat_completion(
     }
 
     let mut stream = response.bytes_stream();
+    let mut line_buffer = String::new();
 
     while let Some(chunk_result) = stream.next().await {
         if cancel.is_cancelled() {
@@ -88,48 +89,22 @@ pub async fn stream_chat_completion(
         }
 
         let chunk = chunk_result.map_err(|error| format!("Stream read failed: {error}"))?;
-        let text = String::from_utf8_lossy(&chunk);
+        line_buffer.push_str(&String::from_utf8_lossy(&chunk));
 
-        for line in text.lines() {
-            let line = line.trim();
-            if line.is_empty() || line.starts_with(':') {
-                continue;
-            }
+        while let Some(newline_index) = line_buffer.find('\n') {
+            let line = line_buffer[..newline_index].trim().to_string();
+            line_buffer.drain(..=newline_index);
 
-            let payload = line.strip_prefix("data:").map(str::trim).unwrap_or(line);
-            if payload == "[DONE]" {
-                emit(AgentEvent::Done {
-                    task_id: task_id.to_string(),
-                });
+            if process_sse_line(&line, task_id, &mut emit) {
                 return Ok(());
             }
+        }
+    }
 
-            let parsed: StreamChunk = match serde_json::from_str(payload) {
-                Ok(value) => value,
-                Err(_) => continue,
-            };
-
-            let Some(choice) = parsed.choices.first() else {
-                continue;
-            };
-
-            if let Some(reasoning) = &choice.delta.reasoning_content {
-                if !reasoning.is_empty() {
-                    emit(AgentEvent::ThinkingDelta {
-                        task_id: task_id.to_string(),
-                        delta: reasoning.clone(),
-                    });
-                }
-            }
-
-            if let Some(content) = &choice.delta.content {
-                if !content.is_empty() {
-                    emit(AgentEvent::ContentDelta {
-                        task_id: task_id.to_string(),
-                        delta: content.clone(),
-                    });
-                }
-            }
+    if !line_buffer.trim().is_empty() {
+        let remaining = line_buffer.trim().to_string();
+        if process_sse_line(&remaining, task_id, &mut emit) {
+            return Ok(());
         }
     }
 
@@ -139,9 +114,80 @@ pub async fn stream_chat_completion(
     Ok(())
 }
 
+/// Returns true when the stream is finished ([DONE]).
+fn process_sse_line(
+    line: &str,
+    task_id: &str,
+    emit: &mut impl FnMut(AgentEvent),
+) -> bool {
+    if line.is_empty() || line.starts_with(':') {
+        return false;
+    }
+
+    let payload = line.strip_prefix("data:").map(str::trim).unwrap_or(line);
+    if payload == "[DONE]" {
+        emit(AgentEvent::Done {
+            task_id: task_id.to_string(),
+        });
+        return true;
+    }
+
+    let parsed: StreamChunk = match serde_json::from_str(payload) {
+        Ok(value) => value,
+        Err(_) => return false,
+    };
+
+    let Some(choice) = parsed.choices.first() else {
+        return false;
+    };
+
+    let Some(delta) = &choice.delta else {
+        return false;
+    };
+
+    if let Some(reasoning) = &delta.reasoning_content {
+        if !reasoning.is_empty() {
+            emit(AgentEvent::ThinkingDelta {
+                task_id: task_id.to_string(),
+                delta: reasoning.clone(),
+            });
+        }
+    }
+
+    if let Some(content) = &delta.content {
+        if !content.is_empty() {
+            emit(AgentEvent::ContentDelta {
+                task_id: task_id.to_string(),
+                delta: content.clone(),
+            });
+        }
+    }
+
+    false
+}
+
 pub fn build_http_client() -> Result<Client, String> {
     Client::builder()
         .timeout(REQUEST_TIMEOUT)
         .build()
         .map_err(|error| format!("Failed to build HTTP client: {error}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::process_sse_line;
+
+    #[test]
+    fn parses_content_delta_from_sse_line() {
+        let mut events = Vec::new();
+        let done = process_sse_line(
+            r#"data: {"choices":[{"delta":{"content":"你好"}}]}"#,
+            "task-1",
+            &mut |event| events.push(format!("{event:?}")),
+        );
+        assert!(!done);
+        assert_eq!(events.len(), 1);
+        assert!(events[0].contains("ContentDelta"));
+        assert!(events[0].contains("你好"));
+    }
 }

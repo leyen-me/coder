@@ -18,6 +18,7 @@ import {
 } from "@/lib/db";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
+import { buildAgentMessages } from "../build-agent-messages";
 import {
   resolveApiKey,
   resolveApiKeyEnvVar,
@@ -61,6 +62,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const { resolved } = useModelProvider();
   const tasksRef = useRef(new Map<string, ActiveTaskState>());
   const listenersRef = useRef(new Set<() => void>());
+  const eventChainsRef = useRef(new Map<string, Promise<void>>());
 
   const subscribe = useCallback((listener: () => void) => {
     listenersRef.current.add(listener);
@@ -81,26 +83,38 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
   const handleAgentEvent = useCallback(
     async (event: AgentEvent, assistantMessageId: string) => {
-      const task = [...tasksRef.current.values()].find(
-        (item) => item.taskId === event.taskId
-      );
-      if (!task) {
-        return;
-      }
-
       switch (event.type) {
         case "thinking_delta":
           await appendMessageDelta(assistantMessageId, "thinking", event.delta);
-          break;
+          return;
         case "content_delta":
           await appendMessageDelta(assistantMessageId, "content", event.delta);
-          break;
+          return;
+        case "error": {
+          const task = tasksRef.current.get(event.taskId);
+          if (task) {
+            tasksRef.current.set(event.taskId, {
+              ...task,
+              error: event.message,
+            });
+          }
+          await setMessageStatus(assistantMessageId, "failed", event.message);
+          emit();
+          return;
+        }
+        case "done":
+          return;
         case "status": {
-          const next: ActiveTaskState = {
+          const task = tasksRef.current.get(event.taskId);
+          if (!task) {
+            return;
+          }
+
+          tasksRef.current.set(event.taskId, {
             ...task,
             status: event.status,
-          };
-          tasksRef.current.set(event.taskId, next);
+            error: task.error,
+          });
 
           if (event.status === "running") {
             await setMessageStatus(assistantMessageId, "streaming");
@@ -122,23 +136,35 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           }
 
           emit();
-          break;
         }
-        case "error": {
-          const next: ActiveTaskState = {
-            ...task,
-            error: event.message,
-          };
-          tasksRef.current.set(event.taskId, next);
-          await setMessageStatus(assistantMessageId, "failed", event.message);
-          emit();
-          break;
-        }
-        case "done":
-          break;
       }
     },
     [emit]
+  );
+
+  const dispatchAgentEvent = useCallback(
+    (taskId: string, assistantMessageId: string, event: AgentEvent) => {
+      const previous = eventChainsRef.current.get(taskId) ?? Promise.resolve();
+      const next = previous
+        .then(() => handleAgentEvent(event, assistantMessageId))
+        .catch((error: unknown) => {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          return handleAgentEvent(
+            { type: "error", taskId, message },
+            assistantMessageId
+          );
+        });
+
+      eventChainsRef.current.set(taskId, next);
+
+      if (event.type === "status" && isTerminalStatus(event.status)) {
+        void next.finally(() => {
+          eventChainsRef.current.delete(taskId);
+        });
+      }
+    },
+    [handleAgentEvent]
   );
 
   const sendMessage = useCallback(
@@ -178,10 +204,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         error: null,
       });
 
-      const history: AgentChatMessage[] = [
+      const history = buildAgentMessages([
         ...existingMessages.map(toAgentMessage),
         toAgentMessage(userMessage),
-      ];
+      ]);
 
       const activeTask: ActiveTaskState = {
         taskId,
@@ -204,9 +230,21 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           messages: history,
         },
         (event) => {
-          void handleAgentEvent(event, assistantMessage.id);
+          dispatchAgentEvent(taskId, assistantMessage.id, event);
         }
-      );
+      ).catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        dispatchAgentEvent(taskId, assistantMessage.id, {
+          type: "error",
+          taskId,
+          message,
+        });
+        dispatchAgentEvent(taskId, assistantMessage.id, {
+          type: "status",
+          taskId,
+          status: "failed",
+        });
+      });
 
       return {
         userMessageId: userMessage.id,
@@ -214,7 +252,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         taskId,
       };
     },
-    [emit, handleAgentEvent, resolved]
+    [dispatchAgentEvent, emit, resolved]
   );
 
   const cancelTask = useCallback(
@@ -286,9 +324,15 @@ export function useAgentStore(): AgentStoreValue {
 }
 
 function toAgentMessage(message: MessageRecord): AgentChatMessage {
-  const content = message.content.trim() || message.thinking.trim();
+  if (message.role === "assistant") {
+    return {
+      role: message.role,
+      content: message.content.trim() || message.thinking.trim(),
+    };
+  }
+
   return {
     role: message.role,
-    content,
+    content: message.content.trim(),
   };
 }
