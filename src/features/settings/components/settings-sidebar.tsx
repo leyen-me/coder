@@ -1,5 +1,4 @@
 import { APP_SIDEBAR_WIDTH_PX } from "@/components/layout/constants";
-import { Separator } from "@/components/ui/separator";
 import { SidebarNavItem } from "@/features/chat/components/sidebar-nav-item";
 import { cn } from "@/lib/utils";
 
@@ -33,11 +32,9 @@ export function SettingsSidebar({
           open ? "opacity-100" : "pointer-events-none opacity-0"
         )}
       >
-        <div className="shrink-0 px-4 pb-2 pt-3">
+        <div className="flex h-12 shrink-0 items-center border-b border-sidebar-border px-4">
           <h2 className="text-sm font-semibold">设置</h2>
         </div>
-
-        <Separator className="bg-sidebar-border" />
 
         <nav className="flex flex-col gap-0.5 px-2 py-2">
           {SETTINGS_CATEGORIES.map((category) => (
