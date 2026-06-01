@@ -18,8 +18,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useTranslation } from "@/lib/i18n/locale-provider";
 
 export function SessionToolbar() {
+  const { t } = useTranslation();
+
   return (
     <div className="flex shrink-0 items-center gap-1">
       <Tooltip>
@@ -29,24 +32,24 @@ export function SessionToolbar() {
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground"
-            aria-label="快速模式"
+            aria-label={t("session.fastMode")}
           >
             <Zap className="size-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>快速模式</TooltipContent>
+        <TooltipContent>{t("session.fastMode")}</TooltipContent>
       </Tooltip>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button type="button" variant="outline" size="sm" className="gap-1 rounded-xl">
-            提交
+            {t("session.commit")}
             <ChevronDown className="size-3.5 opacity-60" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem>导出会话</DropdownMenuItem>
-          <DropdownMenuItem>分享链接</DropdownMenuItem>
+          <DropdownMenuItem>{t("session.exportSession")}</DropdownMenuItem>
+          <DropdownMenuItem>{t("session.shareLink")}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -57,12 +60,12 @@ export function SessionToolbar() {
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground"
-            aria-label="分屏布局"
+            aria-label={t("session.splitLayout")}
           >
             <LayoutPanelLeft className="size-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>分屏布局</TooltipContent>
+        <TooltipContent>{t("session.splitLayout")}</TooltipContent>
       </Tooltip>
 
       <Tooltip>
@@ -72,12 +75,12 @@ export function SessionToolbar() {
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground"
-            aria-label="右侧面板"
+            aria-label={t("session.rightPanel")}
           >
             <PanelRight className="size-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>右侧面板</TooltipContent>
+        <TooltipContent>{t("session.rightPanel")}</TooltipContent>
       </Tooltip>
 
       <Tooltip>
@@ -87,12 +90,12 @@ export function SessionToolbar() {
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground"
-            aria-label="工作台"
+            aria-label={t("session.workbench")}
           >
             <Sparkles className="size-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>工作台</TooltipContent>
+        <TooltipContent>{t("session.workbench")}</TooltipContent>
       </Tooltip>
     </div>
   );

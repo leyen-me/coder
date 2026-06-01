@@ -1,6 +1,7 @@
 import { useState, type ComponentType } from "react";
 
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { DEFAULT_SETTINGS_CATEGORY } from "../constants";
 import { AppearanceSettingsPanel } from "../components/appearance-settings-panel";
@@ -13,16 +14,12 @@ const SETTINGS_PANELS: Record<SettingsCategoryId, ComponentType> = {
   appearance: AppearanceSettingsPanel,
 };
 
-const SETTINGS_TITLES: Record<SettingsCategoryId, string> = {
-  general: "常规",
-  appearance: "外观",
-};
-
 type SettingsPageProps = {
   sidebarOpen: boolean;
 };
 
 export function SettingsPage({ sidebarOpen }: SettingsPageProps) {
+  const { t } = useTranslation();
   const [selectedCategory, setSelectedCategory] =
     useState<SettingsCategoryId>(DEFAULT_SETTINGS_CATEGORY);
 
@@ -39,7 +36,7 @@ export function SettingsPage({ sidebarOpen }: SettingsPageProps) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-12 shrink-0 items-center border-b px-6">
           <h1 className="text-sm font-medium">
-            {SETTINGS_TITLES[selectedCategory]}
+            {t(`settings.categories.${selectedCategory}`)}
           </h1>
         </header>
 

@@ -48,7 +48,7 @@ export function AppShell() {
             />
 
             <div className="flex min-w-0 flex-1 flex-col">
-              <SessionHeader title="新建聊天" />
+              <SessionHeader />
               <NewChatPage />
             </div>
           </>

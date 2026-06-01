@@ -1,24 +1,28 @@
-import {
-  DEFAULT_LANGUAGE,
-  LANGUAGE_OPTIONS,
-} from "../constants";
-import { SettingRow } from "./setting-row";
-import { SettingValueTrigger } from "./setting-value-trigger";
+import { LOCALE_VALUES } from "@/lib/i18n/constants";
+import { useLocale } from "@/lib/i18n/locale-provider";
 
-const defaultLanguageLabel =
-  LANGUAGE_OPTIONS.find((option) => option.value === DEFAULT_LANGUAGE)?.label ??
-  "中文";
+import { SettingRow } from "./setting-row";
+import { SettingSelect } from "./setting-select";
 
 export function GeneralSettingsPanel() {
+  const { locale, setLocale, t } = useLocale();
+
+  const localeOptions = LOCALE_VALUES.map((value) => ({
+    value,
+    label: t(`locale.${value}`),
+  }));
+
   return (
     <section className="divide-y">
       <SettingRow
-        label="语言"
-        description="选择界面显示语言"
+        label={t("settings.general.languageLabel")}
+        description={t("settings.general.languageDescription")}
         control={
-          <SettingValueTrigger
-            value={defaultLanguageLabel}
-            aria-label="语言"
+          <SettingSelect
+            value={locale}
+            options={localeOptions}
+            onValueChange={setLocale}
+            aria-label={t("settings.general.languageAriaLabel")}
           />
         }
       />

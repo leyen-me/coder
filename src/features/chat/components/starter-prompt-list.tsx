@@ -1,9 +1,8 @@
 import { GitBranch, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useLocale } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
-
-import { STARTER_PROMPTS } from "../data/mock-chats";
 
 type StarterPromptListProps = {
   onSelect: (prompt: string) => void;
@@ -11,9 +10,11 @@ type StarterPromptListProps = {
 };
 
 export function StarterPromptList({ onSelect, className }: StarterPromptListProps) {
+  const { messages } = useLocale();
+
   return (
     <ul className={cn("flex w-full max-w-3xl flex-col gap-0.5", className)}>
-      {STARTER_PROMPTS.map((item, index) => {
+      {messages.starterPrompts.map((item, index) => {
         const Icon = index === 0 ? Sparkles : GitBranch;
 
         return (

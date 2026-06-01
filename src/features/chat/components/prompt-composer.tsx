@@ -18,6 +18,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
+import { LOCALE_VALUES } from "@/lib/i18n/constants";
+import { useLocale } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
 import { DEFAULT_PROJECT_NAME } from "../data/mock-chats";
@@ -35,6 +37,7 @@ export function PromptComposer({
   onSend,
   className,
 }: PromptComposerProps) {
+  const { locale, setLocale, t } = useLocale();
   const canSend = value.trim().length > 0;
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -57,7 +60,7 @@ export function PromptComposer({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="输入任务，@ 引用文件，/ 使用命令，? 查看技能"
+        placeholder={t("chat.composerPlaceholder")}
         className="min-h-[120px] resize-none rounded-none border-0 bg-transparent px-4 py-4 text-base shadow-none focus-visible:ring-0"
       />
 
@@ -68,7 +71,7 @@ export function PromptComposer({
             variant="ghost"
             size="icon-sm"
             className="rounded-xl text-muted-foreground"
-            aria-label="添加附件"
+            aria-label={t("chat.addAttachment")}
           >
             <Plus className="size-4" />
           </Button>
@@ -81,14 +84,14 @@ export function PromptComposer({
                 size="sm"
                 className="gap-1 rounded-xl text-muted-foreground"
               >
-                默认权限
+                {t("chat.defaultPermission")}
                 <ChevronDown className="size-3.5 opacity-60" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              <DropdownMenuItem>默认权限</DropdownMenuItem>
-              <DropdownMenuItem>只读</DropdownMenuItem>
-              <DropdownMenuItem>需确认后执行</DropdownMenuItem>
+              <DropdownMenuItem>{t("chat.defaultPermission")}</DropdownMenuItem>
+              <DropdownMenuItem>{t("chat.readOnly")}</DropdownMenuItem>
+              <DropdownMenuItem>{t("chat.confirmBeforeRun")}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -121,13 +124,16 @@ export function PromptComposer({
                 size="sm"
                 className="min-w-8 rounded-xl text-muted-foreground"
               >
-                中
+                {locale === "zh" ? "中" : "En"}
                 <ChevronDown className="size-3.5 opacity-60" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>中文</DropdownMenuItem>
-              <DropdownMenuItem>English</DropdownMenuItem>
+              {LOCALE_VALUES.map((value) => (
+                <DropdownMenuItem key={value} onClick={() => setLocale(value)}>
+                  {t(`locale.${value}`)}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -137,7 +143,7 @@ export function PromptComposer({
             className="rounded-full"
             disabled={!canSend}
             onClick={onSend}
-            aria-label="发送"
+            aria-label={t("chat.send")}
           >
             <ArrowUp className="size-4" />
           </Button>
@@ -151,7 +157,7 @@ export function PromptComposer({
         </Badge>
         <Badge variant="secondary" className="gap-1 rounded-lg px-2.5 py-1 font-normal">
           <Laptop className="size-3" />
-          本地工作
+          {t("chat.localWork")}
         </Badge>
         <Badge variant="secondary" className="gap-1 rounded-lg px-2.5 py-1 font-normal">
           <FolderGit2 className="size-3" />

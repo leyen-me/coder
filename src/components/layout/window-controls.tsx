@@ -1,5 +1,6 @@
 import { Copy, Minus, Square, X } from "lucide-react";
 
+import { useTranslation } from "@/lib/i18n/locale-provider";
 import { stopMouseDownPropagation } from "@/lib/tauri/title-bar-handlers";
 import { useAppWindow } from "@/lib/tauri/use-app-window";
 import { useWindowMaximized } from "@/lib/tauri/use-window-maximized";
@@ -8,6 +9,7 @@ import { TITLE_BAR_HEIGHT_CLASS } from "./constants";
 import { WindowControlButton } from "./window-control-button";
 
 export function WindowControls() {
+  const { t } = useTranslation();
   const appWindow = useAppWindow();
   const isMaximized = useWindowMaximized(appWindow);
 
@@ -22,7 +24,7 @@ export function WindowControls() {
       onMouseDown={stopMouseDownPropagation}
     >
       <WindowControlButton
-        label="最小化"
+        label={t("windowControls.minimize")}
         onClick={() => {
           void appWindow.minimize();
         }}
@@ -31,7 +33,7 @@ export function WindowControls() {
       </WindowControlButton>
 
       <WindowControlButton
-        label={isMaximized ? "还原" : "最大化"}
+        label={isMaximized ? t("windowControls.restore") : t("windowControls.maximize")}
         onClick={() => {
           void appWindow.toggleMaximize();
         }}
@@ -44,7 +46,7 @@ export function WindowControls() {
       </WindowControlButton>
 
       <WindowControlButton
-        label="关闭"
+        label={t("windowControls.close")}
         variant="close"
         onClick={() => {
           void appWindow.close();
