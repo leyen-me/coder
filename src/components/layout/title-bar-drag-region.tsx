@@ -10,6 +10,7 @@ export function TitleBarDragRegion() {
 
     const appWindow = getCurrentWindow();
     if (event.detail === 2) {
+      event.preventDefault();
       void appWindow.toggleMaximize();
       return;
     }
@@ -20,7 +21,6 @@ export function TitleBarDragRegion() {
   return (
     <div
       className="min-w-0 flex-1 self-stretch"
-      data-tauri-drag-region
       onMouseDown={handleMouseDown}
     />
   );
