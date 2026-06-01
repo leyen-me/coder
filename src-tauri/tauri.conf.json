@@ -15,7 +15,8 @@
         "title": "coder",
         "width": 1280,
         "height": 720,
-        "decorations": false
+        "decorations": false,
+        "shadow": true
       }
     ],
     "security": {

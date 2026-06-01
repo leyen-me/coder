@@ -3,7 +3,6 @@ import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
 import { Copy, Minus, Square, X } from "lucide-react";
 import { useCallback, useEffect, useState, type MouseEvent } from "react";
 
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 function useAppWindow() {
@@ -13,6 +12,9 @@ function useAppWindow() {
 
   return appWindow;
 }
+
+const controlButtonClass =
+  "inline-flex h-11 w-[46px] shrink-0 items-center justify-center border-0 bg-transparent p-0 text-muted-foreground outline-none transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:outline-none dark:hover:bg-foreground/10";
 
 export function WindowControls() {
   const appWindow = useAppWindow();
@@ -55,27 +57,23 @@ export function WindowControls() {
 
   return (
     <div
-      className="flex h-full shrink-0 items-stretch"
+      className="flex h-11 shrink-0 items-stretch"
       data-tauri-drag-region={false}
       onMouseDown={handleMouseDown}
     >
-      <Button
+      <button
         type="button"
-        variant="ghost"
-        size="icon-sm"
-        className="h-full w-11 rounded-none text-muted-foreground hover:bg-muted"
+        className={controlButtonClass}
         aria-label="最小化"
         onClick={() => {
           void appWindow.minimize();
         }}
       >
         <Minus className="size-4" />
-      </Button>
-      <Button
+      </button>
+      <button
         type="button"
-        variant="ghost"
-        size="icon-sm"
-        className="h-full w-11 rounded-none text-muted-foreground hover:bg-muted"
+        className={controlButtonClass}
         aria-label={isMaximized ? "还原" : "最大化"}
         onClick={() => {
           void appWindow.toggleMaximize();
@@ -86,13 +84,12 @@ export function WindowControls() {
         ) : (
           <Square className="size-3.5" />
         )}
-      </Button>
-      <Button
+      </button>
+      <button
         type="button"
-        variant="ghost"
-        size="icon-sm"
         className={cn(
-          "h-full w-11 rounded-none text-muted-foreground hover:bg-destructive hover:text-destructive-foreground",
+          controlButtonClass,
+          "hover:bg-[#c42b1c] hover:text-white dark:hover:bg-[#c42b1c] dark:hover:text-white",
         )}
         aria-label="关闭"
         onClick={() => {
@@ -100,7 +97,7 @@ export function WindowControls() {
         }}
       >
         <X className="size-4" />
-      </Button>
+      </button>
     </div>
   );
 }

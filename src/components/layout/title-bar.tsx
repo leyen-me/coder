@@ -12,7 +12,7 @@ import { TitleBarDragRegion } from "./title-bar-drag-region";
 export function TitleBar() {
   return (
     <header
-      className="flex h-11 shrink-0 select-none items-stretch border-b bg-background"
+      className="flex h-11 shrink-0 select-none items-stretch overflow-hidden border-b bg-background"
       role="banner"
       aria-label="标题栏"
     >

@@ -125,6 +125,11 @@
   * {
     @apply border-border outline-ring/50;
     }
+  html,
+  body,
+  #root {
+    @apply h-full overflow-hidden;
+  }
   body {
     @apply bg-background font-sans text-foreground;
     font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
