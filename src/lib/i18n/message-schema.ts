@@ -16,7 +16,7 @@ export type Messages = {
     newChat: string;
     search: string;
     skills: string;
-    components: string;
+    plugins: string;
     automations: string;
     settings: string;
     allChats: string;
@@ -116,6 +116,19 @@ export type Messages = {
     title: string;
     relativeTime: string;
   }>;
+  search: {
+    title: string;
+    placeholder: string;
+    hint: string;
+  };
+  pages: {
+    history: { title: string };
+    skills: { title: string };
+    plugins: { title: string };
+    automations: { title: string };
+    chatSession: { title: string };
+    comingSoon: string;
+  };
 };
 
 type Join<K extends string, P extends string> = P extends "" ? K : `${K}.${P}`;

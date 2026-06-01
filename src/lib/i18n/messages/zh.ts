@@ -18,7 +18,7 @@ export const zhMessages = {
     newChat: "新建聊天",
     search: "搜索",
     skills: "技能",
-    components: "组件",
+    plugins: "插件",
     automations: "自动化",
     settings: "设置",
     allChats: "所有聊天",
@@ -125,6 +125,19 @@ export const zhMessages = {
       prompt: "把常用应用连接到 Agent",
     },
   ],
+  search: {
+    title: "搜索",
+    placeholder: "搜索聊天、文件或命令…",
+    hint: "输入关键词以搜索聊天记录与项目文件",
+  },
+  pages: {
+    history: { title: "所有聊天" },
+    skills: { title: "技能" },
+    plugins: { title: "插件" },
+    automations: { title: "自动化" },
+    chatSession: { title: "聊天 {id}" },
+    comingSoon: "即将推出",
+  },
   mockChats: [
     { id: "1", title: "帮我构思一个合适的入门任务", relativeTime: "2 周前" },
     { id: "2", title: "向我介绍这个项目", relativeTime: "2 周前" },

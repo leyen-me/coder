@@ -1,5 +1,7 @@
 import { useState, type ComponentType } from "react";
+import { useOutletContext } from "react-router-dom";
 
+import type { ShellOutletContext } from "@/app/shell-outlet-context";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
@@ -16,11 +18,8 @@ const SETTINGS_PANELS: Record<SettingsCategoryId, ComponentType> = {
   modelProvider: ModelProviderSettingsPanel,
 };
 
-type SettingsPageProps = {
-  sidebarOpen: boolean;
-};
-
-export function SettingsPage({ sidebarOpen }: SettingsPageProps) {
+export function SettingsPage() {
+  const { sidebarOpen } = useOutletContext<ShellOutletContext>();
   const { t } = useTranslation();
   const [selectedCategory, setSelectedCategory] =
     useState<SettingsCategoryId>(DEFAULT_SETTINGS_CATEGORY);

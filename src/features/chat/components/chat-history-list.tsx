@@ -1,5 +1,7 @@
 import { ListFilter } from "lucide-react";
+import { Link } from "react-router-dom";
 
+import { paths } from "@/app/paths";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTranslation } from "@/lib/i18n/locale-provider";
@@ -10,22 +12,28 @@ import type { ChatHistoryItem } from "../data/mock-chats";
 type ChatHistoryListProps = {
   items: ReadonlyArray<ChatHistoryItem>;
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  historyActive?: boolean;
 };
 
 export function ChatHistoryList({
   items,
   selectedId,
-  onSelect,
+  historyActive = false,
 }: ChatHistoryListProps) {
   const { t } = useTranslation();
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-1 px-2">
       <div className="flex shrink-0 items-center justify-between px-1 py-1">
-        <span className="text-xs font-medium text-muted-foreground">
+        <Link
+          to={paths.history}
+          className={cn(
+            "text-xs font-medium text-muted-foreground transition-colors hover:text-sidebar-foreground",
+            historyActive && "text-sidebar-foreground"
+          )}
+        >
           {t("sidebar.allChats")}
-        </span>
+        </Link>
         <Button
           type="button"
           variant="ghost"
@@ -41,9 +49,8 @@ export function ChatHistoryList({
         <ul className="flex flex-col gap-0.5 pr-2">
           {items.map((item) => (
             <li key={item.id}>
-              <button
-                type="button"
-                onClick={() => onSelect(item.id)}
+              <Link
+                to={paths.chat(item.id)}
                 className={cn(
                   "flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm transition-colors hover:bg-sidebar-accent",
                   selectedId === item.id &&
@@ -54,7 +61,7 @@ export function ChatHistoryList({
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {item.relativeTime}
                 </span>
-              </button>
+              </Link>
             </li>
           ))}
         </ul>
@@ -64,8 +71,9 @@ export function ChatHistoryList({
         type="button"
         variant="ghost"
         className="h-8 shrink-0 justify-start px-2 text-xs text-muted-foreground"
+        asChild
       >
-        {t("sidebar.showMore")}
+        <Link to={paths.history}>{t("sidebar.showMore")}</Link>
       </Button>
     </div>
   );

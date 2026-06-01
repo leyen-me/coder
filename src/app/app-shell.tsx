@@ -1,60 +1,38 @@
-import { useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { TitleBar } from "@/components/layout/title-bar";
-import { AppSidebar } from "@/features/chat/components/app-sidebar";
-import { SessionHeader } from "@/features/chat/components/session-header";
 import { useSidebarOpen } from "@/features/chat/hooks/use-sidebar-open";
-import { NewChatPage } from "@/features/chat/pages/new-chat-page";
-import { SettingsPage } from "@/features/settings/pages/settings-page";
 
-import type { AppPage } from "./types";
+import { paths } from "./paths";
+import type { ShellOutletContext } from "./shell-outlet-context";
+
+function isSettingsRoute(pathname: string): boolean {
+  return pathname.startsWith(paths.settings);
+}
 
 export function AppShell() {
-  const { isOpen: isSidebarOpen, toggle: toggleSidebar, setIsOpen: setSidebarOpen } =
-    useSidebarOpen();
-  const [page, setPage] = useState<AppPage>("chat");
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const { isOpen: isSidebarOpen, toggle: toggleSidebar } = useSidebarOpen();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
 
-  const handleNewChat = () => {
-    setSelectedChatId(null);
-  };
+  const shellContext: ShellOutletContext = { sidebarOpen: isSidebarOpen };
 
-  const handleOpenSettings = () => {
-    setPage("settings");
-    setSidebarOpen(true);
-  };
-
-  const handleBackToChat = () => {
-    setPage("chat");
-  };
+  const handleBack = isSettingsRoute(pathname)
+    ? () => {
+        navigate(paths.chatNew);
+      }
+    : undefined;
 
   return (
     <div className="flex h-svh flex-col overflow-hidden bg-background">
       <TitleBar
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={toggleSidebar}
-        onBack={page === "settings" ? handleBackToChat : undefined}
+        onBack={handleBack}
       />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {page === "chat" ? (
-          <>
-            <AppSidebar
-              open={isSidebarOpen}
-              selectedChatId={selectedChatId}
-              onSelectChat={setSelectedChatId}
-              onNewChat={handleNewChat}
-              onOpenSettings={handleOpenSettings}
-            />
-
-            <div className="flex min-w-0 flex-1 flex-col">
-              <SessionHeader />
-              <NewChatPage />
-            </div>
-          </>
-        ) : (
-          <SettingsPage sidebarOpen={isSidebarOpen} />
-        )}
+        <Outlet context={shellContext} />
       </div>
     </div>
   );

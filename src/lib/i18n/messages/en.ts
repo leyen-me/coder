@@ -18,7 +18,7 @@ export const enMessages = {
     newChat: "New chat",
     search: "Search",
     skills: "Skills",
-    components: "Components",
+    plugins: "Plugins",
     automations: "Automations",
     settings: "Settings",
     allChats: "All chats",
@@ -126,6 +126,19 @@ export const enMessages = {
       prompt: "Link your commonly used apps to the Agent",
     },
   ],
+  search: {
+    title: "Search",
+    placeholder: "Search chats, files, or commands…",
+    hint: "Type to search across chats and project files",
+  },
+  pages: {
+    history: { title: "All chats" },
+    skills: { title: "Skills" },
+    plugins: { title: "Plugins" },
+    automations: { title: "Automations" },
+    chatSession: { title: "Chat {id}" },
+    comingSoon: "Coming soon",
+  },
   mockChats: [
     {
       id: "1",
