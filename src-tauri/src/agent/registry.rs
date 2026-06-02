@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use reqwest::Client;
 use tauri::ipc::Channel;
@@ -117,6 +118,7 @@ impl AgentRegistry {
         &mut self,
         params: AgentStartParams,
         channel: Channel<AgentEvent>,
+        registry: Arc<Mutex<AgentRegistry>>,
     ) -> Result<(), String> {
         if self.runs.contains_key(&params.task_id) {
             return Err(format!("Task already exists: {}", params.task_id));
@@ -199,6 +201,10 @@ impl AgentRegistry {
                 task_id: task_id.clone(),
                 status: final_status,
             });
+
+            if let Ok(mut registry) = registry.lock() {
+                registry.runs.remove(&task_id);
+            }
         });
 
         Ok(())

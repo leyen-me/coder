@@ -1,3 +1,4 @@
+import { MessageToolList } from "./message-tool-list";
 import {
   Reasoning,
   ReasoningContent,
@@ -13,7 +14,7 @@ import {
 } from "@/components/ai-elements/message";
 import { paths } from "@/app/paths";
 import { forkSessionFromMessage } from "@/lib/db";
-import type { MessageRecord } from "@/lib/db";
+import { normalizeToolInvocations, type MessageRecord } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import { CopyIcon, GitForkIcon } from "lucide-react";
@@ -42,6 +43,8 @@ export function MessageItem({ message, sessionTitle }: MessageItemProps) {
   const isThinkingStreaming = isStreaming && !message.content;
   const showReasoning =
     hasThinking || (Boolean(message.thinking) && isThinkingStreaming);
+  const toolInvocations = normalizeToolInvocations(message.toolInvocations);
+  const hasTools = toolInvocations.length > 0;
   const showActions = Boolean(answerText) && !isStreaming;
 
   const getThinkingMessage = useCallback(
@@ -103,6 +106,7 @@ export function MessageItem({ message, sessionTitle }: MessageItemProps) {
           </ReasoningContent>
         </Reasoning>
       ) : null}
+      {hasTools ? <MessageToolList message={message} /> : null}
       {answerText ? (
         <MessageContent className="group-[.is-assistant]:overflow-visible group-[.is-assistant]:bg-transparent group-[.is-assistant]:p-0">
           <MessageResponse isAnimating={isStreaming}>
@@ -137,7 +141,7 @@ export function MessageItem({ message, sessionTitle }: MessageItemProps) {
       {message.status === "failed" && message.error ? (
         <p className="text-sm text-destructive">{message.error}</p>
       ) : null}
-      {isStreaming && !answerText && !showReasoning ? (
+      {isStreaming && !answerText && !showReasoning && !hasTools ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span
             className={cn(

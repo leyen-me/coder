@@ -1,4 +1,5 @@
 import type { AgentToolCall, AgentToolDefinition } from "./tools/types";
+import type { ApiToolCall } from "./tools/api-tool-call";
 
 export type AgentStatus =
   | "pending"
@@ -11,7 +12,7 @@ export type AgentStatus =
 export type AgentChatMessage = {
   role: "user" | "assistant" | "system" | "tool";
   content?: string;
-  tool_calls?: AgentToolCall[];
+  tool_calls?: ApiToolCall[];
   tool_call_id?: string;
   name?: string;
 };
@@ -21,6 +22,20 @@ export type AgentEvent =
   | { type: "thinking_delta"; taskId: string; delta: string }
   | { type: "content_delta"; taskId: string; delta: string }
   | { type: "turn_complete"; taskId: string; toolCalls: AgentToolCall[] }
+  | {
+      type: "tool_call_started";
+      taskId: string;
+      toolCallId: string;
+      name: string;
+      input: unknown;
+    }
+  | {
+      type: "tool_call_finished";
+      taskId: string;
+      toolCallId: string;
+      output?: unknown;
+      errorText?: string;
+    }
   | { type: "done"; taskId: string }
   | { type: "error"; taskId: string; message: string };
 

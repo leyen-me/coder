@@ -15,12 +15,28 @@ export type SessionRecord = {
   updatedAt: number;
 };
 
+export type MessageToolState =
+  | "input-streaming"
+  | "input-available"
+  | "output-available"
+  | "output-error";
+
+export type MessageToolInvocation = {
+  id: string;
+  name: string;
+  input: unknown;
+  output?: unknown;
+  errorText?: string;
+  state: MessageToolState;
+};
+
 export type MessageRecord = {
   id: string;
   sessionId: string;
   role: MessageRole;
   content: string;
   thinking: string;
+  toolInvocations: MessageToolInvocation[];
   status: MessageStatus;
   taskId: string | null;
   error: string | null;

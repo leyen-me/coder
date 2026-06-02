@@ -2,14 +2,14 @@ mod openai;
 pub mod registry;
 mod types;
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use registry::{generate_session_title, AgentRegistry};
 use tauri::ipc::Channel;
 use tauri::State;
 pub use types::{AgentEvent, AgentStartParams, AgentStatusResponse, GenerateSessionTitleParams};
 
-pub struct AgentState(pub Mutex<AgentRegistry>);
+pub struct AgentState(pub Arc<Mutex<AgentRegistry>>);
 
 #[tauri::command]
 pub fn agent_get_status(
@@ -57,5 +57,5 @@ pub fn agent_start(
         .0
         .lock()
         .map_err(|_| "Agent registry lock poisoned".to_string())?;
-    registry.start(params, on_event)
+    registry.start(params, on_event, state.0.clone())
 }

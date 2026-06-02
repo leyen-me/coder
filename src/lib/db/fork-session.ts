@@ -47,6 +47,7 @@ export async function forkSessionFromMessage(
         role: message.role,
         content: message.content,
         thinking: message.thinking,
+        toolInvocations: message.toolInvocations ?? [],
         status: normalizeForkedMessageStatus(message.status),
         taskId: null,
         error: message.error,

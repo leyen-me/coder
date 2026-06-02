@@ -20,12 +20,26 @@ pub struct ToolCall {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApiToolCallFunction {
+    pub name: String,
+    pub arguments: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApiToolCall {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub function: ApiToolCallFunction,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_calls: Option<Vec<ToolCall>>,
+    pub tool_calls: Option<Vec<ApiToolCall>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_call_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

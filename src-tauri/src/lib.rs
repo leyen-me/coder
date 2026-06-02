@@ -2,7 +2,7 @@ mod agent;
 mod tools;
 mod window_chrome;
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use agent::registry::AgentRegistry;
 use agent::{
@@ -27,9 +27,9 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .manage(AgentState(Mutex::new(
+        .manage(AgentState(Arc::new(Mutex::new(
             AgentRegistry::new().expect("failed to initialize agent registry"),
-        )))
+        ))))
         .setup(|app| {
             configure_main_window(app);
             Ok(())

@@ -47,7 +47,10 @@ export async function getMessage(messageId: string): Promise<MessageRecord | nul
 export async function updateMessage(
   messageId: string,
   patch: Partial<
-    Pick<MessageRecord, "content" | "thinking" | "status" | "error" | "taskId">
+    Pick<
+      MessageRecord,
+      "content" | "thinking" | "status" | "error" | "taskId" | "toolInvocations"
+    >
   >
 ): Promise<MessageRecord | null> {
   const db = await getDb();

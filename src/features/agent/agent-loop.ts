@@ -3,6 +3,8 @@ import {
   getAgentToolDefinitions,
   serializeToolResult,
 } from "./tools";
+import { parseToolCallInput, toolResultToInvocationPatch } from "./tools/tool-display";
+import { toApiToolCalls } from "./tools/api-tool-call";
 import type { AgentToolCall } from "./tools/types";
 import { startAgent } from "./runner";
 import type { AgentEvent, AgentEventHandler, AgentStartInput } from "./types";
@@ -10,6 +12,7 @@ import { MAX_AGENT_TOOL_ITERATIONS } from "./types";
 
 type ToolExecutionContextInput = {
   workspaceDir: string | null;
+  taskId: string;
 };
 
 export async function runAgentWithTools(
@@ -51,7 +54,12 @@ export async function runAgentWithTools(
       throw new Error("Maximum tool iterations exceeded");
     }
 
-    messages = await appendToolResults(messages, toolCalls, context);
+    messages = await appendToolResults(
+      messages,
+      toolCalls,
+      { workspaceDir: context.workspaceDir, taskId: input.taskId },
+      onEvent
+    );
   }
 }
 
@@ -74,7 +82,6 @@ async function runSingleAgentTurn(
     void startAgent(input, (event) => {
       if (event.type === "turn_complete") {
         toolCalls = event.toolCalls;
-        finish(() => resolve(toolCalls));
         return;
       }
 
@@ -120,20 +127,39 @@ function isAssistantOutputEvent(event: AgentEvent): boolean {
 async function appendToolResults(
   messages: AgentStartInput["messages"],
   toolCalls: AgentToolCall[],
-  context: ToolExecutionContextInput
+  context: ToolExecutionContextInput,
+  onEvent: AgentEventHandler
 ): Promise<AgentStartInput["messages"]> {
   const nextMessages = [
     ...messages,
     {
       role: "assistant" as const,
-      content: "",
-      tool_calls: toolCalls,
+      tool_calls: toApiToolCalls(toolCalls),
     },
   ];
 
   for (const call of toolCalls) {
+    const input = parseToolCallInput(call.arguments);
+
+    onEvent({
+      type: "tool_call_started",
+      taskId: context.taskId ?? "",
+      toolCallId: call.id,
+      name: call.name,
+      input,
+    });
+
     const result = await executeToolCall(call.name, call.arguments, {
       workspaceDir: context.workspaceDir,
+    });
+
+    const patch = toolResultToInvocationPatch(result);
+    onEvent({
+      type: "tool_call_finished",
+      taskId: context.taskId ?? "",
+      toolCallId: call.id,
+      output: patch.output,
+      errorText: patch.errorText,
     });
 
     nextMessages.push({

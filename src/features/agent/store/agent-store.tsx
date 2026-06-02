@@ -9,7 +9,9 @@ import {
 } from "react";
 
 import {
+  addMessageToolInvocation,
   appendMessageDelta,
+  completeMessageToolInvocation,
   createMessage,
   createTaskId,
   getMessagesBySession,
@@ -105,6 +107,22 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           return;
         case "content_delta":
           await appendMessageDelta(assistantMessageId, "content", event.delta);
+          return;
+        case "tool_call_started":
+          await addMessageToolInvocation(assistantMessageId, {
+            id: event.toolCallId,
+            name: event.name,
+            input: event.input,
+            state: "input-available",
+          });
+          await setMessageStatus(assistantMessageId, "streaming");
+          return;
+        case "tool_call_finished":
+          await completeMessageToolInvocation(assistantMessageId, event.toolCallId, {
+            state: event.errorText ? "output-error" : "output-available",
+            output: event.output,
+            errorText: event.errorText,
+          });
           return;
         case "error": {
           const task = tasksRef.current.get(event.taskId);
@@ -222,6 +240,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         role: "user",
         content: trimmed,
         thinking: "",
+        toolInvocations: [],
         status: "completed",
         taskId: null,
         error: null,
@@ -234,6 +253,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         role: "assistant",
         content: "",
         thinking: "",
+        toolInvocations: [],
         status: "pending",
         taskId,
         error: null,
@@ -271,7 +291,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           model: input.model,
           messages: history,
         },
-        { workspaceDir: workspaceDirRef.current },
+        { workspaceDir: workspaceDirRef.current, taskId },
         (event) => {
           dispatchAgentEvent(taskId, assistantMessage.id, event);
         }

@@ -33,12 +33,14 @@ describe("buildAgentMessages", () => {
       [
         {
           role: "assistant",
-          content: "",
           tool_calls: [
             {
               id: "call_1",
-              name: "list_dir",
-              arguments: "{}",
+              type: "function",
+              function: {
+                name: "list_dir",
+                arguments: "{}",
+              },
             },
           ],
         },
