@@ -67,7 +67,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     <div className="flex min-h-0 flex-1 flex-col">
       <MessageList messages={messages} />
 
-      <div className="shrink-0 border-t bg-background/80 px-4 pb-4 pt-3 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+      <div className="shrink-0 border-t bg-background px-4 pb-4 pt-3">
         <div className="mx-auto w-full max-w-3xl">
           <PromptComposer
             value={prompt}

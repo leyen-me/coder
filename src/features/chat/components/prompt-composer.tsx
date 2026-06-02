@@ -1,20 +1,25 @@
-import type { KeyboardEvent } from "react";
-import {
-  ArrowUp,
-  ChevronDown,
-  Loader2,
-  Plus,
-} from "lucide-react";
+import type { ChatStatus } from "ai";
+import { PlusIcon } from "lucide-react";
+import { useCallback } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Textarea } from "@/components/ui/textarea";
+  PromptInput,
+  PromptInputActionAddAttachments,
+  PromptInputActionMenu,
+  PromptInputActionMenuContent,
+  PromptInputActionMenuTrigger,
+  PromptInputBody,
+  PromptInputFooter,
+  PromptInputSelect,
+  PromptInputSelectContent,
+  PromptInputSelectItem,
+  PromptInputSelectTrigger,
+  PromptInputSelectValue,
+  PromptInputSubmit,
+  PromptInputTextarea,
+  PromptInputTools,
+  type PromptInputMessage,
+} from "@/components/ai-elements/prompt-input";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +36,17 @@ type PromptComposerProps = {
   className?: string;
 };
 
+function resolveSubmitStatus(
+  isRunning: boolean,
+  hasStopHandler: boolean
+): ChatStatus {
+  if (!isRunning) {
+    return "ready";
+  }
+
+  return hasStopHandler ? "streaming" : "submitted";
+}
+
 export function PromptComposer({
   value,
   onChange,
@@ -44,105 +60,100 @@ export function PromptComposer({
   className,
 }: PromptComposerProps) {
   const { t } = useTranslation();
-  const canSend = value.trim().length > 0;
   const isCompact = variant === "compact";
+  const canSend = value.trim().length > 0;
+  const submitStatus = resolveSubmitStatus(isRunning, Boolean(onStop));
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      if (isRunning) {
+  const handleSubmit = useCallback(
+    (_message: PromptInputMessage) => {
+      if (isRunning || !canSend) {
         return;
       }
-      if (canSend) {
-        onSend?.();
-      }
-    }
-  };
+
+      onSend?.();
+    },
+    [canSend, isRunning, onSend]
+  );
 
   return (
-    <Card
+    <PromptInput
       className={cn(
-        "w-full max-w-3xl gap-0 overflow-hidden rounded-3xl py-0 ring-1 ring-border",
-        isCompact && "shadow-lg",
+        "w-full max-w-3xl",
+        // Match previous Card styling: solid surface, no stacked translucent layers.
+        "[&_[data-slot=input-group]]:h-auto [&_[data-slot=input-group]]:rounded-3xl",
+        "[&_[data-slot=input-group]]:border-border [&_[data-slot=input-group]]:bg-card",
+        "[&_[data-slot=input-group]]:text-card-foreground [&_[data-slot=input-group]]:shadow-none",
+        "[&_[data-slot=input-group]]:dark:bg-card [&_[data-slot=input-group]]:has-disabled:opacity-100",
+        "[&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:ring-2",
+        "[&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:ring-ring/25",
+        "[&_[data-slot=input-group-control]]:text-foreground",
+        "[&_[data-slot=input-group-control]]:disabled:cursor-not-allowed",
+        "[&_[data-slot=input-group-control]]:disabled:opacity-100",
+        isCompact && "shadow-md",
         className
       )}
+      onSubmit={handleSubmit}
     >
-      <Textarea
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder={t("chat.composerPlaceholder")}
-        className={cn(
-          "resize-none rounded-none border-0 bg-transparent px-4 py-4 text-base shadow-none focus-visible:ring-0",
-          isCompact ? "min-h-[72px]" : "min-h-[120px]"
-        )}
-      />
-
-      <div className="flex items-center justify-between gap-2 border-t px-3 py-2">
-        <div className="flex items-center gap-1">
-          {!isCompact ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="rounded-xl text-muted-foreground"
-              aria-label={t("chat.addAttachment")}
-            >
-              <Plus className="size-4" />
-            </Button>
-          ) : null}
-        </div>
-
-        <div className="flex items-center gap-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="max-w-40 gap-1 truncate rounded-xl text-muted-foreground"
-                disabled={isRunning}
-              >
-                <span className="truncate">{model || t("chat.noModel")}</span>
-                <ChevronDown className="size-3.5 shrink-0 opacity-60" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {models.map((item) => (
-                <DropdownMenuItem
-                  key={item}
-                  onClick={() => onModelChange(item)}
-                >
-                  {item}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {isRunning ? (
-            <Button
-              type="button"
-              size="icon"
-              className="rounded-full bg-foreground text-background hover:bg-foreground/90"
-              onClick={onStop}
-              aria-label={t("chat.stop")}
-            >
-              <Loader2 className="size-4 animate-spin" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="icon"
-              className="rounded-full bg-foreground text-background hover:bg-foreground/90"
-              disabled={!canSend}
-              onClick={onSend}
-              aria-label={t("chat.send")}
-            >
-              <ArrowUp className="size-4" />
-            </Button>
+      <PromptInputBody>
+        <PromptInputTextarea
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={t("chat.composerPlaceholder")}
+          className={cn(
+            "px-4 py-4 text-base text-foreground",
+            isCompact ? "min-h-[72px]" : "min-h-[120px]"
           )}
-        </div>
-      </div>
-    </Card>
+          readOnly={isRunning}
+        />
+      </PromptInputBody>
+
+      <PromptInputFooter className="border-t border-border/60 bg-card px-3 py-2">
+        <PromptInputTools>
+          {!isCompact ? (
+            <PromptInputActionMenu>
+              <PromptInputActionMenuTrigger
+                aria-label={t("chat.addAttachment")}
+                className="rounded-xl"
+                disabled={isRunning}
+                variant="ghost"
+              >
+                <PlusIcon className="size-4" />
+              </PromptInputActionMenuTrigger>
+              <PromptInputActionMenuContent align="start">
+                <PromptInputActionAddAttachments
+                  label={t("chat.addAttachment")}
+                />
+              </PromptInputActionMenuContent>
+            </PromptInputActionMenu>
+          ) : null}
+
+          <PromptInputSelect
+            value={model}
+            onValueChange={onModelChange}
+            disabled={isRunning || models.length === 0}
+          >
+            <PromptInputSelectTrigger className="max-w-40 rounded-xl">
+              <PromptInputSelectValue
+                placeholder={t("chat.noModel")}
+              />
+            </PromptInputSelectTrigger>
+            <PromptInputSelectContent align="end">
+              {models.map((item) => (
+                <PromptInputSelectItem key={item} value={item}>
+                  {item}
+                </PromptInputSelectItem>
+              ))}
+            </PromptInputSelectContent>
+          </PromptInputSelect>
+        </PromptInputTools>
+
+        <PromptInputSubmit
+          className="rounded-full bg-foreground text-background hover:bg-foreground/90"
+          disabled={!canSend && !isRunning}
+          onStop={onStop}
+          status={submitStatus}
+        />
+      </PromptInputFooter>
+    </PromptInput>
   );
 }
