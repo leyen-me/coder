@@ -23,7 +23,6 @@ export const enMessages = {
     settings: "Settings",
     allChats: "All chats",
     filterChats: "Filter chats",
-    showMore: "Show more",
     agentRunning: "Agent running",
   },
   session: {

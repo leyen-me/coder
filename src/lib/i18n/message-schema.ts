@@ -21,7 +21,6 @@ export type Messages = {
     settings: string;
     allChats: string;
     filterChats: string;
-    showMore: string;
     agentRunning: string;
   };
   session: {

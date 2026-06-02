@@ -23,7 +23,6 @@ export const zhMessages = {
     settings: "设置",
     allChats: "所有聊天",
     filterChats: "筛选聊天",
-    showMore: "展开更多",
     agentRunning: "Agent 运行中",
   },
   session: {

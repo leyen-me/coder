@@ -40,8 +40,6 @@ export function AppSidebar({ open }: AppSidebarProps) {
       ? chatMatch.params.chatId
       : null;
 
-  const historyMatch = useMatch(paths.history);
-
   return (
     <>
       <div
@@ -97,7 +95,6 @@ export function AppSidebar({ open }: AppSidebarProps) {
             selectedId={selectedChatId}
             generatingTitleIds={generatingTitleIds}
             runningSessionIds={runningSessionIds}
-            historyActive={historyMatch != null}
           />
 
           <div className="shrink-0 border-t border-sidebar-border p-2">

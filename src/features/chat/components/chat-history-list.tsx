@@ -16,7 +16,6 @@ type ChatHistoryListProps = {
   selectedId: string | null;
   generatingTitleIds?: ReadonlySet<string>;
   runningSessionIds?: ReadonlySet<string>;
-  historyActive?: boolean;
 };
 
 export function ChatHistoryList({
@@ -24,22 +23,15 @@ export function ChatHistoryList({
   selectedId,
   generatingTitleIds,
   runningSessionIds,
-  historyActive = false,
 }: ChatHistoryListProps) {
   const { t } = useTranslation();
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1 px-2">
       <div className="flex shrink-0 items-center justify-between px-1 py-1">
-        <Link
-          to={paths.history}
-          className={cn(
-            "text-xs font-medium text-muted-foreground transition-colors hover:text-sidebar-foreground",
-            historyActive && "text-sidebar-foreground"
-          )}
-        >
+        <h2 className="text-xs font-medium text-muted-foreground">
           {t("sidebar.allChats")}
-        </Link>
+        </h2>
         <Button
           type="button"
           variant="ghost"
@@ -89,15 +81,6 @@ export function ChatHistoryList({
           })}
         </ul>
       </ScrollArea>
-
-      <Button
-        type="button"
-        variant="ghost"
-        className="h-8 shrink-0 justify-start px-2 text-xs text-muted-foreground"
-        asChild
-      >
-        <Link to={paths.history}>{t("sidebar.showMore")}</Link>
-      </Button>
     </div>
   );
 }
