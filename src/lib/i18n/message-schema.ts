@@ -39,6 +39,9 @@ export type Messages = {
     composerPlaceholder: string;
     addAttachment: string;
     removeAttachment: string;
+    attachmentErrorAccept: string;
+    attachmentErrorMaxSize: string;
+    attachmentErrorMaxFiles: string;
     defaultPermission: string;
     readOnly: string;
     confirmBeforeRun: string;

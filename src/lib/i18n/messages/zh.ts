@@ -39,8 +39,11 @@ export const zhMessages = {
   chat: {
     headline: "想在 {project} 里构建什么？",
     composerPlaceholder: "输入任务，@ 引用文件，/ 使用命令，? 查看技能",
-    addAttachment: "添加附件",
-    removeAttachment: "移除附件",
+    addAttachment: "添加图片",
+    removeAttachment: "移除图片",
+    attachmentErrorAccept: "仅支持图片文件",
+    attachmentErrorMaxSize: "单张图片不能超过 {size}",
+    attachmentErrorMaxFiles: "最多只能添加 {count} 张图片",
     defaultPermission: "默认权限",
     readOnly: "只读",
     confirmBeforeRun: "需确认后执行",

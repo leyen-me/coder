@@ -40,8 +40,11 @@ export const enMessages = {
     headline: "What do you want to build in {project}?",
     composerPlaceholder:
       "Describe a task, @ mention files, / run commands, ? browse skills",
-    addAttachment: "Add attachment",
-    removeAttachment: "Remove attachment",
+    addAttachment: "Add image",
+    removeAttachment: "Remove image",
+    attachmentErrorAccept: "Only image files are supported",
+    attachmentErrorMaxSize: "Each image must be {size} or smaller",
+    attachmentErrorMaxFiles: "You can attach up to {count} images",
     defaultPermission: "Default permission",
     readOnly: "Read only",
     confirmBeforeRun: "Confirm before running",

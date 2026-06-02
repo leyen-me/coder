@@ -1,6 +1,6 @@
 import type { ChatStatus } from "ai";
 import { ChevronDownIcon, FolderOpenIcon, GitBranchIcon, PlusIcon } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   PromptInput,
@@ -32,6 +32,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
+
+/** Images only until non-image parsing is implemented. */
+export const COMPOSER_ATTACHMENT_ACCEPT = "image/*";
+export const COMPOSER_MAX_FILES = 10;
+export const COMPOSER_MAX_FILE_SIZE = 10 * 1024 * 1024;
+const COMPOSER_MAX_FILE_SIZE_LABEL = "10 MB";
+
+type PromptInputAttachmentError = {
+  code: "max_files" | "max_file_size" | "accept";
+  message: string;
+};
 
 type PromptComposerProps = {
   value: string;
@@ -71,6 +82,34 @@ type ComposerSubmitProps = {
   onStop?: () => void;
   submitStatus: ChatStatus;
 };
+
+type ComposerAttachmentErrorProps = {
+  message: string | null;
+  onClear: () => void;
+};
+
+function ComposerAttachmentError({
+  message,
+  onClear,
+}: ComposerAttachmentErrorProps) {
+  const attachments = usePromptInputAttachments();
+
+  useEffect(() => {
+    if (attachments.files.length > 0) {
+      onClear();
+    }
+  }, [attachments.files.length, onClear]);
+
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <p className="px-4 pt-2 text-destructive text-xs" role="alert">
+      {message}
+    </p>
+  );
+}
 
 function ComposerSubmit({
   value,
@@ -114,9 +153,35 @@ export function PromptComposer({
 }: PromptComposerProps) {
   const { t } = useTranslation();
   const isCompact = variant === "compact";
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const submitStatus = resolveSubmitStatus(isRunning, Boolean(onStop));
   const showBranch =
     showWorkspaceControls && isGitRepository && Boolean(onGitBranchChange);
+
+  const clearAttachmentError = useCallback(() => {
+    setAttachmentError(null);
+  }, []);
+
+  const handleAttachmentError = useCallback(
+    (error: PromptInputAttachmentError) => {
+      switch (error.code) {
+        case "accept":
+          setAttachmentError(t("chat.attachmentErrorAccept"));
+          break;
+        case "max_file_size":
+          setAttachmentError(
+            t("chat.attachmentErrorMaxSize", { size: COMPOSER_MAX_FILE_SIZE_LABEL })
+          );
+          break;
+        case "max_files":
+          setAttachmentError(
+            t("chat.attachmentErrorMaxFiles", { count: COMPOSER_MAX_FILES })
+          );
+          break;
+      }
+    },
+    [t]
+  );
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
@@ -154,9 +219,18 @@ export function PromptComposer({
         isCompact && "[&_[data-slot=input-group]]:shadow-sm",
         className
       )}
+      accept={COMPOSER_ATTACHMENT_ACCEPT}
+      maxFileSize={COMPOSER_MAX_FILE_SIZE}
+      maxFiles={COMPOSER_MAX_FILES}
+      multiple
+      onError={handleAttachmentError}
       onSubmit={handleSubmit}
     >
       <PromptComposerAttachmentsHeader />
+      <ComposerAttachmentError
+        message={attachmentError}
+        onClear={clearAttachmentError}
+      />
 
       <PromptInputBody>
         <PromptInputTextarea
