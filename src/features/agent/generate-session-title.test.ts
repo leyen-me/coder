@@ -18,7 +18,7 @@ describe("normalizeSessionTitle", () => {
 });
 
 describe("parseTitleFromCompletionBody", () => {
-  it("reads assistant message content", () => {
+  it("reads message content", () => {
     expect(
       parseTitleFromCompletionBody({
         choices: [{ message: { content: "重构 auth 模块" } }],

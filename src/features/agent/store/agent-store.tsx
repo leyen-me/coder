@@ -507,7 +507,7 @@ function scheduleSessionTitleGeneration(
     userMessage: input.userMessage,
     assistantMessageId: input.assistantMessageId,
   }).catch(() => {
-    // Title generation is best-effort; keep the placeholder title on failure.
+    // best-effort
   });
 }
 

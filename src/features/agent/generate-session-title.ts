@@ -9,20 +9,10 @@ import {
 } from "./session-title-store";
 
 const TITLE_MAX_LENGTH = 48;
-const ASSISTANT_SNIPPET_MAX = 600;
+const TITLE_MAX_TOKENS = 128;
 
 export const SESSION_TITLE_SYSTEM_PROMPT = `You write short chat session titles for a sidebar history list.
-Rules:
-- Output ONLY the title text, no quotes, no markdown, no explanation.
-- Use the same language as the user's message (Chinese if the user wrote in Chinese, etc.).
-- Capture the main task or topic in at most 12 words or ~20 Chinese characters.
-- Prefer concrete nouns (feature, bug, file, API) over vague phrases like "help me" or "question".`;
-
-type ChatCompletionResponse = {
-  choices?: Array<{
-    message?: { content?: string };
-  }>;
-};
+Output ONLY the title text (no quotes, no markdown). Same language as the user. At most ~20 Chinese characters or 12 English words.`;
 
 export function normalizeSessionTitle(
   raw: string,
@@ -42,13 +32,13 @@ export function normalizeSessionTitle(
 }
 
 export function parseTitleFromCompletionBody(body: unknown): string | null {
-  const parsed = body as ChatCompletionResponse;
-  const content = parsed.choices?.[0]?.message?.content;
+  const content = (
+    body as { choices?: Array<{ message?: { content?: unknown } }> }
+  ).choices?.[0]?.message?.content;
   if (typeof content !== "string") {
     return null;
   }
-  const title = normalizeSessionTitle(content);
-  return title || null;
+  return normalizeSessionTitle(content) || null;
 }
 
 type SessionTitleRequest = {
@@ -61,20 +51,44 @@ type SessionTitleRequest = {
   assistantMessage: string;
 };
 
-async function requestSessionTitleViaFetch(
+async function requestSessionTitle(
   input: SessionTitleRequest
 ): Promise<string | null> {
   const userMessage = input.userMessage.trim();
   if (!userMessage) {
     return null;
   }
+  if (!input.apiKey.trim() && input.apiKeySource !== "env") {
+    return null;
+  }
 
-  const assistantSnippet = input.assistantMessage
-    .trim()
-    .slice(0, ASSISTANT_SNIPPET_MAX);
-  const userPrompt = assistantSnippet
-    ? `User message:\n${userMessage}\n\nAssistant reply (excerpt):\n${assistantSnippet}`
+  const snippet = input.assistantMessage.trim().slice(0, 600);
+  const userPrompt = snippet
+    ? `User message:\n${userMessage}\n\nAssistant reply (excerpt):\n${snippet}`
     : `User message:\n${userMessage}`;
+
+  if (isTauri()) {
+    try {
+      const raw = await invoke<string | null>("agent_generate_session_title", {
+        params: {
+          baseUrl: input.baseUrl,
+          apiKey: input.apiKey || null,
+          apiKeySource: input.apiKeySource,
+          apiKeyEnvVar: input.apiKeyEnvVar,
+          model: input.model,
+          userMessage: input.userMessage,
+          assistantMessage: input.assistantMessage,
+        },
+      });
+      return raw ? normalizeSessionTitle(raw) || null : null;
+    } catch {
+      return null;
+    }
+  }
+
+  if (!input.apiKey.trim()) {
+    return null;
+  }
 
   const response = await fetch(chatCompletionsUrl(input.baseUrl), {
     method: "POST",
@@ -85,7 +99,7 @@ async function requestSessionTitleViaFetch(
     body: JSON.stringify({
       model: input.model,
       stream: false,
-      max_tokens: 64,
+      max_tokens: TITLE_MAX_TOKENS,
       temperature: 0.3,
       messages: [
         { role: "system", content: SESSION_TITLE_SYSTEM_PROMPT },
@@ -98,49 +112,7 @@ async function requestSessionTitleViaFetch(
     return null;
   }
 
-  const body: unknown = await response.json();
-  return parseTitleFromCompletionBody(body);
-}
-
-async function requestSessionTitleViaTauri(
-  input: SessionTitleRequest
-): Promise<string | null> {
-  const raw = await invoke<string | null>("agent_generate_session_title", {
-    params: {
-      baseUrl: input.baseUrl,
-      apiKey: input.apiKey || null,
-      apiKeySource: input.apiKeySource,
-      apiKeyEnvVar: input.apiKeyEnvVar,
-      model: input.model,
-      userMessage: input.userMessage,
-      assistantMessage: input.assistantMessage,
-    },
-  });
-
-  if (raw == null) {
-    return null;
-  }
-
-  const title = normalizeSessionTitle(raw);
-  return title || null;
-}
-
-export async function requestSessionTitle(
-  input: SessionTitleRequest
-): Promise<string | null> {
-  if (!input.apiKey.trim() && input.apiKeySource !== "env") {
-    return null;
-  }
-
-  if (isTauri()) {
-    return requestSessionTitleViaTauri(input);
-  }
-
-  if (!input.apiKey.trim()) {
-    return null;
-  }
-
-  return requestSessionTitleViaFetch(input);
+  return parseTitleFromCompletionBody(await response.json());
 }
 
 export async function applyGeneratedSessionTitle(input: {
@@ -171,7 +143,6 @@ export async function applyGeneratedSessionTitle(input: {
     });
 
     const title = generated ?? deriveSessionTitle(input.userMessage);
-
     if (!title) {
       return;
     }

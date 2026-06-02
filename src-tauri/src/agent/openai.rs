@@ -65,6 +65,8 @@ struct ChatCompletionRequest<'a> {
     tool_choice: Option<&'static str>,
 }
 
+const SESSION_TITLE_MAX_TOKENS: u32 = 128;
+
 #[derive(Debug, Deserialize)]
 struct CompletionResponse {
     choices: Vec<CompletionChoice>,
@@ -125,11 +127,7 @@ impl ToolCallAccumulator {
 }
 
 pub const SESSION_TITLE_SYSTEM_PROMPT: &str = r#"You write short chat session titles for a sidebar history list.
-Rules:
-- Output ONLY the title text, no quotes, no markdown, no explanation.
-- Use the same language as the user's message (Chinese if the user wrote in Chinese, etc.).
-- Capture the main task or topic in at most 12 words or ~20 Chinese characters.
-- Prefer concrete nouns (feature, bug, file, API) over vague phrases like "help me" or "question"."#;
+Output ONLY the title text (no quotes, no markdown). Same language as the user. At most ~20 Chinese characters or 12 English words."#;
 
 pub async fn stream_chat_completion(
     client: &Client,
@@ -318,7 +316,7 @@ pub async fn complete_chat_completion(
         model,
         messages,
         stream: false,
-        max_tokens: Some(64),
+        max_tokens: Some(SESSION_TITLE_MAX_TOKENS),
         temperature: Some(0.3),
         tools: None,
         tool_choice: None,
