@@ -24,17 +24,15 @@ export async function runAgentWithTools(
   const tools = input.tools ?? getAgentToolDefinitions();
 
   for (let iteration = 0; iteration < MAX_AGENT_TOOL_ITERATIONS; iteration += 1) {
-    const bufferedOutput: AgentEvent[] = [];
     const toolCalls = await runSingleAgentTurn(
       {
         ...input,
         messages,
         tools,
-        emitAssistantOutput: false,
       },
       (event) => {
         if (isAssistantOutputEvent(event)) {
-          bufferedOutput.push(event);
+          onEvent(event);
           return;
         }
         onEvent(event);
@@ -42,9 +40,6 @@ export async function runAgentWithTools(
     );
 
     if (toolCalls.length === 0) {
-      for (const event of bufferedOutput) {
-        onEvent(event);
-      }
       onEvent({ type: "done", taskId: input.taskId });
       onEvent({ type: "status", taskId: input.taskId, status: "completed" });
       return;
@@ -53,8 +48,6 @@ export async function runAgentWithTools(
     if (iteration === MAX_AGENT_TOOL_ITERATIONS - 1) {
       throw new Error("Maximum tool iterations exceeded");
     }
-
-    flushPreToolAssistantOutput(bufferedOutput, onEvent);
 
     messages = await appendToolResults(
       messages,
@@ -124,18 +117,6 @@ async function runSingleAgentTurn(
 
 function isAssistantOutputEvent(event: AgentEvent): boolean {
   return event.type === "thinking_delta" || event.type === "content_delta";
-}
-
-/** Emit pre-tool reasoning immediately so UI order matches execution: think → tool → answer. */
-function flushPreToolAssistantOutput(
-  bufferedOutput: AgentEvent[],
-  onEvent: AgentEventHandler
-): void {
-  for (const event of bufferedOutput) {
-    if (event.type === "thinking_delta") {
-      onEvent(event);
-    }
-  }
 }
 
 async function appendToolResults(

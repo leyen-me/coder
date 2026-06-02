@@ -10,12 +10,12 @@ import {
 
 import {
   addMessageToolInvocation,
-  appendMessageDelta,
   completeMessageToolInvocation,
   createMessage,
   createTaskId,
   getMessagesBySession,
   setMessageStatus,
+  updateMessage,
   type MessageRecord,
 } from "@/lib/db";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
@@ -23,6 +23,7 @@ import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
 import { runAgentWithTools } from "../agent-loop";
 import { buildAgentMessages } from "../build-agent-messages";
+import { createStreamingBufferManager } from "../streaming-buffer";
 import {
   buildUserAgentContent,
   fileUIPartsToStoredImages,
@@ -44,8 +45,14 @@ import type {
   AgentStatus,
 } from "../types";
 
+export type StreamingMessageOverlay = {
+  content: string;
+  thinking: string;
+};
+
 type AgentStoreValue = {
   activeTasks: ReadonlyMap<string, ActiveTaskState>;
+  streamingOverlays: ReadonlyMap<string, StreamingMessageOverlay>;
   isSessionRunning: (sessionId: string) => boolean;
   getSessionTask: (sessionId: string) => ActiveTaskState | null;
   sendMessage: (input: {
@@ -82,7 +89,29 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const tasksRef = useRef(new Map<string, ActiveTaskState>());
   const snapshotRef = useRef<ReadonlyMap<string, ActiveTaskState>>(new Map());
   const listenersRef = useRef(new Set<() => void>());
+  const streamingSnapshotRef = useRef<
+    ReadonlyMap<string, { content: string; thinking: string }>
+  >(new Map());
+  const streamingListenersRef = useRef(new Set<() => void>());
   const eventChainsRef = useRef(new Map<string, Promise<void>>());
+
+  const emitStreaming = useCallback(() => {
+    streamingSnapshotRef.current = streamingBufferRef.current.getSnapshot();
+    for (const listener of streamingListenersRef.current) {
+      listener();
+    }
+  }, []);
+
+  const streamingBufferRef = useRef(
+    createStreamingBufferManager({
+      onFlush: async (messageId, fields) => {
+        await updateMessage(messageId, fields);
+      },
+      onChange: () => {
+        emitStreaming();
+      },
+    })
+  );
 
   const subscribe = useCallback((listener: () => void) => {
     listenersRef.current.add(listener);
@@ -102,16 +131,29 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
   const activeTasks = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
+  const subscribeStreaming = useCallback((listener: () => void) => {
+    streamingListenersRef.current.add(listener);
+    return () => {
+      streamingListenersRef.current.delete(listener);
+    };
+  }, []);
+
+  const getStreamingSnapshot = useCallback(
+    () => streamingSnapshotRef.current,
+    []
+  );
+
+  const streamingOverlays = useSyncExternalStore(
+    subscribeStreaming,
+    getStreamingSnapshot,
+    getStreamingSnapshot
+  );
+
   const handleAgentEvent = useCallback(
     async (event: AgentEvent, assistantMessageId: string) => {
       switch (event.type) {
-        case "thinking_delta":
-          await appendMessageDelta(assistantMessageId, "thinking", event.delta);
-          return;
-        case "content_delta":
-          await appendMessageDelta(assistantMessageId, "content", event.delta);
-          return;
         case "tool_call_started":
+          await streamingBufferRef.current.flushAndClear(assistantMessageId);
           await addMessageToolInvocation(assistantMessageId, {
             id: event.toolCallId,
             name: event.name,
@@ -128,6 +170,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           });
           return;
         case "error": {
+          await streamingBufferRef.current.flush(assistantMessageId);
           const task = tasksRef.current.get(event.taskId);
           if (task) {
             tasksRef.current.set(event.taskId, {
@@ -136,6 +179,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             });
           }
           await setMessageStatus(assistantMessageId, "failed", event.message);
+          streamingBufferRef.current.clear(assistantMessageId);
           emit();
           return;
         }
@@ -158,6 +202,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           }
 
           if (isTerminalStatus(event.status)) {
+            await streamingBufferRef.current.flush(assistantMessageId);
+
             const messageStatus =
               event.status === "completed"
                 ? "completed"
@@ -169,6 +215,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               messageStatus,
               task.error
             );
+            streamingBufferRef.current.clear(assistantMessageId);
 
             const shouldGenerateTitle =
               event.status === "completed" && task.isFirstTurn;
@@ -200,6 +247,24 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
   const dispatchAgentEvent = useCallback(
     (taskId: string, assistantMessageId: string, event: AgentEvent) => {
+      if (event.type === "thinking_delta") {
+        streamingBufferRef.current.append(
+          assistantMessageId,
+          "thinking",
+          event.delta
+        );
+        return;
+      }
+
+      if (event.type === "content_delta") {
+        streamingBufferRef.current.append(
+          assistantMessageId,
+          "content",
+          event.delta
+        );
+        return;
+      }
+
       const previous = eventChainsRef.current.get(taskId) ?? Promise.resolve();
       const next = previous
         .then(() => handleAgentEvent(event, assistantMessageId))
@@ -371,12 +436,20 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const value = useMemo(
     () => ({
       activeTasks,
+      streamingOverlays,
       isSessionRunning,
       getSessionTask,
       sendMessage,
       cancelTask,
     }),
-    [activeTasks, cancelTask, getSessionTask, isSessionRunning, sendMessage]
+    [
+      activeTasks,
+      streamingOverlays,
+      cancelTask,
+      getSessionTask,
+      isSessionRunning,
+      sendMessage,
+    ]
   );
 
   return (
@@ -392,6 +465,13 @@ export function useAgentStore(): AgentStoreValue {
     throw new Error("useAgentStore must be used within AgentStoreProvider");
   }
   return context;
+}
+
+export function useStreamingMessageOverlays(): ReadonlyMap<
+  string,
+  StreamingMessageOverlay
+> {
+  return useAgentStore().streamingOverlays;
 }
 
 export function useRunningSessionIds(): ReadonlySet<string> {

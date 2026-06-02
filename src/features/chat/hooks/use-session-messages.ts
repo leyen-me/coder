@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { useStreamingMessageOverlays } from "@/features/agent/store/agent-store";
 import {
   getMessagesBySession,
   getSession,
@@ -8,7 +9,32 @@ import {
   type SessionRecord,
 } from "@/lib/db";
 
+function applyStreamingOverlays(
+  messages: MessageRecord[],
+  overlays: ReadonlyMap<string, { content: string; thinking: string }>
+): MessageRecord[] {
+  if (overlays.size === 0) {
+    return messages;
+  }
+
+  return messages.map((message) => {
+    const overlay = overlays.get(message.id);
+    const isStreaming =
+      message.status === "pending" || message.status === "streaming";
+    if (!overlay || !isStreaming) {
+      return message;
+    }
+
+    return {
+      ...message,
+      content: overlay.content,
+      thinking: overlay.thinking,
+    };
+  });
+}
+
 export function useSessionMessages(sessionId: string) {
+  const streamingOverlays = useStreamingMessageOverlays();
   const [session, setSession] = useState<SessionRecord | null>(null);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,5 +64,10 @@ export function useSessionMessages(sessionId: string) {
     });
   }, [refresh]);
 
-  return { session, messages, isLoading, refresh };
+  const displayMessages = useMemo(
+    () => applyStreamingOverlays(messages, streamingOverlays),
+    [messages, streamingOverlays]
+  );
+
+  return { session, messages: displayMessages, isLoading, refresh };
 }
