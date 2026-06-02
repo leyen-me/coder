@@ -49,7 +49,7 @@ export function ChatHistoryList({
       </div>
 
       <ScrollArea className="min-h-0 min-w-0 flex-1">
-        <ul className="flex w-full min-w-0 flex-col gap-0.5">
+        <ul className="flex w-full min-w-0 flex-col gap-0.5 pr-2">
           {items.map((item) => {
             const isGeneratingTitle = generatingTitleIds?.has(item.id) ?? false;
 
