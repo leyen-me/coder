@@ -26,7 +26,7 @@ export function ChatHistoryList({
   const { t } = useTranslation();
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-1 px-2">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1 px-2">
       <div className="flex shrink-0 items-center justify-between px-1 py-1">
         <Link
           to={paths.history}
@@ -48,17 +48,17 @@ export function ChatHistoryList({
         </Button>
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
-        <ul className="flex flex-col gap-0.5 pr-2">
+      <ScrollArea className="min-h-0 min-w-0 flex-1">
+        <ul className="flex w-full min-w-0 flex-col gap-0.5">
           {items.map((item) => {
             const isGeneratingTitle = generatingTitleIds?.has(item.id) ?? false;
 
             return (
-              <li key={item.id}>
+              <li key={item.id} className="min-w-0">
                 <Link
                   to={paths.chat(item.id)}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm transition-colors hover:bg-sidebar-accent",
+                    "grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm transition-colors hover:bg-sidebar-accent",
                     selectedId === item.id &&
                       "bg-sidebar-accent text-sidebar-accent-foreground"
                   )}

@@ -19,7 +19,7 @@ export function SessionTitleLabel({
 
   const classNames = cn(
     "min-w-0 truncate",
-    variant === "header" ? "text-sm font-medium" : "flex-1 text-sm",
+    variant === "header" ? "text-sm font-medium" : "text-sm",
     isGenerating && "text-muted-foreground",
     className
   );
@@ -30,7 +30,7 @@ export function SessionTitleLabel({
         className={classNames}
         aria-busy={isGenerating || undefined}
         aria-live={isGenerating ? "polite" : undefined}
-        title={isGenerating ? t("session.generatingTitle") : undefined}
+        title={isGenerating ? t("session.generatingTitle") : title}
       >
         {title}
       </h1>
@@ -41,7 +41,7 @@ export function SessionTitleLabel({
     <span
       className={classNames}
       aria-busy={isGenerating || undefined}
-      title={isGenerating ? t("session.generatingTitle") : undefined}
+      title={isGenerating ? t("session.generatingTitle") : title}
     >
       {title}
     </span>
