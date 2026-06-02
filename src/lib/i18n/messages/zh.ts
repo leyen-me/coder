@@ -49,6 +49,7 @@ export const zhMessages = {
     thinking: "思考过程",
     thinkingInProgress: "正在思考…",
     thinkingPlaceholder: "等待思考内容…",
+    thoughtForSeconds: "思考了 {duration} 秒",
     noModel: "未配置模型",
   },
   time: {

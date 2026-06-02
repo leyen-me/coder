@@ -50,6 +50,7 @@ export const enMessages = {
     thinking: "Thinking",
     thinkingInProgress: "Thinking…",
     thinkingPlaceholder: "Waiting for reasoning…",
+    thoughtForSeconds: "Thought for {duration} seconds",
     noModel: "No model configured",
   },
   time: {

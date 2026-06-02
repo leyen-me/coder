@@ -47,6 +47,7 @@ export type Messages = {
     thinking: string;
     thinkingInProgress: string;
     thinkingPlaceholder: string;
+    thoughtForSeconds: string;
     noModel: string;
   };
   time: {
