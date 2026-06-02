@@ -35,13 +35,13 @@ export function SettingsPage() {
         onSelectCategory={setSelectedCategory}
       />
 
-      <MainColumn>
-        <header className="flex h-12 shrink-0 items-center border-b px-6">
-          <h1 className="text-sm font-medium">
+      <MainColumn
+        titleBarLeading={
+          <h1 className="truncate text-sm font-medium">
             {t(`settings.categories.${selectedCategory}`)}
           </h1>
-        </header>
-
+        }
+      >
         <ScrollArea className="flex-1">
           <div className="mx-auto w-full max-w-2xl px-6 py-2">
             <Panel />

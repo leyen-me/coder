@@ -18,8 +18,8 @@ export function SessionTitleLabel({
   const { t } = useTranslation();
 
   const classNames = cn(
-    "min-w-0 flex-1 truncate",
-    variant === "header" ? "text-sm font-medium" : "text-sm",
+    "min-w-0 truncate",
+    variant === "header" ? "text-sm font-medium" : "flex-1 text-sm",
     isGenerating && "text-muted-foreground",
     className
   );

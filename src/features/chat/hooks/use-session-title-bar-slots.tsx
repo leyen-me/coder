@@ -1,13 +1,18 @@
 import { useMatch } from "react-router-dom";
 
+import { paths } from "@/app/paths";
 import { useIsSessionTitleGenerating } from "@/features/agent/session-title-store";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
-import { useSessionMessages } from "../hooks/use-session-messages";
-import { SessionTitleLabel } from "./session-title-label";
-import { SessionToolbar } from "./session-toolbar";
+import { SessionTitleLabel } from "../components/session-title-label";
+import { SessionToolbar } from "../components/session-toolbar";
+import { useSessionMessages } from "./use-session-messages";
 
-export function SessionHeader() {
+function isChatRoute(pathname: string): boolean {
+  return pathname === paths.chatNew || /^\/chat\/[^/]+$/.test(pathname);
+}
+
+export function useSessionTitleBarSlots(pathname: string) {
   const { t } = useTranslation();
   const chatMatch = useMatch("/chat/:chatId");
   const chatId =
@@ -17,19 +22,23 @@ export function SessionHeader() {
   const { session } = useSessionMessages(chatId ?? "");
   const isGeneratingTitle = useIsSessionTitleGenerating(chatId);
 
+  if (!isChatRoute(pathname)) {
+    return null;
+  }
+
   const title =
     chatId == null
       ? t("session.newChat")
       : session?.title ?? t("session.newChat");
 
-  return (
-    <header className="flex h-12 shrink-0 items-center justify-between border-b px-4">
+  return {
+    leading: (
       <SessionTitleLabel
         title={title}
         isGenerating={isGeneratingTitle}
         variant="header"
       />
-      <SessionToolbar />
-    </header>
-  );
+    ),
+    trailing: <SessionToolbar />,
+  };
 }
