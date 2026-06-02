@@ -13,6 +13,10 @@
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.9",
+    "@streamdown/cjk": "^1.0.3",
+    "@streamdown/code": "^1.1.1",
+    "@streamdown/math": "^1.0.2",
+    "@streamdown/mermaid": "^1.0.2",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "ai": "^6.0.194",
@@ -26,6 +30,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-router-dom": "^7.16.0",
+    "streamdown": "^2.5.0",
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
