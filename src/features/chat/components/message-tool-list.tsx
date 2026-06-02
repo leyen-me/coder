@@ -35,12 +35,8 @@ type MessageToolItemProps = {
 };
 
 function MessageToolItem({ invocation }: MessageToolItemProps) {
-  const isFinished =
-    invocation.state === "output-available" ||
-    invocation.state === "output-error";
-
   return (
-    <Tool defaultOpen={isFinished || invocation.state === "input-available"}>
+    <Tool defaultOpen={false}>
       <ToolHeader
         type="dynamic-tool"
         toolName={invocation.name}
