@@ -3,13 +3,8 @@ import {
   AttachmentPreview,
   Attachments,
 } from "@/components/ai-elements/attachments";
-import { MessageToolList } from "./message-tool-list";
-import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from "@/components/ai-elements/reasoning";
-import { Shimmer } from "@/components/ai-elements/shimmer";
+import { buildAssistantProcessSteps } from "./assistant-process";
+import { AssistantProcessView } from "./assistant-process-view";
 import {
   Message,
   MessageAction,
@@ -19,7 +14,11 @@ import {
 } from "@/components/ai-elements/message";
 import { paths } from "@/app/paths";
 import { forkSessionFromMessage } from "@/lib/db";
-import { normalizeToolInvocations, type MessageRecord } from "@/lib/db";
+import {
+  normalizeMessageProcessSteps,
+  normalizeToolInvocations,
+  type MessageRecord,
+} from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import { CopyIcon, GitForkIcon } from "lucide-react";
@@ -38,7 +37,17 @@ export function MessageItem({ message, sessionTitle }: MessageItemProps) {
   const isUser = message.role === "user";
   const isStreaming =
     message.status === "pending" || message.status === "streaming";
+  const persistedSteps = normalizeMessageProcessSteps(message.processSteps);
+  let latestAnswerText = "";
+  for (let index = persistedSteps.length - 1; index >= 0; index -= 1) {
+    const step = persistedSteps[index];
+    if (step?.kind === "answer") {
+      latestAnswerText = step.text;
+      break;
+    }
+  }
   const answerText =
+    latestAnswerText ||
     message.content ||
     (!isStreaming && message.thinking ? message.thinking : "");
   const hasThinking =
@@ -50,20 +59,18 @@ export function MessageItem({ message, sessionTitle }: MessageItemProps) {
     hasThinking || (Boolean(message.thinking) && isThinkingStreaming);
   const toolInvocations = normalizeToolInvocations(message.toolInvocations);
   const hasTools = toolInvocations.length > 0;
+  const processSteps = buildAssistantProcessSteps({
+    processSteps: message.processSteps,
+    answerText,
+    thinkingText: message.thinking,
+    isThinkingStreaming,
+    showReasoning,
+    toolInvocations,
+    isAnswerStreaming: isStreaming,
+    isMessageStreaming: isStreaming,
+  });
+  const showProcessTimeline = showReasoning || hasTools;
   const showActions = Boolean(answerText) && !isStreaming;
-
-  const getThinkingMessage = useCallback(
-    (streaming: boolean, duration?: number) => {
-      if (streaming || duration === 0) {
-        return <Shimmer duration={1}>{t("chat.thinkingInProgress")}</Shimmer>;
-      }
-      if (duration === undefined) {
-        return <p>{t("chat.thinking")}</p>;
-      }
-      return <p>{t("chat.thoughtForSeconds", { duration })}</p>;
-    },
-    [t]
-  );
 
   const handleCopy = useCallback(async () => {
     if (!answerText) {
@@ -124,16 +131,9 @@ export function MessageItem({ message, sessionTitle }: MessageItemProps) {
 
   return (
     <Message from="assistant">
-      {showReasoning ? (
-        <Reasoning className="w-full" isStreaming={isThinkingStreaming}>
-          <ReasoningTrigger getThinkingMessage={getThinkingMessage} />
-          <ReasoningContent>
-            {message.thinking || t("chat.thinkingPlaceholder")}
-          </ReasoningContent>
-        </Reasoning>
-      ) : null}
-      {hasTools ? <MessageToolList message={message} /> : null}
-      {answerText ? (
+      {showProcessTimeline ? (
+        <AssistantProcessView steps={processSteps} />
+      ) : answerText ? (
         <MessageContent className="group-[.is-assistant]:overflow-visible group-[.is-assistant]:bg-transparent group-[.is-assistant]:p-0">
           <MessageResponse isAnimating={isStreaming}>
             {answerText}

@@ -49,6 +49,7 @@ export async function forkSessionFromMessage(
         content: message.content,
         images: message.images,
         thinking: message.thinking,
+        processSteps: message.processSteps ?? [],
         toolInvocations: message.toolInvocations ?? [],
         status: normalizeForkedMessageStatus(message.status),
         taskId: null,

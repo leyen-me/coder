@@ -32,11 +32,12 @@ export function MessageToolList({ message }: MessageToolListProps) {
 
 type MessageToolItemProps = {
   invocation: MessageToolInvocation;
+  className?: string;
 };
 
-function MessageToolItem({ invocation }: MessageToolItemProps) {
+export function MessageToolItem({ invocation, className }: MessageToolItemProps) {
   return (
-    <Tool defaultOpen={false}>
+    <Tool className={className} defaultOpen={false}>
       <ToolHeader
         type="dynamic-tool"
         toolName={invocation.name}

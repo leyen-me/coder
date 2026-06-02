@@ -58,6 +58,7 @@ export const zhMessages = {
     thinkingInProgress: "正在思考…",
     thinkingPlaceholder: "等待思考内容…",
     thoughtForSeconds: "思考了 {duration} 秒",
+    answer: "回答",
     copyMessage: "复制",
     forkMessage: "Fork",
     forkSessionTitle: "Fork · {title}",

@@ -56,6 +56,7 @@ export type Messages = {
     thinkingInProgress: string;
     thinkingPlaceholder: string;
     thoughtForSeconds: string;
+    answer: string;
     copyMessage: string;
     forkMessage: string;
     forkSessionTitle: string;

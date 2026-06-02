@@ -17,6 +17,10 @@ describe("createStreamingBufferManager", () => {
     expect(manager.get("msg-1")).toEqual({
       content: "Hello",
       thinking: "hmm",
+      processSteps: [
+        { id: "answer:0", kind: "answer", text: "Hello" },
+        { id: "reasoning:1", kind: "reasoning", text: "hmm" },
+      ],
     });
     expect(onFlush).not.toHaveBeenCalled();
 
@@ -26,6 +30,10 @@ describe("createStreamingBufferManager", () => {
     expect(onFlush).toHaveBeenCalledWith("msg-1", {
       content: "Hello",
       thinking: "hmm",
+      processSteps: [
+        { id: "answer:0", kind: "answer", text: "Hello" },
+        { id: "reasoning:1", kind: "reasoning", text: "hmm" },
+      ],
     });
 
     vi.useRealTimers();
@@ -63,5 +71,29 @@ describe("createStreamingBufferManager", () => {
     expect(manager.getSnapshot().size).toBe(0);
 
     vi.useRealTimers();
+  });
+
+  it("splits reasoning around tool steps", () => {
+    const manager = createStreamingBufferManager({
+      onFlush: vi.fn().mockResolvedValue(undefined),
+      onChange: () => {},
+    });
+
+    manager.append("msg-1", "thinking", "先打个招呼。");
+    manager.append("msg-1", "content", "你好！让我先看看目录。");
+    manager.reclassifyTrailingAnswerStepAsReasoning("msg-1");
+    manager.pushToolStep("msg-1", "call_1");
+    manager.append("msg-1", "thinking", "目录读完了，再总结。");
+
+    expect(manager.get("msg-1")?.processSteps).toEqual([
+      { id: "reasoning:0", kind: "reasoning", text: "先打个招呼。" },
+      {
+        id: "answer:1",
+        kind: "reasoning",
+        text: "你好！让我先看看目录。",
+      },
+      { id: "tool:call_1", kind: "tool", toolCallId: "call_1" },
+      { id: "reasoning:3", kind: "reasoning", text: "目录读完了，再总结。" },
+    ]);
   });
 });

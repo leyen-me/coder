@@ -24,10 +24,8 @@ import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 import { runAgentWithTools } from "../agent-loop";
 import { buildAgentMessages } from "../build-agent-messages";
 import { createStreamingBufferManager } from "../streaming-buffer";
-import {
-  buildUserAgentContent,
-  fileUIPartsToStoredImages,
-} from "../message-content";
+import { fileUIPartsToStoredImages } from "../message-content";
+import { messageRecordToAgentMessages } from "../message-history";
 import type { FileUIPart } from "ai";
 import { ensureSessionWorkspaceForAgent } from "../ensure-session-workspace";
 import { resolveAgentEnvironment } from "../environment";
@@ -40,7 +38,6 @@ import {
 import { cancelAgent } from "../runner";
 import type {
   ActiveTaskState,
-  AgentChatMessage,
   AgentEvent,
   AgentStatus,
 } from "../types";
@@ -48,6 +45,7 @@ import type {
 export type StreamingMessageOverlay = {
   content: string;
   thinking: string;
+  processSteps: NonNullable<MessageRecord["processSteps"]>;
 };
 
 type AgentStoreValue = {
@@ -90,7 +88,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const snapshotRef = useRef<ReadonlyMap<string, ActiveTaskState>>(new Map());
   const listenersRef = useRef(new Set<() => void>());
   const streamingSnapshotRef = useRef<
-    ReadonlyMap<string, { content: string; thinking: string }>
+    ReadonlyMap<string, StreamingMessageOverlay>
   >(new Map());
   const streamingListenersRef = useRef(new Set<() => void>());
   const eventChainsRef = useRef(new Map<string, Promise<void>>());
@@ -153,13 +151,22 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     async (event: AgentEvent, assistantMessageId: string) => {
       switch (event.type) {
         case "tool_call_started":
-          await streamingBufferRef.current.flushAndClear(assistantMessageId);
+          // Keep the cumulative overlay alive across tool sub-turns so the UI
+          // continues to show earlier reasoning/content while later deltas stream in.
+          streamingBufferRef.current.reclassifyTrailingAnswerStepAsReasoning(
+            assistantMessageId
+          );
+          await streamingBufferRef.current.flush(assistantMessageId);
           await addMessageToolInvocation(assistantMessageId, {
             id: event.toolCallId,
             name: event.name,
             input: event.input,
             state: "input-available",
           });
+          streamingBufferRef.current.pushToolStep(
+            assistantMessageId,
+            event.toolCallId
+          );
           await setMessageStatus(assistantMessageId, "streaming");
           return;
         case "tool_call_finished":
@@ -311,6 +318,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         content: trimmed,
         images: storedImages.length > 0 ? storedImages : undefined,
         thinking: "",
+        processSteps: [],
         toolInvocations: [],
         status: "completed",
         taskId: null,
@@ -324,6 +332,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         role: "assistant",
         content: "",
         thinking: "",
+        processSteps: [],
         toolInvocations: [],
         status: "pending",
         taskId,
@@ -336,8 +345,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const environment = await resolveAgentEnvironment(workspaceDir);
       const history = buildAgentMessages(
         [
-          ...existingMessages.map(toAgentMessage),
-          toAgentMessage(userMessage),
+          ...existingMessages.flatMap(messageRecordToAgentMessages),
+          ...messageRecordToAgentMessages(userMessage),
         ],
         environment
       );
@@ -509,21 +518,4 @@ function scheduleSessionTitleGeneration(
   }).catch(() => {
     // best-effort
   });
-}
-
-function toAgentMessage(message: MessageRecord): AgentChatMessage {
-  if (message.role === "assistant") {
-    return {
-      role: message.role,
-      content: message.content.trim() || message.thinking.trim(),
-    };
-  }
-
-  return {
-    role: message.role,
-    content: buildUserAgentContent(
-      message.content,
-      message.images ?? []
-    ),
-  };
 }

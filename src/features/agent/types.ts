@@ -14,6 +14,7 @@ export type AgentChatMessage = {
   role: "user" | "assistant" | "system" | "tool";
   /** String for system/assistant/tool; string or multimodal parts for user (OpenAI format). */
   content?: AgentMessageContent;
+  reasoning_content?: string;
   tool_calls?: ApiToolCall[];
   tool_call_id?: string;
   name?: string;

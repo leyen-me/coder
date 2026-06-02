@@ -72,4 +72,19 @@ describe("buildAgentMessages", () => {
     expect(messages).toHaveLength(2);
     expect(messages[1]?.tool_calls).toHaveLength(1);
   });
+
+  it("keeps assistant messages that only contain reasoning content", () => {
+    const messages = buildAgentMessages(
+      [
+        {
+          role: "assistant",
+          reasoning_content: "先分析一下问题",
+        },
+      ],
+      environment
+    );
+
+    expect(messages).toHaveLength(2);
+    expect(messages[1]?.reasoning_content).toBe("先分析一下问题");
+  });
 });

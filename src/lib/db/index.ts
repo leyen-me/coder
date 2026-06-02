@@ -1,5 +1,6 @@
 export * from "./client";
 export * from "./constants";
+export * from "./message-process";
 export * from "./normalize-session";
 export * from "./fork-session";
 export * from "./format-relative-time";

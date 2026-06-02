@@ -49,7 +49,13 @@ export async function updateMessage(
   patch: Partial<
     Pick<
       MessageRecord,
-      "content" | "thinking" | "status" | "error" | "taskId" | "toolInvocations"
+      | "content"
+      | "thinking"
+      | "processSteps"
+      | "status"
+      | "error"
+      | "taskId"
+      | "toolInvocations"
     >
   >
 ): Promise<MessageRecord | null> {

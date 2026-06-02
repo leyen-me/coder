@@ -19,8 +19,11 @@ function hasMessagePayload(message: AgentChatMessage): boolean {
   if (message.role === "assistant") {
     const text =
       typeof message.content === "string" ? message.content : undefined;
+    const reasoning = message.reasoning_content;
     return (
-      Boolean(text?.trim()) || Boolean(message.tool_calls?.length)
+      Boolean(text?.trim()) ||
+      Boolean(reasoning?.trim()) ||
+      Boolean(message.tool_calls?.length)
     );
   }
 

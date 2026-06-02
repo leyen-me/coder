@@ -80,6 +80,7 @@ pub async fn generate_session_title(
         ChatMessage {
             role: "system".to_string(),
             content: Some(Value::String(SESSION_TITLE_SYSTEM_PROMPT.to_string())),
+            reasoning_content: None,
             tool_calls: None,
             tool_call_id: None,
             name: None,
@@ -87,6 +88,7 @@ pub async fn generate_session_title(
         ChatMessage {
             role: "user".to_string(),
             content: Some(Value::String(user_prompt)),
+            reasoning_content: None,
             tool_calls: None,
             tool_call_id: None,
             name: None,

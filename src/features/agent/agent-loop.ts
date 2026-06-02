@@ -7,7 +7,7 @@ import { parseToolCallInput, toolResultToInvocationPatch } from "./tools/tool-di
 import { toApiToolCalls } from "./tools/api-tool-call";
 import type { AgentToolCall } from "./tools/types";
 import { startAgent } from "./runner";
-import type { AgentEvent, AgentEventHandler, AgentStartInput } from "./types";
+import type { AgentChatMessage, AgentEvent, AgentEventHandler, AgentStartInput } from "./types";
 import { MAX_AGENT_TOOL_ITERATIONS } from "./types";
 
 type ToolExecutionContextInput = {
@@ -24,7 +24,7 @@ export async function runAgentWithTools(
   const tools = input.tools ?? getAgentToolDefinitions();
 
   for (let iteration = 0; iteration < MAX_AGENT_TOOL_ITERATIONS; iteration += 1) {
-    const toolCalls = await runSingleAgentTurn(
+    const turn = await runSingleAgentTurn(
       {
         ...input,
         messages,
@@ -39,7 +39,7 @@ export async function runAgentWithTools(
       }
     );
 
-    if (toolCalls.length === 0) {
+    if (turn.toolCalls.length === 0) {
       onEvent({ type: "done", taskId: input.taskId });
       onEvent({ type: "status", taskId: input.taskId, status: "completed" });
       return;
@@ -51,7 +51,7 @@ export async function runAgentWithTools(
 
     messages = await appendToolResults(
       messages,
-      toolCalls,
+      turn,
       { workspaceDir: context.workspaceDir, taskId: input.taskId },
       onEvent
     );
@@ -61,9 +61,19 @@ export async function runAgentWithTools(
 async function runSingleAgentTurn(
   input: AgentStartInput,
   onEvent: AgentEventHandler
-): Promise<AgentToolCall[]> {
-  return new Promise<AgentToolCall[]>((resolve, reject) => {
+): Promise<{
+  toolCalls: AgentToolCall[];
+  content: string;
+  reasoningContent: string;
+}> {
+  return new Promise<{
+    toolCalls: AgentToolCall[];
+    content: string;
+    reasoningContent: string;
+  }>((resolve, reject) => {
     let toolCalls: AgentToolCall[] = [];
+    let content = "";
+    let reasoningContent = "";
     let settled = false;
 
     const finish = (handler: () => void) => {
@@ -75,6 +85,18 @@ async function runSingleAgentTurn(
     };
 
     void startAgent(input, (event) => {
+      if (event.type === "thinking_delta") {
+        reasoningContent += event.delta;
+        onEvent(event);
+        return;
+      }
+
+      if (event.type === "content_delta") {
+        content += event.delta;
+        onEvent(event);
+        return;
+      }
+
       if (event.type === "turn_complete") {
         toolCalls = event.toolCalls;
         return;
@@ -86,7 +108,7 @@ async function runSingleAgentTurn(
 
       if (event.type === "status") {
         if (event.status === "completed") {
-          finish(() => resolve(toolCalls));
+          finish(() => resolve({ toolCalls, content, reasoningContent }));
           return;
         }
 
@@ -121,19 +143,31 @@ function isAssistantOutputEvent(event: AgentEvent): boolean {
 
 async function appendToolResults(
   messages: AgentStartInput["messages"],
-  toolCalls: AgentToolCall[],
+  turn: {
+    toolCalls: AgentToolCall[];
+    content: string;
+    reasoningContent: string;
+  },
   context: ToolExecutionContextInput,
   onEvent: AgentEventHandler
 ): Promise<AgentStartInput["messages"]> {
+  const assistantMessage: AgentChatMessage = {
+    role: "assistant",
+    tool_calls: toApiToolCalls(turn.toolCalls),
+  };
+  if (turn.content.trim()) {
+    assistantMessage.content = turn.content;
+  }
+  if (turn.reasoningContent.trim()) {
+    assistantMessage.reasoning_content = turn.reasoningContent;
+  }
+
   const nextMessages = [
     ...messages,
-    {
-      role: "assistant" as const,
-      tool_calls: toApiToolCalls(toolCalls),
-    },
+    assistantMessage,
   ];
 
-  for (const call of toolCalls) {
+  for (const call of turn.toolCalls) {
     const input = parseToolCallInput(call.arguments);
 
     onEvent({

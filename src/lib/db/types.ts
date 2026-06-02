@@ -32,6 +32,18 @@ export type MessageToolInvocation = {
   state: MessageToolState;
 };
 
+export type MessageProcessStep =
+  | {
+      id: string;
+      kind: "reasoning" | "answer";
+      text: string;
+    }
+  | {
+      id: string;
+      kind: "tool";
+      toolCallId: string;
+    };
+
 /** Persisted user image (data URL) for chat history and agent replay. */
 export type MessageImageAttachment = {
   id: string;
@@ -48,6 +60,7 @@ export type MessageRecord = {
   /** User-uploaded images only; empty for assistant messages. */
   images?: MessageImageAttachment[];
   thinking: string;
+  processSteps?: MessageProcessStep[];
   toolInvocations: MessageToolInvocation[];
   status: MessageStatus;
   taskId: string | null;
