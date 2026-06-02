@@ -143,11 +143,7 @@ pub async fn stream_chat_completion(
 }
 
 /// Returns true when the stream is finished ([DONE]).
-fn process_sse_line(
-    line: &str,
-    task_id: &str,
-    emit: &mut impl FnMut(AgentEvent),
-) -> bool {
+fn process_sse_line(line: &str, task_id: &str, emit: &mut impl FnMut(AgentEvent)) -> bool {
     if line.is_empty() || line.starts_with(':') {
         return false;
     }

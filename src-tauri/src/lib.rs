@@ -3,10 +3,10 @@ mod window_chrome;
 
 use std::sync::Mutex;
 
+use agent::registry::AgentRegistry;
 use agent::{
     agent_cancel, agent_generate_session_title, agent_get_status, agent_start, AgentState,
 };
-use agent::registry::AgentRegistry;
 use tauri::Manager;
 
 const MAIN_WINDOW_LABEL: &str = "main";
@@ -24,11 +24,9 @@ fn configure_main_window(app: &tauri::App) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .manage(AgentState(
-            Mutex::new(
-                AgentRegistry::new().expect("failed to initialize agent registry"),
-            ),
-        ))
+        .manage(AgentState(Mutex::new(
+            AgentRegistry::new().expect("failed to initialize agent registry"),
+        )))
         .setup(|app| {
             configure_main_window(app);
             Ok(())

@@ -1,7 +1,9 @@
 //! Platform-specific native window chrome customization.
 
+use tauri::WebviewWindow;
+
 /// Applies the host platform's native window chrome policies.
-pub fn apply(window: &tauri::WebviewWindow) {
+pub fn apply(window: &WebviewWindow) {
     #[cfg(windows)]
     windows::apply_round_corners(window);
 

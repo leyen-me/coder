@@ -51,6 +51,7 @@
 
 :root {
     --radius: 0.5rem;
+    --window-radius: 10px;
     --background: #FAFAFA;
     --foreground: #171717;
     --card: #FFFFFF;
@@ -131,10 +132,10 @@
   html,
   body,
   #root {
-    @apply h-full overflow-hidden;
+    @apply h-full overflow-hidden bg-transparent;
   }
   body {
-    @apply bg-background font-sans text-foreground;
+    @apply font-sans text-foreground;
     font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
     }
 }

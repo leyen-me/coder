@@ -7,9 +7,7 @@ use std::sync::Mutex;
 use registry::{generate_session_title, AgentRegistry};
 use tauri::ipc::Channel;
 use tauri::State;
-pub use types::{
-    AgentEvent, AgentStartParams, AgentStatusResponse, GenerateSessionTitleParams,
-};
+pub use types::{AgentEvent, AgentStartParams, AgentStatusResponse, GenerateSessionTitleParams};
 
 pub struct AgentState(pub Mutex<AgentRegistry>);
 
@@ -18,7 +16,10 @@ pub fn agent_get_status(
     state: State<'_, AgentState>,
     task_id: String,
 ) -> Result<Option<AgentStatusResponse>, String> {
-    let registry = state.0.lock().map_err(|_| "Agent registry lock poisoned".to_string())?;
+    let registry = state
+        .0
+        .lock()
+        .map_err(|_| "Agent registry lock poisoned".to_string())?;
     Ok(registry.get_status(&task_id))
 }
 
