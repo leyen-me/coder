@@ -41,7 +41,7 @@ export function MessageItem({ message }: MessageItemProps) {
         />
       )}
       {answerText ? (
-        <MessageContent className="group-[.is-assistant]:bg-transparent group-[.is-assistant]:p-0">
+        <MessageContent className="group-[.is-assistant]:overflow-visible group-[.is-assistant]:bg-transparent group-[.is-assistant]:p-0">
           <MessageResponse isAnimating={isStreaming}>
             {answerText}
           </MessageResponse>

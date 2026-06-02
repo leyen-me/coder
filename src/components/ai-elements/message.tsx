@@ -324,19 +324,22 @@ export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 const streamdownPlugins = { cjk, code, math, mermaid };
 
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
+  ({ className, animated, isAnimating, ...props }: MessageResponseProps) => (
     <Streamdown
+      animated={animated ?? isAnimating}
       className={cn(
         "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         className
       )}
+      isAnimating={isAnimating}
       plugins={streamdownPlugins}
       {...props}
     />
   ),
   (prevProps, nextProps) =>
     prevProps.children === nextProps.children &&
-    nextProps.isAnimating === prevProps.isAnimating
+    prevProps.isAnimating === nextProps.isAnimating &&
+    prevProps.animated === nextProps.animated
 );
 
 MessageResponse.displayName = "MessageResponse";
