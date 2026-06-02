@@ -11,6 +11,7 @@ import { useMatch } from "react-router-dom";
 
 import { paths } from "@/app/paths";
 import { APP_SIDEBAR_WIDTH_PX } from "@/components/layout/constants";
+import { TitleBarDragRegion } from "@/components/layout/title-bar-drag-region";
 import { Separator } from "@/components/ui/separator";
 import { useGeneratingSessionTitles } from "@/features/agent/session-title-store";
 import { useChatSessions } from "@/features/chat/hooks/use-chat-sessions";
@@ -44,7 +45,7 @@ export function AppSidebar({ open }: AppSidebarProps) {
       <div
         style={{ width: open ? APP_SIDEBAR_WIDTH_PX : 0 }}
         className={cn(
-          "shrink-0 overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width,border-color] duration-300 ease-in-out",
+          "flex h-full shrink-0 overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width,border-color] duration-300 ease-in-out",
           !open && "border-transparent"
         )}
         aria-hidden={!open}
@@ -56,7 +57,9 @@ export function AppSidebar({ open }: AppSidebarProps) {
             open ? "opacity-100" : "pointer-events-none opacity-0"
           )}
         >
-          <nav className="flex shrink-0 flex-col gap-0.5 px-2 pb-2 pt-2">
+          <TitleBarDragRegion className="h-11 w-full shrink-0 flex-none" />
+
+          <nav className="flex shrink-0 flex-col gap-0.5 px-2 pb-2">
             <SidebarNavItem
               icon={Plus}
               label={t("sidebar.newChat")}

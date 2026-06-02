@@ -2,6 +2,7 @@ import { useState, type ComponentType } from "react";
 import { useOutletContext } from "react-router-dom";
 
 import type { ShellOutletContext } from "@/app/shell-outlet-context";
+import { MainColumn } from "@/components/layout/main-column";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
@@ -34,7 +35,7 @@ export function SettingsPage() {
         onSelectCategory={setSelectedCategory}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <MainColumn>
         <header className="flex h-12 shrink-0 items-center border-b px-6">
           <h1 className="text-sm font-medium">
             {t(`settings.categories.${selectedCategory}`)}
@@ -46,7 +47,7 @@ export function SettingsPage() {
             <Panel />
           </div>
         </ScrollArea>
-      </div>
+      </MainColumn>
     </>
   );
 }

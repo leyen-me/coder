@@ -1,34 +1,37 @@
 import { ArrowLeft, ArrowRight, PanelLeft } from "lucide-react";
 
 import { useTranslation } from "@/lib/i18n/locale-provider";
+import { cn } from "@/lib/utils";
 
 import { TITLE_BAR_CLASS } from "./constants";
-import { TitleBarDragRegion } from "./title-bar-drag-region";
 import { TitleBarNavButton } from "./title-bar-nav-button";
-import { WindowControls } from "./window-controls";
 
-type TitleBarProps = {
+type FloatingShellNavProps = {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   onBack?: () => void;
 };
 
-export function TitleBar({
+/** Window nav controls that float above the shell; unaffected by sidebar collapse. */
+export function FloatingShellNav({
   isSidebarOpen,
   onToggleSidebar,
   onBack,
-}: TitleBarProps) {
+}: FloatingShellNavProps) {
   const { t } = useTranslation();
 
   return (
     <header
-      className={`flex ${TITLE_BAR_CLASS} items-stretch overflow-hidden border-b bg-background`}
+      className={cn(
+        TITLE_BAR_CLASS,
+        "pointer-events-none absolute left-0 top-0 z-50 flex items-center",
+      )}
       role="banner"
       aria-label={t("titleBar.ariaLabel")}
     >
       <nav
         aria-label={t("titleBar.windowNav")}
-        className="flex items-center gap-0.5 self-center pl-2"
+        className="pointer-events-auto flex items-center gap-0.5 pl-2"
       >
         <TitleBarNavButton
           label={t("titleBar.toggleSidebar")}
@@ -43,10 +46,6 @@ export function TitleBar({
         />
         <TitleBarNavButton label={t("titleBar.forward")} icon={ArrowRight} />
       </nav>
-
-      <TitleBarDragRegion />
-
-      <WindowControls />
     </header>
   );
 }

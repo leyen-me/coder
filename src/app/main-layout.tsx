@@ -1,5 +1,6 @@
 import { Outlet, useLocation, useOutletContext } from "react-router-dom";
 
+import { MainColumn } from "@/components/layout/main-column";
 import { AppSidebar } from "@/features/chat/components/app-sidebar";
 import { SessionHeader } from "@/features/chat/components/session-header";
 
@@ -19,10 +20,12 @@ export function MainLayout() {
     <>
       <AppSidebar open={sidebarOpen} />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <MainColumn>
         {isChatRoute(pathname) ? <SessionHeader /> : null}
-        <Outlet />
-      </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <Outlet />
+        </div>
+      </MainColumn>
     </>
   );
 }

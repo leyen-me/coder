@@ -1,4 +1,5 @@
 import { APP_SIDEBAR_WIDTH_PX } from "@/components/layout/constants";
+import { TitleBarDragRegion } from "@/components/layout/title-bar-drag-region";
 import { SidebarNavItem } from "@/features/chat/components/sidebar-nav-item";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -23,7 +24,7 @@ export function SettingsSidebar({
     <div
       style={{ width: open ? APP_SIDEBAR_WIDTH_PX : 0 }}
       className={cn(
-        "shrink-0 overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width,border-color] duration-300 ease-in-out",
+        "flex h-full shrink-0 overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width,border-color] duration-300 ease-in-out",
         !open && "border-transparent"
       )}
       aria-hidden={!open}
@@ -35,7 +36,9 @@ export function SettingsSidebar({
           open ? "opacity-100" : "pointer-events-none opacity-0"
         )}
       >
-        <div className="flex h-12 shrink-0 items-center border-b border-sidebar-border px-4">
+        <TitleBarDragRegion className="h-11 w-full shrink-0 flex-none" />
+
+        <div className="flex shrink-0 items-center px-4 pb-2">
           <h2 className="text-sm font-semibold">{t("settings.title")}</h2>
         </div>
 

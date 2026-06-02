@@ -1,6 +1,6 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
-import { TitleBar } from "@/components/layout/title-bar";
+import { FloatingShellNav } from "@/components/layout/floating-shell-nav";
 import { useSidebarOpen } from "@/features/chat/hooks/use-sidebar-open";
 import { useAppWindow } from "@/lib/tauri/use-app-window";
 import { useWindowMaximized } from "@/lib/tauri/use-window-maximized";
@@ -32,17 +32,17 @@ export function AppShell() {
   return (
     <div
       className={cn(
-        "flex h-svh flex-col overflow-hidden bg-background",
+        "relative flex h-svh flex-row overflow-hidden bg-background",
         useRoundedShell && "rounded-[var(--window-radius)]",
       )}
     >
-      <TitleBar
+      <FloatingShellNav
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={toggleSidebar}
         onBack={handleBack}
       />
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
         <Outlet context={shellContext} />
       </div>
     </div>
