@@ -42,6 +42,7 @@ type PromptComposerProps = {
   showWorkspaceControls?: boolean;
   workspaceName?: string | null;
   onPickWorkspace?: () => void;
+  isGitRepository?: boolean;
   gitBranch?: string | null;
   gitBranches?: readonly string[];
   onGitBranchChange?: (branch: string) => void;
@@ -73,6 +74,7 @@ export function PromptComposer({
   showWorkspaceControls = true,
   workspaceName,
   onPickWorkspace,
+  isGitRepository = false,
   gitBranch,
   gitBranches = [],
   onGitBranchChange,
@@ -86,9 +88,7 @@ export function PromptComposer({
   const canSend = value.trim().length > 0;
   const submitStatus = resolveSubmitStatus(isRunning, Boolean(onStop));
   const showBranch =
-    showWorkspaceControls &&
-    Boolean(gitBranches.length || gitBranch) &&
-    Boolean(onGitBranchChange);
+    showWorkspaceControls && isGitRepository && Boolean(onGitBranchChange);
 
   const handleSubmit = useCallback(
     (_message: PromptInputMessage) => {

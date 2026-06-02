@@ -80,8 +80,9 @@ export function NewChatView() {
         showWorkspaceControls
         workspaceName={gitControls.workspaceName ?? workspaceName}
         onPickWorkspace={() => {
-          void pickWorkspace().then(() => gitControls.refreshGit());
+          void pickWorkspace();
         }}
+        isGitRepository={gitControls.isGitRepository}
         gitBranch={gitControls.gitBranch}
         gitBranches={gitControls.gitBranches}
         onGitBranchChange={(branch) => {

@@ -100,10 +100,9 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             showWorkspaceControls={canEditWorkspace}
             workspaceName={workspaceName}
             onPickWorkspace={() => {
-              void workspaceBinding.handlePickWorkspace().then(() =>
-                gitControls.refreshGit()
-              );
+              void workspaceBinding.handlePickWorkspace();
             }}
+            isGitRepository={gitControls.isGitRepository}
             gitBranch={gitControls.gitBranch}
             gitBranches={gitControls.gitBranches}
             onGitBranchChange={(branch) => {

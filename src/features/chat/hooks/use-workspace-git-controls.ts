@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   checkoutGitBranch,
@@ -28,51 +28,79 @@ export function useWorkspaceGitControls({
 }: UseWorkspaceGitControlsInput): UseWorkspaceGitControlsResult {
   const [gitState, setGitState] = useState<GitBranchesResponse | null>(null);
   const [isGitLoading, setIsGitLoading] = useState(false);
+  const workspaceDirRef = useRef(workspaceDir);
+  workspaceDirRef.current = workspaceDir;
 
-  const refreshGit = useCallback(async () => {
-    if (!enabled || !workspaceDir?.trim()) {
+  const loadGitState = useCallback(async (targetDir: string | null) => {
+    const trimmed = targetDir?.trim() ?? "";
+    if (!trimmed) {
       setGitState(null);
+      setIsGitLoading(false);
       return;
     }
 
     setIsGitLoading(true);
     try {
-      const response = await fetchGitBranches(workspaceDir.trim());
-      setGitState(response);
+      const response = await fetchGitBranches(trimmed);
+      if (workspaceDirRef.current?.trim() === trimmed) {
+        setGitState(response);
+      }
     } finally {
-      setIsGitLoading(false);
+      if (workspaceDirRef.current?.trim() === trimmed) {
+        setIsGitLoading(false);
+      }
     }
-  }, [enabled, workspaceDir]);
+  }, []);
+
+  const refreshGit = useCallback(async () => {
+    if (!enabled) {
+      setGitState(null);
+      setIsGitLoading(false);
+      return;
+    }
+
+    await loadGitState(workspaceDirRef.current);
+  }, [enabled, loadGitState]);
 
   useEffect(() => {
-    void refreshGit();
-  }, [refreshGit]);
+    if (!enabled) {
+      setGitState(null);
+      setIsGitLoading(false);
+      return;
+    }
+
+    const trimmed = workspaceDir?.trim() ?? "";
+    setGitState(null);
+
+    if (!trimmed) {
+      setIsGitLoading(false);
+      return;
+    }
+
+    void loadGitState(trimmed);
+  }, [enabled, loadGitState, workspaceDir]);
 
   const checkoutBranch = useCallback(
     async (branch: string) => {
-      if (!workspaceDir?.trim()) {
+      const trimmed = workspaceDirRef.current?.trim();
+      if (!trimmed) {
         return;
       }
 
-      await checkoutGitBranch(workspaceDir.trim(), branch);
-      await refreshGit();
+      await checkoutGitBranch(trimmed, branch);
+      await loadGitState(trimmed);
     },
-    [refreshGit, workspaceDir]
+    [loadGitState]
   );
 
   const currentBranch = gitState?.currentBranch ?? null;
-  const branches =
-    gitState?.branches.length
-      ? gitState.branches
-      : currentBranch
-        ? [currentBranch]
-        : [];
+  const branches = gitState?.branches ?? [];
 
   return {
     workspaceName: workspaceDir ? getWorkspaceDisplayName(workspaceDir) : null,
     gitBranch: currentBranch,
     gitBranches: branches,
-    isGitRepository: Boolean(gitState?.branches.length || currentBranch),
+    isGitRepository: branches.length > 0,
     isGitLoading,
     checkoutBranch,
     refreshGit,
