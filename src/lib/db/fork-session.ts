@@ -47,6 +47,7 @@ export async function forkSessionFromMessage(
         sessionId: forkedSession.id,
         role: message.role,
         content: message.content,
+        images: message.images,
         thinking: message.thinking,
         toolInvocations: message.toolInvocations ?? [],
         status: normalizeForkedMessageStatus(message.status),

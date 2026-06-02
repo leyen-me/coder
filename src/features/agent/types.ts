@@ -1,3 +1,4 @@
+import type { AgentMessageContent } from "./message-content";
 import type { AgentToolCall, AgentToolDefinition } from "./tools/types";
 import type { ApiToolCall } from "./tools/api-tool-call";
 
@@ -11,7 +12,8 @@ export type AgentStatus =
 
 export type AgentChatMessage = {
   role: "user" | "assistant" | "system" | "tool";
-  content?: string;
+  /** String for system/assistant/tool; string or multimodal parts for user (OpenAI format). */
+  content?: AgentMessageContent;
   tool_calls?: ApiToolCall[];
   tool_call_id?: string;
   name?: string;

@@ -1,3 +1,4 @@
+import type { FileUIPart } from "ai";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -31,9 +32,10 @@ export function NewChatView() {
     enabled: true,
   });
 
-  const handleSend = async () => {
-    const trimmed = prompt.trim();
-    if (!trimmed || isSubmitting) {
+  const handleSend = async (payload: { text: string; files: FileUIPart[] }) => {
+    const trimmed = payload.text.trim();
+    const hasImages = payload.files.length > 0;
+    if ((!trimmed && !hasImages) || isSubmitting) {
       return;
     }
 
@@ -49,6 +51,7 @@ export function NewChatView() {
       await sendMessage({
         sessionId: session.id,
         content: trimmed,
+        images: payload.files,
         model,
       });
     } finally {
@@ -71,8 +74,8 @@ export function NewChatView() {
       <PromptComposer
         value={prompt}
         onChange={setPrompt}
-        onSend={() => {
-          void handleSend();
+        onSend={(payload) => {
+          void handleSend(payload);
         }}
         model={model}
         models={resolved.models}

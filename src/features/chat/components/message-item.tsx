@@ -1,3 +1,8 @@
+import {
+  Attachment,
+  AttachmentPreview,
+  Attachments,
+} from "@/components/ai-elements/attachments";
 import { MessageToolList } from "./message-tool-list";
 import {
   Reasoning,
@@ -89,9 +94,30 @@ export function MessageItem({ message, sessionTitle }: MessageItemProps) {
   }, [isForking, message.id, message.sessionId, navigate, sessionTitle, t]);
 
   if (isUser) {
+    const images = message.images ?? [];
     return (
       <Message from="user">
-        <MessageContent>{message.content}</MessageContent>
+        <MessageContent className="gap-2">
+          {images.length > 0 ? (
+            <Attachments className="w-fit" variant="grid">
+              {images.map((image) => (
+                <Attachment
+                  data={{
+                    id: image.id,
+                    type: "file",
+                    url: image.url,
+                    ...(image.filename ? { filename: image.filename } : {}),
+                    mediaType: image.mediaType ?? "application/octet-stream",
+                  }}
+                  key={image.id}
+                >
+                  <AttachmentPreview />
+                </Attachment>
+              ))}
+            </Attachments>
+          ) : null}
+          {message.content ? <span>{message.content}</span> : null}
+        </MessageContent>
       </Message>
     );
   }

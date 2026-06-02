@@ -28,6 +28,27 @@ describe("buildAgentMessages", () => {
     expect(messages[1]).toEqual({ role: "user", content: "你好" });
   });
 
+  it("keeps user messages that only contain images", () => {
+    const messages = buildAgentMessages(
+      [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: "data:image/png;base64,abc" },
+            },
+          ],
+        },
+      ],
+      environment
+    );
+
+    expect(messages).toHaveLength(2);
+    expect(messages[1]?.role).toBe("user");
+    expect(Array.isArray(messages[1]?.content)).toBe(true);
+  });
+
   it("keeps assistant messages that only contain tool calls", () => {
     const messages = buildAgentMessages(
       [

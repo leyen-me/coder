@@ -1,5 +1,6 @@
 import { buildSystemPrompt } from "./environment/build-system-prompt";
 import type { AgentEnvironment } from "./environment/types";
+import { hasAgentMessageContent } from "./message-content";
 import type { AgentChatMessage } from "./types";
 
 export function buildAgentMessages(
@@ -16,15 +17,18 @@ export function buildAgentMessages(
 
 function hasMessagePayload(message: AgentChatMessage): boolean {
   if (message.role === "assistant") {
+    const text =
+      typeof message.content === "string" ? message.content : undefined;
     return (
-      Boolean(message.content?.trim()) ||
-      Boolean(message.tool_calls?.length)
+      Boolean(text?.trim()) || Boolean(message.tool_calls?.length)
     );
   }
 
   if (message.role === "tool") {
-    return Boolean(message.content?.trim());
+    const text =
+      typeof message.content === "string" ? message.content : undefined;
+    return Boolean(text?.trim());
   }
 
-  return Boolean(message.content?.trim());
+  return hasAgentMessageContent(message.content);
 }

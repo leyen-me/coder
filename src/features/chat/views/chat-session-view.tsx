@@ -1,3 +1,4 @@
+import type { FileUIPart } from "ai";
 import { useEffect, useState } from "react";
 
 import { resolveDefaultModel } from "@/features/agent/model-preference";
@@ -44,9 +45,10 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     }
   }, [session?.model]);
 
-  const handleSend = async () => {
-    const trimmed = prompt.trim();
-    if (!trimmed || isRunning) {
+  const handleSend = async (payload: { text: string; files: FileUIPart[] }) => {
+    const trimmed = payload.text.trim();
+    const hasImages = payload.files.length > 0;
+    if ((!trimmed && !hasImages) || isRunning) {
       return;
     }
 
@@ -56,6 +58,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       await sendMessage({
         sessionId: chatId,
         content: trimmed,
+        images: payload.files,
         model,
       });
     } finally {
@@ -90,8 +93,8 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
           <PromptComposer
             value={prompt}
             onChange={setPrompt}
-            onSend={() => {
-              void handleSend();
+            onSend={(payload) => {
+              void handleSend(payload);
             }}
             onStop={handleStop}
             model={model}

@@ -32,11 +32,21 @@ export type MessageToolInvocation = {
   state: MessageToolState;
 };
 
+/** Persisted user image (data URL) for chat history and agent replay. */
+export type MessageImageAttachment = {
+  id: string;
+  filename?: string;
+  mediaType?: string;
+  url: string;
+};
+
 export type MessageRecord = {
   id: string;
   sessionId: string;
   role: MessageRole;
   content: string;
+  /** User-uploaded images only; empty for assistant messages. */
+  images?: MessageImageAttachment[];
   thinking: string;
   toolInvocations: MessageToolInvocation[];
   status: MessageStatus;

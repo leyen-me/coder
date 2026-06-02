@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use reqwest::Client;
+use serde_json::Value;
 use tauri::ipc::Channel;
 use tokio_util::sync::CancellationToken;
 
@@ -78,14 +79,14 @@ pub async fn generate_session_title(
     let messages = vec![
         ChatMessage {
             role: "system".to_string(),
-            content: Some(SESSION_TITLE_SYSTEM_PROMPT.to_string()),
+            content: Some(Value::String(SESSION_TITLE_SYSTEM_PROMPT.to_string())),
             tool_calls: None,
             tool_call_id: None,
             name: None,
         },
         ChatMessage {
             role: "user".to_string(),
-            content: Some(user_prompt),
+            content: Some(Value::String(user_prompt)),
             tool_calls: None,
             tool_call_id: None,
             name: None,

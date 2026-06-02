@@ -1,4 +1,4 @@
-import type { ChatStatus } from "ai";
+import type { ChatStatus, FileUIPart } from "ai";
 import { ChevronDownIcon, FolderOpenIcon, GitBranchIcon, PlusIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -47,7 +47,7 @@ type PromptInputAttachmentError = {
 type PromptComposerProps = {
   value: string;
   onChange: (value: string) => void;
-  onSend?: () => void;
+  onSend?: (payload: { text: string; files: FileUIPart[] }) => void;
   onStop?: () => void;
   model: string;
   models: readonly string[];
@@ -195,7 +195,10 @@ export function PromptComposer({
         return;
       }
 
-      onSend?.();
+      onSend?.({
+        text: message.text.trim(),
+        files: message.files,
+      });
     },
     [isRunning, onSend]
   );

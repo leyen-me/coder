@@ -23,6 +23,11 @@ import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
 import { runAgentWithTools } from "../agent-loop";
 import { buildAgentMessages } from "../build-agent-messages";
+import {
+  buildUserAgentContent,
+  fileUIPartsToStoredImages,
+} from "../message-content";
+import type { FileUIPart } from "ai";
 import { ensureSessionWorkspaceForAgent } from "../ensure-session-workspace";
 import { resolveAgentEnvironment } from "../environment";
 import { applyGeneratedSessionTitle } from "../generate-session-title";
@@ -47,6 +52,7 @@ type AgentStoreValue = {
     sessionId: string;
     content: string;
     model: string;
+    images?: readonly FileUIPart[];
   }) => Promise<{ userMessageId: string; assistantMessageId: string; taskId: string }>;
   cancelTask: (taskId: string) => Promise<void>;
 };
@@ -222,9 +228,11 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       sessionId: string;
       content: string;
       model: string;
+      images?: readonly FileUIPart[];
     }) => {
       const trimmed = input.content.trim();
-      if (!trimmed) {
+      const storedImages = fileUIPartsToStoredImages(input.images ?? []);
+      if (!trimmed && storedImages.length === 0) {
         throw new Error("Message content is required");
       }
 
@@ -236,6 +244,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         sessionId: input.sessionId,
         role: "user",
         content: trimmed,
+        images: storedImages.length > 0 ? storedImages : undefined,
         thinking: "",
         toolInvocations: [],
         status: "completed",
@@ -276,7 +285,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         error: null,
         isFirstTurn: existingMessages.length === 0,
         model: input.model,
-        userContent: trimmed,
+        userContent:
+          trimmed ||
+          storedImages[0]?.filename?.trim() ||
+          "[image]",
       };
       tasksRef.current.set(taskId, activeTask);
       emit();
@@ -429,6 +441,9 @@ function toAgentMessage(message: MessageRecord): AgentChatMessage {
 
   return {
     role: message.role,
-    content: message.content.trim(),
+    content: buildUserAgentContent(
+      message.content,
+      message.images ?? []
+    ),
   };
 }
