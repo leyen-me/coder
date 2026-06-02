@@ -24,6 +24,7 @@ export const enMessages = {
     allChats: "All chats",
     filterChats: "Filter chats",
     showMore: "Show more",
+    agentRunning: "Agent running",
   },
   session: {
     newChat: "New chat",

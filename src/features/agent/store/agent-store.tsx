@@ -60,11 +60,16 @@ function isTerminalStatus(status: AgentStatus): boolean {
   );
 }
 
+function isActiveAgentTask(status: AgentStatus): boolean {
+  return !isTerminalStatus(status) && status !== "cancelling";
+}
+
 export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const { resolved } = useModelProvider();
   const resolvedRef = useRef(resolved);
   resolvedRef.current = resolved;
   const tasksRef = useRef(new Map<string, ActiveTaskState>());
+  const snapshotRef = useRef<ReadonlyMap<string, ActiveTaskState>>(new Map());
   const listenersRef = useRef(new Set<() => void>());
   const eventChainsRef = useRef(new Map<string, Promise<void>>());
 
@@ -76,12 +81,13 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   }, []);
 
   const emit = useCallback(() => {
+    snapshotRef.current = new Map(tasksRef.current);
     for (const listener of listenersRef.current) {
       listener();
     }
   }, []);
 
-  const getSnapshot = useCallback(() => tasksRef.current, []);
+  const getSnapshot = useCallback(() => snapshotRef.current, []);
 
   const activeTasks = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
@@ -298,11 +304,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const isSessionRunning = useCallback(
     (sessionId: string) => {
       for (const task of activeTasks.values()) {
-        if (
-          task.sessionId === sessionId &&
-          !isTerminalStatus(task.status) &&
-          task.status !== "cancelling"
-        ) {
+        if (task.sessionId === sessionId && isActiveAgentTask(task.status)) {
           return true;
         }
       }
@@ -347,6 +349,20 @@ export function useAgentStore(): AgentStoreValue {
     throw new Error("useAgentStore must be used within AgentStoreProvider");
   }
   return context;
+}
+
+export function useRunningSessionIds(): ReadonlySet<string> {
+  const { activeTasks } = useAgentStore();
+
+  return useMemo(() => {
+    const ids = new Set<string>();
+    for (const task of activeTasks.values()) {
+      if (isActiveAgentTask(task.status)) {
+        ids.add(task.sessionId);
+      }
+    }
+    return ids;
+  }, [activeTasks]);
 }
 
 function scheduleSessionTitleGeneration(

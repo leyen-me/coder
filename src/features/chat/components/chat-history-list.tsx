@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { paths } from "@/app/paths";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,7 @@ type ChatHistoryListProps = {
   items: ReadonlyArray<ChatHistoryItem>;
   selectedId: string | null;
   generatingTitleIds?: ReadonlySet<string>;
+  runningSessionIds?: ReadonlySet<string>;
   historyActive?: boolean;
 };
 
@@ -21,6 +23,7 @@ export function ChatHistoryList({
   items,
   selectedId,
   generatingTitleIds,
+  runningSessionIds,
   historyActive = false,
 }: ChatHistoryListProps) {
   const { t } = useTranslation();
@@ -52,17 +55,27 @@ export function ChatHistoryList({
         <ul className="flex w-full min-w-0 flex-col gap-0.5 pr-2">
           {items.map((item) => {
             const isGeneratingTitle = generatingTitleIds?.has(item.id) ?? false;
+            const isRunning = runningSessionIds?.has(item.id) ?? false;
 
             return (
               <li key={item.id} className="min-w-0">
                 <Link
                   to={paths.chat(item.id)}
                   className={cn(
-                    "grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm transition-colors hover:bg-sidebar-accent",
+                    "grid w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm transition-colors hover:bg-sidebar-accent",
+                    isRunning
+                      ? "grid-cols-[auto_minmax(0,1fr)_auto]"
+                      : "grid-cols-[minmax(0,1fr)_auto]",
                     selectedId === item.id &&
                       "bg-sidebar-accent text-sidebar-accent-foreground"
                   )}
                 >
+                  {isRunning ? (
+                    <Spinner
+                      className="size-3 shrink-0 text-muted-foreground"
+                      aria-label={t("sidebar.agentRunning")}
+                    />
+                  ) : null}
                   <SessionTitleLabel
                     title={item.title}
                     isGenerating={isGeneratingTitle}

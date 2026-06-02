@@ -22,6 +22,7 @@ export type Messages = {
     allChats: string;
     filterChats: string;
     showMore: string;
+    agentRunning: string;
   };
   session: {
     newChat: string;
