@@ -85,12 +85,14 @@ export function PromptComposer({
         "[&_[data-slot=input-group]]:border-border [&_[data-slot=input-group]]:bg-card",
         "[&_[data-slot=input-group]]:text-card-foreground [&_[data-slot=input-group]]:shadow-none",
         "[&_[data-slot=input-group]]:dark:bg-card [&_[data-slot=input-group]]:has-disabled:opacity-100",
-        "[&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:ring-2",
-        "[&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:ring-ring/25",
+        "[&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:border-border",
+        "[&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:ring-0",
         "[&_[data-slot=input-group-control]]:text-foreground",
-        "[&_[data-slot=input-group-control]]:disabled:cursor-not-allowed",
-        "[&_[data-slot=input-group-control]]:disabled:opacity-100",
-        isCompact && "[&_[data-slot=input-group]]:shadow-md",
+        "[&_[data-slot=input-group-control]:focus-visible]:border-transparent",
+        "[&_[data-slot=input-group-control]:focus-visible]:ring-0",
+        "[&_[data-slot=input-group-control]:disabled:cursor-not-allowed",
+        "[&_[data-slot=input-group-control]:disabled:opacity-100",
+        isCompact && "[&_[data-slot=input-group]]:shadow-sm",
         className
       )}
       onSubmit={handleSubmit}
