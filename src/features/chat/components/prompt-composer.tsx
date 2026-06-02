@@ -19,8 +19,10 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
+  usePromptInputAttachments,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
+import { PromptComposerAttachmentsHeader } from "./prompt-composer-attachments";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,6 +65,33 @@ function resolveSubmitStatus(
   return hasStopHandler ? "streaming" : "submitted";
 }
 
+type ComposerSubmitProps = {
+  value: string;
+  isRunning: boolean;
+  onStop?: () => void;
+  submitStatus: ChatStatus;
+};
+
+function ComposerSubmit({
+  value,
+  isRunning,
+  onStop,
+  submitStatus,
+}: ComposerSubmitProps) {
+  const attachments = usePromptInputAttachments();
+  const canSend =
+    value.trim().length > 0 || attachments.files.length > 0;
+
+  return (
+    <PromptInputSubmit
+      className="shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/90"
+      disabled={!canSend && !isRunning}
+      onStop={onStop}
+      status={submitStatus}
+    />
+  );
+}
+
 export function PromptComposer({
   value,
   onChange,
@@ -85,20 +114,25 @@ export function PromptComposer({
 }: PromptComposerProps) {
   const { t } = useTranslation();
   const isCompact = variant === "compact";
-  const canSend = value.trim().length > 0;
   const submitStatus = resolveSubmitStatus(isRunning, Boolean(onStop));
   const showBranch =
     showWorkspaceControls && isGitRepository && Boolean(onGitBranchChange);
 
   const handleSubmit = useCallback(
-    (_message: PromptInputMessage) => {
-      if (isRunning || !canSend) {
+    (message: PromptInputMessage) => {
+      if (isRunning) {
+        return;
+      }
+
+      const hasText = message.text.trim().length > 0;
+      const hasFiles = message.files.length > 0;
+      if (!hasText && !hasFiles) {
         return;
       }
 
       onSend?.();
     },
-    [canSend, isRunning, onSend]
+    [isRunning, onSend]
   );
 
   return (
@@ -122,6 +156,8 @@ export function PromptComposer({
       )}
       onSubmit={handleSubmit}
     >
+      <PromptComposerAttachmentsHeader />
+
       <PromptInputBody>
         <PromptInputTextarea
           value={value}
@@ -137,6 +173,22 @@ export function PromptComposer({
 
       <PromptInputFooter className="border-t border-border/60 bg-card px-3 py-2">
         <PromptInputTools>
+          <PromptInputActionMenu>
+            <PromptInputActionMenuTrigger
+              aria-label={t("chat.addAttachment")}
+              className="shrink-0 rounded-xl"
+              disabled={isRunning}
+              variant="ghost"
+            >
+              <PlusIcon className="size-4" />
+            </PromptInputActionMenuTrigger>
+            <PromptInputActionMenuContent align="start">
+              <PromptInputActionAddAttachments
+                label={t("chat.addAttachment")}
+              />
+            </PromptInputActionMenuContent>
+          </PromptInputActionMenu>
+
           {showWorkspaceControls ? (
             <>
               <PromptInputButton
@@ -202,24 +254,6 @@ export function PromptComposer({
               ) : null}
             </>
           ) : null}
-
-          {!isCompact ? (
-            <PromptInputActionMenu>
-              <PromptInputActionMenuTrigger
-                aria-label={t("chat.addAttachment")}
-                className="shrink-0 rounded-xl"
-                disabled={isRunning}
-                variant="ghost"
-              >
-                <PlusIcon className="size-4" />
-              </PromptInputActionMenuTrigger>
-              <PromptInputActionMenuContent align="start">
-                <PromptInputActionAddAttachments
-                  label={t("chat.addAttachment")}
-                />
-              </PromptInputActionMenuContent>
-            </PromptInputActionMenu>
-          ) : null}
         </PromptInputTools>
 
         <div className="flex shrink-0 items-center gap-1">
@@ -243,11 +277,11 @@ export function PromptComposer({
             </PromptInputSelectContent>
           </PromptInputSelect>
 
-          <PromptInputSubmit
-            className="shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/90"
-            disabled={!canSend && !isRunning}
+          <ComposerSubmit
+            isRunning={isRunning}
             onStop={onStop}
-            status={submitStatus}
+            submitStatus={submitStatus}
+            value={value}
           />
         </div>
       </PromptInputFooter>

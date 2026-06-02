@@ -38,6 +38,7 @@ export type Messages = {
     headline: string;
     composerPlaceholder: string;
     addAttachment: string;
+    removeAttachment: string;
     defaultPermission: string;
     readOnly: string;
     confirmBeforeRun: string;

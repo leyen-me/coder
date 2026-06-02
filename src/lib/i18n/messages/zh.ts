@@ -40,6 +40,7 @@ export const zhMessages = {
     headline: "想在 {project} 里构建什么？",
     composerPlaceholder: "输入任务，@ 引用文件，/ 使用命令，? 查看技能",
     addAttachment: "添加附件",
+    removeAttachment: "移除附件",
     defaultPermission: "默认权限",
     readOnly: "只读",
     confirmBeforeRun: "需确认后执行",

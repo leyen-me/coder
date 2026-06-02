@@ -41,6 +41,7 @@ export const enMessages = {
     composerPlaceholder:
       "Describe a task, @ mention files, / run commands, ? browse skills",
     addAttachment: "Add attachment",
+    removeAttachment: "Remove attachment",
     defaultPermission: "Default permission",
     readOnly: "Read only",
     confirmBeforeRun: "Confirm before running",
