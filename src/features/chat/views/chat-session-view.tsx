@@ -65,7 +65,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <MessageList messages={messages} />
+      <MessageList messages={messages} sessionTitle={session?.title} />
 
       <div className="shrink-0 px-4 pb-4 pt-3">
         <div className="mx-auto w-full max-w-3xl">

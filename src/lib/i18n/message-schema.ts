@@ -48,6 +48,9 @@ export type Messages = {
     thinkingInProgress: string;
     thinkingPlaceholder: string;
     thoughtForSeconds: string;
+    copyMessage: string;
+    forkMessage: string;
+    forkSessionTitle: string;
     noModel: string;
   };
   time: {

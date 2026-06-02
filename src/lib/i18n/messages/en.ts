@@ -51,6 +51,9 @@ export const enMessages = {
     thinkingInProgress: "Thinking…",
     thinkingPlaceholder: "Waiting for reasoning…",
     thoughtForSeconds: "Thought for {duration} seconds",
+    copyMessage: "Copy",
+    forkMessage: "Fork",
+    forkSessionTitle: "Fork · {title}",
     noModel: "No model configured",
   },
   time: {

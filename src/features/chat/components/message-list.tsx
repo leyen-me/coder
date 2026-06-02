@@ -7,9 +7,10 @@ import { MessageItem } from "./message-item";
 
 type MessageListProps = {
   messages: MessageRecord[];
+  sessionTitle?: string;
 };
 
-export function MessageList({ messages }: MessageListProps) {
+export function MessageList({ messages, sessionTitle }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -20,7 +21,11 @@ export function MessageList({ messages }: MessageListProps) {
     <ScrollArea className="min-h-0 flex-1 px-4 py-6">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         {messages.map((message) => (
-          <MessageItem key={message.id} message={message} />
+          <MessageItem
+            key={message.id}
+            message={message}
+            sessionTitle={sessionTitle}
+          />
         ))}
         <div ref={bottomRef} />
       </div>

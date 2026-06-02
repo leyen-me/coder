@@ -6,20 +6,29 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import {
   Message,
+  MessageAction,
+  MessageActions,
   MessageContent,
   MessageResponse,
 } from "@/components/ai-elements/message";
+import { paths } from "@/app/paths";
+import { forkSessionFromMessage } from "@/lib/db";
 import type { MessageRecord } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
-import { useCallback } from "react";
+import { CopyIcon, GitForkIcon } from "lucide-react";
+import { useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 type MessageItemProps = {
   message: MessageRecord;
+  sessionTitle?: string;
 };
 
-export function MessageItem({ message }: MessageItemProps) {
+export function MessageItem({ message, sessionTitle }: MessageItemProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [isForking, setIsForking] = useState(false);
   const isUser = message.role === "user";
   const isStreaming =
     message.status === "pending" || message.status === "streaming";
@@ -33,6 +42,7 @@ export function MessageItem({ message }: MessageItemProps) {
   const isThinkingStreaming = isStreaming && !message.content;
   const showReasoning =
     hasThinking || (Boolean(message.thinking) && isThinkingStreaming);
+  const showActions = Boolean(answerText) && !isStreaming;
 
   const getThinkingMessage = useCallback(
     (streaming: boolean, duration?: number) => {
@@ -46,6 +56,34 @@ export function MessageItem({ message }: MessageItemProps) {
     },
     [t]
   );
+
+  const handleCopy = useCallback(async () => {
+    if (!answerText) {
+      return;
+    }
+    await navigator.clipboard.writeText(answerText);
+  }, [answerText]);
+
+  const handleFork = useCallback(async () => {
+    if (isForking) {
+      return;
+    }
+
+    setIsForking(true);
+    try {
+      const title = t("chat.forkSessionTitle", {
+        title: sessionTitle?.trim() || t("session.newChat"),
+      });
+      const forkedSession = await forkSessionFromMessage(
+        message.sessionId,
+        message.id,
+        title
+      );
+      navigate(paths.chat(forkedSession.id));
+    } finally {
+      setIsForking(false);
+    }
+  }, [isForking, message.id, message.sessionId, navigate, sessionTitle, t]);
 
   if (isUser) {
     return (
@@ -71,6 +109,30 @@ export function MessageItem({ message }: MessageItemProps) {
             {answerText}
           </MessageResponse>
         </MessageContent>
+      ) : null}
+      {showActions ? (
+        <MessageActions className="mt-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          <MessageAction
+            disabled={isForking}
+            label={t("chat.copyMessage")}
+            onClick={() => {
+              void handleCopy();
+            }}
+            tooltip={t("chat.copyMessage")}
+          >
+            <CopyIcon className="size-3.5" />
+          </MessageAction>
+          <MessageAction
+            disabled={isForking}
+            label={t("chat.forkMessage")}
+            onClick={() => {
+              void handleFork();
+            }}
+            tooltip={t("chat.forkMessage")}
+          >
+            <GitForkIcon className="size-3.5" />
+          </MessageAction>
+        </MessageActions>
       ) : null}
       {message.status === "failed" && message.error ? (
         <p className="text-sm text-destructive">{message.error}</p>
