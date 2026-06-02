@@ -114,13 +114,13 @@
     --chart-3: #71717A;
     --chart-4: #52525B;
     --chart-5: #3F3F46;
-    --sidebar: #18181B;
+    --sidebar: #1A1A1A;
     --sidebar-foreground: #FAFAFA;
     --sidebar-primary: #FAFAFA;
     --sidebar-primary-foreground: #171717;
-    --sidebar-accent: #1A1A1A;
+    --sidebar-accent: #262626;
     --sidebar-accent-foreground: #FAFAFA;
-    --sidebar-border: #27272A;
+    --sidebar-border: #2A2A2A;
     --sidebar-ring: #FAFAFA;
     --window-close-hover: #c42b1c;
 }
