@@ -1,5 +1,5 @@
 import type { ChatStatus } from "ai";
-import { FolderOpenIcon, PlusIcon } from "lucide-react";
+import { ChevronDownIcon, FolderOpenIcon, GitBranchIcon, PlusIcon } from "lucide-react";
 import { useCallback } from "react";
 
 import {
@@ -21,6 +21,13 @@ import {
   PromptInputTools,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -32,8 +39,13 @@ type PromptComposerProps = {
   model: string;
   models: readonly string[];
   onModelChange: (model: string) => void;
+  showWorkspaceControls?: boolean;
   workspaceName?: string | null;
   onPickWorkspace?: () => void;
+  gitBranch?: string | null;
+  gitBranches?: readonly string[];
+  onGitBranchChange?: (branch: string) => void;
+  isGitLoading?: boolean;
   variant?: "full" | "compact";
   isRunning?: boolean;
   className?: string;
@@ -58,8 +70,13 @@ export function PromptComposer({
   model,
   models,
   onModelChange,
+  showWorkspaceControls = true,
   workspaceName,
   onPickWorkspace,
+  gitBranch,
+  gitBranches = [],
+  onGitBranchChange,
+  isGitLoading = false,
   variant = "full",
   isRunning = false,
   className,
@@ -68,6 +85,10 @@ export function PromptComposer({
   const isCompact = variant === "compact";
   const canSend = value.trim().length > 0;
   const submitStatus = resolveSubmitStatus(isRunning, Boolean(onStop));
+  const showBranch =
+    showWorkspaceControls &&
+    Boolean(gitBranches.length || gitBranch) &&
+    Boolean(onGitBranchChange);
 
   const handleSubmit = useCallback(
     (_message: PromptInputMessage) => {
@@ -84,7 +105,6 @@ export function PromptComposer({
     <PromptInput
       className={cn(
         "w-full max-w-3xl",
-        // Match previous Card styling: solid surface, no stacked translucent layers.
         "[&_[data-slot=input-group]]:h-auto [&_[data-slot=input-group]]:overflow-hidden",
         "[&_[data-slot=input-group]]:rounded-3xl",
         "[&_[data-slot=input-group]]:border-border [&_[data-slot=input-group]]:bg-card",
@@ -117,28 +137,71 @@ export function PromptComposer({
 
       <PromptInputFooter className="border-t border-border/60 bg-card px-3 py-2">
         <PromptInputTools>
-          <PromptInputButton
-            aria-label={
-              workspaceName
-                ? t("chat.workspaceSelected", { name: workspaceName })
-                : t("chat.selectWorkspace")
-            }
-            className="h-8 max-w-40 shrink-0 rounded-xl px-2.5"
-            disabled={isRunning || !onPickWorkspace}
-            onClick={onPickWorkspace}
-            title={
-              workspaceName
-                ? t("chat.workspaceSelected", { name: workspaceName })
-                : t("chat.selectWorkspace")
-            }
-            type="button"
-            variant="ghost"
-          >
-            <FolderOpenIcon className="size-4 shrink-0" />
-            <span className="truncate">
-              {workspaceName ?? t("chat.localWork")}
-            </span>
-          </PromptInputButton>
+          {showWorkspaceControls ? (
+            <>
+              <PromptInputButton
+                aria-label={
+                  workspaceName
+                    ? t("chat.workspaceSelected", { name: workspaceName })
+                    : t("chat.selectWorkspace")
+                }
+                className="h-8 max-w-40 shrink-0 rounded-xl px-2.5"
+                disabled={isRunning || !onPickWorkspace}
+                onClick={onPickWorkspace}
+                title={
+                  workspaceName
+                    ? t("chat.workspaceSelected", { name: workspaceName })
+                    : t("chat.selectWorkspace")
+                }
+                type="button"
+                variant="ghost"
+              >
+                <FolderOpenIcon className="size-4 shrink-0" />
+                <span className="truncate">
+                  {workspaceName ?? t("chat.localWork")}
+                </span>
+              </PromptInputButton>
+
+              {showBranch ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <PromptInputButton
+                      aria-label={t("chat.selectGitBranch")}
+                      className="h-8 max-w-36 shrink-0 rounded-xl px-2.5"
+                      disabled={isRunning || isGitLoading || !onGitBranchChange}
+                      title={gitBranch ?? t("chat.selectGitBranch")}
+                      type="button"
+                      variant="ghost"
+                    >
+                      <GitBranchIcon className="size-4 shrink-0" />
+                      <span className="truncate">
+                        {isGitLoading
+                          ? t("chat.gitBranchLoading")
+                          : (gitBranch ?? t("chat.selectGitBranch"))}
+                      </span>
+                      <ChevronDownIcon className="size-3.5 shrink-0 opacity-60" />
+                    </PromptInputButton>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="max-h-64 min-w-40 overflow-y-auto">
+                    <DropdownMenuRadioGroup
+                      value={gitBranch ?? ""}
+                      onValueChange={(branch) => {
+                        if (branch && branch !== gitBranch) {
+                          onGitBranchChange?.(branch);
+                        }
+                      }}
+                    >
+                      {gitBranches.map((branch) => (
+                        <DropdownMenuRadioItem key={branch} value={branch}>
+                          {branch}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </>
+          ) : null}
 
           {!isCompact ? (
             <PromptInputActionMenu>
@@ -157,7 +220,9 @@ export function PromptComposer({
               </PromptInputActionMenuContent>
             </PromptInputActionMenu>
           ) : null}
+        </PromptInputTools>
 
+        <div className="flex shrink-0 items-center gap-1">
           <PromptInputSelect
             value={model}
             onValueChange={onModelChange}
@@ -177,14 +242,14 @@ export function PromptComposer({
               ))}
             </PromptInputSelectContent>
           </PromptInputSelect>
-        </PromptInputTools>
 
-        <PromptInputSubmit
-          className="shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/90"
-          disabled={!canSend && !isRunning}
-          onStop={onStop}
-          status={submitStatus}
-        />
+          <PromptInputSubmit
+            className="shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/90"
+            disabled={!canSend && !isRunning}
+            onStop={onStop}
+            status={submitStatus}
+          />
+        </div>
       </PromptInputFooter>
     </PromptInput>
   );

@@ -9,7 +9,10 @@ use agent::{
     agent_cancel, agent_generate_session_title, agent_get_status, agent_start, AgentState,
 };
 use tauri::Manager;
-use tools::{agent_get_runtime_environment, tool_list_dir};
+use tools::{
+    agent_get_runtime_environment, git_checkout_branch, git_get_current_branch, git_list_branches,
+    tool_list_dir,
+};
 
 const MAIN_WINDOW_LABEL: &str = "main";
 
@@ -41,6 +44,9 @@ pub fn run() {
             agent_generate_session_title,
             tool_list_dir,
             agent_get_runtime_environment,
+            git_list_branches,
+            git_get_current_branch,
+            git_checkout_branch,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

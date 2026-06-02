@@ -11,6 +11,8 @@ export type SessionRecord = {
   id: string;
   title: string;
   model: string;
+  /** Absolute path; owned by this session after the first message. */
+  workspaceDir: string | null;
   createdAt: number;
   updatedAt: number;
 };

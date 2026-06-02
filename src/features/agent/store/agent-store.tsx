@@ -18,12 +18,12 @@ import {
   setMessageStatus,
   type MessageRecord,
 } from "@/lib/db";
-import { useWorkspace } from "@/features/workspace/workspace-provider";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
 import { runAgentWithTools } from "../agent-loop";
 import { buildAgentMessages } from "../build-agent-messages";
+import { ensureSessionWorkspaceForAgent } from "../ensure-session-workspace";
 import { resolveAgentEnvironment } from "../environment";
 import { applyGeneratedSessionTitle } from "../generate-session-title";
 import {
@@ -71,9 +71,6 @@ function isActiveAgentTask(status: AgentStatus): boolean {
 
 export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const { resolved } = useModelProvider();
-  const { workspaceDir } = useWorkspace();
-  const workspaceDirRef = useRef(workspaceDir);
-  workspaceDirRef.current = workspaceDir;
   const resolvedRef = useRef(resolved);
   resolvedRef.current = resolved;
   const tasksRef = useRef(new Map<string, ActiveTaskState>());
@@ -259,7 +256,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         error: null,
       });
 
-      const environment = await resolveAgentEnvironment(workspaceDirRef.current);
+      const session = await ensureSessionWorkspaceForAgent(input.sessionId);
+      const workspaceDir = session.workspaceDir?.trim() || null;
+
+      const environment = await resolveAgentEnvironment(workspaceDir);
       const history = buildAgentMessages(
         [
           ...existingMessages.map(toAgentMessage),
@@ -291,7 +291,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           model: input.model,
           messages: history,
         },
-        { workspaceDir: workspaceDirRef.current, taskId },
+        { workspaceDir, taskId },
         (event) => {
           dispatchAgentEvent(taskId, assistantMessage.id, event);
         }

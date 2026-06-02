@@ -49,6 +49,8 @@ export const enMessages = {
     localWork: "Local workspace",
     selectWorkspace: "Select workspace",
     workspaceSelected: "Workspace: {name}",
+    selectGitBranch: "Select branch",
+    gitBranchLoading: "Loading branches…",
     thinking: "Thinking",
     thinkingInProgress: "Thinking…",
     thinkingPlaceholder: "Waiting for reasoning…",

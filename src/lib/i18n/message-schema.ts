@@ -46,6 +46,8 @@ export type Messages = {
     localWork: string;
     selectWorkspace: string;
     workspaceSelected: string;
+    selectGitBranch: string;
+    gitBranchLoading: string;
     thinking: string;
     thinkingInProgress: string;
     thinkingPlaceholder: string;

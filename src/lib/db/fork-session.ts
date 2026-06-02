@@ -37,6 +37,7 @@ export async function forkSessionFromMessage(
   const forkedSession = await createSession({
     title,
     model: session.model,
+    workspaceDir: session.workspaceDir,
   });
 
   await Promise.all(

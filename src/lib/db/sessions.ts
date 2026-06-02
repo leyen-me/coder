@@ -1,5 +1,6 @@
 import { getDb } from "./client";
 import { SESSIONS_STORE } from "./constants";
+import { normalizeSessionRecord } from "./normalize-session";
 import { notifyDbChange } from "./subscriptions";
 import type { SessionRecord } from "./types";
 
@@ -15,19 +16,23 @@ export function deriveSessionTitle(text: string, maxLength = 48): string {
   return `${normalized.slice(0, maxLength - 1)}…`;
 }
 
-export async function createSession(input: {
+export type CreateSessionInput = {
   id?: string;
   title: string;
   model: string;
-}): Promise<SessionRecord> {
+  workspaceDir?: string | null;
+};
+
+export async function createSession(input: CreateSessionInput): Promise<SessionRecord> {
   const now = Date.now();
-  const session: SessionRecord = {
+  const session = normalizeSessionRecord({
     id: input.id ?? createSessionId(),
     title: input.title,
     model: input.model,
+    workspaceDir: input.workspaceDir ?? null,
     createdAt: now,
     updatedAt: now,
-  };
+  });
 
   const db = await getDb();
   await db.put(SESSIONS_STORE, session);
@@ -37,12 +42,17 @@ export async function createSession(input: {
 
 export async function getSession(sessionId: string): Promise<SessionRecord | null> {
   const db = await getDb();
-  return (await db.get(SESSIONS_STORE, sessionId)) ?? null;
+  const session = await db.get(SESSIONS_STORE, sessionId);
+  return session ? normalizeSessionRecord(session) : null;
 }
 
-export async function updateSessionTitle(
+export type SessionPatch = Partial<
+  Pick<SessionRecord, "title" | "model" | "workspaceDir">
+>;
+
+export async function updateSession(
   sessionId: string,
-  title: string
+  patch: SessionPatch
 ): Promise<SessionRecord | null> {
   const db = await getDb();
   const session = await db.get(SESSIONS_STORE, sessionId);
@@ -50,14 +60,21 @@ export async function updateSessionTitle(
     return null;
   }
 
-  const next: SessionRecord = {
+  const next = normalizeSessionRecord({
     ...session,
-    title,
+    ...patch,
     updatedAt: Date.now(),
-  };
+  });
   await db.put(SESSIONS_STORE, next);
   notifyDbChange();
   return next;
+}
+
+export async function updateSessionTitle(
+  sessionId: string,
+  title: string
+): Promise<SessionRecord | null> {
+  return updateSession(sessionId, { title });
 }
 
 export async function touchSession(sessionId: string): Promise<void> {
@@ -68,7 +85,7 @@ export async function touchSession(sessionId: string): Promise<void> {
   }
 
   await db.put(SESSIONS_STORE, {
-    ...session,
+    ...normalizeSessionRecord(session),
     updatedAt: Date.now(),
   });
   notifyDbChange();
@@ -77,7 +94,10 @@ export async function touchSession(sessionId: string): Promise<void> {
 export async function listSessions(limit = 50): Promise<SessionRecord[]> {
   const db = await getDb();
   const sessions = await db.getAllFromIndex(SESSIONS_STORE, "by-updatedAt");
-  return sessions.reverse().slice(0, limit);
+  return sessions
+    .reverse()
+    .slice(0, limit)
+    .map((session) => normalizeSessionRecord(session));
 }
 
 export async function searchSessions(query: string, limit = 20): Promise<SessionRecord[]> {

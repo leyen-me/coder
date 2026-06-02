@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 
 import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
-import { useWorkspace } from "@/features/workspace/workspace-provider";
+import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
 import { MessageList } from "../components/message-list";
 import { PromptComposer } from "../components/prompt-composer";
 import { useSessionMessages } from "../hooks/use-session-messages";
+import { useSessionWorkspaceBinding } from "../hooks/use-session-workspace-binding";
+import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
 
 type ChatSessionViewProps = {
   chatId: string;
@@ -17,11 +19,21 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const { resolved } = useModelProvider();
   const { sendMessage, cancelTask, getSessionTask, isSessionRunning } =
     useAgentStore();
-  const { workspaceName, pickWorkspace } = useWorkspace();
   const { session, messages, isLoading } = useSessionMessages(chatId);
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState(() => resolveDefaultModel(resolved));
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const canEditWorkspace = messages.length === 0;
+  const workspaceBinding = useSessionWorkspaceBinding({
+    session,
+    canEdit: canEditWorkspace,
+  });
+
+  const gitControls = useWorkspaceGitControls({
+    workspaceDir: workspaceBinding.workspaceDir,
+    enabled: canEditWorkspace,
+  });
 
   const activeTask = getSessionTask(chatId);
   const isRunning = isSessionRunning(chatId) || isSubmitting;
@@ -57,6 +69,10 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     }
   };
 
+  const workspaceName = workspaceBinding.workspaceDir
+    ? getWorkspaceDisplayName(workspaceBinding.workspaceDir)
+    : null;
+
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -81,10 +97,21 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             model={model}
             models={resolved.models}
             onModelChange={setModel}
+            showWorkspaceControls={canEditWorkspace}
             workspaceName={workspaceName}
             onPickWorkspace={() => {
-              void pickWorkspace();
+              void workspaceBinding.handlePickWorkspace().then(() =>
+                gitControls.refreshGit()
+              );
             }}
+            gitBranch={gitControls.gitBranch}
+            gitBranches={gitControls.gitBranches}
+            onGitBranchChange={(branch) => {
+              void workspaceBinding
+                .handleBranchChange(branch)
+                .then(() => gitControls.refreshGit());
+            }}
+            isGitLoading={gitControls.isGitLoading}
             variant="compact"
             isRunning={isRunning}
           />

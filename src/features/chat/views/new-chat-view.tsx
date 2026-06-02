@@ -4,13 +4,16 @@ import { useNavigate } from "react-router-dom";
 import { paths } from "@/app/paths";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
-import { useWorkspace } from "@/features/workspace/workspace-provider";
+import { getWorkspaceDisplayName } from "@/features/workspace/storage";
+import { resolveInitialSessionWorkspaceDir } from "@/features/workspace/resolve-session-workspace";
 import { createSession } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
 import { PromptComposer } from "../components/prompt-composer";
 import { StarterPromptList } from "../components/starter-prompt-list";
+import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
+import { useNewChatWorkspace } from "../hooks/use-session-workspace-binding";
 import { DEFAULT_PROJECT_NAME } from "../data/mock-chats";
 
 export function NewChatView() {
@@ -18,10 +21,15 @@ export function NewChatView() {
   const navigate = useNavigate();
   const { resolved } = useModelProvider();
   const { sendMessage } = useAgentStore();
-  const { workspaceName, pickWorkspace } = useWorkspace();
+  const { workspaceDir, pickWorkspace } = useNewChatWorkspace();
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState(() => resolveDefaultModel(resolved));
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const gitControls = useWorkspaceGitControls({
+    workspaceDir,
+    enabled: true,
+  });
 
   const handleSend = async () => {
     const trimmed = prompt.trim();
@@ -34,6 +42,7 @@ export function NewChatView() {
       const session = await createSession({
         title: t("session.newChat"),
         model,
+        workspaceDir: resolveInitialSessionWorkspaceDir(),
       });
       navigate(paths.chat(session.id));
       setPrompt("");
@@ -46,6 +55,10 @@ export function NewChatView() {
       setIsSubmitting(false);
     }
   };
+
+  const workspaceName = workspaceDir
+    ? getWorkspaceDisplayName(workspaceDir)
+    : null;
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 pb-12">
@@ -64,10 +77,17 @@ export function NewChatView() {
         model={model}
         models={resolved.models}
         onModelChange={setModel}
-        workspaceName={workspaceName}
+        showWorkspaceControls
+        workspaceName={gitControls.workspaceName ?? workspaceName}
         onPickWorkspace={() => {
-          void pickWorkspace();
+          void pickWorkspace().then(() => gitControls.refreshGit());
         }}
+        gitBranch={gitControls.gitBranch}
+        gitBranches={gitControls.gitBranches}
+        onGitBranchChange={(branch) => {
+          void gitControls.checkoutBranch(branch);
+        }}
+        isGitLoading={gitControls.isGitLoading}
         variant="full"
         isRunning={isSubmitting}
       />
