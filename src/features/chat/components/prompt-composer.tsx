@@ -80,7 +80,8 @@ export function PromptComposer({
       className={cn(
         "w-full max-w-3xl",
         // Match previous Card styling: solid surface, no stacked translucent layers.
-        "[&_[data-slot=input-group]]:h-auto [&_[data-slot=input-group]]:rounded-3xl",
+        "[&_[data-slot=input-group]]:h-auto [&_[data-slot=input-group]]:overflow-hidden",
+        "[&_[data-slot=input-group]]:rounded-3xl",
         "[&_[data-slot=input-group]]:border-border [&_[data-slot=input-group]]:bg-card",
         "[&_[data-slot=input-group]]:text-card-foreground [&_[data-slot=input-group]]:shadow-none",
         "[&_[data-slot=input-group]]:dark:bg-card [&_[data-slot=input-group]]:has-disabled:opacity-100",
@@ -89,7 +90,7 @@ export function PromptComposer({
         "[&_[data-slot=input-group-control]]:text-foreground",
         "[&_[data-slot=input-group-control]]:disabled:cursor-not-allowed",
         "[&_[data-slot=input-group-control]]:disabled:opacity-100",
-        isCompact && "shadow-md",
+        isCompact && "[&_[data-slot=input-group]]:shadow-md",
         className
       )}
       onSubmit={handleSubmit}
@@ -113,7 +114,7 @@ export function PromptComposer({
             <PromptInputActionMenu>
               <PromptInputActionMenuTrigger
                 aria-label={t("chat.addAttachment")}
-                className="rounded-xl"
+                className="shrink-0 rounded-xl"
                 disabled={isRunning}
                 variant="ghost"
               >
@@ -132,12 +133,13 @@ export function PromptComposer({
             onValueChange={onModelChange}
             disabled={isRunning || models.length === 0}
           >
-            <PromptInputSelectTrigger className="max-w-40 rounded-xl">
-              <PromptInputSelectValue
-                placeholder={t("chat.noModel")}
-              />
+            <PromptInputSelectTrigger
+              className="h-8 max-w-56 rounded-xl px-2.5 [&_[data-slot=select-value]]:truncate"
+              title={model || undefined}
+            >
+              <PromptInputSelectValue placeholder={t("chat.noModel")} />
             </PromptInputSelectTrigger>
-            <PromptInputSelectContent align="end">
+            <PromptInputSelectContent align="end" className="max-w-sm">
               {models.map((item) => (
                 <PromptInputSelectItem key={item} value={item}>
                   {item}
@@ -148,7 +150,7 @@ export function PromptComposer({
         </PromptInputTools>
 
         <PromptInputSubmit
-          className="rounded-full bg-foreground text-background hover:bg-foreground/90"
+          className="shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/90"
           disabled={!canSend && !isRunning}
           onStop={onStop}
           status={submitStatus}
