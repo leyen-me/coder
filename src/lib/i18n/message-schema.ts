@@ -44,6 +44,8 @@ export type Messages = {
     send: string;
     stop: string;
     localWork: string;
+    selectWorkspace: string;
+    workspaceSelected: string;
     thinking: string;
     thinkingInProgress: string;
     thinkingPlaceholder: string;

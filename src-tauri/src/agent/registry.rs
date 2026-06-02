@@ -77,11 +77,17 @@ pub async fn generate_session_title(
     let messages = vec![
         ChatMessage {
             role: "system".to_string(),
-            content: SESSION_TITLE_SYSTEM_PROMPT.to_string(),
+            content: Some(SESSION_TITLE_SYSTEM_PROMPT.to_string()),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
         },
         ChatMessage {
             role: "user".to_string(),
-            content: user_prompt,
+            content: Some(user_prompt),
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
         },
     ];
 
@@ -140,6 +146,7 @@ impl AgentRegistry {
         let url = chat_completions_url(&params.base_url);
         let model = params.model.clone();
         let messages = params.messages.clone();
+        let tools = params.tools.clone();
         let client = self.client.clone();
 
         self.runs.insert(
@@ -163,6 +170,7 @@ impl AgentRegistry {
                 &api_key,
                 &model,
                 &messages,
+                tools.as_deref(),
                 child_cancel.clone(),
                 |event| {
                     let _ = channel.send(event);

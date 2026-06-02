@@ -12,6 +12,7 @@ import { initThemeBeforeRender } from "@/lib/theme/init-theme";
 import { ModelProviderProvider } from "@/lib/model-provider/model-provider-provider";
 import { ThemeProvider } from "@/lib/theme/theme-provider";
 import { AgentStoreProvider } from "@/features/agent/store/agent-store";
+import { WorkspaceProvider } from "@/features/workspace/workspace-provider";
 
 initLocaleBeforeRender();
 initThemeBeforeRender();
@@ -21,11 +22,13 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <LocaleProvider>
       <ThemeProvider>
         <ModelProviderProvider>
-          <AgentStoreProvider>
-            <TooltipProvider>
-              <App />
-            </TooltipProvider>
-          </AgentStoreProvider>
+          <WorkspaceProvider>
+            <AgentStoreProvider>
+              <TooltipProvider>
+                <App />
+              </TooltipProvider>
+            </AgentStoreProvider>
+          </WorkspaceProvider>
         </ModelProviderProvider>
       </ThemeProvider>
     </LocaleProvider>

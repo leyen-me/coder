@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -12,9 +13,37 @@ pub enum AgentStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCall {
+    pub id: String,
+    pub name: String,
+    pub arguments: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: String,
-    pub content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<ToolCall>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentToolDefinition {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub function: AgentToolFunction,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentToolFunction {
+    pub name: String,
+    pub description: String,
+    pub parameters: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,6 +65,10 @@ pub enum AgentEvent {
         task_id: String,
         delta: String,
     },
+    TurnComplete {
+        task_id: String,
+        tool_calls: Vec<ToolCall>,
+    },
     Done {
         task_id: String,
     },
@@ -55,6 +88,7 @@ pub struct AgentStartParams {
     pub api_key_env_var: String,
     pub model: String,
     pub messages: Vec<ChatMessage>,
+    pub tools: Option<Vec<AgentToolDefinition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

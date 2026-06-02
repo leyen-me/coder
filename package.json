@@ -19,6 +19,7 @@
     "@streamdown/math": "^1.0.2",
     "@streamdown/mermaid": "^1.0.2",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-opener": "^2",
     "ai": "^6.0.194",
     "class-variance-authority": "^0.7.1",

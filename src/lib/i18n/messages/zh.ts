@@ -46,6 +46,8 @@ export const zhMessages = {
     send: "发送",
     stop: "停止",
     localWork: "本地工作",
+    selectWorkspace: "选择工作区",
+    workspaceSelected: "工作区：{name}",
     thinking: "思考过程",
     thinkingInProgress: "正在思考…",
     thinkingPlaceholder: "等待思考内容…",

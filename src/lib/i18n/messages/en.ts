@@ -47,6 +47,8 @@ export const enMessages = {
     send: "Send",
     stop: "Stop",
     localWork: "Local workspace",
+    selectWorkspace: "Select workspace",
+    workspaceSelected: "Workspace: {name}",
     thinking: "Thinking",
     thinkingInProgress: "Thinking…",
     thinkingPlaceholder: "Waiting for reasoning…",

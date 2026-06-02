@@ -1,13 +1,19 @@
+import {
+  createToolCallAccumulator,
+  type ToolCallDelta,
+} from "./tools/parse-tool-call";
 import type { AgentEvent, AgentStartInput } from "./types";
 import { chatCompletionsUrl } from "./openai-url";
 
 type StreamDelta = {
   content?: string;
   reasoning_content?: string;
+  tool_calls?: ToolCallDelta[];
 };
 
 type StreamChoice = {
   delta?: StreamDelta;
+  finish_reason?: string | null;
 };
 
 type StreamChunk = {
@@ -41,6 +47,7 @@ export async function startBrowserAgent(
         model: input.model,
         messages: input.messages,
         stream: true,
+        ...(input.tools?.length ? { tools: input.tools, tool_choice: "auto" } : {}),
       }),
       signal: controller.signal,
     });
@@ -57,6 +64,8 @@ export async function startBrowserAgent(
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
+    const toolCalls = createToolCallAccumulator();
+    let finishReason: string | null = null;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -74,13 +83,24 @@ export async function startBrowserAgent(
 
         const line = buffer.slice(0, lineBreak).trim();
         buffer = buffer.slice(lineBreak + 1);
-        parseSseLine(line, input.taskId, onEvent);
+        finishReason =
+          parseSseLine(line, input.taskId, onEvent, toolCalls, finishReason) ??
+          finishReason;
       }
     }
 
     if (controller.signal.aborted) {
       onEvent({ type: "status", taskId: input.taskId, status: "cancelled" });
       return;
+    }
+
+    const resolvedToolCalls = toolCalls.finalize();
+    if (finishReason === "tool_calls" || resolvedToolCalls.length > 0) {
+      onEvent({
+        type: "turn_complete",
+        taskId: input.taskId,
+        toolCalls: resolvedToolCalls,
+      });
     }
 
     onEvent({ type: "done", taskId: input.taskId });
@@ -107,43 +127,52 @@ export async function cancelBrowserAgent(taskId: string): Promise<void> {
 function parseSseLine(
   line: string,
   taskId: string,
-  onEvent: (event: AgentEvent) => void
-): void {
+  onEvent: (event: AgentEvent) => void,
+  toolCalls: ReturnType<typeof createToolCallAccumulator>,
+  previousFinishReason: string | null
+): string | null {
   if (!line || line.startsWith(":")) {
-    return;
+    return previousFinishReason;
   }
 
   const payload = line.startsWith("data:") ? line.slice(5).trim() : line;
   if (payload === "[DONE]") {
     onEvent({ type: "done", taskId });
-    return;
+    return previousFinishReason;
   }
 
   let parsed: StreamChunk;
   try {
     parsed = JSON.parse(payload) as StreamChunk;
   } catch {
-    return;
+    return previousFinishReason;
   }
 
-  const delta = parsed.choices?.[0]?.delta;
-  if (!delta) {
-    return;
+  const choice = parsed.choices?.[0];
+  const delta = choice?.delta;
+  if (delta) {
+    if (delta.reasoning_content) {
+      onEvent({
+        type: "thinking_delta",
+        taskId,
+        delta: delta.reasoning_content,
+      });
+    }
+
+    if (delta.content) {
+      onEvent({
+        type: "content_delta",
+        taskId,
+        delta: delta.content,
+      });
+    }
+
+    if (delta.tool_calls) {
+      for (const toolCallDelta of delta.tool_calls) {
+        toolCalls.ingest(toolCallDelta);
+      }
+    }
   }
 
-  if (delta.reasoning_content) {
-    onEvent({
-      type: "thinking_delta",
-      taskId,
-      delta: delta.reasoning_content,
-    });
-  }
-
-  if (delta.content) {
-    onEvent({
-      type: "content_delta",
-      taskId,
-      delta: delta.content,
-    });
-  }
+  return choice?.finish_reason ?? previousFinishReason;
 }

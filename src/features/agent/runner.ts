@@ -11,10 +11,17 @@ type TauriAgentStatus =
   | "completed"
   | "failed";
 
+type TauriToolCall = {
+  id: string;
+  name: string;
+  arguments: string;
+};
+
 type TauriAgentEvent =
   | { type: "status"; taskId: string; status: TauriAgentStatus }
   | { type: "thinkingDelta"; taskId: string; delta: string }
   | { type: "contentDelta"; taskId: string; delta: string }
+  | { type: "turnComplete"; taskId: string; toolCalls: TauriToolCall[] }
   | { type: "done"; taskId: string }
   | { type: "error"; taskId: string; message: string };
 
@@ -26,6 +33,12 @@ function mapTauriEvent(event: TauriAgentEvent): AgentEvent {
       return { type: "thinking_delta", taskId: event.taskId, delta: event.delta };
     case "contentDelta":
       return { type: "content_delta", taskId: event.taskId, delta: event.delta };
+    case "turnComplete":
+      return {
+        type: "turn_complete",
+        taskId: event.taskId,
+        toolCalls: event.toolCalls,
+      };
     case "done":
       return { type: "done", taskId: event.taskId };
     case "error":
@@ -52,6 +65,7 @@ export async function startAgent(
         apiKeyEnvVar: input.apiKeyEnvVar,
         model: input.model,
         messages: input.messages,
+        tools: input.tools ?? null,
       },
       onEvent: channel,
     });

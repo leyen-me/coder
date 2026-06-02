@@ -1,4 +1,5 @@
 mod agent;
+mod tools;
 mod window_chrome;
 
 use std::sync::Mutex;
@@ -8,6 +9,7 @@ use agent::{
     agent_cancel, agent_generate_session_title, agent_get_status, agent_start, AgentState,
 };
 use tauri::Manager;
+use tools::{agent_get_runtime_environment, tool_list_dir};
 
 const MAIN_WINDOW_LABEL: &str = "main";
 
@@ -24,6 +26,7 @@ fn configure_main_window(app: &tauri::App) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(AgentState(Mutex::new(
             AgentRegistry::new().expect("failed to initialize agent registry"),
         )))
@@ -35,7 +38,9 @@ pub fn run() {
             agent_start,
             agent_cancel,
             agent_get_status,
-            agent_generate_session_title
+            agent_generate_session_title,
+            tool_list_dir,
+            agent_get_runtime_environment,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

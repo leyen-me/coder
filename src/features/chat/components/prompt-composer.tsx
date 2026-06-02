@@ -1,5 +1,5 @@
 import type { ChatStatus } from "ai";
-import { PlusIcon } from "lucide-react";
+import { FolderOpenIcon, PlusIcon } from "lucide-react";
 import { useCallback } from "react";
 
 import {
@@ -9,6 +9,7 @@ import {
   PromptInputActionMenuContent,
   PromptInputActionMenuTrigger,
   PromptInputBody,
+  PromptInputButton,
   PromptInputFooter,
   PromptInputSelect,
   PromptInputSelectContent,
@@ -31,6 +32,8 @@ type PromptComposerProps = {
   model: string;
   models: readonly string[];
   onModelChange: (model: string) => void;
+  workspaceName?: string | null;
+  onPickWorkspace?: () => void;
   variant?: "full" | "compact";
   isRunning?: boolean;
   className?: string;
@@ -55,6 +58,8 @@ export function PromptComposer({
   model,
   models,
   onModelChange,
+  workspaceName,
+  onPickWorkspace,
   variant = "full",
   isRunning = false,
   className,
@@ -112,6 +117,29 @@ export function PromptComposer({
 
       <PromptInputFooter className="border-t border-border/60 bg-card px-3 py-2">
         <PromptInputTools>
+          <PromptInputButton
+            aria-label={
+              workspaceName
+                ? t("chat.workspaceSelected", { name: workspaceName })
+                : t("chat.selectWorkspace")
+            }
+            className="h-8 max-w-40 shrink-0 rounded-xl px-2.5"
+            disabled={isRunning || !onPickWorkspace}
+            onClick={onPickWorkspace}
+            title={
+              workspaceName
+                ? t("chat.workspaceSelected", { name: workspaceName })
+                : t("chat.selectWorkspace")
+            }
+            type="button"
+            variant="ghost"
+          >
+            <FolderOpenIcon className="size-4 shrink-0" />
+            <span className="truncate">
+              {workspaceName ?? t("chat.localWork")}
+            </span>
+          </PromptInputButton>
+
           {!isCompact ? (
             <PromptInputActionMenu>
               <PromptInputActionMenuTrigger

@@ -16,17 +16,20 @@ import {
   setMessageStatus,
   type MessageRecord,
 } from "@/lib/db";
+import { useWorkspace } from "@/features/workspace/workspace-provider";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
+import { runAgentWithTools } from "../agent-loop";
 import { buildAgentMessages } from "../build-agent-messages";
+import { resolveAgentEnvironment } from "../environment";
 import { applyGeneratedSessionTitle } from "../generate-session-title";
 import {
   resolveApiKey,
   resolveApiKeyEnvVar,
   writeLastSelectedModel,
 } from "../model-preference";
-import { cancelAgent, startAgent } from "../runner";
+import { cancelAgent } from "../runner";
 import type {
   ActiveTaskState,
   AgentChatMessage,
@@ -66,6 +69,9 @@ function isActiveAgentTask(status: AgentStatus): boolean {
 
 export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const { resolved } = useModelProvider();
+  const { workspaceDir } = useWorkspace();
+  const workspaceDirRef = useRef(workspaceDir);
+  workspaceDirRef.current = workspaceDir;
   const resolvedRef = useRef(resolved);
   resolvedRef.current = resolved;
   const tasksRef = useRef(new Map<string, ActiveTaskState>());
@@ -233,10 +239,14 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         error: null,
       });
 
-      const history = buildAgentMessages([
-        ...existingMessages.map(toAgentMessage),
-        toAgentMessage(userMessage),
-      ]);
+      const environment = await resolveAgentEnvironment(workspaceDirRef.current);
+      const history = buildAgentMessages(
+        [
+          ...existingMessages.map(toAgentMessage),
+          toAgentMessage(userMessage),
+        ],
+        environment
+      );
 
       const activeTask: ActiveTaskState = {
         taskId,
@@ -251,7 +261,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       tasksRef.current.set(taskId, activeTask);
       emit();
 
-      void startAgent(
+      void runAgentWithTools(
         {
           taskId,
           baseUrl: resolved.baseUrl,
@@ -261,6 +271,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           model: input.model,
           messages: history,
         },
+        { workspaceDir: workspaceDirRef.current },
         (event) => {
           dispatchAgentEvent(taskId, assistantMessage.id, event);
         }

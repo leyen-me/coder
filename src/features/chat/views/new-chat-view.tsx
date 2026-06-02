@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { paths } from "@/app/paths";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
+import { useWorkspace } from "@/features/workspace/workspace-provider";
 import { createSession } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
@@ -17,6 +18,7 @@ export function NewChatView() {
   const navigate = useNavigate();
   const { resolved } = useModelProvider();
   const { sendMessage } = useAgentStore();
+  const { workspaceName, pickWorkspace } = useWorkspace();
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState(() => resolveDefaultModel(resolved));
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,7 +50,9 @@ export function NewChatView() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 pb-12">
       <h2 className="max-w-3xl text-center text-2xl font-semibold tracking-tight">
-        {t("chat.headline", { project: DEFAULT_PROJECT_NAME })}
+        {t("chat.headline", {
+          project: workspaceName ?? DEFAULT_PROJECT_NAME,
+        })}
       </h2>
 
       <PromptComposer
@@ -60,6 +64,10 @@ export function NewChatView() {
         model={model}
         models={resolved.models}
         onModelChange={setModel}
+        workspaceName={workspaceName}
+        onPickWorkspace={() => {
+          void pickWorkspace();
+        }}
         variant="full"
         isRunning={isSubmitting}
       />

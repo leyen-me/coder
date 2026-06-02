@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
+import { useWorkspace } from "@/features/workspace/workspace-provider";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
 import { MessageList } from "../components/message-list";
@@ -16,6 +17,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const { resolved } = useModelProvider();
   const { sendMessage, cancelTask, getSessionTask, isSessionRunning } =
     useAgentStore();
+  const { workspaceName, pickWorkspace } = useWorkspace();
   const { session, messages, isLoading } = useSessionMessages(chatId);
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState(() => resolveDefaultModel(resolved));
@@ -79,6 +81,10 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             model={model}
             models={resolved.models}
             onModelChange={setModel}
+            workspaceName={workspaceName}
+            onPickWorkspace={() => {
+              void pickWorkspace();
+            }}
             variant="compact"
             isRunning={isRunning}
           />

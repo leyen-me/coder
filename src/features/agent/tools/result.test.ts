@@ -1,0 +1,62 @@
+import { describe, expect, it } from "vitest";
+
+import { buildSystemPrompt } from "@/features/agent/environment/build-system-prompt";
+import { normalizeEnvironment } from "@/features/agent/environment/build-system-prompt";
+import {
+  serializeToolResult,
+  toolFailure,
+  toolSuccess,
+} from "@/features/agent/tools/result";
+
+describe("buildSystemPrompt", () => {
+  it("includes runtime metadata and tool guidance", () => {
+    const prompt = buildSystemPrompt(
+      normalizeEnvironment({
+        workspaceDir: "/tmp/project",
+        os: "macos aarch64 (15.5)",
+        shell: "/bin/zsh",
+        isGitRepository: false,
+        today: "2026-06-02, Monday",
+      })
+    );
+
+    expect(prompt).toContain("workspaceDir: /tmp/project");
+    expect(prompt).toContain("shell: /bin/zsh");
+    expect(prompt).toContain("gitRepository: no");
+    expect(prompt).toContain("## Tools");
+  });
+});
+
+describe("tool result envelope", () => {
+  it("serializes success and failure in a unified shape", () => {
+    expect(
+      JSON.parse(
+        serializeToolResult(
+          toolSuccess("list_dir", {
+            path: ".",
+            entries: [],
+          })
+        )
+      )
+    ).toEqual({
+      ok: true,
+      tool: "list_dir",
+      data: { path: ".", entries: [] },
+    });
+
+    expect(
+      JSON.parse(
+        serializeToolResult(
+          toolFailure("list_dir", "workspace_required", "Select a workspace")
+        )
+      )
+    ).toEqual({
+      ok: false,
+      tool: "list_dir",
+      error: {
+        code: "workspace_required",
+        message: "Select a workspace",
+      },
+    });
+  });
+});
