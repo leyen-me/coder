@@ -1,3 +1,5 @@
+import type { ModelDefinition } from "./model-definition";
+
 export type ProviderId = "deepseek" | "glm" | "custom";
 
 export type ApiKeySource = "manual" | "env";
@@ -8,13 +10,13 @@ export type ModelProviderSettings = {
   apiKey: string;
   apiKeyEnvVar: string;
   customBaseUrl: string;
-  customModels: string[];
+  customModels: ModelDefinition[];
 };
 
 export type PresetProviderDefinition = {
   id: Exclude<ProviderId, "custom">;
   baseUrl: string;
-  models: readonly string[];
+  models: readonly ModelDefinition[];
   defaultApiKeyEnvVar: string;
 };
 
@@ -24,5 +26,7 @@ export type ResolvedProviderConfig = {
   apiKeySource: ApiKeySource;
   apiKey: string;
   apiKeyEnvVar: string;
-  models: readonly string[];
+  models: readonly ModelDefinition[];
 };
+
+export type { ModelDefinition };

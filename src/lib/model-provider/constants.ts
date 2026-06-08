@@ -1,3 +1,4 @@
+import { createModelDefinition } from "./model-definition";
 import type {
   ModelProviderSettings,
   PresetProviderDefinition,
@@ -14,13 +15,51 @@ export const PRESET_PROVIDERS = {
   deepseek: {
     id: "deepseek",
     baseUrl: "https://api.deepseek.com",
-    models: ["deepseek-v4-flash", "deepseek-v4-pro"],
+    models: [
+      createModelDefinition("deepseek-v4-flash", {
+        label: "DeepSeek V4 Flash",
+        contextWindow: 1_000_000,
+        supportsThinking: true,
+        supportsMultimodal: false,
+      }),
+      createModelDefinition("deepseek-v4-pro", {
+        label: "DeepSeek V4 Pro",
+        contextWindow: 1_000_000,
+        supportsThinking: true,
+        supportsMultimodal: false,
+      }),
+    ],
     defaultApiKeyEnvVar: "DEEPSEEK_API_KEY",
   },
   glm: {
     id: "glm",
     baseUrl: "https://open.bigmodel.cn/api/paas/v4",
-    models: ["glm-5", "glm-4.7", "glm-4.7-flash", "glm-4.5-air"],
+    models: [
+      createModelDefinition("glm-5", {
+        label: "GLM-5",
+        contextWindow: 200_000,
+        supportsThinking: true,
+        supportsMultimodal: false,
+      }),
+      createModelDefinition("glm-4.7", {
+        label: "GLM-4.7",
+        contextWindow: 200_000,
+        supportsThinking: true,
+        supportsMultimodal: false,
+      }),
+      createModelDefinition("glm-4.7-flash", {
+        label: "GLM-4.7 Flash",
+        contextWindow: 200_000,
+        supportsThinking: true,
+        supportsMultimodal: false,
+      }),
+      createModelDefinition("glm-4.5-air", {
+        label: "GLM-4.5 Air",
+        contextWindow: 128_000,
+        supportsThinking: true,
+        supportsMultimodal: false,
+      }),
+    ],
     defaultApiKeyEnvVar: "GLM_API_KEY",
   },
 } as const satisfies Record<

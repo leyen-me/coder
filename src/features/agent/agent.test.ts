@@ -6,6 +6,7 @@ import {
   resolveDefaultModel,
   writeLastSelectedModel,
 } from "@/features/agent/model-preference";
+import { createModelDefinition } from "@/lib/model-provider/model-definition";
 
 describe("chatCompletionsUrl", () => {
   it("appends /v1/chat/completions when base url has no /v1 suffix", () => {
@@ -36,7 +37,10 @@ describe("model preference", () => {
         apiKeySource: "manual",
         apiKey: "",
         apiKeyEnvVar: "GLM_API_KEY",
-        models: ["glm-5", "glm-4.7"],
+        models: [
+          createModelDefinition("glm-5"),
+          createModelDefinition("glm-4.7"),
+        ],
       })
     ).toBe("glm-5");
   });

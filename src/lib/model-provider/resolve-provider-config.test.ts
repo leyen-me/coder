@@ -25,6 +25,15 @@ describe("resolveProviderConfig", () => {
   });
 
   it("resolves custom provider configuration", () => {
+    const customModels = [
+      {
+        id: "custom-model",
+        contextWindow: 128_000,
+        supportsThinking: false,
+        supportsMultimodal: true,
+      },
+    ];
+
     expect(
       resolveProviderConfig({
         provider: "custom",
@@ -32,7 +41,7 @@ describe("resolveProviderConfig", () => {
         apiKey: "sk-custom",
         apiKeyEnvVar: "",
         customBaseUrl: "https://example.com/v1",
-        customModels: ["custom-model"],
+        customModels,
       })
     ).toEqual({
       provider: "custom",
@@ -40,7 +49,7 @@ describe("resolveProviderConfig", () => {
       apiKeySource: "manual",
       apiKey: "sk-custom",
       apiKeyEnvVar: "",
-      models: ["custom-model"],
+      models: customModels,
     });
   });
 });

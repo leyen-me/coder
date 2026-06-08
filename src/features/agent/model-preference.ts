@@ -2,7 +2,8 @@ import {
   DEFAULT_MODEL_PROVIDER_SETTINGS,
   PRESET_PROVIDERS,
 } from "@/lib/model-provider/constants";
-import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
+import { findModelDefinition } from "@/lib/model-provider/model-definition";
+import type { ModelDefinition, ResolvedProviderConfig } from "@/lib/model-provider/types";
 
 export const LAST_SELECTED_MODEL_KEY = "coder:last-selected-model";
 
@@ -22,13 +23,15 @@ export function writeLastSelectedModel(model: string): void {
   localStorage.setItem(LAST_SELECTED_MODEL_KEY, model.trim());
 }
 
-export function resolveDefaultModel(resolved: ResolvedProviderConfig): string {
+export function resolveDefaultModel(
+  resolved: Pick<ResolvedProviderConfig, "models">
+): string {
   const remembered = readLastSelectedModel();
-  if (remembered && resolved.models.includes(remembered)) {
+  if (remembered && findModelDefinition(resolved.models, remembered)) {
     return remembered;
   }
 
-  return resolved.models[0] ?? "";
+  return resolved.models[0]?.id ?? "";
 }
 
 export function resolveApiKey(resolved: ResolvedProviderConfig): string {
@@ -49,4 +52,11 @@ export function resolveApiKeyEnvVar(resolved: ResolvedProviderConfig): string {
   }
 
   return PRESET_PROVIDERS[resolved.provider].defaultApiKeyEnvVar;
+}
+
+export function resolveSelectedModelDefinition(
+  models: readonly ModelDefinition[],
+  modelId: string
+): ModelDefinition | undefined {
+  return findModelDefinition(models, modelId);
 }

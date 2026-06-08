@@ -3,6 +3,7 @@ import {
   DEFAULT_MODEL_PROVIDER_SETTINGS,
   PROVIDER_IDS,
 } from "./constants";
+import { parseModelDefinitions } from "./model-definition";
 import type { ApiKeySource, ModelProviderSettings, ProviderId } from "./types";
 
 function isProviderId(value: unknown): value is ProviderId {
@@ -17,17 +18,6 @@ function isApiKeySource(value: unknown): value is ApiKeySource {
     typeof value === "string" &&
     (API_KEY_SOURCES as readonly string[]).includes(value)
   );
-}
-
-function parseModels(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
 }
 
 export function parseModelProviderSettings(
@@ -58,6 +48,6 @@ export function parseModelProviderSettings(
       typeof record.customBaseUrl === "string"
         ? record.customBaseUrl
         : DEFAULT_MODEL_PROVIDER_SETTINGS.customBaseUrl,
-    customModels: parseModels(record.customModels),
+    customModels: parseModelDefinitions(record.customModels),
   };
 }

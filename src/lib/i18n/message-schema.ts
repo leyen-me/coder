@@ -40,6 +40,7 @@ export type Messages = {
     addAttachment: string;
     removeAttachment: string;
     attachmentErrorAccept: string;
+    attachmentErrorMultimodalUnsupported: string;
     attachmentErrorMaxSize: string;
     attachmentErrorMaxFiles: string;
     defaultPermission: string;
@@ -129,6 +130,22 @@ export type Messages = {
       presetModelsDescription: string;
       modelsPlaceholder: string;
       modelsAriaLabel: string;
+      modelIdLabel: string;
+      modelIdPlaceholder: string;
+      modelIdAriaLabel: string;
+      modelLabelLabel: string;
+      modelLabelPlaceholder: string;
+      modelLabelAriaLabel: string;
+      contextWindowLabel: string;
+      contextWindowAriaLabel: string;
+      contextWindowBadge: string;
+      thinkingBadge: string;
+      multimodalBadge: string;
+      supportsThinkingLabel: string;
+      supportsMultimodalLabel: string;
+      addModelButton: string;
+      removeModelAriaLabel: string;
+      emptyModelsHint: string;
     };
     data: {
       clearChatHistoryLabel: string;

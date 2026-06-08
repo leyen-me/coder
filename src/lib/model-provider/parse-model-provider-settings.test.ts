@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { createModelDefinition } from "./model-definition";
 import { DEFAULT_MODEL_PROVIDER_SETTINGS } from "./constants";
 import { parseModelProviderSettings } from "./parse-model-provider-settings";
-import { parseModelsText } from "./parse-models-text";
 
 describe("parseModelProviderSettings", () => {
   it("accepts valid settings", () => {
@@ -13,7 +13,10 @@ describe("parseModelProviderSettings", () => {
         apiKey: "sk-test",
         apiKeyEnvVar: "GLM_API_KEY",
         customBaseUrl: "https://example.com/v1",
-        customModels: ["model-a", "model-b"],
+        customModels: [
+          createModelDefinition("model-a", { supportsThinking: true }),
+          "model-b",
+        ],
       })
     ).toEqual({
       provider: "glm",
@@ -21,7 +24,10 @@ describe("parseModelProviderSettings", () => {
       apiKey: "sk-test",
       apiKeyEnvVar: "GLM_API_KEY",
       customBaseUrl: "https://example.com/v1",
-      customModels: ["model-a", "model-b"],
+      customModels: [
+        createModelDefinition("model-a", { supportsThinking: true }),
+        createModelDefinition("model-b"),
+      ],
     });
   });
 
@@ -40,15 +46,9 @@ describe("parseModelProviderSettings", () => {
       parseModelProviderSettings({
         customModels: ["valid", "", 42, "  trimmed  "],
       }).customModels
-    ).toEqual(["valid", "trimmed"]);
-  });
-});
-
-describe("parseModelsText", () => {
-  it("parses one model per line", () => {
-    expect(parseModelsText("gpt-4o\n\nclaude-3\n")).toEqual([
-      "gpt-4o",
-      "claude-3",
+    ).toEqual([
+      createModelDefinition("valid"),
+      createModelDefinition("trimmed"),
     ]);
   });
 });

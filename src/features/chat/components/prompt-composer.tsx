@@ -26,6 +26,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTranslation } from "@/lib/i18n/locale-provider";
+import {
+  findModelDefinition,
+  getModelSelectLabel,
+  type ModelDefinition,
+} from "@/lib/model-provider/model-definition";
 import { cn } from "@/lib/utils";
 
 import { ComposerEditTag } from "./composer-edit-tag";
@@ -47,7 +52,7 @@ type PromptComposerProps = {
   onSend?: (payload: { text: string; files: FileUIPart[] }) => void;
   onStop?: () => void;
   model: string;
-  models: readonly string[];
+  models: readonly ModelDefinition[];
   onModelChange: (model: string) => void;
   showWorkspaceControls?: boolean;
   workspaceName?: string | null;
@@ -81,6 +86,7 @@ type ComposerSubmitProps = {
   isRunning: boolean;
   onStop?: () => void;
   submitStatus: ChatStatus;
+  supportsMultimodal: boolean;
 };
 
 type ComposerAttachmentErrorProps = {
@@ -116,10 +122,12 @@ function ComposerSubmit({
   isRunning,
   onStop,
   submitStatus,
+  supportsMultimodal,
 }: ComposerSubmitProps) {
   const attachments = usePromptInputAttachments();
   const canSend =
-    value.trim().length > 0 || attachments.files.length > 0;
+    value.trim().length > 0 ||
+    (supportsMultimodal && attachments.files.length > 0);
 
   return (
     <PromptInputSubmit
@@ -129,6 +137,18 @@ function ComposerSubmit({
       status={submitStatus}
     />
   );
+}
+
+function ComposerMultimodalGuard({ enabled }: { enabled: boolean }) {
+  const attachments = usePromptInputAttachments();
+
+  useEffect(() => {
+    if (!enabled && attachments.files.length > 0) {
+      attachments.clear();
+    }
+  }, [attachments, enabled]);
+
+  return null;
 }
 
 type ComposerContextBarProps = {
@@ -251,6 +271,9 @@ export function PromptComposer({
   const submitStatus = resolveSubmitStatus(isRunning, Boolean(onStop));
   const showBranch =
     showWorkspaceControls && isGitRepository && Boolean(onGitBranchChange);
+  const selectedModel = findModelDefinition(models, model);
+  const supportsMultimodal = selectedModel?.supportsMultimodal ?? false;
+  const attachmentAccept = supportsMultimodal ? COMPOSER_ATTACHMENT_ACCEPT : undefined;
 
   const clearAttachmentError = useCallback(() => {
     setAttachmentError(null);
@@ -260,7 +283,11 @@ export function PromptComposer({
     (error: PromptInputAttachmentError) => {
       switch (error.code) {
         case "accept":
-          setAttachmentError(t("chat.attachmentErrorAccept"));
+          setAttachmentError(
+            supportsMultimodal
+              ? t("chat.attachmentErrorAccept")
+              : t("chat.attachmentErrorMultimodalUnsupported")
+          );
           break;
         case "max_file_size":
           setAttachmentError(
@@ -274,7 +301,7 @@ export function PromptComposer({
           break;
       }
     },
-    [t]
+    [supportsMultimodal, t]
   );
 
   const handleSubmit = useCallback(
@@ -284,17 +311,17 @@ export function PromptComposer({
       }
 
       const hasText = message.text.trim().length > 0;
-      const hasFiles = message.files.length > 0;
+      const hasFiles = supportsMultimodal && message.files.length > 0;
       if (!hasText && !hasFiles) {
         return;
       }
 
       onSend?.({
         text: message.text.trim(),
-        files: message.files,
+        files: supportsMultimodal ? message.files : [],
       });
     },
-    [isRunning, onSend]
+    [isRunning, onSend, supportsMultimodal]
   );
 
   const promptInputClassName = cn(
@@ -317,14 +344,15 @@ export function PromptComposer({
     <PromptInput
       key={composerKey}
       className={promptInputClassName}
-      accept={COMPOSER_ATTACHMENT_ACCEPT}
-      initialFiles={initialFiles}
+      accept={attachmentAccept}
+      initialFiles={supportsMultimodal ? initialFiles : []}
       maxFileSize={COMPOSER_MAX_FILE_SIZE}
       maxFiles={COMPOSER_MAX_FILES}
       multiple
       onError={handleAttachmentError}
       onSubmit={handleSubmit}
     >
+      <ComposerMultimodalGuard enabled={supportsMultimodal} />
       <PromptComposerAttachmentsHeader />
       <ComposerAttachmentError
         message={attachmentError}
@@ -364,8 +392,8 @@ export function PromptComposer({
           </PromptInputSelectTrigger>
           <PromptInputSelectContent align="start" className="max-w-sm">
             {models.map((item) => (
-              <PromptInputSelectItem key={item} value={item}>
-                {item}
+              <PromptInputSelectItem key={item.id} value={item.id}>
+                {getModelSelectLabel(item)}
               </PromptInputSelectItem>
             ))}
           </PromptInputSelectContent>
@@ -375,6 +403,7 @@ export function PromptComposer({
           isRunning={isRunning}
           onStop={onStop}
           submitStatus={submitStatus}
+          supportsMultimodal={supportsMultimodal}
           value={value}
         />
       </PromptInputFooter>

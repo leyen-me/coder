@@ -1,14 +1,11 @@
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { PRESET_PROVIDERS, PROVIDER_IDS } from "@/lib/model-provider/constants";
-import {
-  formatModelsText,
-  parseModelsText,
-} from "@/lib/model-provider/parse-models-text";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import type { ProviderId } from "@/lib/model-provider/types";
 import { useLocale } from "@/lib/i18n/locale-provider";
 
+import { CustomModelsEditor } from "./custom-models-editor";
+import { PresetModelsList } from "./preset-models-list";
 import { SettingField } from "./setting-field";
 import { SettingRow } from "./setting-row";
 import { SettingSelect } from "./setting-select";
@@ -140,16 +137,9 @@ export function ModelProviderSettingsPanel() {
           label={t("settings.modelProvider.modelsLabel")}
           description={t("settings.modelProvider.modelsDescription")}
         >
-          <Textarea
-            value={formatModelsText(settings.customModels)}
-            onChange={(event) =>
-              updateSettings({
-                customModels: parseModelsText(event.target.value),
-              })
-            }
-            placeholder={t("settings.modelProvider.modelsPlaceholder")}
-            aria-label={t("settings.modelProvider.modelsAriaLabel")}
-            className="min-h-28 font-mono text-sm"
+          <CustomModelsEditor
+            models={settings.customModels}
+            onChange={(customModels) => updateSettings({ customModels })}
           />
         </SettingField>
       ) : (
@@ -157,13 +147,7 @@ export function ModelProviderSettingsPanel() {
           label={t("settings.modelProvider.modelsLabel")}
           description={t("settings.modelProvider.presetModelsDescription")}
         >
-          <ul className="space-y-1 rounded-lg border border-input bg-muted/30 px-2.5 py-2">
-            {resolved.models.map((model) => (
-              <li key={model} className="font-mono text-sm text-muted-foreground">
-                {model}
-              </li>
-            ))}
-          </ul>
+          <PresetModelsList models={resolved.models} />
         </SettingField>
       )}
     </section>
