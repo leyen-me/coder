@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
@@ -10,14 +11,16 @@ import { cn } from "@/lib/utils";
 import type { DynamicToolUIPart, ToolUIPart } from "ai";
 import {
   CheckCircleIcon,
+  CheckIcon,
   ChevronDownIcon,
   CircleIcon,
   ClockIcon,
+  CopyIcon,
   WrenchIcon,
   XCircleIcon,
 } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
-import { isValidElement } from "react";
+import { isValidElement, useCallback, useEffect, useRef, useState } from "react";
 
 import { CodeBlock } from "./code-block";
 
@@ -116,16 +119,95 @@ export type ToolInputProps = ComponentProps<"div"> & {
   input: ToolPart["input"];
 };
 
-export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
-  <div className={cn("space-y-2 overflow-hidden", className)} {...props}>
-    <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-      Parameters
-    </h4>
-    <div className="rounded-md bg-muted/50">
-      <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
+function serializeToolOutput(
+  output: ToolPart["output"],
+  errorText?: ToolPart["errorText"]
+): string {
+  const parts: string[] = [];
+
+  if (errorText) {
+    parts.push(errorText);
+  }
+
+  if (output !== undefined && output !== null && output !== "") {
+    if (typeof output === "string") {
+      parts.push(output);
+    } else if (!isValidElement(output)) {
+      parts.push(JSON.stringify(output, null, 2));
+    }
+  }
+
+  return parts.join("\n\n");
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [isCopied, setIsCopied] = useState(false);
+  const timeoutRef = useRef<number>(0);
+
+  const handleCopy = useCallback(async () => {
+    if (typeof window === "undefined" || !navigator?.clipboard?.writeText) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setIsCopied(true);
+      timeoutRef.current = window.setTimeout(() => setIsCopied(false), 2000);
+    } catch {
+      // Ignore clipboard failures.
+    }
+  }, [text]);
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(timeoutRef.current);
+    },
+    []
+  );
+
+  const Icon = isCopied ? CheckIcon : CopyIcon;
+
+  return (
+    <Button
+      aria-label="Copy"
+      className="size-7 shrink-0 text-muted-foreground"
+      onClick={handleCopy}
+      size="icon"
+      type="button"
+      variant="ghost"
+    >
+      <Icon className="size-3.5" />
+    </Button>
+  );
+}
+
+function ToolSectionHeader({
+  label,
+  copyText,
+}: {
+  label: string;
+  copyText: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+        {label}
+      </h4>
+      <CopyButton text={copyText} />
     </div>
-  </div>
-);
+  );
+}
+
+export const ToolInput = ({ className, input, ...props }: ToolInputProps) => {
+  const code = JSON.stringify(input, null, 2);
+
+  return (
+    <div className={cn("space-y-2 overflow-hidden", className)} {...props}>
+      <ToolSectionHeader copyText={code} label="Parameters" />
+      <CodeBlock code={code} language="json" />
+    </div>
+  );
+};
 
 export type ToolOutputProps = ComponentProps<"div"> & {
   output: ToolPart["output"];
@@ -142,32 +224,32 @@ export const ToolOutput = ({
     return null;
   }
 
-  let Output = <div>{output as ReactNode}</div>;
+  const copyText = serializeToolOutput(output, errorText);
+  const label = errorText ? "Error" : "Result";
 
-  if (typeof output === "object" && !isValidElement(output)) {
-    Output = (
+  let content: ReactNode;
+
+  if (typeof output === "object" && output !== null && !isValidElement(output)) {
+    content = (
       <CodeBlock code={JSON.stringify(output, null, 2)} language="json" />
     );
   } else if (typeof output === "string") {
-    Output = <CodeBlock code={output} language="json" />;
+    content = <CodeBlock code={output} language="json" />;
+  } else if (output) {
+    content = <div className="p-4 text-xs">{output as ReactNode}</div>;
+  } else {
+    content = null;
   }
 
   return (
     <div className={cn("space-y-2", className)} {...props}>
-      <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-        {errorText ? "Error" : "Result"}
-      </h4>
-      <div
-        className={cn(
-          "overflow-x-auto rounded-md text-xs [&_table]:w-full",
-          errorText
-            ? "bg-destructive/10 text-destructive"
-            : "bg-muted/50 text-foreground"
-        )}
-      >
-        {errorText && <div>{errorText}</div>}
-        {Output}
-      </div>
+      <ToolSectionHeader copyText={copyText} label={label} />
+      {errorText ? (
+        <div className="rounded-md bg-destructive/10 p-4 text-destructive text-xs">
+          {errorText}
+        </div>
+      ) : null}
+      {content}
     </div>
   );
 };

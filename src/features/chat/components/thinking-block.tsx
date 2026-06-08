@@ -176,7 +176,7 @@ function ToolLink({ invocation }: ToolLinkProps) {
         <span>{invocation.name}</span>
       </button>
       <Sheet onOpenChange={setOpen} open={open}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+        <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-2xl">
           <SheetHeader>
             <SheetTitle>{t("chat.toolDetailTitle", { name: invocation.name })}</SheetTitle>
           </SheetHeader>
