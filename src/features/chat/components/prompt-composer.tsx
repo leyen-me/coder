@@ -398,7 +398,8 @@ export function PromptComposer({
             disabled={isRunning || models.length === 0}
           >
             <PromptInputSelectTrigger
-              className="h-8 max-w-44 rounded-xl px-2.5 [&_[data-slot=select-value]]:truncate"
+              size="sm"
+              className="max-w-44 [&_[data-slot=select-value]]:truncate"
               title={selectedModel ? getModelDisplayName(selectedModel) : model || undefined}
             >
               <PromptInputSelectValue placeholder={t("chat.noModel")} />
@@ -417,10 +418,11 @@ export function PromptComposer({
               pressed={thinkingEnabled}
               onPressedChange={onThinkingEnabledChange}
               variant="composer"
+              size="sm"
               className={cn(
                 composerFooterControlClassName,
                 composerFooterControlActiveClassName,
-                "h-8 max-w-36 shrink-0 rounded-xl px-2.5"
+                "max-w-36"
               )}
               disabled={isRunning}
               aria-label={t("chat.thinkingToggle")}
