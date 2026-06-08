@@ -41,6 +41,7 @@ export function MessageList({ messages, sessionTitle }: MessageListProps) {
   const previousMessageCountRef = useRef(messages.length);
   const isPinnedToBottomRef = useRef(true);
   const isStreamingRef = useRef(false);
+  const scrollRafRef = useRef<number | null>(null);
   const sessionId = messages[0]?.sessionId;
 
   useEffect(() => {
@@ -101,7 +102,21 @@ export function MessageList({ messages, sessionTitle }: MessageListProps) {
       return;
     }
 
-    scrollMessagesToBottom(container, didAppendMessage && !isStreaming);
+    if (scrollRafRef.current !== null) {
+      cancelAnimationFrame(scrollRafRef.current);
+    }
+
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      scrollMessagesToBottom(container, didAppendMessage && !isStreaming);
+    });
+
+    return () => {
+      if (scrollRafRef.current !== null) {
+        cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = null;
+      }
+    };
   }, [messages]);
 
   return (

@@ -16,10 +16,6 @@ import {
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import type { MessageToolInvocation } from "@/lib/db";
 import { cn } from "@/lib/utils";
-import { cjk } from "@streamdown/cjk";
-import { code } from "@streamdown/code";
-import { math } from "@streamdown/math";
-import { mermaid } from "@streamdown/mermaid";
 import type { ToolUIPart } from "ai";
 import {
   CheckCircle2Icon,
@@ -28,11 +24,9 @@ import {
   XCircleIcon,
 } from "lucide-react";
 import { useCallback, useState } from "react";
-import { Streamdown } from "streamdown";
 
 import type { ThinkingSegment } from "./assistant-process";
-
-const streamdownPlugins = { cjk, code, math, mermaid };
+import { StreamingPlainText } from "./streaming-message-content";
 
 type ThinkingBlockProps = {
   segments: ThinkingSegment[];
@@ -130,12 +124,11 @@ function ThinkingNarrative({ segments, isStreaming }: ThinkingNarrativeProps) {
         }
 
         return (
-          <Streamdown
-            key={`text:${index}:${group.text.slice(0, 24)}`}
-            plugins={streamdownPlugins}
-          >
-            {group.text}
-          </Streamdown>
+          <StreamingPlainText
+            isStreaming={isStreaming}
+            key={`text:${index}`}
+            text={group.text}
+          />
         );
       })}
     </div>

@@ -10,7 +10,6 @@ import {
   MessageAction,
   MessageActions,
   MessageContent,
-  MessageResponse,
 } from "@/components/ai-elements/message";
 import { paths } from "@/app/paths";
 import { forkSessionFromMessage } from "@/lib/db";
@@ -22,15 +21,44 @@ import {
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import { CopyIcon, GitForkIcon } from "lucide-react";
-import { useCallback, useState } from "react";
+import { memo, useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+import { StreamingMessageContent } from "./streaming-message-content";
 
 type MessageItemProps = {
   message: MessageRecord;
   sessionTitle?: string;
 };
 
-export function MessageItem({ message, sessionTitle }: MessageItemProps) {
+function areMessageItemPropsEqual(
+  prev: MessageItemProps,
+  next: MessageItemProps
+): boolean {
+  if (prev.sessionTitle !== next.sessionTitle) {
+    return false;
+  }
+
+  const prevMessage = prev.message;
+  const nextMessage = next.message;
+
+  return (
+    prevMessage.id === nextMessage.id &&
+    prevMessage.role === nextMessage.role &&
+    prevMessage.status === nextMessage.status &&
+    prevMessage.content === nextMessage.content &&
+    prevMessage.thinking === nextMessage.thinking &&
+    prevMessage.error === nextMessage.error &&
+    prevMessage.processSteps === nextMessage.processSteps &&
+    prevMessage.toolInvocations === nextMessage.toolInvocations &&
+    prevMessage.images === nextMessage.images
+  );
+}
+
+export const MessageItem = memo(function MessageItem({
+  message,
+  sessionTitle,
+}: MessageItemProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [isForking, setIsForking] = useState(false);
@@ -134,11 +162,7 @@ export function MessageItem({ message, sessionTitle }: MessageItemProps) {
       {showProcessTimeline ? (
         <AssistantProcessView steps={processSteps} />
       ) : answerText ? (
-        <MessageContent className="group-[.is-assistant]:overflow-visible group-[.is-assistant]:bg-transparent group-[.is-assistant]:p-0">
-          <MessageResponse isAnimating={isStreaming}>
-            {answerText}
-          </MessageResponse>
-        </MessageContent>
+        <StreamingMessageContent isStreaming={isStreaming} text={answerText} />
       ) : null}
       {showActions ? (
         <MessageActions className="mt-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
@@ -179,4 +203,4 @@ export function MessageItem({ message, sessionTitle }: MessageItemProps) {
       ) : null}
     </Message>
   );
-}
+}, areMessageItemPropsEqual);

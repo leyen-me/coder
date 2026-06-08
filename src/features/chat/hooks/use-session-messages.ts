@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useStreamingMessageOverlays } from "@/features/agent/store/agent-store";
 import {
@@ -8,6 +8,8 @@ import {
   type MessageRecord,
   type SessionRecord,
 } from "@/lib/db";
+
+const DB_REFRESH_DEBOUNCE_MS = 150;
 
 function applyStreamingOverlays(
   messages: MessageRecord[],
@@ -20,7 +22,8 @@ function applyStreamingOverlays(
     return messages;
   }
 
-  return messages.map((message) => {
+  let didChange = false;
+  const nextMessages = messages.map((message) => {
     const overlay = overlays.get(message.id);
     const isStreaming =
       message.status === "pending" || message.status === "streaming";
@@ -28,6 +31,7 @@ function applyStreamingOverlays(
       return message;
     }
 
+    didChange = true;
     return {
       ...message,
       content: overlay.content,
@@ -35,13 +39,15 @@ function applyStreamingOverlays(
       processSteps: overlay.processSteps,
     };
   });
+
+  return didChange ? nextMessages : messages;
 }
 
-export function useSessionMessages(sessionId: string) {
-  const streamingOverlays = useStreamingMessageOverlays();
+export function useSessionData(sessionId: string) {
   const [session, setSession] = useState<SessionRecord | null>(null);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = useCallback(async () => {
     if (!sessionId) {
@@ -63,15 +69,44 @@ export function useSessionMessages(sessionId: string) {
   useEffect(() => {
     setIsLoading(true);
     void refresh();
+
     return subscribeDb(() => {
-      void refresh();
+      if (refreshTimeoutRef.current) {
+        return;
+      }
+
+      refreshTimeoutRef.current = setTimeout(() => {
+        refreshTimeoutRef.current = null;
+        void refresh();
+      }, DB_REFRESH_DEBOUNCE_MS);
     });
   }, [refresh]);
 
-  const displayMessages = useMemo(
+  useEffect(
+    () => () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    },
+    []
+  );
+
+  return { session, messages, isLoading, refresh };
+}
+
+export function useDisplayMessages(messages: MessageRecord[]) {
+  const streamingOverlays = useStreamingMessageOverlays();
+
+  return useMemo(
     () => applyStreamingOverlays(messages, streamingOverlays),
     [messages, streamingOverlays]
   );
+}
+
+/** @deprecated Prefer `useSessionData` + `useDisplayMessages` for narrower subscriptions. */
+export function useSessionMessages(sessionId: string) {
+  const { session, messages, isLoading, refresh } = useSessionData(sessionId);
+  const displayMessages = useDisplayMessages(messages);
 
   return { session, messages: displayMessages, isLoading, refresh };
 }

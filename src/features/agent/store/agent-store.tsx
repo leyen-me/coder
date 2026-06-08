@@ -52,7 +52,6 @@ export type StreamingMessageOverlay = {
 
 type AgentStoreValue = {
   activeTasks: ReadonlyMap<string, ActiveTaskState>;
-  streamingOverlays: ReadonlyMap<string, StreamingMessageOverlay>;
   isSessionRunning: (sessionId: string) => boolean;
   getSessionTask: (sessionId: string) => ActiveTaskState | null;
   sendMessage: (input: {
@@ -65,6 +64,10 @@ type AgentStoreValue = {
 };
 
 const AgentStoreContext = createContext<AgentStoreValue | null>(null);
+
+const StreamingOverlaysContext = createContext<
+  ReadonlyMap<string, StreamingMessageOverlay>
+>(new Map());
 
 type AgentStoreProviderProps = {
   children: ReactNode;
@@ -449,25 +452,19 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const value = useMemo(
     () => ({
       activeTasks,
-      streamingOverlays,
       isSessionRunning,
       getSessionTask,
       sendMessage,
       cancelTask,
     }),
-    [
-      activeTasks,
-      streamingOverlays,
-      cancelTask,
-      getSessionTask,
-      isSessionRunning,
-      sendMessage,
-    ]
+    [activeTasks, cancelTask, getSessionTask, isSessionRunning, sendMessage]
   );
 
   return (
     <AgentStoreContext.Provider value={value}>
-      {children}
+      <StreamingOverlaysContext.Provider value={streamingOverlays}>
+        {children}
+      </StreamingOverlaysContext.Provider>
     </AgentStoreContext.Provider>
   );
 }
@@ -484,7 +481,7 @@ export function useStreamingMessageOverlays(): ReadonlyMap<
   string,
   StreamingMessageOverlay
 > {
-  return useAgentStore().streamingOverlays;
+  return useContext(StreamingOverlaysContext);
 }
 
 export function useRunningSessionIds(): ReadonlySet<string> {

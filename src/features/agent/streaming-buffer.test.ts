@@ -39,6 +39,30 @@ describe("createStreamingBufferManager", () => {
     vi.useRealTimers();
   });
 
+  it("batches onChange notifications to one animation frame", () => {
+    const rafCallbacks: Array<() => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: () => void) => {
+      rafCallbacks.push(callback);
+      return rafCallbacks.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+
+    const onChange = vi.fn();
+    const manager = createStreamingBufferManager({
+      onFlush: vi.fn().mockResolvedValue(undefined),
+      onChange,
+    });
+
+    manager.append("msg-1", "content", "a");
+    manager.append("msg-1", "content", "b");
+    expect(onChange).not.toHaveBeenCalled();
+
+    rafCallbacks.forEach((callback) => callback());
+    expect(onChange).toHaveBeenCalledTimes(1);
+
+    vi.unstubAllGlobals();
+  });
+
   it("clear removes overlay without flushing", () => {
     const onFlush = vi.fn().mockResolvedValue(undefined);
 

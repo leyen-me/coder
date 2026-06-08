@@ -10,6 +10,23 @@ export type StreamingFields = {
 
 const FLUSH_INTERVAL_MS = 50;
 
+function scheduleChange(callback: () => void): number {
+  if (typeof requestAnimationFrame === "function") {
+    return requestAnimationFrame(callback);
+  }
+
+  return setTimeout(callback, 16) as unknown as number;
+}
+
+function cancelScheduledChange(id: number): void {
+  if (typeof cancelAnimationFrame === "function") {
+    cancelAnimationFrame(id);
+    return;
+  }
+
+  clearTimeout(id);
+}
+
 type BufferState = {
   processSteps: MessageProcessStep[];
 };
@@ -35,9 +52,25 @@ export function createStreamingBufferManager(options: {
   const buffers = new Map<string, BufferState>();
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   const flushChains = new Map<string, Promise<void>>();
+  let changeFrameId: number | null = null;
 
-  const emitChange = () => {
+  const emitChangeNow = () => {
+    if (changeFrameId !== null) {
+      cancelScheduledChange(changeFrameId);
+      changeFrameId = null;
+    }
     options.onChange();
+  };
+
+  const scheduleEmitChange = () => {
+    if (changeFrameId !== null) {
+      return;
+    }
+
+    changeFrameId = scheduleChange(() => {
+      changeFrameId = null;
+      options.onChange();
+    });
   };
 
   const ensureBuffer = (messageId: string): BufferState => {
@@ -76,7 +109,7 @@ export function createStreamingBufferManager(options: {
       field === "thinking" ? "reasoning" : "answer",
       delta
     );
-    emitChange();
+    scheduleEmitChange();
     scheduleFlush(messageId);
   };
 
@@ -89,7 +122,7 @@ export function createStreamingBufferManager(options: {
         kind: "tool",
         toolCallId,
       });
-      emitChange();
+      scheduleEmitChange();
       scheduleFlush(messageId);
     }
   };
@@ -140,7 +173,7 @@ export function createStreamingBufferManager(options: {
 
     buffers.delete(messageId);
     flushChains.delete(messageId);
-    emitChange();
+    emitChangeNow();
   };
 
   const flushAndClear = async (messageId: string): Promise<void> => {

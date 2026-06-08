@@ -6,9 +6,9 @@ import { useAgentStore } from "@/features/agent/store/agent-store";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
-import { MessageList } from "../components/message-list";
+import { ChatMessageList } from "../components/chat-message-list";
 import { PromptComposer } from "../components/prompt-composer";
-import { useSessionMessages } from "../hooks/use-session-messages";
+import { useSessionData } from "../hooks/use-session-messages";
 import { useSessionWorkspaceBinding } from "../hooks/use-session-workspace-binding";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
 
@@ -20,7 +20,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const { resolved } = useModelProvider();
   const { sendMessage, cancelTask, getSessionTask, isSessionRunning } =
     useAgentStore();
-  const { session, messages, isLoading } = useSessionMessages(chatId);
+  const { session, messages, isLoading } = useSessionData(chatId);
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState(() => resolveDefaultModel(resolved));
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -86,7 +86,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <MessageList messages={messages} sessionTitle={session?.title} />
+      <ChatMessageList messages={messages} sessionTitle={session?.title} />
 
       <div className="shrink-0 px-4 pb-4 pt-3">
         <div className="mx-auto w-full max-w-3xl">
