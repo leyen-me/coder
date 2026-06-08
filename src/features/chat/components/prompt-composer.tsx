@@ -155,7 +155,7 @@ function ComposerContextBar({
   const { t } = useTranslation();
 
   return (
-    <div className="flex items-center gap-1 border-t border-border/60 bg-muted/40 px-3 py-2 dark:bg-muted/20">
+    <div className="relative z-0 -mt-3 flex items-center gap-1 bg-muted/50 px-3 pb-2 pt-5 dark:bg-[#1c1c1f]">
       <Button
         aria-label={
           workspaceName
@@ -297,6 +297,90 @@ export function PromptComposer({
     [isRunning, onSend]
   );
 
+  const promptInputClassName = cn(
+    "w-full",
+    "[&_[data-slot=input-group]]:h-auto [&_[data-slot=input-group]]:overflow-hidden",
+    "[&_[data-slot=input-group]]:rounded-none [&_[data-slot=input-group]]:border-0",
+    "[&_[data-slot=input-group]]:bg-transparent",
+    "[&_[data-slot=input-group]]:text-card-foreground [&_[data-slot=input-group]]:shadow-none",
+    "[&_[data-slot=input-group]]:dark:bg-transparent [&_[data-slot=input-group]]:has-disabled:opacity-100",
+    "[&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:border-transparent",
+    "[&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:ring-0",
+    "[&_[data-slot=input-group-control]]:text-foreground",
+    "[&_[data-slot=input-group-control]:focus-visible]:border-transparent",
+    "[&_[data-slot=input-group-control]:focus-visible]:ring-0",
+    "[&_[data-slot=input-group-control]:disabled:cursor-not-allowed",
+    "[&_[data-slot=input-group-control]:disabled:opacity-100"
+  );
+
+  const composerInput = (
+    <PromptInput
+      key={composerKey}
+      className={promptInputClassName}
+      accept={COMPOSER_ATTACHMENT_ACCEPT}
+      initialFiles={initialFiles}
+      maxFileSize={COMPOSER_MAX_FILE_SIZE}
+      maxFiles={COMPOSER_MAX_FILES}
+      multiple
+      onError={handleAttachmentError}
+      onSubmit={handleSubmit}
+    >
+      <PromptComposerAttachmentsHeader />
+      <ComposerAttachmentError
+        message={attachmentError}
+        onClear={clearAttachmentError}
+      />
+
+      <PromptInputBody>
+        <PromptInputTextarea
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && onCancelEdit) {
+              event.preventDefault();
+              onCancelEdit();
+            }
+          }}
+          placeholder={t("chat.composerPlaceholder")}
+          className={cn(
+            "px-4 py-4 text-base text-foreground",
+            isCompact ? "min-h-[72px]" : "min-h-[120px]"
+          )}
+          readOnly={isRunning}
+        />
+      </PromptInputBody>
+
+      <PromptInputFooter className="border-t border-border/60 bg-card px-3 py-2">
+        <PromptInputSelect
+          value={model}
+          onValueChange={onModelChange}
+          disabled={isRunning || models.length === 0}
+        >
+          <PromptInputSelectTrigger
+            className="h-8 max-w-56 rounded-xl px-2.5 [&_[data-slot=select-value]]:truncate"
+            title={model || undefined}
+          >
+            <PromptInputSelectValue placeholder={t("chat.noModel")} />
+          </PromptInputSelectTrigger>
+          <PromptInputSelectContent align="start" className="max-w-sm">
+            {models.map((item) => (
+              <PromptInputSelectItem key={item} value={item}>
+                {item}
+              </PromptInputSelectItem>
+            ))}
+          </PromptInputSelectContent>
+        </PromptInputSelect>
+
+        <ComposerSubmit
+          isRunning={isRunning}
+          onStop={onStop}
+          submitStatus={submitStatus}
+          value={value}
+        />
+      </PromptInputFooter>
+    </PromptInput>
+  );
+
   return (
     <div className={cn("flex w-full max-w-3xl flex-col gap-1.5", className)}>
       {isEditing && onCancelEdit ? (
@@ -309,89 +393,18 @@ export function PromptComposer({
 
       <div
         className={cn(
-          "overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-none",
+          "overflow-hidden rounded-3xl border border-border shadow-none",
+          !showWorkspaceControls && "bg-card text-card-foreground",
           isCompact && "shadow-sm"
         )}
       >
-        <PromptInput
-          key={composerKey}
-          className={cn(
-            "w-full",
-            "[&_[data-slot=input-group]]:h-auto [&_[data-slot=input-group]]:overflow-hidden",
-            "[&_[data-slot=input-group]]:rounded-none [&_[data-slot=input-group]]:border-0",
-            "[&_[data-slot=input-group]]:bg-transparent",
-            "[&_[data-slot=input-group]]:text-card-foreground [&_[data-slot=input-group]]:shadow-none",
-            "[&_[data-slot=input-group]]:dark:bg-transparent [&_[data-slot=input-group]]:has-disabled:opacity-100",
-            "[&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:border-transparent",
-            "[&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:ring-0",
-            "[&_[data-slot=input-group-control]]:text-foreground",
-            "[&_[data-slot=input-group-control]:focus-visible]:border-transparent",
-            "[&_[data-slot=input-group-control]:focus-visible]:ring-0",
-            "[&_[data-slot=input-group-control]:disabled:cursor-not-allowed",
-            "[&_[data-slot=input-group-control]:disabled:opacity-100"
-          )}
-          accept={COMPOSER_ATTACHMENT_ACCEPT}
-          initialFiles={initialFiles}
-          maxFileSize={COMPOSER_MAX_FILE_SIZE}
-          maxFiles={COMPOSER_MAX_FILES}
-          multiple
-          onError={handleAttachmentError}
-          onSubmit={handleSubmit}
-        >
-          <PromptComposerAttachmentsHeader />
-          <ComposerAttachmentError
-            message={attachmentError}
-            onClear={clearAttachmentError}
-          />
-
-          <PromptInputBody>
-            <PromptInputTextarea
-              value={value}
-              onChange={(event) => onChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape" && onCancelEdit) {
-                  event.preventDefault();
-                  onCancelEdit();
-                }
-              }}
-              placeholder={t("chat.composerPlaceholder")}
-              className={cn(
-                "px-4 py-4 text-base text-foreground",
-                isCompact ? "min-h-[72px]" : "min-h-[120px]"
-              )}
-              readOnly={isRunning}
-            />
-          </PromptInputBody>
-
-          <PromptInputFooter className="border-t border-border/60 bg-card px-3 py-2">
-            <PromptInputSelect
-              value={model}
-              onValueChange={onModelChange}
-              disabled={isRunning || models.length === 0}
-            >
-              <PromptInputSelectTrigger
-                className="h-8 max-w-56 rounded-xl px-2.5 [&_[data-slot=select-value]]:truncate"
-                title={model || undefined}
-              >
-                <PromptInputSelectValue placeholder={t("chat.noModel")} />
-              </PromptInputSelectTrigger>
-              <PromptInputSelectContent align="start" className="max-w-sm">
-                {models.map((item) => (
-                  <PromptInputSelectItem key={item} value={item}>
-                    {item}
-                  </PromptInputSelectItem>
-                ))}
-              </PromptInputSelectContent>
-            </PromptInputSelect>
-
-            <ComposerSubmit
-              isRunning={isRunning}
-              onStop={onStop}
-              submitStatus={submitStatus}
-              value={value}
-            />
-          </PromptInputFooter>
-        </PromptInput>
+        {showWorkspaceControls ? (
+          <div className="relative z-[1] rounded-3xl bg-card text-card-foreground shadow-[0_6px_12px_-4px_rgb(0_0_0/0.08)] dark:shadow-[0_8px_16px_-4px_rgb(0_0_0/0.45)]">
+            <div className="overflow-hidden rounded-3xl">{composerInput}</div>
+          </div>
+        ) : (
+          composerInput
+        )}
 
         {showWorkspaceControls ? (
           <ComposerContextBar
