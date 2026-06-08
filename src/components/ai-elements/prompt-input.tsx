@@ -492,6 +492,7 @@ export type PromptInputProps = Omit<
 > & {
   // e.g., "image/*" or leave undefined for any
   accept?: string;
+  initialFiles?: FileUIPart[];
   multiple?: boolean;
   // When true, accepts drops anywhere on document. Default false (opt-in).
   globalDrop?: boolean;
@@ -511,9 +512,26 @@ export type PromptInputProps = Omit<
   ) => void | Promise<void>;
 };
 
+function mapInitialPromptFiles(
+  files: FileUIPart[] | undefined
+): (FileUIPart & { id: string })[] {
+  if (!files?.length) {
+    return [];
+  }
+
+  return files.map((file) => ({
+    ...file,
+    id:
+      "id" in file && typeof file.id === "string" && file.id.trim()
+        ? file.id
+        : nanoid(),
+  }));
+}
+
 export const PromptInput = ({
   className,
   accept,
+  initialFiles,
   multiple,
   globalDrop,
   syncHiddenInput,
@@ -533,7 +551,7 @@ export const PromptInput = ({
   const formRef = useRef<HTMLFormElement | null>(null);
 
   // ----- Local attachments (only used when no provider)
-  const [items, setItems] = useState<(FileUIPart & { id: string })[]>([]);
+  const [items, setItems] = useState(() => mapInitialPromptFiles(initialFiles));
   const files = usingProvider ? controller.attachments.files : items;
 
   // ----- Local referenced sources (always local to PromptInput)

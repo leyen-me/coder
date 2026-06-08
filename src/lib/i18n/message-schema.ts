@@ -59,6 +59,7 @@ export type Messages = {
     answer: string;
     toolDetailTitle: string;
     copyMessage: string;
+    editMessage: string;
     forkMessage: string;
     forkSessionTitle: string;
     noModel: string;

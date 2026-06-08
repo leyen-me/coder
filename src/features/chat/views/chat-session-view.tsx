@@ -1,6 +1,7 @@
 import type { FileUIPart } from "ai";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
+import { storedImagesToFileUIParts } from "@/features/agent/message-content";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
@@ -11,6 +12,7 @@ import { PromptComposer } from "../components/prompt-composer";
 import { useSessionData } from "../hooks/use-session-messages";
 import { useSessionWorkspaceBinding } from "../hooks/use-session-workspace-binding";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
+import type { MessageRecord } from "@/lib/db";
 
 type ChatSessionViewProps = {
   chatId: string;
@@ -22,6 +24,8 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     useAgentStore();
   const { session, messages, isLoading } = useSessionData(chatId);
   const [prompt, setPrompt] = useState("");
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editInitialFiles, setEditInitialFiles] = useState<FileUIPart[]>([]);
   const [model, setModel] = useState(() => resolveDefaultModel(resolved));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -45,21 +49,45 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     }
   }, [session?.model]);
 
+  const handleCancelEdit = useCallback(() => {
+    setEditingMessageId(null);
+    setEditInitialFiles([]);
+    setPrompt("");
+  }, []);
+
+  const handleEditUserMessage = useCallback(
+    (message: MessageRecord) => {
+      const task = getSessionTask(chatId);
+      if (task) {
+        void cancelTask(task.taskId);
+      }
+
+      setEditingMessageId(message.id);
+      setPrompt(message.content);
+      setEditInitialFiles(storedImagesToFileUIParts(message.images ?? []));
+    },
+    [cancelTask, chatId, getSessionTask]
+  );
+
   const handleSend = async (payload: { text: string; files: FileUIPart[] }) => {
     const trimmed = payload.text.trim();
     const hasImages = payload.files.length > 0;
-    if ((!trimmed && !hasImages) || isRunning) {
+    if ((!trimmed && !hasImages) || (isRunning && !editingMessageId)) {
       return;
     }
 
     setIsSubmitting(true);
+    const editingId = editingMessageId;
     setPrompt("");
+    setEditingMessageId(null);
+    setEditInitialFiles([]);
     try {
       await sendMessage({
         sessionId: chatId,
         content: trimmed,
         images: payload.files,
         model,
+        editMessageId: editingId ?? undefined,
       });
     } finally {
       setIsSubmitting(false);
@@ -86,12 +114,19 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <ChatMessageList messages={messages} sessionTitle={session?.title} />
+      <ChatMessageList
+        messages={messages}
+        onEditUserMessage={handleEditUserMessage}
+        sessionTitle={session?.title}
+      />
 
       <div className="shrink-0 px-4 pb-4 pt-3">
         <div className="mx-auto w-full max-w-3xl">
           <PromptComposer
+            composerKey={editingMessageId ?? "new"}
+            initialFiles={editInitialFiles}
             value={prompt}
+            onCancelEdit={editingMessageId ? handleCancelEdit : undefined}
             onChange={setPrompt}
             onSend={(payload) => {
               void handleSend(payload);

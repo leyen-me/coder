@@ -13,6 +13,7 @@ import {
   completeMessageToolInvocation,
   createMessage,
   createTaskId,
+  deleteMessagesAfter,
   getMessage,
   getMessagesBySession,
   setMessageStatus,
@@ -59,6 +60,7 @@ type AgentStoreValue = {
     content: string;
     model: string;
     images?: readonly FileUIPart[];
+    editMessageId?: string;
   }) => Promise<{ userMessageId: string; assistantMessageId: string; taskId: string }>;
   cancelTask: (taskId: string) => Promise<void>;
 };
@@ -333,6 +335,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       content: string;
       model: string;
       images?: readonly FileUIPart[];
+      editMessageId?: string;
     }) => {
       const trimmed = input.content.trim();
       const storedImages = fileUIPartsToStoredImages(input.images ?? []);
@@ -342,22 +345,80 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
       writeLastSelectedModel(input.model);
 
-      const existingMessages = await getMessagesBySession(input.sessionId);
-      const userMessage = await createMessage({
-        id: crypto.randomUUID(),
-        sessionId: input.sessionId,
-        role: "user",
-        content: trimmed,
-        images: storedImages.length > 0 ? storedImages : undefined,
-        thinking: "",
-        processSteps: [],
-        toolInvocations: [],
-        status: "completed",
-        taskId: null,
-        error: null,
-      });
+      for (const task of tasksRef.current.values()) {
+        if (
+          task.sessionId === input.sessionId &&
+          isActiveAgentTask(task.status)
+        ) {
+          tasksRef.current.set(task.taskId, { ...task, status: "cancelling" });
+          emit();
+          await cancelAgent(task.taskId);
+        }
+      }
+
+      let userMessage: MessageRecord;
+      let isFirstTurn: boolean;
+
+      if (input.editMessageId) {
+        const sessionMessages = await getMessagesBySession(input.sessionId);
+        const editIndex = sessionMessages.findIndex(
+          (message) => message.id === input.editMessageId
+        );
+        if (editIndex === -1) {
+          throw new Error(`Message not found: ${input.editMessageId}`);
+        }
+
+        const messageToEdit = sessionMessages[editIndex];
+        if (messageToEdit?.role !== "user") {
+          throw new Error("Only user messages can be edited");
+        }
+
+        isFirstTurn = editIndex === 0;
+        const deletedMessageIds = await deleteMessagesAfter(
+          input.sessionId,
+          input.editMessageId
+        );
+        for (const messageId of deletedMessageIds) {
+          streamingBufferRef.current.clear(messageId);
+        }
+
+        const updated = await updateMessage(input.editMessageId, {
+          content: trimmed,
+          images: storedImages.length > 0 ? storedImages : undefined,
+        });
+        if (!updated) {
+          throw new Error(`Message not found: ${input.editMessageId}`);
+        }
+        userMessage = updated;
+      } else {
+        const existingMessages = await getMessagesBySession(input.sessionId);
+        isFirstTurn = existingMessages.length === 0;
+        userMessage = await createMessage({
+          id: crypto.randomUUID(),
+          sessionId: input.sessionId,
+          role: "user",
+          content: trimmed,
+          images: storedImages.length > 0 ? storedImages : undefined,
+          thinking: "",
+          processSteps: [],
+          toolInvocations: [],
+          status: "completed",
+          taskId: null,
+          error: null,
+        });
+      }
 
       const taskId = createTaskId();
+
+      const session = await ensureSessionWorkspaceForAgent(input.sessionId);
+      const workspaceDir = session.workspaceDir?.trim() || null;
+      const historyMessages = await getMessagesBySession(input.sessionId);
+      const environment = await resolveAgentEnvironment(workspaceDir);
+      const history = buildAgentMessages(
+        historyMessages.flatMap(messageRecordToAgentMessages),
+        environment
+      );
+
       const assistantMessage = await createMessage({
         id: crypto.randomUUID(),
         sessionId: input.sessionId,
@@ -371,25 +432,13 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         error: null,
       });
 
-      const session = await ensureSessionWorkspaceForAgent(input.sessionId);
-      const workspaceDir = session.workspaceDir?.trim() || null;
-
-      const environment = await resolveAgentEnvironment(workspaceDir);
-      const history = buildAgentMessages(
-        [
-          ...existingMessages.flatMap(messageRecordToAgentMessages),
-          ...messageRecordToAgentMessages(userMessage),
-        ],
-        environment
-      );
-
       const activeTask: ActiveTaskState = {
         taskId,
         sessionId: input.sessionId,
         assistantMessageId: assistantMessage.id,
         status: "running",
         error: null,
-        isFirstTurn: existingMessages.length === 0,
+        isFirstTurn,
         model: input.model,
         userContent:
           trimmed ||

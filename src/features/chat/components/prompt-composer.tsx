@@ -63,6 +63,9 @@ type PromptComposerProps = {
   variant?: "full" | "compact";
   isRunning?: boolean;
   className?: string;
+  composerKey?: string;
+  initialFiles?: FileUIPart[];
+  onCancelEdit?: () => void;
 };
 
 function resolveSubmitStatus(
@@ -150,6 +153,9 @@ export function PromptComposer({
   variant = "full",
   isRunning = false,
   className,
+  composerKey,
+  initialFiles,
+  onCancelEdit,
 }: PromptComposerProps) {
   const { t } = useTranslation();
   const isCompact = variant === "compact";
@@ -205,6 +211,7 @@ export function PromptComposer({
 
   return (
     <PromptInput
+      key={composerKey}
       className={cn(
         "w-full max-w-3xl",
         "[&_[data-slot=input-group]]:h-auto [&_[data-slot=input-group]]:overflow-hidden",
@@ -223,6 +230,7 @@ export function PromptComposer({
         className
       )}
       accept={COMPOSER_ATTACHMENT_ACCEPT}
+      initialFiles={initialFiles}
       maxFileSize={COMPOSER_MAX_FILE_SIZE}
       maxFiles={COMPOSER_MAX_FILES}
       multiple
@@ -239,6 +247,12 @@ export function PromptComposer({
         <PromptInputTextarea
           value={value}
           onChange={(event) => onChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && onCancelEdit) {
+              event.preventDefault();
+              onCancelEdit();
+            }
+          }}
           placeholder={t("chat.composerPlaceholder")}
           className={cn(
             "px-4 py-4 text-base text-foreground",

@@ -56,6 +56,7 @@ export async function updateMessage(
       | "error"
       | "taskId"
       | "toolInvocations"
+      | "images"
     >
   >
 ): Promise<MessageRecord | null> {
@@ -66,6 +67,9 @@ export async function updateMessage(
   }
 
   const next: MessageRecord = { ...existing, ...patch };
+  if ("images" in patch && patch.images === undefined) {
+    delete next.images;
+  }
   await db.put(MESSAGES_STORE, next);
   await touchSession(existing.sessionId);
   notifyDbChange();
@@ -93,6 +97,30 @@ export async function setMessageStatus(
   error: string | null = null
 ): Promise<MessageRecord | null> {
   return updateMessage(messageId, { status, error });
+}
+
+export async function deleteMessagesAfter(
+  sessionId: string,
+  messageId: string
+): Promise<string[]> {
+  const messages = await getMessagesBySession(sessionId);
+  const cutoffIndex = messages.findIndex((message) => message.id === messageId);
+  if (cutoffIndex === -1) {
+    throw new Error(`Message not found: ${messageId}`);
+  }
+
+  const toDelete = messages.slice(cutoffIndex + 1);
+  if (toDelete.length === 0) {
+    return [];
+  }
+
+  const db = await getDb();
+  await Promise.all(
+    toDelete.map((message) => db.delete(MESSAGES_STORE, message.id))
+  );
+  await touchSession(sessionId);
+  notifyDbChange();
+  return toDelete.map((message) => message.id);
 }
 
 export async function searchMessages(

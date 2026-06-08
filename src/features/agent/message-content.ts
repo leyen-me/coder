@@ -41,6 +41,20 @@ export function fileUIPartsToStoredImages(
   }));
 }
 
+export function storedImagesToFileUIParts(
+  images: readonly MessageImageAttachment[]
+): (FileUIPart & { id: string })[] {
+  return images
+    .filter((image) => image.url.trim())
+    .map((image) => ({
+      id: image.id,
+      type: "file" as const,
+      url: image.url,
+      filename: image.filename,
+      mediaType: image.mediaType ?? "application/octet-stream",
+    }));
+}
+
 export function buildUserAgentContent(
   text: string,
   images: readonly MessageImageAttachment[]

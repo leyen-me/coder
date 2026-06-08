@@ -20,7 +20,7 @@ import {
 } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
-import { CopyIcon, GitForkIcon } from "lucide-react";
+import { CopyIcon, GitForkIcon, PencilIcon } from "lucide-react";
 import { memo, useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -30,6 +30,7 @@ type MessageItemProps = {
   message: MessageRecord;
   sessionTitle?: string;
   isStreaming: boolean;
+  onEditUserMessage?: (message: MessageRecord) => void;
 };
 
 function areMessageItemPropsEqual(
@@ -41,6 +42,10 @@ function areMessageItemPropsEqual(
   }
 
   if (prev.isStreaming !== next.isStreaming) {
+    return false;
+  }
+
+  if (prev.onEditUserMessage !== next.onEditUserMessage) {
     return false;
   }
 
@@ -64,6 +69,7 @@ export const MessageItem = memo(function MessageItem({
   message,
   sessionTitle,
   isStreaming,
+  onEditUserMessage,
 }: MessageItemProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -111,6 +117,25 @@ export const MessageItem = memo(function MessageItem({
     await navigator.clipboard.writeText(answerText);
   }, [answerText]);
 
+  const handleUserCopy = useCallback(async () => {
+    const images = message.images ?? [];
+    const parts: string[] = [];
+    if (message.content.trim()) {
+      parts.push(message.content);
+    }
+    for (const image of images) {
+      parts.push(image.filename?.trim() || image.url);
+    }
+    if (parts.length === 0) {
+      return;
+    }
+    await navigator.clipboard.writeText(parts.join("\n"));
+  }, [message.content, message.images]);
+
+  const handleUserEdit = useCallback(() => {
+    onEditUserMessage?.(message);
+  }, [message, onEditUserMessage]);
+
   const handleFork = useCallback(async () => {
     if (isForking) {
       return;
@@ -134,6 +159,9 @@ export const MessageItem = memo(function MessageItem({
 
   if (isUser) {
     const images = message.images ?? [];
+    const hasCopyContent =
+      Boolean(message.content.trim()) || images.length > 0;
+
     return (
       <Message from="user">
         <MessageContent className="gap-2">
@@ -157,6 +185,28 @@ export const MessageItem = memo(function MessageItem({
           ) : null}
           {message.content ? <span>{message.content}</span> : null}
         </MessageContent>
+        {hasCopyContent ? (
+          <MessageActions className="mt-1 self-end opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            <MessageAction
+              label={t("chat.copyMessage")}
+              onClick={() => {
+                void handleUserCopy();
+              }}
+              tooltip={t("chat.copyMessage")}
+            >
+              <CopyIcon className="size-3.5" />
+            </MessageAction>
+            {onEditUserMessage ? (
+              <MessageAction
+                label={t("chat.editMessage")}
+                onClick={handleUserEdit}
+                tooltip={t("chat.editMessage")}
+              >
+                <PencilIcon className="size-3.5" />
+              </MessageAction>
+            ) : null}
+          </MessageActions>
+        ) : null}
       </Message>
     );
   }
