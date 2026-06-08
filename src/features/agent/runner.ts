@@ -66,6 +66,7 @@ export async function startAgent(
         model: input.model,
         messages: input.messages,
         tools: input.tools ?? null,
+        requestExtensions: input.requestExtensions ?? null,
       },
       onEvent: channel,
     });

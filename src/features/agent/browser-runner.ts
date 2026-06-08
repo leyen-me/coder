@@ -47,6 +47,7 @@ export async function startBrowserAgent(
         model: input.model,
         messages: input.messages,
         stream: true,
+        ...(input.requestExtensions ?? {}),
         ...(input.tools?.length ? { tools: input.tools, tool_choice: "auto" } : {}),
       }),
       signal: controller.signal,

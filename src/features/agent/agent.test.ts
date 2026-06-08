@@ -32,11 +32,6 @@ describe("model preference", () => {
     expect(readLastSelectedModel()).toBe("glm-5");
     expect(
       resolveDefaultModel({
-        provider: "glm",
-        baseUrl: "https://example.com",
-        apiKeySource: "manual",
-        apiKey: "",
-        apiKeyEnvVar: "GLM_API_KEY",
         models: [
           createModelDefinition("glm-5"),
           createModelDefinition("glm-4.7"),

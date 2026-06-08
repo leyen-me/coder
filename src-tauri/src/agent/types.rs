@@ -106,6 +106,7 @@ pub struct AgentStartParams {
     pub model: String,
     pub messages: Vec<ChatMessage>,
     pub tools: Option<Vec<AgentToolDefinition>>,
+    pub request_extensions: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

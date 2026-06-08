@@ -53,6 +53,8 @@ export type AgentStartInput = {
   tools?: AgentToolDefinition[];
   /** When false, thinking/content deltas are not emitted to the UI. */
   emitAssistantOutput?: boolean;
+  /** Provider-specific fields merged into the chat completion request body. */
+  requestExtensions?: Record<string, unknown>;
 };
 
 export type ActiveTaskState = {

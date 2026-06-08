@@ -1,5 +1,5 @@
 import type { ChatStatus, FileUIPart } from "ai";
-import { ChevronDownIcon, FolderOpenIcon, GitBranchIcon } from "lucide-react";
+import { ChevronDownIcon, FolderOpenIcon, GitBranchIcon, BrainIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -28,9 +28,10 @@ import {
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import {
   findModelDefinition,
-  getModelSelectLabel,
+  getModelDisplayName,
   type ModelDefinition,
 } from "@/lib/model-provider/model-definition";
+import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { cn } from "@/lib/utils";
 
 import { ComposerEditTag } from "./composer-edit-tag";
@@ -54,6 +55,8 @@ type PromptComposerProps = {
   model: string;
   models: readonly ModelDefinition[];
   onModelChange: (model: string) => void;
+  thinkingEnabled?: boolean;
+  onThinkingEnabledChange?: (enabled: boolean) => void;
   showWorkspaceControls?: boolean;
   workspaceName?: string | null;
   onPickWorkspace?: () => void;
@@ -249,6 +252,8 @@ export function PromptComposer({
   model,
   models,
   onModelChange,
+  thinkingEnabled = false,
+  onThinkingEnabledChange,
   showWorkspaceControls = true,
   workspaceName,
   onPickWorkspace,
@@ -273,6 +278,8 @@ export function PromptComposer({
     showWorkspaceControls && isGitRepository && Boolean(onGitBranchChange);
   const selectedModel = findModelDefinition(models, model);
   const supportsMultimodal = selectedModel?.supportsMultimodal ?? false;
+  const showThinkingToggle =
+    canToggleThinking(selectedModel) && Boolean(onThinkingEnabledChange);
   const attachmentAccept = supportsMultimodal ? COMPOSER_ATTACHMENT_ACCEPT : undefined;
 
   const clearAttachmentError = useCallback(() => {
@@ -379,25 +386,47 @@ export function PromptComposer({
       </PromptInputBody>
 
       <PromptInputFooter className="bg-card px-3 py-2">
-        <PromptInputSelect
-          value={model}
-          onValueChange={onModelChange}
-          disabled={isRunning || models.length === 0}
-        >
-          <PromptInputSelectTrigger
-            className="h-8 max-w-56 rounded-xl px-2.5 [&_[data-slot=select-value]]:truncate"
-            title={model || undefined}
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          <PromptInputSelect
+            value={model}
+            onValueChange={onModelChange}
+            disabled={isRunning || models.length === 0}
           >
-            <PromptInputSelectValue placeholder={t("chat.noModel")} />
-          </PromptInputSelectTrigger>
-          <PromptInputSelectContent align="start" className="max-w-sm">
-            {models.map((item) => (
-              <PromptInputSelectItem key={item.id} value={item.id}>
-                {getModelSelectLabel(item)}
-              </PromptInputSelectItem>
-            ))}
-          </PromptInputSelectContent>
-        </PromptInputSelect>
+            <PromptInputSelectTrigger
+              className="h-8 max-w-44 rounded-xl px-2.5 [&_[data-slot=select-value]]:truncate"
+              title={selectedModel ? getModelDisplayName(selectedModel) : model || undefined}
+            >
+              <PromptInputSelectValue placeholder={t("chat.noModel")} />
+            </PromptInputSelectTrigger>
+            <PromptInputSelectContent align="start" className="max-w-sm">
+              {models.map((item) => (
+                <PromptInputSelectItem key={item.id} value={item.id}>
+                  {getModelDisplayName(item)}
+                </PromptInputSelectItem>
+              ))}
+            </PromptInputSelectContent>
+          </PromptInputSelect>
+
+          {showThinkingToggle ? (
+            <Button
+              type="button"
+              variant={thinkingEnabled ? "secondary" : "ghost"}
+              size="sm"
+              className="h-8 shrink-0 rounded-xl px-2.5"
+              disabled={isRunning}
+              aria-label={t("chat.thinkingToggle")}
+              aria-pressed={thinkingEnabled}
+              title={
+                thinkingEnabled
+                  ? t("chat.thinkingEnabled")
+                  : t("chat.thinkingDisabled")
+              }
+              onClick={() => onThinkingEnabledChange?.(!thinkingEnabled)}
+            >
+              <BrainIcon className="size-4" />
+            </Button>
+          ) : null}
+        </div>
 
         <ComposerSubmit
           isRunning={isRunning}

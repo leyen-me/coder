@@ -9,6 +9,7 @@ import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
 import { ChatMessageList } from "../components/chat-message-list";
 import { PromptComposer } from "../components/prompt-composer";
+import { useComposerThinking } from "../hooks/use-composer-thinking";
 import { useSessionData } from "../hooks/use-session-messages";
 import { useSessionWorkspaceBinding } from "../hooks/use-session-workspace-binding";
 import { useSystemPrompt } from "../hooks/use-system-prompt";
@@ -33,6 +34,10 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editInitialFiles, setEditInitialFiles] = useState<FileUIPart[]>([]);
   const [model, setModel] = useState(() => resolveDefaultModel(resolved));
+  const { thinkingEnabled, onThinkingEnabledChange } = useComposerThinking(
+    model,
+    resolved.models
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const canEditWorkspace = messages.length === 0;
@@ -91,9 +96,10 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         sessionId: chatId,
         assistantMessageId: message.id,
         model,
+        thinkingEnabled,
       });
     },
-    [cancelTask, chatId, getSessionTask, isRunning, model, regenerateMessage]
+    [cancelTask, chatId, getSessionTask, isRunning, model, regenerateMessage, thinkingEnabled]
   );
 
   const handleSend = async (payload: { text: string; files: FileUIPart[] }) => {
@@ -114,6 +120,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         content: trimmed,
         images: payload.files,
         model,
+        thinkingEnabled,
         editMessageId: editingId ?? undefined,
       });
     } finally {
@@ -165,6 +172,8 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             model={model}
             models={resolved.models}
             onModelChange={setModel}
+            thinkingEnabled={thinkingEnabled}
+            onThinkingEnabledChange={onThinkingEnabledChange}
             showWorkspaceControls={canEditWorkspace}
             workspaceName={workspaceName}
             onPickWorkspace={() => {

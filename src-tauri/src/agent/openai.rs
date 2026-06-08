@@ -4,6 +4,7 @@ use std::time::Duration;
 use futures::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
 use super::types::{AgentEvent, AgentStatus, AgentToolDefinition, ChatMessage, ToolCall};
@@ -136,6 +137,7 @@ pub async fn stream_chat_completion(
     model: &str,
     messages: &[ChatMessage],
     tools: Option<&[AgentToolDefinition]>,
+    request_extensions: Option<&Value>,
     cancel: CancellationToken,
     mut emit: impl FnMut(AgentEvent) + Send,
     task_id: &str,
@@ -150,11 +152,22 @@ pub async fn stream_chat_completion(
         tool_choice: tools.map(|_| "auto"),
     };
 
+    let mut request_json = serde_json::to_value(&request_body)
+        .map_err(|error| format!("Failed to encode request: {error}"))?;
+
+    if let Some(extensions) = request_extensions {
+        if let (Some(base), Some(extra)) = (request_json.as_object_mut(), extensions.as_object()) {
+            for (key, value) in extra {
+                base.insert(key.clone(), value.clone());
+            }
+        }
+    }
+
     let response = client
         .post(&url)
         .bearer_auth(api_key)
         .header("Accept", "text/event-stream")
-        .json(&request_body)
+        .json(&request_json)
         .timeout(REQUEST_TIMEOUT)
         .send()
         .await

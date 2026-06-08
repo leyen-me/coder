@@ -13,6 +13,7 @@ import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
 import { PromptComposer } from "../components/prompt-composer";
 import { StarterPromptList } from "../components/starter-prompt-list";
+import { useComposerThinking } from "../hooks/use-composer-thinking";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
 import { useNewChatWorkspace } from "../hooks/use-session-workspace-binding";
 import { DEFAULT_PROJECT_NAME } from "../data/mock-chats";
@@ -25,6 +26,10 @@ export function NewChatView() {
   const { workspaceDir, pickWorkspace } = useNewChatWorkspace();
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState(() => resolveDefaultModel(resolved));
+  const { thinkingEnabled, onThinkingEnabledChange } = useComposerThinking(
+    model,
+    resolved.models
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const gitControls = useWorkspaceGitControls({
@@ -53,6 +58,7 @@ export function NewChatView() {
         content: trimmed,
         images: payload.files,
         model,
+        thinkingEnabled,
       });
     } finally {
       setIsSubmitting(false);
@@ -80,6 +86,8 @@ export function NewChatView() {
         model={model}
         models={resolved.models}
         onModelChange={setModel}
+        thinkingEnabled={thinkingEnabled}
+        onThinkingEnabledChange={onThinkingEnabledChange}
         showWorkspaceControls
         workspaceName={gitControls.workspaceName ?? workspaceName}
         onPickWorkspace={() => {

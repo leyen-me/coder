@@ -68,6 +68,9 @@ export type Messages = {
     forkSessionTitle: string;
     regenerateMessage: string;
     noModel: string;
+    thinkingToggle: string;
+    thinkingEnabled: string;
+    thinkingDisabled: string;
   };
   time: {
     justNow: string;
@@ -146,6 +149,12 @@ export type Messages = {
       addModelButton: string;
       removeModelAriaLabel: string;
       emptyModelsHint: string;
+      thinkingConfigDescription: string;
+      thinkingEnabledParamsLabel: string;
+      thinkingEnabledParamsAriaLabel: string;
+      thinkingDisabledParamsLabel: string;
+      thinkingDisabledParamsAriaLabel: string;
+      thinkingDefaultEnabledLabel: string;
     };
     data: {
       clearChatHistoryLabel: string;

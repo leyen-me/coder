@@ -152,6 +152,7 @@ impl AgentRegistry {
         let model = params.model.clone();
         let messages = params.messages.clone();
         let tools = params.tools.clone();
+        let request_extensions = params.request_extensions.clone();
         let client = self.client.clone();
 
         self.runs.insert(
@@ -176,6 +177,7 @@ impl AgentRegistry {
                 &model,
                 &messages,
                 tools.as_deref(),
+                request_extensions.as_ref(),
                 child_cancel.clone(),
                 |event| {
                     let _ = channel.send(event);

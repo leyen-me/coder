@@ -72,6 +72,9 @@ export const enMessages = {
     forkSessionTitle: "Fork · {title}",
     regenerateMessage: "Regenerate",
     noModel: "No model configured",
+    thinkingToggle: "Toggle deep thinking",
+    thinkingEnabled: "Deep thinking enabled",
+    thinkingDisabled: "Deep thinking disabled",
   },
   time: {
     justNow: "Just now",
@@ -150,6 +153,13 @@ export const enMessages = {
       addModelButton: "Add model",
       removeModelAriaLabel: "Remove model",
       emptyModelsHint: "No custom models yet. Click “Add model” to get started.",
+      thinkingConfigDescription:
+        "JSON fields merged into the API request when deep thinking is on or off. DeepSeek uses thinking and reasoning_effort; GLM uses thinking.type.",
+      thinkingEnabledParamsLabel: "API params when thinking is enabled",
+      thinkingEnabledParamsAriaLabel: "API params when thinking is enabled",
+      thinkingDisabledParamsLabel: "API params when thinking is disabled",
+      thinkingDisabledParamsAriaLabel: "API params when thinking is disabled",
+      thinkingDefaultEnabledLabel: "Enable deep thinking by default",
     },
     data: {
       clearChatHistoryLabel: "Clear chat history",

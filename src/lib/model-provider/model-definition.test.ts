@@ -23,13 +23,14 @@ describe("normalizeModelDefinition", () => {
         supportsThinking: true,
         supportsMultimodal: true,
       })
-    ).toEqual({
-      id: "glm-5",
-      label: "GLM-5",
-      contextWindow: 200_000,
-      supportsThinking: true,
-      supportsMultimodal: true,
-    });
+    ).toEqual(
+      createModelDefinition("glm-5", {
+        label: "GLM-5",
+        contextWindow: 200_000,
+        supportsThinking: true,
+        supportsMultimodal: true,
+      })
+    );
   });
 
   it("rejects invalid entries", () => {

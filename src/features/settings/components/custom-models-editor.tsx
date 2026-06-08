@@ -9,6 +9,11 @@ import {
 } from "@/lib/model-provider/model-definition";
 import { useLocale } from "@/lib/i18n/locale-provider";
 
+import {
+  createDefaultThinkingConfig,
+  ThinkingConfigEditor,
+} from "./thinking-config-editor";
+
 type CustomModelsEditorProps = {
   models: ModelDefinition[];
   onChange: (models: ModelDefinition[]) => void;
@@ -102,9 +107,16 @@ function CustomModelRow({ model, onChange, onRemove }: CustomModelRowProps) {
           <input
             type="checkbox"
             checked={model.supportsThinking}
-            onChange={(event) =>
-              onChange({ ...model, supportsThinking: event.target.checked })
-            }
+            onChange={(event) => {
+              const supportsThinking = event.target.checked;
+              onChange({
+                ...model,
+                supportsThinking,
+                thinkingConfig: supportsThinking
+                  ? (model.thinkingConfig ?? createDefaultThinkingConfig())
+                  : undefined,
+              });
+            }}
             className="size-4 rounded border-input"
           />
           {t("settings.modelProvider.supportsThinkingLabel")}
@@ -122,6 +134,13 @@ function CustomModelRow({ model, onChange, onRemove }: CustomModelRowProps) {
           {t("settings.modelProvider.supportsMultimodalLabel")}
         </label>
       </div>
+
+      {model.supportsThinking && model.thinkingConfig ? (
+        <ThinkingConfigEditor
+          config={model.thinkingConfig}
+          onChange={(thinkingConfig) => onChange({ ...model, thinkingConfig })}
+        />
+      ) : null}
     </div>
   );
 }

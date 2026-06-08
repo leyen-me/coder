@@ -38,6 +38,8 @@ import {
   resolveApiKeyEnvVar,
   writeLastSelectedModel,
 } from "../model-preference";
+import { findModelDefinition } from "@/lib/model-provider/model-definition";
+import { buildThinkingRequestExtensions, resolveDefaultThinkingEnabled } from "../thinking-preference";
 import { cancelAgent } from "../runner";
 import type {
   ActiveTaskState,
@@ -59,6 +61,7 @@ type AgentStoreValue = {
     sessionId: string;
     content: string;
     model: string;
+    thinkingEnabled?: boolean;
     images?: readonly FileUIPart[];
     editMessageId?: string;
   }) => Promise<{ userMessageId: string; assistantMessageId: string; taskId: string }>;
@@ -66,6 +69,7 @@ type AgentStoreValue = {
     sessionId: string;
     assistantMessageId: string;
     model: string;
+    thinkingEnabled?: boolean;
   }) => Promise<{ userMessageId: string; assistantMessageId: string; taskId: string }>;
   cancelTask: (taskId: string) => Promise<void>;
 };
@@ -92,6 +96,15 @@ function isTerminalStatus(status: AgentStatus): boolean {
 
 function isActiveAgentTask(status: AgentStatus): boolean {
   return !isTerminalStatus(status) && status !== "cancelling";
+}
+
+function resolveThinkingEnabledForRequest(
+  resolved: ResolvedProviderConfig,
+  modelId: string,
+  thinkingEnabled?: boolean
+): boolean {
+  const model = findModelDefinition(resolved.models, modelId);
+  return thinkingEnabled ?? resolveDefaultThinkingEnabled(model);
 }
 
 export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
@@ -339,6 +352,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       sessionId: string;
       content: string;
       model: string;
+      thinkingEnabled?: boolean;
       images?: readonly FileUIPart[];
       editMessageId?: string;
     }) => {
@@ -462,6 +476,15 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           apiKeyEnvVar: resolveApiKeyEnvVar(resolved),
           model: input.model,
           messages: history,
+          requestExtensions: buildThinkingRequestExtensions({
+            models: resolved.models,
+            modelId: input.model,
+            thinkingEnabled: resolveThinkingEnabledForRequest(
+              resolved,
+              input.model,
+              input.thinkingEnabled
+            ),
+          }),
         },
         { workspaceDir, taskId },
         (event) => {
@@ -495,6 +518,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       sessionId: string;
       assistantMessageId: string;
       model: string;
+      thinkingEnabled?: boolean;
     }) => {
       writeLastSelectedModel(input.model);
 
@@ -592,6 +616,15 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           apiKeyEnvVar: resolveApiKeyEnvVar(resolved),
           model: input.model,
           messages: history,
+          requestExtensions: buildThinkingRequestExtensions({
+            models: resolved.models,
+            modelId: input.model,
+            thinkingEnabled: resolveThinkingEnabledForRequest(
+              resolved,
+              input.model,
+              input.thinkingEnabled
+            ),
+          }),
         },
         { workspaceDir, taskId },
         (event) => {

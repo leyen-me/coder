@@ -1,4 +1,8 @@
 import { createModelDefinition } from "./model-definition";
+import {
+  DEEPSEEK_THINKING_CONFIG,
+  GLM_THINKING_CONFIG,
+} from "./thinking-config";
 import type {
   ModelProviderSettings,
   PresetProviderDefinition,
@@ -21,12 +25,14 @@ export const PRESET_PROVIDERS = {
         contextWindow: 1_000_000,
         supportsThinking: true,
         supportsMultimodal: false,
+        thinkingConfig: DEEPSEEK_THINKING_CONFIG,
       }),
       createModelDefinition("deepseek-v4-pro", {
         label: "DeepSeek V4 Pro",
         contextWindow: 1_000_000,
         supportsThinking: true,
         supportsMultimodal: false,
+        thinkingConfig: DEEPSEEK_THINKING_CONFIG,
       }),
     ],
     defaultApiKeyEnvVar: "DEEPSEEK_API_KEY",
@@ -40,24 +46,28 @@ export const PRESET_PROVIDERS = {
         contextWindow: 200_000,
         supportsThinking: true,
         supportsMultimodal: false,
+        thinkingConfig: GLM_THINKING_CONFIG,
       }),
       createModelDefinition("glm-4.7", {
         label: "GLM-4.7",
         contextWindow: 200_000,
         supportsThinking: true,
         supportsMultimodal: false,
+        thinkingConfig: GLM_THINKING_CONFIG,
       }),
       createModelDefinition("glm-4.7-flash", {
         label: "GLM-4.7 Flash",
         contextWindow: 200_000,
         supportsThinking: true,
         supportsMultimodal: false,
+        thinkingConfig: GLM_THINKING_CONFIG,
       }),
       createModelDefinition("glm-4.5-air", {
         label: "GLM-4.5 Air",
         contextWindow: 128_000,
         supportsThinking: true,
         supportsMultimodal: false,
+        thinkingConfig: GLM_THINKING_CONFIG,
       }),
     ],
     defaultApiKeyEnvVar: "GLM_API_KEY",

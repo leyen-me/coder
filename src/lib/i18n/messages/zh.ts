@@ -71,6 +71,9 @@ export const zhMessages = {
     forkSessionTitle: "Fork · {title}",
     regenerateMessage: "重新生成",
     noModel: "未配置模型",
+    thinkingToggle: "切换深度思考",
+    thinkingEnabled: "深度思考已开启",
+    thinkingDisabled: "深度思考已关闭",
   },
   time: {
     justNow: "刚刚",
@@ -149,6 +152,13 @@ export const zhMessages = {
       addModelButton: "添加模型",
       removeModelAriaLabel: "移除模型",
       emptyModelsHint: "尚未添加自定义模型，点击「添加模型」开始配置。",
+      thinkingConfigDescription:
+        "配置开启/关闭深度思考时合并到 API 请求体的 JSON 参数。DeepSeek 需包含 thinking 与 reasoning_effort，GLM 使用 thinking.type。",
+      thinkingEnabledParamsLabel: "开启思考时的 API 参数",
+      thinkingEnabledParamsAriaLabel: "开启思考时的 API 参数",
+      thinkingDisabledParamsLabel: "关闭思考时的 API 参数",
+      thinkingDisabledParamsAriaLabel: "关闭思考时的 API 参数",
+      thinkingDefaultEnabledLabel: "默认开启深度思考",
     },
     data: {
       clearChatHistoryLabel: "清除聊天记录",

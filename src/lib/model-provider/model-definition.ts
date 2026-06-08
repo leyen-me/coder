@@ -1,9 +1,18 @@
+import {
+  GLM_THINKING_CONFIG,
+  normalizeThinkingConfig,
+  type ModelThinkingConfig,
+} from "./thinking-config";
+
+export type { ModelThinkingConfig };
+
 export type ModelDefinition = {
   id: string;
   label?: string;
   contextWindow: number;
   supportsThinking: boolean;
   supportsMultimodal: boolean;
+  thinkingConfig?: ModelThinkingConfig;
 };
 
 export const DEFAULT_MODEL_CONTEXT_WINDOW = 200_000;
@@ -18,6 +27,15 @@ export function createModelDefinition(
     contextWindow: overrides.contextWindow ?? DEFAULT_MODEL_CONTEXT_WINDOW,
     supportsThinking: overrides.supportsThinking ?? false,
     supportsMultimodal: overrides.supportsMultimodal ?? false,
+    thinkingConfig:
+      overrides.thinkingConfig ??
+      (overrides.supportsThinking === true
+        ? {
+            enabled: { ...GLM_THINKING_CONFIG.enabled },
+            disabled: { ...GLM_THINKING_CONFIG.disabled },
+            defaultEnabled: GLM_THINKING_CONFIG.defaultEnabled,
+          }
+        : undefined),
   };
 }
 
@@ -54,6 +72,15 @@ export function normalizeModelDefinition(raw: unknown): ModelDefinition | null {
     contextWindow,
     supportsThinking: record.supportsThinking === true,
     supportsMultimodal: record.supportsMultimodal === true,
+    thinkingConfig:
+      normalizeThinkingConfig(record.thinkingConfig) ??
+      (record.supportsThinking === true
+        ? {
+            enabled: { ...GLM_THINKING_CONFIG.enabled },
+            disabled: { ...GLM_THINKING_CONFIG.disabled },
+            defaultEnabled: GLM_THINKING_CONFIG.defaultEnabled,
+          }
+        : undefined),
   };
 }
 
@@ -80,11 +107,6 @@ export function parseModelDefinitions(value: unknown): ModelDefinition[] {
 
 export function getModelDisplayName(model: ModelDefinition): string {
   return model.label ?? model.id;
-}
-
-export function getModelSelectLabel(model: ModelDefinition): string {
-  const name = getModelDisplayName(model);
-  return name === model.id ? model.id : `${name} (${model.id})`;
 }
 
 export function findModelDefinition(
