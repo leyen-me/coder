@@ -90,6 +90,74 @@ describe("buildAssistantProcessSteps", () => {
       text: "根据目录继续分析。",
     });
   });
+
+  it("hides streaming answers while reasoning or tool steps are still active", () => {
+    const steps = buildAssistantProcessSteps({
+      processSteps: [
+        { id: "reasoning:0", kind: "reasoning", text: "先打招呼。" },
+        { id: "answer:1", kind: "answer", text: "我先看看目录。" },
+        { id: "tool:call_1", kind: "tool", toolCallId: "call_1" },
+        { id: "reasoning:3", kind: "reasoning", text: "根据目录继续分析。" },
+        { id: "answer:4", kind: "answer", text: "项目结构如下。" },
+      ],
+      answerText: "项目结构如下。",
+      thinkingText: "先打招呼。根据目录继续分析。",
+      isThinkingStreaming: true,
+      showReasoning: true,
+      toolInvocations: [
+        {
+          id: "call_1",
+          name: "list_dir",
+          input: { path: "." },
+          state: "input-available",
+        },
+      ],
+      isAnswerStreaming: true,
+      isMessageStreaming: true,
+    });
+
+    expect(steps.map((step) => step.kind)).toEqual(["reasoning", "tool", "reasoning"]);
+  });
+
+  it("shows the final answer after streaming completes", () => {
+    const steps = buildAssistantProcessSteps({
+      processSteps: [
+        { id: "reasoning:0", kind: "reasoning", text: "先打招呼。" },
+        { id: "answer:1", kind: "answer", text: "我先看看目录。" },
+        { id: "tool:call_1", kind: "tool", toolCallId: "call_1" },
+        { id: "reasoning:3", kind: "reasoning", text: "根据目录继续分析。" },
+        { id: "answer:4", kind: "answer", text: "项目结构如下。" },
+      ],
+      answerText: "项目结构如下。",
+      thinkingText: "先打招呼。根据目录继续分析。",
+      isThinkingStreaming: false,
+      showReasoning: true,
+      toolInvocations: [
+        {
+          id: "call_1",
+          name: "list_dir",
+          input: { path: "." },
+          output: { ok: true },
+          state: "output-available",
+        },
+      ],
+      isAnswerStreaming: false,
+      isMessageStreaming: false,
+    });
+
+    expect(steps.map((step) => step.kind)).toEqual([
+      "reasoning",
+      "answer",
+      "tool",
+      "reasoning",
+      "answer",
+    ]);
+    expect(steps.at(-1)).toMatchObject({
+      kind: "answer",
+      text: "项目结构如下。",
+      isStreaming: false,
+    });
+  });
 });
 
 describe("buildAssistantProcessPresentation", () => {

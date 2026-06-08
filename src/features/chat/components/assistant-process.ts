@@ -110,12 +110,15 @@ export function buildAssistantProcessSteps(input: {
   isAnswerStreaming: boolean;
   isMessageStreaming: boolean;
 }): AssistantProcessStep[] {
+  const hideStreamingAnswer =
+    input.isMessageStreaming && (input.showReasoning || input.toolInvocations.length > 0);
   const persistedSteps = normalizeMessageProcessSteps(input.processSteps);
   if (persistedSteps.length > 0) {
     return buildPersistedAssistantProcessSteps(
       persistedSteps,
       input.toolInvocations,
-      input.isMessageStreaming
+      input.isMessageStreaming,
+      hideStreamingAnswer
     );
   }
 
@@ -138,7 +141,7 @@ export function buildAssistantProcessSteps(input: {
     });
   }
 
-  if (input.answerText) {
+  if (input.answerText && !hideStreamingAnswer) {
     steps.push({
       id: "answer",
       kind: "answer",
@@ -153,7 +156,8 @@ export function buildAssistantProcessSteps(input: {
 function buildPersistedAssistantProcessSteps(
   processSteps: MessageProcessStep[],
   toolInvocations: MessageToolInvocation[],
-  isMessageStreaming: boolean
+  isMessageStreaming: boolean,
+  hideStreamingAnswer: boolean
 ): AssistantProcessStep[] {
   const toolInvocationsById = new Map(
     toolInvocations.map((invocation) => [invocation.id, invocation] as const)
@@ -178,6 +182,10 @@ function buildPersistedAssistantProcessSteps(
     }
 
     if (!step.text.trim()) {
+      continue;
+    }
+
+    if (hideStreamingAnswer && step.kind === "answer") {
       continue;
     }
 

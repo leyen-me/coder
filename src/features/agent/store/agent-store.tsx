@@ -69,6 +69,8 @@ const StreamingOverlaysContext = createContext<
   ReadonlyMap<string, StreamingMessageOverlay>
 >(new Map());
 
+const TERMINAL_OVERLAY_CLEAR_DELAY_MS = 320;
+
 type AgentStoreProviderProps = {
   children: ReactNode;
 };
@@ -97,6 +99,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   >(new Map());
   const streamingListenersRef = useRef(new Set<() => void>());
   const eventChainsRef = useRef(new Map<string, Promise<void>>());
+  const terminalOverlayTimersRef = useRef(
+    new Map<string, ReturnType<typeof setTimeout>>()
+  );
 
   const emitStreaming = useCallback(() => {
     streamingSnapshotRef.current = streamingBufferRef.current.getSnapshot();
@@ -185,6 +190,13 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           return;
         case "error": {
           await streamingBufferRef.current.flush(assistantMessageId);
+          const terminalOverlayTimer = terminalOverlayTimersRef.current.get(
+            assistantMessageId
+          );
+          if (terminalOverlayTimer) {
+            clearTimeout(terminalOverlayTimer);
+            terminalOverlayTimersRef.current.delete(assistantMessageId);
+          }
           const task = tasksRef.current.get(event.taskId);
           if (task) {
             tasksRef.current.set(event.taskId, {
@@ -229,7 +241,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               messageStatus,
               task.error
             );
-            streamingBufferRef.current.clear(assistantMessageId);
 
             const shouldGenerateTitle =
               event.status === "completed" && task.isFirstTurn;
@@ -243,6 +254,20 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               : null;
 
             tasksRef.current.delete(event.taskId);
+
+            const terminalOverlayTimer = terminalOverlayTimersRef.current.get(
+              assistantMessageId
+            );
+            if (terminalOverlayTimer) {
+              clearTimeout(terminalOverlayTimer);
+            }
+            terminalOverlayTimersRef.current.set(
+              assistantMessageId,
+              setTimeout(() => {
+                terminalOverlayTimersRef.current.delete(assistantMessageId);
+                streamingBufferRef.current.clear(assistantMessageId);
+              }, TERMINAL_OVERLAY_CLEAR_DELAY_MS)
+            );
 
             if (titleInput) {
               void scheduleSessionTitleGeneration(
@@ -499,18 +524,17 @@ export function useRunningSessionIds(): ReadonlySet<string> {
 }
 
 export function useActiveStreamingMessageIds(): ReadonlySet<string> {
-  const overlays = useStreamingMessageOverlays();
   const { activeTasks } = useAgentStore();
 
   return useMemo(() => {
-    const ids = new Set<string>(overlays.keys());
+    const ids = new Set<string>();
     for (const task of activeTasks.values()) {
       if (isActiveAgentTask(task.status)) {
         ids.add(task.assistantMessageId);
       }
     }
     return ids;
-  }, [activeTasks, overlays]);
+  }, [activeTasks]);
 }
 
 function scheduleSessionTitleGeneration(
