@@ -33,6 +33,7 @@ export type Messages = {
     splitLayout: string;
     rightPanel: string;
     workbench: string;
+    bottomPanel: string;
   };
   chat: {
     headline: string;
