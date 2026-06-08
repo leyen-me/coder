@@ -72,7 +72,7 @@ export function useSessionData(sessionId: string) {
 
     return subscribeDb(() => {
       if (refreshTimeoutRef.current) {
-        return;
+        clearTimeout(refreshTimeoutRef.current);
       }
 
       refreshTimeoutRef.current = setTimeout(() => {

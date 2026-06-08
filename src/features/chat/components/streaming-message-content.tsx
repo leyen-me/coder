@@ -13,19 +13,6 @@ export const StreamingMessageContent = memo(function StreamingMessageContent({
   isStreaming,
   className,
 }: StreamingMessageContentProps) {
-  if (isStreaming) {
-    return (
-      <MessageContent
-        className={cn(
-          "group-[.is-assistant]:overflow-visible group-[.is-assistant]:bg-transparent group-[.is-assistant]:p-0",
-          className
-        )}
-      >
-        <div className="whitespace-pre-wrap wrap-break-word text-sm">{text}</div>
-      </MessageContent>
-    );
-  }
-
   return (
     <MessageContent
       className={cn(
@@ -33,7 +20,7 @@ export const StreamingMessageContent = memo(function StreamingMessageContent({
         className
       )}
     >
-      <MessageResponse>{text}</MessageResponse>
+      <MessageResponse isAnimating={isStreaming}>{text}</MessageResponse>
     </MessageContent>
   );
 });
@@ -49,15 +36,9 @@ export const StreamingPlainText = memo(function StreamingPlainText({
   isStreaming,
   className,
 }: StreamingPlainTextProps) {
-  if (isStreaming) {
-    return (
-      <div className={cn("whitespace-pre-wrap wrap-break-word", className)}>
-        {text}
-      </div>
-    );
-  }
-
   return (
-    <MessageResponse className={className}>{text}</MessageResponse>
+    <MessageResponse className={className} isAnimating={isStreaming}>
+      {text}
+    </MessageResponse>
   );
 });

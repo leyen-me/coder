@@ -498,6 +498,21 @@ export function useRunningSessionIds(): ReadonlySet<string> {
   }, [activeTasks]);
 }
 
+export function useActiveStreamingMessageIds(): ReadonlySet<string> {
+  const overlays = useStreamingMessageOverlays();
+  const { activeTasks } = useAgentStore();
+
+  return useMemo(() => {
+    const ids = new Set<string>(overlays.keys());
+    for (const task of activeTasks.values()) {
+      if (isActiveAgentTask(task.status)) {
+        ids.add(task.assistantMessageId);
+      }
+    }
+    return ids;
+  }, [activeTasks, overlays]);
+}
+
 function scheduleSessionTitleGeneration(
   input: {
     sessionId: string;

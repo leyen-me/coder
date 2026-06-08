@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 
+import { useActiveStreamingMessageIds } from "@/features/agent/store/agent-store";
 import type { MessageRecord } from "@/lib/db";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -37,6 +38,7 @@ function scrollMessagesToBottom(container: HTMLElement, smooth: boolean) {
 }
 
 export function MessageList({ messages, sessionTitle }: MessageListProps) {
+  const streamingMessageIds = useActiveStreamingMessageIds();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const previousMessageCountRef = useRef(messages.length);
   const isPinnedToBottomRef = useRef(true);
@@ -82,9 +84,8 @@ export function MessageList({ messages, sessionTitle }: MessageListProps) {
       return;
     }
 
-    const isStreaming = messages.some(
-      (message) =>
-        message.status === "pending" || message.status === "streaming"
+    const isStreaming = messages.some((message) =>
+      streamingMessageIds.has(message.id)
     );
     isStreamingRef.current = isStreaming;
 
@@ -117,7 +118,7 @@ export function MessageList({ messages, sessionTitle }: MessageListProps) {
         scrollRafRef.current = null;
       }
     };
-  }, [messages]);
+  }, [messages, streamingMessageIds]);
 
   return (
     <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-hidden">
@@ -125,6 +126,7 @@ export function MessageList({ messages, sessionTitle }: MessageListProps) {
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
           {messages.map((message) => (
             <MessageItem
+              isStreaming={streamingMessageIds.has(message.id)}
               key={message.id}
               message={message}
               sessionTitle={sessionTitle}

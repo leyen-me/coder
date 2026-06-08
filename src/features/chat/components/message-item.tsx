@@ -29,6 +29,7 @@ import { StreamingMessageContent } from "./streaming-message-content";
 type MessageItemProps = {
   message: MessageRecord;
   sessionTitle?: string;
+  isStreaming: boolean;
 };
 
 function areMessageItemPropsEqual(
@@ -36,6 +37,10 @@ function areMessageItemPropsEqual(
   next: MessageItemProps
 ): boolean {
   if (prev.sessionTitle !== next.sessionTitle) {
+    return false;
+  }
+
+  if (prev.isStreaming !== next.isStreaming) {
     return false;
   }
 
@@ -58,13 +63,12 @@ function areMessageItemPropsEqual(
 export const MessageItem = memo(function MessageItem({
   message,
   sessionTitle,
+  isStreaming,
 }: MessageItemProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [isForking, setIsForking] = useState(false);
   const isUser = message.role === "user";
-  const isStreaming =
-    message.status === "pending" || message.status === "streaming";
   const persistedSteps = normalizeMessageProcessSteps(message.processSteps);
   let latestAnswerText = "";
   for (let index = persistedSteps.length - 1; index >= 0; index -= 1) {
