@@ -63,6 +63,8 @@ export const zhMessages = {
     toolDetailTitle: "工具 · {name}",
     copyMessage: "复制",
     editMessage: "编辑",
+    editingMessage: "正在编辑消息",
+    cancelEdit: "取消",
     forkMessage: "Fork",
     forkSessionTitle: "Fork · {title}",
     noModel: "未配置模型",

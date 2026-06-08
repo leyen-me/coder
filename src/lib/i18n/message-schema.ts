@@ -60,6 +60,8 @@ export type Messages = {
     toolDetailTitle: string;
     copyMessage: string;
     editMessage: string;
+    editingMessage: string;
+    cancelEdit: string;
     forkMessage: string;
     forkSessionTitle: string;
     noModel: string;

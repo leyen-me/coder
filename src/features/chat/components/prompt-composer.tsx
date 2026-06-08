@@ -33,6 +33,8 @@ import {
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
+import { ComposerEditTag } from "./composer-edit-tag";
+
 /** Images only until non-image parsing is implemented. */
 export const COMPOSER_ATTACHMENT_ACCEPT = "image/*";
 export const COMPOSER_MAX_FILES = 10;
@@ -159,6 +161,7 @@ export function PromptComposer({
 }: PromptComposerProps) {
   const { t } = useTranslation();
   const isCompact = variant === "compact";
+  const isEditing = Boolean(onCancelEdit);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const submitStatus = resolveSubmitStatus(isRunning, Boolean(onStop));
   const showBranch =
@@ -210,10 +213,19 @@ export function PromptComposer({
   );
 
   return (
-    <PromptInput
+    <div className={cn("flex w-full max-w-3xl flex-col gap-1.5", className)}>
+      {isEditing && onCancelEdit ? (
+        <ComposerEditTag
+          dismissLabel={t("chat.cancelEdit")}
+          label={t("chat.editingMessage")}
+          onDismiss={onCancelEdit}
+        />
+      ) : null}
+
+      <PromptInput
       key={composerKey}
       className={cn(
-        "w-full max-w-3xl",
+        "w-full",
         "[&_[data-slot=input-group]]:h-auto [&_[data-slot=input-group]]:overflow-hidden",
         "[&_[data-slot=input-group]]:rounded-3xl",
         "[&_[data-slot=input-group]]:border-border [&_[data-slot=input-group]]:bg-card",
@@ -226,8 +238,7 @@ export function PromptComposer({
         "[&_[data-slot=input-group-control]:focus-visible]:ring-0",
         "[&_[data-slot=input-group-control]:disabled:cursor-not-allowed",
         "[&_[data-slot=input-group-control]:disabled:opacity-100",
-        isCompact && "[&_[data-slot=input-group]]:shadow-sm",
-        className
+        isCompact && "[&_[data-slot=input-group]]:shadow-sm"
       )}
       accept={COMPOSER_ATTACHMENT_ACCEPT}
       initialFiles={initialFiles}
@@ -377,5 +388,6 @@ export function PromptComposer({
         </div>
       </PromptInputFooter>
     </PromptInput>
+    </div>
   );
 }

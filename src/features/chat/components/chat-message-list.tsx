@@ -6,18 +6,21 @@ import { MessageList } from "./message-list";
 type ChatMessageListProps = {
   messages: MessageRecord[];
   sessionTitle?: string;
+  editingMessageId?: string | null;
   onEditUserMessage?: (message: MessageRecord) => void;
 };
 
 export function ChatMessageList({
   messages,
   sessionTitle,
+  editingMessageId,
   onEditUserMessage,
 }: ChatMessageListProps) {
   const displayMessages = useDisplayMessages(messages);
 
   return (
     <MessageList
+      editingMessageId={editingMessageId}
       messages={displayMessages}
       onEditUserMessage={onEditUserMessage}
       sessionTitle={sessionTitle}

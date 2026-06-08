@@ -9,6 +9,7 @@ import { MessageItem } from "./message-item";
 type MessageListProps = {
   messages: MessageRecord[];
   sessionTitle?: string;
+  editingMessageId?: string | null;
   onEditUserMessage?: (message: MessageRecord) => void;
 };
 
@@ -38,7 +39,12 @@ function scrollMessagesToBottom(container: HTMLElement, smooth: boolean) {
   });
 }
 
-export function MessageList({ messages, sessionTitle, onEditUserMessage }: MessageListProps) {
+export function MessageList({
+  messages,
+  sessionTitle,
+  editingMessageId,
+  onEditUserMessage,
+}: MessageListProps) {
   const streamingMessageIds = useActiveStreamingMessageIds();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const previousMessageCountRef = useRef(messages.length);
@@ -127,6 +133,7 @@ export function MessageList({ messages, sessionTitle, onEditUserMessage }: Messa
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
           {messages.map((message) => (
             <MessageItem
+              editingMessageId={editingMessageId}
               isStreaming={streamingMessageIds.has(message.id)}
               key={message.id}
               message={message}

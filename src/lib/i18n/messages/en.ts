@@ -64,6 +64,8 @@ export const enMessages = {
     toolDetailTitle: "Tool · {name}",
     copyMessage: "Copy",
     editMessage: "Edit",
+    editingMessage: "Editing message",
+    cancelEdit: "Cancel",
     forkMessage: "Fork",
     forkSessionTitle: "Fork · {title}",
     noModel: "No model configured",

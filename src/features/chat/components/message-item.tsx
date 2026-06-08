@@ -30,6 +30,7 @@ type MessageItemProps = {
   message: MessageRecord;
   sessionTitle?: string;
   isStreaming: boolean;
+  editingMessageId?: string | null;
   onEditUserMessage?: (message: MessageRecord) => void;
 };
 
@@ -42,6 +43,10 @@ function areMessageItemPropsEqual(
   }
 
   if (prev.isStreaming !== next.isStreaming) {
+    return false;
+  }
+
+  if (prev.editingMessageId !== next.editingMessageId) {
     return false;
   }
 
@@ -69,6 +74,7 @@ export const MessageItem = memo(function MessageItem({
   message,
   sessionTitle,
   isStreaming,
+  editingMessageId,
   onEditUserMessage,
 }: MessageItemProps) {
   const { t } = useTranslation();
@@ -161,10 +167,16 @@ export const MessageItem = memo(function MessageItem({
     const images = message.images ?? [];
     const hasCopyContent =
       Boolean(message.content.trim()) || images.length > 0;
+    const isEditing = editingMessageId === message.id;
 
     return (
       <Message from="user">
-        <MessageContent className="gap-2">
+        <MessageContent
+          className={cn(
+            "gap-2",
+            isEditing && "ring-2 ring-ring/60 ring-offset-2 ring-offset-background"
+          )}
+        >
           {images.length > 0 ? (
             <Attachments className="w-fit" variant="grid">
               {images.map((image) => (
@@ -186,7 +198,14 @@ export const MessageItem = memo(function MessageItem({
           {message.content ? <span>{message.content}</span> : null}
         </MessageContent>
         {hasCopyContent ? (
-          <MessageActions className="mt-1 self-end opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          <MessageActions
+            className={cn(
+              "mt-1 self-end transition-opacity",
+              isEditing
+                ? "opacity-100"
+                : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+            )}
+          >
             <MessageAction
               label={t("chat.copyMessage")}
               onClick={() => {
