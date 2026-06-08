@@ -80,6 +80,7 @@ export const enMessages = {
       general: "General",
       appearance: "Appearance",
       modelProvider: "Models",
+      data: "Data",
     },
     general: {
       languageLabel: "Language",
@@ -126,6 +127,17 @@ export const enMessages = {
       presetModelsDescription: "Preset models supported by this provider",
       modelsPlaceholder: "gpt-4o\nclaude-3-5-sonnet",
       modelsAriaLabel: "Models",
+    },
+    data: {
+      clearChatHistoryLabel: "Clear chat history",
+      clearChatHistoryDescription:
+        "{sessionCount} sessions and {messageCount} messages stored locally. This cannot be undone.",
+      clearButton: "Clear all",
+      confirmTitle: "Clear all chat history?",
+      confirmDescription:
+        "This permanently deletes every local session and message. Active conversations will also be stopped.",
+      confirmCancel: "Cancel",
+      confirmAction: "Clear all",
     },
   },
   theme: {

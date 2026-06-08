@@ -77,6 +77,7 @@ export type Messages = {
       general: string;
       appearance: string;
       modelProvider: string;
+      data: string;
     };
     general: {
       languageLabel: string;
@@ -123,6 +124,15 @@ export type Messages = {
       presetModelsDescription: string;
       modelsPlaceholder: string;
       modelsAriaLabel: string;
+    };
+    data: {
+      clearChatHistoryLabel: string;
+      clearChatHistoryDescription: string;
+      clearButton: string;
+      confirmTitle: string;
+      confirmDescription: string;
+      confirmCancel: string;
+      confirmAction: string;
     };
   };
   theme: {

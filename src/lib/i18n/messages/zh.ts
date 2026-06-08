@@ -79,6 +79,7 @@ export const zhMessages = {
       general: "常规",
       appearance: "外观",
       modelProvider: "模型",
+      data: "数据",
     },
     general: {
       languageLabel: "语言",
@@ -125,6 +126,17 @@ export const zhMessages = {
       presetModelsDescription: "该提供商预设支持的模型",
       modelsPlaceholder: "gpt-4o\nclaude-3-5-sonnet",
       modelsAriaLabel: "模型列表",
+    },
+    data: {
+      clearChatHistoryLabel: "清除聊天记录",
+      clearChatHistoryDescription:
+        "本地共 {sessionCount} 个会话、{messageCount} 条消息。清除后无法恢复。",
+      clearButton: "全部清除",
+      confirmTitle: "清除所有聊天记录？",
+      confirmDescription:
+        "此操作将永久删除所有本地会话和消息，且无法恢复。正在进行的对话也会被停止。",
+      confirmCancel: "取消",
+      confirmAction: "确认清除",
     },
   },
   theme: {
