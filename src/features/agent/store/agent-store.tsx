@@ -62,6 +62,11 @@ type AgentStoreValue = {
     images?: readonly FileUIPart[];
     editMessageId?: string;
   }) => Promise<{ userMessageId: string; assistantMessageId: string; taskId: string }>;
+  regenerateMessage: (input: {
+    sessionId: string;
+    assistantMessageId: string;
+    model: string;
+  }) => Promise<{ userMessageId: string; assistantMessageId: string; taskId: string }>;
   cancelTask: (taskId: string) => Promise<void>;
 };
 
@@ -485,6 +490,136 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     [dispatchAgentEvent, emit, resolved]
   );
 
+  const regenerateMessage = useCallback(
+    async (input: {
+      sessionId: string;
+      assistantMessageId: string;
+      model: string;
+    }) => {
+      writeLastSelectedModel(input.model);
+
+      for (const task of tasksRef.current.values()) {
+        if (
+          task.sessionId === input.sessionId &&
+          isActiveAgentTask(task.status)
+        ) {
+          tasksRef.current.set(task.taskId, { ...task, status: "cancelling" });
+          emit();
+          await cancelAgent(task.taskId);
+        }
+      }
+
+      const sessionMessages = await getMessagesBySession(input.sessionId);
+      const assistantIndex = sessionMessages.findIndex(
+        (message) => message.id === input.assistantMessageId
+      );
+      if (assistantIndex === -1) {
+        throw new Error(`Message not found: ${input.assistantMessageId}`);
+      }
+
+      const assistantMessage = sessionMessages[assistantIndex];
+      if (assistantMessage?.role !== "assistant") {
+        throw new Error("Only assistant messages can be regenerated");
+      }
+
+      let userMessageIndex = -1;
+      for (let index = assistantIndex - 1; index >= 0; index -= 1) {
+        if (sessionMessages[index]?.role === "user") {
+          userMessageIndex = index;
+          break;
+        }
+      }
+      if (userMessageIndex === -1) {
+        throw new Error("No user message found before assistant message");
+      }
+
+      const userMessage = sessionMessages[userMessageIndex];
+      const isFirstTurn = userMessageIndex === 0;
+      const deletedMessageIds = await deleteMessagesAfter(
+        input.sessionId,
+        userMessage.id
+      );
+      for (const messageId of deletedMessageIds) {
+        streamingBufferRef.current.clear(messageId);
+      }
+
+      const taskId = createTaskId();
+      const session = await ensureSessionWorkspaceForAgent(input.sessionId);
+      const workspaceDir = session.workspaceDir?.trim() || null;
+      const historyMessages = await getMessagesBySession(input.sessionId);
+      const environment = await resolveAgentEnvironment(workspaceDir);
+      const history = buildAgentMessages(
+        historyMessages.flatMap(messageRecordToAgentMessages),
+        environment
+      );
+
+      const newAssistantMessage = await createMessage({
+        id: crypto.randomUUID(),
+        sessionId: input.sessionId,
+        role: "assistant",
+        content: "",
+        thinking: "",
+        processSteps: [],
+        toolInvocations: [],
+        status: "pending",
+        taskId,
+        error: null,
+      });
+
+      const storedImages = userMessage.images ?? [];
+      const activeTask: ActiveTaskState = {
+        taskId,
+        sessionId: input.sessionId,
+        assistantMessageId: newAssistantMessage.id,
+        status: "running",
+        error: null,
+        isFirstTurn,
+        model: input.model,
+        userContent:
+          userMessage.content.trim() ||
+          storedImages[0]?.filename?.trim() ||
+          "[image]",
+      };
+      tasksRef.current.set(taskId, activeTask);
+      emit();
+
+      void runAgentWithTools(
+        {
+          taskId,
+          baseUrl: resolved.baseUrl,
+          apiKey: resolveApiKey(resolved),
+          apiKeySource: resolved.apiKeySource,
+          apiKeyEnvVar: resolveApiKeyEnvVar(resolved),
+          model: input.model,
+          messages: history,
+        },
+        { workspaceDir, taskId },
+        (event) => {
+          dispatchAgentEvent(taskId, newAssistantMessage.id, event);
+        }
+      ).catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        dispatchAgentEvent(taskId, newAssistantMessage.id, {
+          type: "error",
+          taskId,
+          message,
+        });
+        dispatchAgentEvent(taskId, newAssistantMessage.id, {
+          type: "status",
+          taskId,
+          status: "failed",
+        });
+      });
+
+      return {
+        userMessageId: userMessage.id,
+        assistantMessageId: newAssistantMessage.id,
+        taskId,
+      };
+    },
+    [dispatchAgentEvent, emit, resolved]
+  );
+
   const cancelTask = useCallback(
     async (taskId: string) => {
       const task = tasksRef.current.get(taskId);
@@ -529,9 +664,17 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       isSessionRunning,
       getSessionTask,
       sendMessage,
+      regenerateMessage,
       cancelTask,
     }),
-    [activeTasks, cancelTask, getSessionTask, isSessionRunning, sendMessage]
+    [
+      activeTasks,
+      cancelTask,
+      getSessionTask,
+      isSessionRunning,
+      regenerateMessage,
+      sendMessage,
+    ]
   );
 
   return (

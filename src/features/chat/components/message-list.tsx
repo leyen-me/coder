@@ -11,6 +11,7 @@ type MessageListProps = {
   sessionTitle?: string;
   editingMessageId?: string | null;
   onEditUserMessage?: (message: MessageRecord) => void;
+  onRegenerateAssistantMessage?: (message: MessageRecord) => void;
 };
 
 const NEAR_BOTTOM_THRESHOLD_PX = 80;
@@ -44,6 +45,7 @@ export function MessageList({
   sessionTitle,
   editingMessageId,
   onEditUserMessage,
+  onRegenerateAssistantMessage,
 }: MessageListProps) {
   const streamingMessageIds = useActiveStreamingMessageIds();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -138,6 +140,7 @@ export function MessageList({
               key={message.id}
               message={message}
               onEditUserMessage={onEditUserMessage}
+              onRegenerateAssistantMessage={onRegenerateAssistantMessage}
               sessionTitle={sessionTitle}
             />
           ))}

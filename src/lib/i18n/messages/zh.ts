@@ -67,6 +67,7 @@ export const zhMessages = {
     cancelEdit: "取消",
     forkMessage: "Fork",
     forkSessionTitle: "Fork · {title}",
+    regenerateMessage: "重新生成",
     noModel: "未配置模型",
   },
   time: {

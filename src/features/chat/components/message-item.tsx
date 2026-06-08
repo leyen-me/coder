@@ -20,7 +20,7 @@ import {
 } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
-import { CopyIcon, GitForkIcon, PencilIcon } from "lucide-react";
+import { CopyIcon, GitForkIcon, PencilIcon, RefreshCwIcon } from "lucide-react";
 import { memo, useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -32,6 +32,7 @@ type MessageItemProps = {
   isStreaming: boolean;
   editingMessageId?: string | null;
   onEditUserMessage?: (message: MessageRecord) => void;
+  onRegenerateAssistantMessage?: (message: MessageRecord) => void;
 };
 
 function areMessageItemPropsEqual(
@@ -51,6 +52,10 @@ function areMessageItemPropsEqual(
   }
 
   if (prev.onEditUserMessage !== next.onEditUserMessage) {
+    return false;
+  }
+
+  if (prev.onRegenerateAssistantMessage !== next.onRegenerateAssistantMessage) {
     return false;
   }
 
@@ -76,10 +81,13 @@ export const MessageItem = memo(function MessageItem({
   isStreaming,
   editingMessageId,
   onEditUserMessage,
+  onRegenerateAssistantMessage,
 }: MessageItemProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [isForking, setIsForking] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const isActionPending = isForking || isRegenerating;
   const isUser = message.role === "user";
   const persistedSteps = normalizeMessageProcessSteps(message.processSteps);
   let latestAnswerText = "";
@@ -114,7 +122,11 @@ export const MessageItem = memo(function MessageItem({
     isMessageStreaming: isStreaming,
   });
   const showProcessTimeline = showReasoning || hasTools;
-  const showActions = Boolean(answerText) && !isStreaming;
+  const showActions =
+    !isStreaming &&
+    (Boolean(answerText) ||
+      message.status === "failed" ||
+      message.status === "cancelled");
 
   const handleCopy = useCallback(async () => {
     if (!answerText) {
@@ -162,6 +174,19 @@ export const MessageItem = memo(function MessageItem({
       setIsForking(false);
     }
   }, [isForking, message.id, message.sessionId, navigate, sessionTitle, t]);
+
+  const handleRegenerate = useCallback(async () => {
+    if (isRegenerating || !onRegenerateAssistantMessage) {
+      return;
+    }
+
+    setIsRegenerating(true);
+    try {
+      await onRegenerateAssistantMessage(message);
+    } finally {
+      setIsRegenerating(false);
+    }
+  }, [isRegenerating, message, onRegenerateAssistantMessage]);
 
   if (isUser) {
     const images = message.images ?? [];
@@ -240,7 +265,7 @@ export const MessageItem = memo(function MessageItem({
       {showActions ? (
         <MessageActions className="mt-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
           <MessageAction
-            disabled={isForking}
+            disabled={isActionPending}
             label={t("chat.copyMessage")}
             onClick={() => {
               void handleCopy();
@@ -249,8 +274,22 @@ export const MessageItem = memo(function MessageItem({
           >
             <CopyIcon className="size-3.5" />
           </MessageAction>
+          {onRegenerateAssistantMessage ? (
+            <MessageAction
+              disabled={isActionPending}
+              label={t("chat.regenerateMessage")}
+              onClick={() => {
+                void handleRegenerate();
+              }}
+              tooltip={t("chat.regenerateMessage")}
+            >
+              <RefreshCwIcon
+                className={cn("size-3.5", isRegenerating && "animate-spin")}
+              />
+            </MessageAction>
+          ) : null}
           <MessageAction
-            disabled={isForking}
+            disabled={isActionPending}
             label={t("chat.forkMessage")}
             onClick={() => {
               void handleFork();

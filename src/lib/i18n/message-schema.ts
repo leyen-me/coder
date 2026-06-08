@@ -64,6 +64,7 @@ export type Messages = {
     cancelEdit: string;
     forkMessage: string;
     forkSessionTitle: string;
+    regenerateMessage: string;
     noModel: string;
   };
   time: {

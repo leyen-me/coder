@@ -8,6 +8,7 @@ type ChatMessageListProps = {
   sessionTitle?: string;
   editingMessageId?: string | null;
   onEditUserMessage?: (message: MessageRecord) => void;
+  onRegenerateAssistantMessage?: (message: MessageRecord) => void;
 };
 
 export function ChatMessageList({
@@ -15,6 +16,7 @@ export function ChatMessageList({
   sessionTitle,
   editingMessageId,
   onEditUserMessage,
+  onRegenerateAssistantMessage,
 }: ChatMessageListProps) {
   const displayMessages = useDisplayMessages(messages);
 
@@ -23,6 +25,7 @@ export function ChatMessageList({
       editingMessageId={editingMessageId}
       messages={displayMessages}
       onEditUserMessage={onEditUserMessage}
+      onRegenerateAssistantMessage={onRegenerateAssistantMessage}
       sessionTitle={sessionTitle}
     />
   );

@@ -68,6 +68,7 @@ export const enMessages = {
     cancelEdit: "Cancel",
     forkMessage: "Fork",
     forkSessionTitle: "Fork · {title}",
+    regenerateMessage: "Regenerate",
     noModel: "No model configured",
   },
   time: {

@@ -20,8 +20,13 @@ type ChatSessionViewProps = {
 
 export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const { resolved } = useModelProvider();
-  const { sendMessage, cancelTask, getSessionTask, isSessionRunning } =
-    useAgentStore();
+  const {
+    sendMessage,
+    regenerateMessage,
+    cancelTask,
+    getSessionTask,
+    isSessionRunning,
+  } = useAgentStore();
   const { session, messages, isLoading } = useSessionData(chatId);
   const [prompt, setPrompt] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -67,6 +72,26 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       setEditInitialFiles(storedImagesToFileUIParts(message.images ?? []));
     },
     [cancelTask, chatId, getSessionTask]
+  );
+
+  const handleRegenerateAssistantMessage = useCallback(
+    async (message: MessageRecord) => {
+      if (isRunning) {
+        return;
+      }
+
+      const task = getSessionTask(chatId);
+      if (task) {
+        await cancelTask(task.taskId);
+      }
+
+      await regenerateMessage({
+        sessionId: chatId,
+        assistantMessageId: message.id,
+        model,
+      });
+    },
+    [cancelTask, chatId, getSessionTask, isRunning, model, regenerateMessage]
   );
 
   const handleSend = async (payload: { text: string; files: FileUIPart[] }) => {
@@ -118,6 +143,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         editingMessageId={editingMessageId}
         messages={messages}
         onEditUserMessage={handleEditUserMessage}
+        onRegenerateAssistantMessage={handleRegenerateAssistantMessage}
         sessionTitle={session?.title}
       />
 
