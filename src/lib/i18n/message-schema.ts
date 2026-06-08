@@ -55,6 +55,7 @@ export type Messages = {
     thinking: string;
     thinkingInProgress: string;
     thinkingPlaceholder: string;
+    systemPrompt: string;
     thoughtForSeconds: string;
     answer: string;
     toolDetailTitle: string;

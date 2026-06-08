@@ -11,6 +11,7 @@ import { ChatMessageList } from "../components/chat-message-list";
 import { PromptComposer } from "../components/prompt-composer";
 import { useSessionData } from "../hooks/use-session-messages";
 import { useSessionWorkspaceBinding } from "../hooks/use-session-workspace-binding";
+import { useSystemPrompt } from "../hooks/use-system-prompt";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
 import type { MessageRecord } from "@/lib/db";
 
@@ -44,6 +45,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     workspaceDir: workspaceBinding.workspaceDir,
     enabled: canEditWorkspace,
   });
+  const systemPrompt = useSystemPrompt(workspaceBinding.workspaceDir);
 
   const activeTask = getSessionTask(chatId);
   const isRunning = isSessionRunning(chatId) || isSubmitting;
@@ -145,6 +147,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         onEditUserMessage={handleEditUserMessage}
         onRegenerateAssistantMessage={handleRegenerateAssistantMessage}
         sessionTitle={session?.title}
+        systemPrompt={systemPrompt}
       />
 
       <div className="shrink-0 px-4 pb-4 pt-3">

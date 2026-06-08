@@ -59,6 +59,7 @@ export const enMessages = {
     thinking: "Thinking",
     thinkingInProgress: "Thinking…",
     thinkingPlaceholder: "Waiting for reasoning…",
+    systemPrompt: "System prompt",
     thoughtForSeconds: "Thought for {duration} seconds",
     answer: "Answer",
     toolDetailTitle: "Tool · {name}",

@@ -58,6 +58,7 @@ export const zhMessages = {
     thinking: "思考过程",
     thinkingInProgress: "正在思考…",
     thinkingPlaceholder: "等待思考内容…",
+    systemPrompt: "系统提示词",
     thoughtForSeconds: "思考了 {duration} 秒",
     answer: "回答",
     toolDetailTitle: "工具 · {name}",

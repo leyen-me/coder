@@ -6,6 +6,7 @@ import { MessageList } from "./message-list";
 type ChatMessageListProps = {
   messages: MessageRecord[];
   sessionTitle?: string;
+  systemPrompt?: string | null;
   editingMessageId?: string | null;
   onEditUserMessage?: (message: MessageRecord) => void;
   onRegenerateAssistantMessage?: (message: MessageRecord) => void;
@@ -14,6 +15,7 @@ type ChatMessageListProps = {
 export function ChatMessageList({
   messages,
   sessionTitle,
+  systemPrompt,
   editingMessageId,
   onEditUserMessage,
   onRegenerateAssistantMessage,
@@ -27,6 +29,7 @@ export function ChatMessageList({
       onEditUserMessage={onEditUserMessage}
       onRegenerateAssistantMessage={onRegenerateAssistantMessage}
       sessionTitle={sessionTitle}
+      systemPrompt={systemPrompt}
     />
   );
 }

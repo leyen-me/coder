@@ -5,10 +5,12 @@ import type { MessageRecord } from "@/lib/db";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { MessageItem } from "./message-item";
+import { SystemPromptBlock } from "./system-prompt-block";
 
 type MessageListProps = {
   messages: MessageRecord[];
   sessionTitle?: string;
+  systemPrompt?: string | null;
   editingMessageId?: string | null;
   onEditUserMessage?: (message: MessageRecord) => void;
   onRegenerateAssistantMessage?: (message: MessageRecord) => void;
@@ -43,6 +45,7 @@ function scrollMessagesToBottom(container: HTMLElement, smooth: boolean) {
 export function MessageList({
   messages,
   sessionTitle,
+  systemPrompt,
   editingMessageId,
   onEditUserMessage,
   onRegenerateAssistantMessage,
@@ -133,6 +136,9 @@ export function MessageList({
     <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-hidden">
       <ScrollArea className="h-full px-4 py-6">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+          {systemPrompt ? (
+            <SystemPromptBlock content={systemPrompt} />
+          ) : null}
           {messages.map((message) => (
             <MessageItem
               editingMessageId={editingMessageId}
