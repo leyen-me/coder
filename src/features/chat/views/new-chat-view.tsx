@@ -92,7 +92,7 @@ export function NewChatView() {
           void gitControls.checkoutBranch(branch);
         }}
         isGitLoading={gitControls.isGitLoading}
-        variant="full"
+        variant="compact"
         isRunning={isSubmitting}
       />
 

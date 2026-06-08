@@ -350,7 +350,7 @@ export function PromptComposer({
         />
       </PromptInputBody>
 
-      <PromptInputFooter className="border-t border-border/60 bg-card px-3 py-2">
+      <PromptInputFooter className="bg-card px-3 py-2">
         <PromptInputSelect
           value={model}
           onValueChange={onModelChange}
