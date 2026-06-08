@@ -17,6 +17,7 @@ import {
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
+import { Toggle } from "@/components/ui/toggle";
 import { PromptComposerAttachmentsHeader } from "./prompt-composer-attachments";
 import {
   DropdownMenu,
@@ -35,6 +36,10 @@ import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { cn } from "@/lib/utils";
 
 import { ComposerEditTag } from "./composer-edit-tag";
+import {
+  composerFooterControlActiveClassName,
+  composerFooterControlClassName,
+} from "@/components/ai-elements/composer-footer-control";
 
 /** Images only until non-image parsing is implemented. */
 export const COMPOSER_ATTACHMENT_ACCEPT = "image/*";
@@ -408,23 +413,26 @@ export function PromptComposer({
           </PromptInputSelect>
 
           {showThinkingToggle ? (
-            <Button
-              type="button"
-              variant={thinkingEnabled ? "secondary" : "ghost"}
-              size="sm"
-              className="h-8 shrink-0 rounded-xl px-2.5"
+            <Toggle
+              pressed={thinkingEnabled}
+              onPressedChange={onThinkingEnabledChange}
+              variant="composer"
+              className={cn(
+                composerFooterControlClassName,
+                composerFooterControlActiveClassName,
+                "h-8 max-w-36 shrink-0 rounded-xl px-2.5"
+              )}
               disabled={isRunning}
               aria-label={t("chat.thinkingToggle")}
-              aria-pressed={thinkingEnabled}
               title={
                 thinkingEnabled
                   ? t("chat.thinkingEnabled")
                   : t("chat.thinkingDisabled")
               }
-              onClick={() => onThinkingEnabledChange?.(!thinkingEnabled)}
             >
-              <BrainIcon className="size-4" />
-            </Button>
+              <BrainIcon className="size-4 shrink-0" />
+              <span className="truncate">{t("chat.thinkingToggleLabel")}</span>
+            </Toggle>
           ) : null}
         </div>
 

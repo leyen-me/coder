@@ -72,6 +72,7 @@ export const zhMessages = {
     regenerateMessage: "重新生成",
     noModel: "未配置模型",
     thinkingToggle: "切换深度思考",
+    thinkingToggleLabel: "深度思考",
     thinkingEnabled: "深度思考已开启",
     thinkingDisabled: "深度思考已关闭",
   },

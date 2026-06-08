@@ -73,6 +73,7 @@ export const enMessages = {
     regenerateMessage: "Regenerate",
     noModel: "No model configured",
     thinkingToggle: "Toggle deep thinking",
+    thinkingToggleLabel: "Think",
     thinkingEnabled: "Deep thinking enabled",
     thinkingDisabled: "Deep thinking disabled",
   },

@@ -69,6 +69,7 @@ export type Messages = {
     regenerateMessage: string;
     noModel: string;
     thinkingToggle: string;
+    thinkingToggleLabel: string;
     thinkingEnabled: string;
     thinkingDisabled: string;
   };
