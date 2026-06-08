@@ -60,6 +60,7 @@ export const enMessages = {
     thinkingPlaceholder: "Waiting for reasoning…",
     thoughtForSeconds: "Thought for {duration} seconds",
     answer: "Answer",
+    toolDetailTitle: "Tool · {name}",
     copyMessage: "Copy",
     forkMessage: "Fork",
     forkSessionTitle: "Fork · {title}",

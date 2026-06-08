@@ -57,6 +57,7 @@ export type Messages = {
     thinkingPlaceholder: string;
     thoughtForSeconds: string;
     answer: string;
+    toolDetailTitle: string;
     copyMessage: string;
     forkMessage: string;
     forkSessionTitle: string;

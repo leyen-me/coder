@@ -23,6 +23,83 @@ export type AssistantProcessStep =
       isStreaming: boolean;
     };
 
+export type ThinkingSegment =
+  | {
+      kind: "text";
+      text: string;
+    }
+  | {
+      kind: "tool";
+      invocation: MessageToolInvocation;
+    };
+
+export type AssistantProcessPresentation = {
+  thinkingSegments: ThinkingSegment[];
+  isThinkingStreaming: boolean;
+  isCompact: boolean;
+  answer: {
+    text: string;
+    isStreaming: boolean;
+  } | null;
+};
+
+const COMPACT_THINKING_MAX_CHARS = 180;
+
+const pendingToolStates = new Set<MessageToolInvocation["state"]>([
+  "input-available",
+  "input-streaming",
+]);
+
+export function buildAssistantProcessPresentation(
+  steps: AssistantProcessStep[]
+): AssistantProcessPresentation {
+  const thinkingSegments: ThinkingSegment[] = [];
+  let answer: AssistantProcessPresentation["answer"] = null;
+
+  for (const step of steps) {
+    if (step.kind === "answer") {
+      answer = {
+        text: step.text,
+        isStreaming: step.isStreaming,
+      };
+      continue;
+    }
+
+    if (step.kind === "reasoning") {
+      thinkingSegments.push({
+        kind: "text",
+        text: step.text,
+      });
+      continue;
+    }
+
+    thinkingSegments.push({
+      kind: "tool",
+      invocation: step.invocation,
+    });
+  }
+
+  const hasTools = thinkingSegments.some((segment) => segment.kind === "tool");
+  const totalTextLength = thinkingSegments.reduce(
+    (length, segment) =>
+      segment.kind === "text" ? length + segment.text.length : length,
+    0
+  );
+  const isThinkingStreaming =
+    steps.some((step) => step.kind === "reasoning" && step.isStreaming) ||
+    steps.some(
+      (step) =>
+        step.kind === "tool" && pendingToolStates.has(step.invocation.state)
+    );
+
+  return {
+    thinkingSegments,
+    isThinkingStreaming,
+    isCompact: !hasTools && totalTextLength <= COMPACT_THINKING_MAX_CHARS,
+    answer,
+  };
+}
+
 export function buildAssistantProcessSteps(input: {
   processSteps?: MessageProcessStep[];
   answerText: string;
