@@ -36,14 +36,11 @@ export type ThinkingSegment =
 export type AssistantProcessPresentation = {
   thinkingSegments: ThinkingSegment[];
   isThinkingStreaming: boolean;
-  isCompact: boolean;
   answer: {
     text: string;
     isStreaming: boolean;
   } | null;
 };
-
-const COMPACT_THINKING_MAX_CHARS = 180;
 
 const pendingToolStates = new Set<MessageToolInvocation["state"]>([
   "input-available",
@@ -79,12 +76,6 @@ export function buildAssistantProcessPresentation(
     });
   }
 
-  const hasTools = thinkingSegments.some((segment) => segment.kind === "tool");
-  const totalTextLength = thinkingSegments.reduce(
-    (length, segment) =>
-      segment.kind === "text" ? length + segment.text.length : length,
-    0
-  );
   const isThinkingStreaming =
     steps.some((step) => step.kind === "reasoning" && step.isStreaming) ||
     steps.some(
@@ -95,7 +86,6 @@ export function buildAssistantProcessPresentation(
   return {
     thinkingSegments,
     isThinkingStreaming,
-    isCompact: !hasTools && totalTextLength <= COMPACT_THINKING_MAX_CHARS,
     answer,
   };
 }

@@ -188,7 +188,6 @@ describe("buildAssistantProcessPresentation", () => {
 
     const presentation = buildAssistantProcessPresentation(steps);
 
-    expect(presentation.isCompact).toBe(false);
     expect(presentation.isThinkingStreaming).toBe(false);
     expect(presentation.thinkingSegments).toEqual([
       { kind: "text", text: "先打招呼。" },
@@ -204,7 +203,7 @@ describe("buildAssistantProcessPresentation", () => {
     });
   });
 
-  it("marks short reasoning-only output as compact", () => {
+  it("keeps short reasoning-only output in the unified thinking block", () => {
     const presentation = buildAssistantProcessPresentation([
       {
         id: "reasoning",
@@ -220,10 +219,14 @@ describe("buildAssistantProcessPresentation", () => {
       },
     ]);
 
-    expect(presentation.isCompact).toBe(true);
     expect(presentation.thinkingSegments).toEqual([
       { kind: "text", text: "简单想一下。" },
     ]);
+    expect(presentation.isThinkingStreaming).toBe(false);
+    expect(presentation.answer).toEqual({
+      text: "好的。",
+      isStreaming: false,
+    });
   });
 
   it("treats pending tools as streaming thinking", () => {

@@ -31,13 +31,11 @@ import { StreamingPlainText } from "./streaming-message-content";
 type ThinkingBlockProps = {
   segments: ThinkingSegment[];
   isStreaming: boolean;
-  isCompact: boolean;
 };
 
 export function ThinkingBlock({
   segments,
   isStreaming,
-  isCompact,
 }: ThinkingBlockProps) {
   const { t } = useTranslation();
 
@@ -60,12 +58,6 @@ export function ThinkingBlock({
       segments={segments}
     />
   );
-
-  if (isCompact) {
-    return (
-      <div className="text-muted-foreground text-sm">{narrative}</div>
-    );
-  }
 
   return (
     <Reasoning className="mb-0 w-full" isStreaming={isStreaming}>

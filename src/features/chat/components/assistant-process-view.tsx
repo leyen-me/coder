@@ -20,7 +20,6 @@ export function AssistantProcessView({ steps }: AssistantProcessViewProps) {
     <div className="flex w-full flex-col gap-3">
       {hasThinking ? (
         <ThinkingBlock
-          isCompact={presentation.isCompact}
           isStreaming={presentation.isThinkingStreaming}
           segments={presentation.thinkingSegments}
         />
