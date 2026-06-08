@@ -43,53 +43,94 @@ function applyStreamingOverlays(
   return didChange ? nextMessages : messages;
 }
 
+async function fetchSessionData(sessionId: string) {
+  if (!sessionId) {
+    return { session: null, messages: [] as MessageRecord[] };
+  }
+
+  const [session, messages] = await Promise.all([
+    getSession(sessionId),
+    getMessagesBySession(sessionId),
+  ]);
+
+  return { session, messages };
+}
+
 export function useSessionData(sessionId: string) {
   const [session, setSession] = useState<SessionRecord | null>(null);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
+
+  const applySessionData = useCallback(
+    (id: string, data: Awaited<ReturnType<typeof fetchSessionData>>) => {
+      if (id !== sessionIdRef.current) {
+        return;
+      }
+
+      setSession(data.session);
+      setMessages(data.messages);
+      setIsLoading(false);
+    },
+    []
+  );
 
   const refresh = useCallback(async () => {
-    if (!sessionId) {
+    const id = sessionIdRef.current;
+    if (!id) {
       setSession(null);
       setMessages([]);
       setIsLoading(false);
       return;
     }
 
-    const [nextSession, nextMessages] = await Promise.all([
-      getSession(sessionId),
-      getMessagesBySession(sessionId),
-    ]);
-    setSession(nextSession);
-    setMessages(nextMessages);
-    setIsLoading(false);
-  }, [sessionId]);
+    const data = await fetchSessionData(id);
+    applySessionData(id, data);
+  }, [applySessionData]);
 
   useEffect(() => {
-    setIsLoading(true);
-    void refresh();
+    let active = true;
 
-    return subscribeDb(() => {
+    setIsLoading(true);
+    setSession(null);
+    setMessages([]);
+
+    void (async () => {
+      const data = await fetchSessionData(sessionId);
+      if (!active) {
+        return;
+      }
+      applySessionData(sessionId, data);
+    })();
+
+    const unsubscribe = subscribeDb(() => {
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
       }
 
       refreshTimeoutRef.current = setTimeout(() => {
         refreshTimeoutRef.current = null;
-        void refresh();
+        void (async () => {
+          const data = await fetchSessionData(sessionId);
+          if (!active) {
+            return;
+          }
+          applySessionData(sessionId, data);
+        })();
       }, DB_REFRESH_DEBOUNCE_MS);
     });
-  }, [refresh]);
 
-  useEffect(
-    () => () => {
+    return () => {
+      active = false;
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
       }
-    },
-    []
-  );
+      unsubscribe();
+    };
+  }, [sessionId, applySessionData]);
 
   return { session, messages, isLoading, refresh };
 }

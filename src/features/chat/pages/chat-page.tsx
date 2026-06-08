@@ -13,5 +13,5 @@ export function ChatPage() {
     return <NewChatView />;
   }
 
-  return <ChatSessionView chatId={chatId ?? ""} />;
+  return <ChatSessionView key={chatId} chatId={chatId ?? ""} />;
 }
