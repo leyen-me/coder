@@ -1,6 +1,13 @@
-import { normalizeToolInvocations, type MessageRecord, type MessageToolInvocation } from "@/lib/db";
+import {
+  normalizeToolInvocations,
+  type MessageRecord,
+  type MessageToolInvocation,
+} from "@/lib/db";
 
 import { buildUserAgentContent } from "./message-content";
+import {
+  buildAgentMessagesFromProcessSteps,
+} from "./process-steps";
 import { toApiToolCalls, type AgentToolCall } from "./tools";
 import type { AgentChatMessage } from "./types";
 
@@ -17,6 +24,25 @@ export function messageRecordToAgentMessages(
   }
 
   const toolInvocations = normalizeToolInvocations(message.toolInvocations);
+  const includeReasoning = toolInvocations.length > 0;
+  const fromProcessSteps = buildAgentMessagesFromProcessSteps(
+    message.processSteps,
+    toolInvocations,
+    { includeReasoning }
+  );
+
+  if (fromProcessSteps) {
+    return fromProcessSteps;
+  }
+
+  return buildLegacyAssistantMessages(message, toolInvocations, includeReasoning);
+}
+
+function buildLegacyAssistantMessages(
+  message: MessageRecord,
+  toolInvocations: MessageToolInvocation[],
+  includeReasoning: boolean
+): AgentChatMessage[] {
   const assistantMessage: AgentChatMessage = {
     role: "assistant",
   };
@@ -27,7 +53,7 @@ export function messageRecordToAgentMessages(
     assistantMessage.content = content;
   }
 
-  if (reasoningContent) {
+  if (reasoningContent && includeReasoning) {
     assistantMessage.reasoning_content = reasoningContent;
   }
 
@@ -40,8 +66,8 @@ export function messageRecordToAgentMessages(
   return [
     assistantMessage,
     ...toolInvocations.flatMap((invocation) => {
-      const content = serializeStoredToolOutput(invocation);
-      if (!content) {
+      const toolContent = serializeStoredToolOutput(invocation);
+      if (!toolContent) {
         return [];
       }
 
@@ -50,7 +76,7 @@ export function messageRecordToAgentMessages(
           role: "tool" as const,
           tool_call_id: invocation.id,
           name: invocation.name,
-          content,
+          content: toolContent,
         },
       ];
     }),

@@ -73,7 +73,7 @@ describe("createStreamingBufferManager", () => {
     vi.useRealTimers();
   });
 
-  it("splits reasoning around tool steps", () => {
+  it("preserves DeepSeek-style content before tool steps", () => {
     const manager = createStreamingBufferManager({
       onFlush: vi.fn().mockResolvedValue(undefined),
       onChange: () => {},
@@ -81,19 +81,20 @@ describe("createStreamingBufferManager", () => {
 
     manager.append("msg-1", "thinking", "先打个招呼。");
     manager.append("msg-1", "content", "你好！让我先看看目录。");
-    manager.reclassifyTrailingAnswerStepAsReasoning("msg-1");
     manager.pushToolStep("msg-1", "call_1");
     manager.append("msg-1", "thinking", "目录读完了，再总结。");
+    manager.append("msg-1", "content", "项目结构如下。");
 
     expect(manager.get("msg-1")?.processSteps).toEqual([
       { id: "reasoning:0", kind: "reasoning", text: "先打个招呼。" },
-      {
-        id: "answer:1",
-        kind: "reasoning",
-        text: "你好！让我先看看目录。",
-      },
+      { id: "answer:1", kind: "answer", text: "你好！让我先看看目录。" },
       { id: "tool:call_1", kind: "tool", toolCallId: "call_1" },
       { id: "reasoning:3", kind: "reasoning", text: "目录读完了，再总结。" },
+      { id: "answer:4", kind: "answer", text: "项目结构如下。" },
     ]);
+    expect(manager.get("msg-1")).toMatchObject({
+      thinking: "先打个招呼。目录读完了，再总结。",
+      content: "项目结构如下。",
+    });
   });
 });

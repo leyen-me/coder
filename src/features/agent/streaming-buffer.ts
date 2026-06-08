@@ -1,5 +1,7 @@
 import type { MessageProcessStep } from "@/lib/db";
 
+import { deriveMessageFieldsFromProcessSteps } from "./process-steps";
+
 export type StreamingFields = {
   content: string;
   thinking: string;
@@ -8,6 +10,10 @@ export type StreamingFields = {
 
 const FLUSH_INTERVAL_MS = 50;
 
+type BufferState = {
+  processSteps: MessageProcessStep[];
+};
+
 export type StreamingBufferManager = {
   append: (
     messageId: string,
@@ -15,7 +21,6 @@ export type StreamingBufferManager = {
     delta: string
   ) => void;
   pushToolStep: (messageId: string, toolCallId: string) => void;
-  reclassifyTrailingAnswerStepAsReasoning: (messageId: string) => void;
   flush: (messageId: string) => Promise<void>;
   clear: (messageId: string) => void;
   flushAndClear: (messageId: string) => Promise<void>;
@@ -27,7 +32,7 @@ export function createStreamingBufferManager(options: {
   onFlush: (messageId: string, fields: StreamingFields) => Promise<void>;
   onChange: () => void;
 }): StreamingBufferManager {
-  const buffers = new Map<string, StreamingFields>();
+  const buffers = new Map<string, BufferState>();
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
   const flushChains = new Map<string, Promise<void>>();
 
@@ -35,13 +40,25 @@ export function createStreamingBufferManager(options: {
     options.onChange();
   };
 
-  const ensureBuffer = (messageId: string): StreamingFields => {
+  const ensureBuffer = (messageId: string): BufferState => {
     let buffer = buffers.get(messageId);
     if (!buffer) {
-      buffer = { content: "", thinking: "", processSteps: [] };
+      buffer = { processSteps: [] };
       buffers.set(messageId, buffer);
     }
     return buffer;
+  };
+
+  const toStreamingFields = (buffer: BufferState): StreamingFields => {
+    const { thinking, content } = deriveMessageFieldsFromProcessSteps(
+      buffer.processSteps
+    );
+
+    return {
+      thinking,
+      content,
+      processSteps: buffer.processSteps.map((step) => ({ ...step })),
+    };
   };
 
   const append = (
@@ -54,7 +71,6 @@ export function createStreamingBufferManager(options: {
     }
 
     const buffer = ensureBuffer(messageId);
-    buffer[field] += delta;
     appendTextProcessStep(
       buffer.processSteps,
       field === "thinking" ? "reasoning" : "answer",
@@ -75,22 +91,6 @@ export function createStreamingBufferManager(options: {
       });
       emitChange();
       scheduleFlush(messageId);
-    }
-  };
-
-  const reclassifyTrailingAnswerStepAsReasoning = (messageId: string) => {
-    const buffer = buffers.get(messageId);
-    if (!buffer) {
-      return;
-    }
-
-    const lastStep = buffer.processSteps.at(-1);
-    if (lastStep?.kind === "answer") {
-      buffer.processSteps[buffer.processSteps.length - 1] = {
-        ...lastStep,
-        kind: "reasoning",
-      };
-      emitChange();
     }
   };
 
@@ -116,13 +116,7 @@ export function createStreamingBufferManager(options: {
 
     const previous = flushChains.get(messageId) ?? Promise.resolve();
     const next = previous
-      .then(() =>
-        options.onFlush(messageId, {
-          content: buffer.content,
-          thinking: buffer.thinking,
-          processSteps: buffer.processSteps.map((step) => ({ ...step })),
-        })
-      )
+      .then(() => options.onFlush(messageId, toStreamingFields(buffer)))
       .catch(() => {
         // Flush errors are surfaced by the agent event handler.
       });
@@ -161,9 +155,17 @@ export function createStreamingBufferManager(options: {
     clear,
     flushAndClear,
     pushToolStep,
-    reclassifyTrailingAnswerStepAsReasoning,
-    get: (messageId) => buffers.get(messageId) ?? null,
-    getSnapshot: () => new Map(buffers),
+    get: (messageId) => {
+      const buffer = buffers.get(messageId);
+      return buffer ? toStreamingFields(buffer) : null;
+    },
+    getSnapshot: () =>
+      new Map(
+        [...buffers.entries()].map(([messageId, buffer]) => [
+          messageId,
+          toStreamingFields(buffer),
+        ])
+      ),
   };
 }
 

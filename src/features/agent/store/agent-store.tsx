@@ -151,11 +151,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     async (event: AgentEvent, assistantMessageId: string) => {
       switch (event.type) {
         case "tool_call_started":
-          // Keep the cumulative overlay alive across tool sub-turns so the UI
-          // continues to show earlier reasoning/content while later deltas stream in.
-          streamingBufferRef.current.reclassifyTrailingAnswerStepAsReasoning(
-            assistantMessageId
-          );
           await streamingBufferRef.current.flush(assistantMessageId);
           await addMessageToolInvocation(assistantMessageId, {
             id: event.toolCallId,
