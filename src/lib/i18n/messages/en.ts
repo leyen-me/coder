@@ -33,6 +33,7 @@ export const enMessages = {
     exportSession: "Export session",
     shareLink: "Share link",
     splitLayout: "Split layout",
+    bottomPanel: "Bottom panel",
     rightPanel: "Right panel",
     workbench: "Workbench",
   },

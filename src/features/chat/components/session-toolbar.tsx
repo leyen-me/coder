@@ -1,18 +1,6 @@
-import {
-  ChevronDown,
-  LayoutPanelLeft,
-  PanelRight,
-  Sparkles,
-  Zap,
-} from "lucide-react";
+import { PanelBottom, PanelRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
@@ -32,40 +20,12 @@ export function SessionToolbar() {
             variant="ghost"
             size="icon-sm"
             className="text-muted-foreground"
-            aria-label={t("session.fastMode")}
+            aria-label={t("session.bottomPanel")}
           >
-            <Zap className="size-4" />
+            <PanelBottom className="size-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>{t("session.fastMode")}</TooltipContent>
-      </Tooltip>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button type="button" variant="outline" size="sm" className="gap-1 rounded-xl">
-            {t("session.commit")}
-            <ChevronDown className="size-3.5 opacity-60" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>{t("session.exportSession")}</DropdownMenuItem>
-          <DropdownMenuItem>{t("session.shareLink")}</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground"
-            aria-label={t("session.splitLayout")}
-          >
-            <LayoutPanelLeft className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{t("session.splitLayout")}</TooltipContent>
+        <TooltipContent>{t("session.bottomPanel")}</TooltipContent>
       </Tooltip>
 
       <Tooltip>
@@ -81,21 +41,6 @@ export function SessionToolbar() {
           </Button>
         </TooltipTrigger>
         <TooltipContent>{t("session.rightPanel")}</TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground"
-            aria-label={t("session.workbench")}
-          >
-            <Sparkles className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{t("session.workbench")}</TooltipContent>
       </Tooltip>
     </div>
   );

@@ -33,6 +33,7 @@ export const zhMessages = {
     exportSession: "导出会话",
     shareLink: "分享链接",
     splitLayout: "分屏布局",
+    bottomPanel: "底部面板",
     rightPanel: "右侧面板",
     workbench: "工作台",
   },
