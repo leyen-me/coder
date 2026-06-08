@@ -1,15 +1,10 @@
 import type { ChatStatus, FileUIPart } from "ai";
-import { ChevronDownIcon, FolderOpenIcon, GitBranchIcon, PlusIcon } from "lucide-react";
+import { ChevronDownIcon, FolderOpenIcon, GitBranchIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import {
   PromptInput,
-  PromptInputActionAddAttachments,
-  PromptInputActionMenu,
-  PromptInputActionMenuContent,
-  PromptInputActionMenuTrigger,
   PromptInputBody,
-  PromptInputButton,
   PromptInputFooter,
   PromptInputSelect,
   PromptInputSelectContent,
@@ -18,10 +13,10 @@ import {
   PromptInputSelectValue,
   PromptInputSubmit,
   PromptInputTextarea,
-  PromptInputTools,
   usePromptInputAttachments,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
+import { Button } from "@/components/ui/button";
 import { PromptComposerAttachmentsHeader } from "./prompt-composer-attachments";
 import {
   DropdownMenu,
@@ -136,6 +131,96 @@ function ComposerSubmit({
   );
 }
 
+type ComposerContextBarProps = {
+  workspaceName?: string | null;
+  onPickWorkspace?: () => void;
+  isRunning: boolean;
+  showBranch: boolean;
+  gitBranch?: string | null;
+  gitBranches: readonly string[];
+  onGitBranchChange?: (branch: string) => void;
+  isGitLoading: boolean;
+};
+
+function ComposerContextBar({
+  workspaceName,
+  onPickWorkspace,
+  isRunning,
+  showBranch,
+  gitBranch,
+  gitBranches,
+  onGitBranchChange,
+  isGitLoading,
+}: ComposerContextBarProps) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="flex items-center gap-1 border-t border-border/60 bg-muted/40 px-3 py-2 dark:bg-muted/20">
+      <Button
+        aria-label={
+          workspaceName
+            ? t("chat.workspaceSelected", { name: workspaceName })
+            : t("chat.selectWorkspace")
+        }
+        className="h-8 max-w-40 shrink-0 rounded-xl px-2.5"
+        disabled={isRunning || !onPickWorkspace}
+        onClick={onPickWorkspace}
+        title={
+          workspaceName
+            ? t("chat.workspaceSelected", { name: workspaceName })
+            : t("chat.selectWorkspace")
+        }
+        type="button"
+        variant="ghost"
+      >
+        <FolderOpenIcon className="size-4 shrink-0" />
+        <span className="truncate">
+          {workspaceName ?? t("chat.localWork")}
+        </span>
+      </Button>
+
+      {showBranch ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={t("chat.selectGitBranch")}
+              className="h-8 max-w-36 shrink-0 rounded-xl px-2.5"
+              disabled={isRunning || isGitLoading || !onGitBranchChange}
+              title={gitBranch ?? t("chat.selectGitBranch")}
+              type="button"
+              variant="ghost"
+            >
+              <GitBranchIcon className="size-4 shrink-0" />
+              <span className="truncate">
+                {isGitLoading
+                  ? t("chat.gitBranchLoading")
+                  : (gitBranch ?? t("chat.selectGitBranch"))}
+              </span>
+              <ChevronDownIcon className="size-3.5 shrink-0 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-h-64 min-w-40 overflow-y-auto">
+            <DropdownMenuRadioGroup
+              value={gitBranch ?? ""}
+              onValueChange={(branch) => {
+                if (branch && branch !== gitBranch) {
+                  onGitBranchChange?.(branch);
+                }
+              }}
+            >
+              {gitBranches.map((branch) => (
+                <DropdownMenuRadioItem key={branch} value={branch}>
+                  {branch}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+    </div>
+  );
+}
+
 export function PromptComposer({
   value,
   onChange,
@@ -222,172 +307,105 @@ export function PromptComposer({
         />
       ) : null}
 
-      <PromptInput
-      key={composerKey}
-      className={cn(
-        "w-full",
-        "[&_[data-slot=input-group]]:h-auto [&_[data-slot=input-group]]:overflow-hidden",
-        "[&_[data-slot=input-group]]:rounded-3xl",
-        "[&_[data-slot=input-group]]:border-border [&_[data-slot=input-group]]:bg-card",
-        "[&_[data-slot=input-group]]:text-card-foreground [&_[data-slot=input-group]]:shadow-none",
-        "[&_[data-slot=input-group]]:dark:bg-card [&_[data-slot=input-group]]:has-disabled:opacity-100",
-        "[&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:border-border",
-        "[&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:ring-0",
-        "[&_[data-slot=input-group-control]]:text-foreground",
-        "[&_[data-slot=input-group-control]:focus-visible]:border-transparent",
-        "[&_[data-slot=input-group-control]:focus-visible]:ring-0",
-        "[&_[data-slot=input-group-control]:disabled:cursor-not-allowed",
-        "[&_[data-slot=input-group-control]:disabled:opacity-100",
-        isCompact && "[&_[data-slot=input-group]]:shadow-sm"
-      )}
-      accept={COMPOSER_ATTACHMENT_ACCEPT}
-      initialFiles={initialFiles}
-      maxFileSize={COMPOSER_MAX_FILE_SIZE}
-      maxFiles={COMPOSER_MAX_FILES}
-      multiple
-      onError={handleAttachmentError}
-      onSubmit={handleSubmit}
-    >
-      <PromptComposerAttachmentsHeader />
-      <ComposerAttachmentError
-        message={attachmentError}
-        onClear={clearAttachmentError}
-      />
-
-      <PromptInputBody>
-        <PromptInputTextarea
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape" && onCancelEdit) {
-              event.preventDefault();
-              onCancelEdit();
-            }
-          }}
-          placeholder={t("chat.composerPlaceholder")}
+      <div
+        className={cn(
+          "overflow-hidden rounded-3xl border border-border bg-card text-card-foreground shadow-none",
+          isCompact && "shadow-sm"
+        )}
+      >
+        <PromptInput
+          key={composerKey}
           className={cn(
-            "px-4 py-4 text-base text-foreground",
-            isCompact ? "min-h-[72px]" : "min-h-[120px]"
+            "w-full",
+            "[&_[data-slot=input-group]]:h-auto [&_[data-slot=input-group]]:overflow-hidden",
+            "[&_[data-slot=input-group]]:rounded-none [&_[data-slot=input-group]]:border-0",
+            "[&_[data-slot=input-group]]:bg-transparent",
+            "[&_[data-slot=input-group]]:text-card-foreground [&_[data-slot=input-group]]:shadow-none",
+            "[&_[data-slot=input-group]]:dark:bg-transparent [&_[data-slot=input-group]]:has-disabled:opacity-100",
+            "[&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:border-transparent",
+            "[&_[data-slot=input-group]]:has-[[data-slot=input-group-control]:focus-visible]:ring-0",
+            "[&_[data-slot=input-group-control]]:text-foreground",
+            "[&_[data-slot=input-group-control]:focus-visible]:border-transparent",
+            "[&_[data-slot=input-group-control]:focus-visible]:ring-0",
+            "[&_[data-slot=input-group-control]:disabled:cursor-not-allowed",
+            "[&_[data-slot=input-group-control]:disabled:opacity-100"
           )}
-          readOnly={isRunning}
-        />
-      </PromptInputBody>
-
-      <PromptInputFooter className="border-t border-border/60 bg-card px-3 py-2">
-        <PromptInputTools>
-          <PromptInputActionMenu>
-            <PromptInputActionMenuTrigger
-              aria-label={t("chat.addAttachment")}
-              className="shrink-0 rounded-xl"
-              disabled={isRunning}
-              variant="ghost"
-            >
-              <PlusIcon className="size-4" />
-            </PromptInputActionMenuTrigger>
-            <PromptInputActionMenuContent align="start">
-              <PromptInputActionAddAttachments
-                label={t("chat.addAttachment")}
-              />
-            </PromptInputActionMenuContent>
-          </PromptInputActionMenu>
-
-          {showWorkspaceControls ? (
-            <>
-              <PromptInputButton
-                aria-label={
-                  workspaceName
-                    ? t("chat.workspaceSelected", { name: workspaceName })
-                    : t("chat.selectWorkspace")
-                }
-                className="h-8 max-w-40 shrink-0 rounded-xl px-2.5"
-                disabled={isRunning || !onPickWorkspace}
-                onClick={onPickWorkspace}
-                title={
-                  workspaceName
-                    ? t("chat.workspaceSelected", { name: workspaceName })
-                    : t("chat.selectWorkspace")
-                }
-                type="button"
-                variant="ghost"
-              >
-                <FolderOpenIcon className="size-4 shrink-0" />
-                <span className="truncate">
-                  {workspaceName ?? t("chat.localWork")}
-                </span>
-              </PromptInputButton>
-
-              {showBranch ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <PromptInputButton
-                      aria-label={t("chat.selectGitBranch")}
-                      className="h-8 max-w-36 shrink-0 rounded-xl px-2.5"
-                      disabled={isRunning || isGitLoading || !onGitBranchChange}
-                      title={gitBranch ?? t("chat.selectGitBranch")}
-                      type="button"
-                      variant="ghost"
-                    >
-                      <GitBranchIcon className="size-4 shrink-0" />
-                      <span className="truncate">
-                        {isGitLoading
-                          ? t("chat.gitBranchLoading")
-                          : (gitBranch ?? t("chat.selectGitBranch"))}
-                      </span>
-                      <ChevronDownIcon className="size-3.5 shrink-0 opacity-60" />
-                    </PromptInputButton>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="max-h-64 min-w-40 overflow-y-auto">
-                    <DropdownMenuRadioGroup
-                      value={gitBranch ?? ""}
-                      onValueChange={(branch) => {
-                        if (branch && branch !== gitBranch) {
-                          onGitBranchChange?.(branch);
-                        }
-                      }}
-                    >
-                      {gitBranches.map((branch) => (
-                        <DropdownMenuRadioItem key={branch} value={branch}>
-                          {branch}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : null}
-            </>
-          ) : null}
-        </PromptInputTools>
-
-        <div className="flex shrink-0 items-center gap-1">
-          <PromptInputSelect
-            value={model}
-            onValueChange={onModelChange}
-            disabled={isRunning || models.length === 0}
-          >
-            <PromptInputSelectTrigger
-              className="h-8 max-w-56 rounded-xl px-2.5 [&_[data-slot=select-value]]:truncate"
-              title={model || undefined}
-            >
-              <PromptInputSelectValue placeholder={t("chat.noModel")} />
-            </PromptInputSelectTrigger>
-            <PromptInputSelectContent align="end" className="max-w-sm">
-              {models.map((item) => (
-                <PromptInputSelectItem key={item} value={item}>
-                  {item}
-                </PromptInputSelectItem>
-              ))}
-            </PromptInputSelectContent>
-          </PromptInputSelect>
-
-          <ComposerSubmit
-            isRunning={isRunning}
-            onStop={onStop}
-            submitStatus={submitStatus}
-            value={value}
+          accept={COMPOSER_ATTACHMENT_ACCEPT}
+          initialFiles={initialFiles}
+          maxFileSize={COMPOSER_MAX_FILE_SIZE}
+          maxFiles={COMPOSER_MAX_FILES}
+          multiple
+          onError={handleAttachmentError}
+          onSubmit={handleSubmit}
+        >
+          <PromptComposerAttachmentsHeader />
+          <ComposerAttachmentError
+            message={attachmentError}
+            onClear={clearAttachmentError}
           />
-        </div>
-      </PromptInputFooter>
-    </PromptInput>
+
+          <PromptInputBody>
+            <PromptInputTextarea
+              value={value}
+              onChange={(event) => onChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape" && onCancelEdit) {
+                  event.preventDefault();
+                  onCancelEdit();
+                }
+              }}
+              placeholder={t("chat.composerPlaceholder")}
+              className={cn(
+                "px-4 py-4 text-base text-foreground",
+                isCompact ? "min-h-[72px]" : "min-h-[120px]"
+              )}
+              readOnly={isRunning}
+            />
+          </PromptInputBody>
+
+          <PromptInputFooter className="border-t border-border/60 bg-card px-3 py-2">
+            <PromptInputSelect
+              value={model}
+              onValueChange={onModelChange}
+              disabled={isRunning || models.length === 0}
+            >
+              <PromptInputSelectTrigger
+                className="h-8 max-w-56 rounded-xl px-2.5 [&_[data-slot=select-value]]:truncate"
+                title={model || undefined}
+              >
+                <PromptInputSelectValue placeholder={t("chat.noModel")} />
+              </PromptInputSelectTrigger>
+              <PromptInputSelectContent align="start" className="max-w-sm">
+                {models.map((item) => (
+                  <PromptInputSelectItem key={item} value={item}>
+                    {item}
+                  </PromptInputSelectItem>
+                ))}
+              </PromptInputSelectContent>
+            </PromptInputSelect>
+
+            <ComposerSubmit
+              isRunning={isRunning}
+              onStop={onStop}
+              submitStatus={submitStatus}
+              value={value}
+            />
+          </PromptInputFooter>
+        </PromptInput>
+
+        {showWorkspaceControls ? (
+          <ComposerContextBar
+            gitBranch={gitBranch}
+            gitBranches={gitBranches}
+            isGitLoading={isGitLoading}
+            isRunning={isRunning}
+            onGitBranchChange={onGitBranchChange}
+            onPickWorkspace={onPickWorkspace}
+            showBranch={showBranch}
+            workspaceName={workspaceName}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }
