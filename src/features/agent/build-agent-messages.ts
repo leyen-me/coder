@@ -1,6 +1,7 @@
 import { buildSystemPrompt } from "./environment/build-system-prompt";
 import type { AgentEnvironment } from "./environment/types";
 import { hasAgentMessageContent } from "./message-content";
+import { assertValidToolCallChain } from "./process-steps";
 import type { AgentChatMessage } from "./types";
 
 export function buildAgentMessages(
@@ -8,6 +9,7 @@ export function buildAgentMessages(
   environment: AgentEnvironment
 ): AgentChatMessage[] {
   const conversation = history.filter((message) => hasMessagePayload(message));
+  assertValidToolCallChain(conversation);
 
   return [
     { role: "system", content: buildSystemPrompt(environment) },
@@ -28,9 +30,7 @@ function hasMessagePayload(message: AgentChatMessage): boolean {
   }
 
   if (message.role === "tool") {
-    const text =
-      typeof message.content === "string" ? message.content : undefined;
-    return Boolean(text?.trim());
+    return Boolean(message.tool_call_id?.trim());
   }
 
   return hasAgentMessageContent(message.content);

@@ -208,6 +208,65 @@ describe("messageRecordToAgentMessages", () => {
           },
         ],
       },
+      {
+        role: "tool",
+        tool_call_id: "call_2",
+        name: "list_dir",
+        content:
+          '{"ok":false,"tool":"list_dir","error":{"code":"missing_output","message":"Tool result was not persisted."}}',
+      },
+    ]);
+  });
+
+  it("falls back to legacy replay when process steps are missing tool boundaries", () => {
+    const messages = messageRecordToAgentMessages({
+      id: "assistant-4",
+      sessionId: "session-1",
+      role: "assistant",
+      content: "我先看看目录。",
+      thinking: "需要先列一下项目结构。",
+      processSteps: [
+        { id: "reasoning:0", kind: "reasoning", text: "需要先列一下项目结构。" },
+        { id: "answer:1", kind: "answer", text: "我先看看目录。" },
+      ],
+      toolInvocations: [
+        {
+          id: "call_1",
+          name: "list_dir",
+          input: { path: "." },
+          output: { ok: true, tool: "list_dir", data: { path: "." } },
+          state: "output-available",
+        },
+      ],
+      status: "completed",
+      taskId: null,
+      error: null,
+      createdAt: 4,
+    } satisfies MessageRecord);
+
+    expect(messages).toEqual([
+      {
+        role: "assistant",
+        content: "我先看看目录。",
+        reasoning_content: "需要先列一下项目结构。",
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: {
+              name: "list_dir",
+              arguments: '{"path":"."}',
+            },
+          },
+        ],
+      },
+      {
+        role: "tool",
+        tool_call_id: "call_1",
+        name: "list_dir",
+        content:
+          '{"ok":true,"tool":"list_dir","data":{"path":"."}}',
+      },
     ]);
   });
 });

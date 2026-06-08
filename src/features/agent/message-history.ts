@@ -7,8 +7,11 @@ import {
 import { buildUserAgentContent } from "./message-content";
 import {
   buildAgentMessagesFromProcessSteps,
+  processStepsIncludeAllTools,
+  serializeInvocationToolContent,
+  toStoredToolCall,
 } from "./process-steps";
-import { toApiToolCalls, type AgentToolCall } from "./tools";
+import { toApiToolCalls } from "./tools";
 import type { AgentChatMessage } from "./types";
 
 export function messageRecordToAgentMessages(
@@ -25,11 +28,17 @@ export function messageRecordToAgentMessages(
 
   const toolInvocations = normalizeToolInvocations(message.toolInvocations);
   const includeReasoning = toolInvocations.length > 0;
-  const fromProcessSteps = buildAgentMessagesFromProcessSteps(
+  const canUseProcessSteps = processStepsIncludeAllTools(
     message.processSteps,
-    toolInvocations,
-    { includeReasoning }
+    toolInvocations
   );
+  const fromProcessSteps = canUseProcessSteps
+    ? buildAgentMessagesFromProcessSteps(
+        message.processSteps,
+        toolInvocations,
+        { includeReasoning }
+      )
+    : null;
 
   if (fromProcessSteps) {
     return fromProcessSteps;
@@ -65,64 +74,11 @@ function buildLegacyAssistantMessages(
 
   return [
     assistantMessage,
-    ...toolInvocations.flatMap((invocation) => {
-      const toolContent = serializeStoredToolOutput(invocation);
-      if (!toolContent) {
-        return [];
-      }
-
-      return [
-        {
-          role: "tool" as const,
-          tool_call_id: invocation.id,
-          name: invocation.name,
-          content: toolContent,
-        },
-      ];
-    }),
+    ...toolInvocations.map((invocation) => ({
+      role: "tool" as const,
+      tool_call_id: invocation.id,
+      name: invocation.name,
+      content: serializeInvocationToolContent(invocation),
+    })),
   ];
-}
-
-function toStoredToolCall(invocation: MessageToolInvocation): AgentToolCall {
-  return {
-    id: invocation.id,
-    name: invocation.name,
-    arguments: serializeStoredToolInput(invocation.input),
-  };
-}
-
-function serializeStoredToolInput(input: unknown): string {
-  if (
-    input &&
-    typeof input === "object" &&
-    !Array.isArray(input) &&
-    "raw" in input &&
-    typeof (input as { raw?: unknown }).raw === "string" &&
-    Object.keys(input).length === 1
-  ) {
-    return (input as { raw: string }).raw;
-  }
-
-  return JSON.stringify(input ?? {});
-}
-
-function serializeStoredToolOutput(
-  invocation: MessageToolInvocation
-): string | null {
-  if (invocation.output !== undefined) {
-    return JSON.stringify(invocation.output);
-  }
-
-  if (!invocation.errorText?.trim()) {
-    return null;
-  }
-
-  return JSON.stringify({
-    ok: false,
-    tool: invocation.name,
-    error: {
-      code: "tool_error",
-      message: invocation.errorText,
-    },
-  });
 }

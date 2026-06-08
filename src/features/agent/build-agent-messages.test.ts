@@ -65,12 +65,19 @@ describe("buildAgentMessages", () => {
             },
           ],
         },
+        {
+          role: "tool",
+          tool_call_id: "call_1",
+          name: "list_dir",
+          content: "{}",
+        },
       ],
       environment
     );
 
-    expect(messages).toHaveLength(2);
+    expect(messages).toHaveLength(3);
     expect(messages[1]?.tool_calls).toHaveLength(1);
+    expect(messages[2]?.role).toBe("tool");
   });
 
   it("keeps assistant messages that only contain reasoning content", () => {
@@ -86,5 +93,38 @@ describe("buildAgentMessages", () => {
 
     expect(messages).toHaveLength(2);
     expect(messages[1]?.reasoning_content).toBe("先分析一下问题");
+  });
+
+  it("keeps tool messages required by assistant tool_calls", () => {
+    const messages = buildAgentMessages(
+      [
+        { role: "user", content: "帮我看看目录" },
+        {
+          role: "assistant",
+          content: "我先看看目录。",
+          reasoning_content: "需要先列一下项目结构。",
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: {
+                name: "list_dir",
+                arguments: '{"path":"."}',
+              },
+            },
+          ],
+        },
+        {
+          role: "tool",
+          tool_call_id: "call_1",
+          name: "list_dir",
+          content:
+            '{"ok":true,"tool":"list_dir","data":{"path":".","entries":[]}}',
+        },
+      ],
+      environment
+    );
+
+    expect(messages.filter((message) => message.role === "tool")).toHaveLength(1);
   });
 });

@@ -13,6 +13,7 @@ import {
   completeMessageToolInvocation,
   createMessage,
   createTaskId,
+  getMessage,
   getMessagesBySession,
   setMessageStatus,
   updateMessage,
@@ -23,6 +24,7 @@ import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
 import { runAgentWithTools } from "../agent-loop";
 import { buildAgentMessages } from "../build-agent-messages";
+import { mergeProcessSteps } from "../process-steps";
 import { createStreamingBufferManager } from "../streaming-buffer";
 import { fileUIPartsToStoredImages } from "../message-content";
 import { messageRecordToAgentMessages } from "../message-history";
@@ -103,7 +105,14 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const streamingBufferRef = useRef(
     createStreamingBufferManager({
       onFlush: async (messageId, fields) => {
-        await updateMessage(messageId, fields);
+        const existing = await getMessage(messageId);
+        await updateMessage(messageId, {
+          ...fields,
+          processSteps: mergeProcessSteps(
+            existing?.processSteps,
+            fields.processSteps
+          ),
+        });
       },
       onChange: () => {
         emitStreaming();
@@ -151,7 +160,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     async (event: AgentEvent, assistantMessageId: string) => {
       switch (event.type) {
         case "tool_call_started":
-          await streamingBufferRef.current.flush(assistantMessageId);
           await addMessageToolInvocation(assistantMessageId, {
             id: event.toolCallId,
             name: event.name,
@@ -162,6 +170,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             assistantMessageId,
             event.toolCallId
           );
+          await streamingBufferRef.current.flush(assistantMessageId);
           await setMessageStatus(assistantMessageId, "streaming");
           return;
         case "tool_call_finished":

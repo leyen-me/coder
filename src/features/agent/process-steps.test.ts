@@ -127,6 +127,45 @@ describe("buildAgentMessagesFromProcessSteps", () => {
     ]);
   });
 
+  it("always emits a tool response after assistant tool_calls", () => {
+    const messages = buildAgentMessagesFromProcessSteps(
+      [
+        { id: "reasoning:0", kind: "reasoning", text: "Need to inspect files." },
+        { id: "tool:call_1", kind: "tool", toolCallId: "call_1" },
+      ],
+      [
+        {
+          id: "call_1",
+          name: "list_dir",
+          input: { path: "." },
+          state: "input-available",
+        },
+      ],
+      { includeReasoning: true }
+    );
+
+    expect(messages).toEqual([
+      {
+        role: "assistant",
+        reasoning_content: "Need to inspect files.",
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: { name: "list_dir", arguments: '{"path":"."}' },
+          },
+        ],
+      },
+      {
+        role: "tool",
+        tool_call_id: "call_1",
+        name: "list_dir",
+        content:
+          '{"ok":false,"tool":"list_dir","error":{"code":"missing_output","message":"Tool result was not persisted."}}',
+      },
+    ]);
+  });
+
   it("omits reasoning when the turn had no tool calls", () => {
     const messages = buildAgentMessagesFromProcessSteps(
       [
