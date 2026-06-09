@@ -61,7 +61,9 @@ export function BottomPanelSlot({ children }: BottomPanelSlotProps) {
       orientation="vertical"
     >
       <ResizablePanel defaultSize={60} id="main-content" minSize={35}>
-        <div className="flex min-h-0 flex-col overflow-hidden">{children}</div>
+        <div className="flex h-full min-h-0 flex-col overflow-hidden">
+          {children}
+        </div>
       </ResizablePanel>
       {isBottomPanelOpen ? <ResizableHandle withHandle /> : null}
       <ResizablePanel

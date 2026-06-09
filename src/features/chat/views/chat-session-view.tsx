@@ -170,7 +170,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   }
 
   const chatContent = (
-    <>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <ChatMessageList
         editingMessageId={editingMessageId}
         messages={messages}
@@ -217,7 +217,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
           />
         </div>
       </div>
-    </>
+    </div>
   );
 
   return chatContent;
