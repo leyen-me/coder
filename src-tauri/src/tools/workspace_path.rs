@@ -196,10 +196,13 @@ mod tests {
     fn resolves_nonexistent_write_path_inside_workspace() {
         let temp = temp_workspace("write");
         let canonical_workspace = temp.canonicalize().expect("canonical workspace");
-        let resolved = super::resolve_workspace_write_path(&temp, "src/new.ts")
-            .expect("resolve write path");
+        let resolved =
+            super::resolve_workspace_write_path(&temp, "src/new.ts").expect("resolve write path");
         assert!(resolved.starts_with(&canonical_workspace));
-        assert_eq!(resolved.file_name().and_then(|name| name.to_str()), Some("new.ts"));
+        assert_eq!(
+            resolved.file_name().and_then(|name| name.to_str()),
+            Some("new.ts")
+        );
         let _ = fs::remove_dir_all(temp);
     }
 

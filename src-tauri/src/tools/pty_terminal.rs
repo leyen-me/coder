@@ -113,10 +113,7 @@ impl PtyRegistry {
                     Err(_) => break,
                 }
             }
-            let _ = app_reader.emit(
-                "pty-closed",
-                serde_json::json!({ "ptyId": pty_id_reader }),
-            );
+            let _ = app_reader.emit("pty-closed", serde_json::json!({ "ptyId": pty_id_reader }));
         });
 
         Ok(PtySessionInfo { pty_id, cwd })

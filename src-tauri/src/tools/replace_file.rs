@@ -54,8 +54,8 @@ pub fn tool_replace_file(
 
 #[cfg(test)]
 mod tests {
-    use super::tool_replace_file;
     use super::super::text_file::sha256_hex;
+    use super::tool_replace_file;
     use std::fs;
     use std::path::PathBuf;
 
@@ -87,7 +87,10 @@ mod tests {
         .expect("replace");
 
         assert_eq!(result.action, "replaced");
-        assert_eq!(fs::read_to_string(temp.join("sample.txt")).expect("read"), "new\n");
+        assert_eq!(
+            fs::read_to_string(temp.join("sample.txt")).expect("read"),
+            "new\n"
+        );
         let _ = fs::remove_dir_all(temp);
     }
 

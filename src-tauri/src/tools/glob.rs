@@ -209,9 +209,6 @@ mod tests {
         .expect("glob project tools");
 
         assert!(!result.matches.is_empty());
-        assert!(result
-            .matches
-            .iter()
-            .any(|path| path.ends_with("glob.rs")));
+        assert!(result.matches.iter().any(|path| path.ends_with("glob.rs")));
     }
 }

@@ -72,10 +72,7 @@ pub fn tool_read_file(
     }
 
     let metadata = fs::metadata(&target).map_err(|error| {
-        ReadFileToolError::new(
-            "io_error",
-            format!("Failed to read file metadata: {error}"),
-        )
+        ReadFileToolError::new("io_error", format!("Failed to read file metadata: {error}"))
     })?;
     let file_size = metadata.len();
 
@@ -160,11 +157,7 @@ fn select_lines(text: &str, start_line: u32, max_lines: u32) -> (u32, Vec<String
     (total_lines, selected, truncated)
 }
 
-fn format_numbered_content(
-    start_line: u32,
-    lines: &[String],
-    max_bytes: usize,
-) -> (String, bool) {
+fn format_numbered_content(start_line: u32, lines: &[String], max_bytes: usize) -> (String, bool) {
     let mut content = String::new();
     let mut truncated = false;
 
@@ -183,10 +176,8 @@ fn format_numbered_content(
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        format_numbered_content, select_lines, tool_read_file,
-    };
     use super::super::text_file::{decode_text, detect_binary, detect_secrets};
+    use super::{format_numbered_content, select_lines, tool_read_file};
     use std::fs;
     use std::path::PathBuf;
 
@@ -205,11 +196,7 @@ mod tests {
     #[test]
     fn reads_requested_line_range_with_numbers() {
         let temp = temp_workspace("range");
-        fs::write(
-            temp.join("sample.txt"),
-            "alpha\nbeta\ngamma\ndelta\n",
-        )
-        .expect("write file");
+        fs::write(temp.join("sample.txt"), "alpha\nbeta\ngamma\ndelta\n").expect("write file");
 
         let result = tool_read_file(
             temp.to_string_lossy().into_owned(),
@@ -233,8 +220,7 @@ mod tests {
     #[test]
     fn rejects_binary_files() {
         let temp = temp_workspace("binary");
-        fs::write(temp.join("image.png"), b"\x89PNG\r\n\x1a\n\x00")
-            .expect("write binary");
+        fs::write(temp.join("image.png"), b"\x89PNG\r\n\x1a\n\x00").expect("write binary");
 
         let error = tool_read_file(
             temp.to_string_lossy().into_owned(),

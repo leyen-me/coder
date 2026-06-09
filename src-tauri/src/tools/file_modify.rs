@@ -59,10 +59,7 @@ pub fn load_existing_text_file(
     }
 
     let metadata = fs::metadata(&target).map_err(|error| {
-        TextFileToolError::new(
-            "io_error",
-            format!("Failed to read file metadata: {error}"),
-        )
+        TextFileToolError::new("io_error", format!("Failed to read file metadata: {error}"))
     })?;
     let file_size = metadata.len();
 
@@ -120,7 +117,10 @@ pub fn verify_expected_sha256(
     bytes: &[u8],
     expected_sha256: Option<&str>,
 ) -> Result<(), TextFileToolError> {
-    let Some(expected) = expected_sha256.map(str::trim).filter(|value| !value.is_empty()) else {
+    let Some(expected) = expected_sha256
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
         return Ok(());
     };
 

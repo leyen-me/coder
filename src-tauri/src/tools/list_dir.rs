@@ -2,7 +2,9 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-use super::workspace_path::{format_absolute_path, resolve_workspace_path, workspace_relative_path};
+use super::workspace_path::{
+    format_absolute_path, resolve_workspace_path, workspace_relative_path,
+};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -87,8 +89,8 @@ fn collect_entries(
         return Ok(());
     }
 
-    let read_dir = std::fs::read_dir(dir)
-        .map_err(|error| format!("Failed to read directory: {error}"))?;
+    let read_dir =
+        std::fs::read_dir(dir).map_err(|error| format!("Failed to read directory: {error}"))?;
 
     for entry in read_dir {
         let entry = entry.map_err(|error| format!("Failed to read entry: {error}"))?;
@@ -104,10 +106,7 @@ fn collect_entries(
         let entry_path = entry.path();
         let is_dir = file_type.is_dir();
         let size = if file_type.is_file() {
-            entry
-                .metadata()
-                .ok()
-                .map(|metadata| metadata.len())
+            entry.metadata().ok().map(|metadata| metadata.len())
         } else {
             None
         };
@@ -170,7 +169,10 @@ mod tests {
 
         assert!(result.path.contains("coder-list-dir-list"));
         assert_eq!(result.entries.len(), 2);
-        assert!(result.entries.iter().any(|entry| entry.name == "src" && entry.is_dir));
+        assert!(result
+            .entries
+            .iter()
+            .any(|entry| entry.name == "src" && entry.is_dir));
         assert!(result
             .entries
             .iter()

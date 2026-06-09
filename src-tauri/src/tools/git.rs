@@ -127,8 +127,8 @@ mod tests {
                 .as_nanos()
         ));
         fs::create_dir_all(&temp).expect("create temp dir");
-        let error = validate_git_workspace(temp.to_string_lossy().as_ref())
-            .expect_err("non-git dir");
+        let error =
+            validate_git_workspace(temp.to_string_lossy().as_ref()).expect_err("non-git dir");
         assert!(error.contains("not a git repository"));
         let _ = fs::remove_dir_all(temp);
     }

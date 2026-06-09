@@ -51,9 +51,7 @@ mod windows {
         };
 
         if result != S_OK {
-            log::warn!(
-                "DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE) failed: {result}"
-            );
+            log::warn!("DwmSetWindowAttribute(DWMWA_WINDOW_CORNER_PREFERENCE) failed: {result}");
         }
     }
 }

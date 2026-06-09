@@ -13,9 +13,7 @@ pub struct WorkspaceWalkOptions<'a> {
 /// Builds a workspace file walker rooted at `search_root`.
 ///
 /// Respects `.gitignore` / `.git/info/exclude` when `respect_gitignore` is true.
-pub fn build_workspace_walker(
-    options: &WorkspaceWalkOptions<'_>,
-) -> Result<ignore::Walk, String> {
+pub fn build_workspace_walker(options: &WorkspaceWalkOptions<'_>) -> Result<ignore::Walk, String> {
     let mut builder = WalkBuilder::new(options.search_root);
     builder
         .git_ignore(options.respect_gitignore)
@@ -111,7 +109,9 @@ mod tests {
     #[test]
     fn detects_hidden_paths() {
         assert!(is_hidden_path(PathBuf::from(".env").as_path()));
-        assert!(is_hidden_path(PathBuf::from("src/.hidden/file.ts").as_path()));
+        assert!(is_hidden_path(
+            PathBuf::from("src/.hidden/file.ts").as_path()
+        ));
         assert!(!is_hidden_path(PathBuf::from("src/main.ts").as_path()));
     }
 

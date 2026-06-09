@@ -266,7 +266,10 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 
 pub fn is_gitignored(workspace: &Path, target: &Path) -> Result<bool, TextFileToolError> {
     let gitignore = build_gitignore(workspace).map_err(|error| {
-        TextFileToolError::new("gitignore_error", format!("Failed to load .gitignore: {error}"))
+        TextFileToolError::new(
+            "gitignore_error",
+            format!("Failed to load .gitignore: {error}"),
+        )
     })?;
     let relative = target
         .strip_prefix(workspace)
@@ -360,7 +363,11 @@ pub fn guess_text_mime_type(path: &str) -> String {
     }
 }
 
-pub fn atomic_write_bytes(path: &Path, bytes: &[u8], preserve_mode: Option<u32>) -> Result<(), TextFileToolError> {
+pub fn atomic_write_bytes(
+    path: &Path,
+    bytes: &[u8],
+    preserve_mode: Option<u32>,
+) -> Result<(), TextFileToolError> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
             TextFileToolError::new(
@@ -469,7 +476,10 @@ pub fn create_backup(
 ) -> Result<String, TextFileToolError> {
     let history_dir = workspace.join(".history");
     fs::create_dir_all(&history_dir).map_err(|error| {
-        TextFileToolError::new("io_error", format!("Failed to create backup directory: {error}"))
+        TextFileToolError::new(
+            "io_error",
+            format!("Failed to create backup directory: {error}"),
+        )
     })?;
 
     let safe_name = relative_path.replace('/', "__");

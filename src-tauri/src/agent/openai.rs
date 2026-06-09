@@ -211,7 +211,10 @@ pub async fn stream_chat_completion(
 
     while let Some(chunk_result) = stream.next().await {
         if cancel.is_cancelled() {
-            agent_stream_log(format!("cancelled task_id={} while reading stream", task_id));
+            agent_stream_log(format!(
+                "cancelled task_id={} while reading stream",
+                task_id
+            ));
             emit(AgentEvent::Status {
                 task_id: task_id.to_string(),
                 status: AgentStatus::Cancelled,

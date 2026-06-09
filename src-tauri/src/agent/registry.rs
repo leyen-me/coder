@@ -29,7 +29,11 @@ fn debug_emit_log(event: &AgentEvent) {
         }
         AgentEvent::ThinkingDelta { task_id, delta } => {
             let preview: String = delta.chars().take(120).collect();
-            let suffix = if delta.chars().count() > 120 { "..." } else { "" };
+            let suffix = if delta.chars().count() > 120 {
+                "..."
+            } else {
+                ""
+            };
             let preview_text = format!("{preview}{suffix}");
             agent_stream_log(format!(
                 "emit task_id={task_id} type=thinking len={} preview={preview_text:?}",
@@ -38,14 +42,21 @@ fn debug_emit_log(event: &AgentEvent) {
         }
         AgentEvent::ContentDelta { task_id, delta } => {
             let preview: String = delta.chars().take(120).collect();
-            let suffix = if delta.chars().count() > 120 { "..." } else { "" };
+            let suffix = if delta.chars().count() > 120 {
+                "..."
+            } else {
+                ""
+            };
             let preview_text = format!("{preview}{suffix}");
             agent_stream_log(format!(
                 "emit task_id={task_id} type=content len={} preview={preview_text:?}",
                 delta.len()
             ));
         }
-        AgentEvent::TurnComplete { task_id, tool_calls } => {
+        AgentEvent::TurnComplete {
+            task_id,
+            tool_calls,
+        } => {
             agent_stream_log(format!(
                 "emit task_id={task_id} type=turn_complete tool_calls={}",
                 tool_calls.len()

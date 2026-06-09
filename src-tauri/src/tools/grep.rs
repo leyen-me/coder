@@ -5,11 +5,16 @@ use globset::{GlobBuilder, GlobSet, GlobSetBuilder};
 use regex::RegexBuilder;
 use serde::Serialize;
 
-use super::search::{build_workspace_walker, is_hidden_path, relative_file_path, WorkspaceWalkOptions};
-use super::text_file::{
-    decode_text, detect_binary, is_gitignored, is_sensitive_path, read_binary_sample, MAX_READ_BYTES,
+use super::search::{
+    build_workspace_walker, is_hidden_path, relative_file_path, WorkspaceWalkOptions,
 };
-use super::workspace_path::{format_absolute_path, resolve_workspace_path, workspace_relative_path};
+use super::text_file::{
+    decode_text, detect_binary, is_gitignored, is_sensitive_path, read_binary_sample,
+    MAX_READ_BYTES,
+};
+use super::workspace_path::{
+    format_absolute_path, resolve_workspace_path, workspace_relative_path,
+};
 
 const DEFAULT_HEAD_LIMIT: u32 = 200;
 const MAX_HEAD_LIMIT: u32 = 1000;
@@ -333,7 +338,12 @@ pub fn tool_grep(
 }
 
 fn parse_output_mode(raw: Option<&str>) -> Result<GrepOutputMode, String> {
-    match raw.unwrap_or("content").trim().to_ascii_lowercase().as_str() {
+    match raw
+        .unwrap_or("content")
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
         "content" => Ok(GrepOutputMode::Content),
         "files_with_matches" => Ok(GrepOutputMode::FilesWithMatches),
         "count" => Ok(GrepOutputMode::Count),
@@ -341,11 +351,7 @@ fn parse_output_mode(raw: Option<&str>) -> Result<GrepOutputMode, String> {
     }
 }
 
-fn resolve_context(
-    before: Option<u32>,
-    after: Option<u32>,
-    both: Option<u32>,
-) -> (u32, u32) {
+fn resolve_context(before: Option<u32>, after: Option<u32>, both: Option<u32>) -> (u32, u32) {
     if let Some(value) = both {
         return (value, value);
     }
@@ -382,9 +388,7 @@ fn collect_grep_files(
     let canonical_workspace = workspace
         .canonicalize()
         .map_err(|error| format!("Invalid workspaceDir: {error}"))?;
-    let file_glob = glob_filter
-        .map(build_glob_set)
-        .transpose()?;
+    let file_glob = glob_filter.map(build_glob_set).transpose()?;
 
     let walker = build_workspace_walker(&WorkspaceWalkOptions {
         search_root,
@@ -501,11 +505,7 @@ mod tests {
     fn finds_content_matches_with_context() {
         let temp = temp_workspace("content");
         fs::create_dir_all(temp.join("src")).expect("create dir");
-        fs::write(
-            temp.join("src/main.ts"),
-            "alpha\nbeta needle\ngamma\n",
-        )
-        .expect("write file");
+        fs::write(temp.join("src/main.ts"), "alpha\nbeta needle\ngamma\n").expect("write file");
 
         let result = tool_grep(
             temp.to_string_lossy().into_owned(),
@@ -527,8 +527,14 @@ mod tests {
         let matches = result.matches.expect("matches");
         assert_eq!(matches.len(), 1);
         assert_eq!(matches[0].line_number, 2);
-        assert_eq!(matches[0].context_before.as_ref().expect("before"), &["alpha"]);
-        assert_eq!(matches[0].context_after.as_ref().expect("after"), &["gamma"]);
+        assert_eq!(
+            matches[0].context_before.as_ref().expect("before"),
+            &["alpha"]
+        );
+        assert_eq!(
+            matches[0].context_after.as_ref().expect("after"),
+            &["gamma"]
+        );
         let _ = fs::remove_dir_all(temp);
     }
 
