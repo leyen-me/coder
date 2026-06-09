@@ -7,7 +7,7 @@ import {
   truncateShellStream,
 } from "./list-shells";
 import { toolFailure, toolSuccess } from "./result";
-import type { ShellInfo } from "./types";
+import type { ListShellsData, ShellInfo } from "./types";
 
 vi.mock("@tauri-apps/api/core", () => ({
   isTauri: vi.fn(() => true),
@@ -156,10 +156,11 @@ describe("listShellsHandler", () => {
       return;
     }
 
-    expect(result.data.shells[0]?.stdout.length).toBe(4_096);
-    expect(result.data.shells[0]?.stderr.length).toBe(4_096);
-    expect(result.data.shells[0]?.stdoutTruncated).toBe(true);
-    expect(result.data.shells[0]?.stderrTruncated).toBe(true);
+    const data = result.data as ListShellsData;
+    expect(data.shells[0]?.stdout.length).toBe(4_096);
+    expect(data.shells[0]?.stderr.length).toBe(4_096);
+    expect(data.shells[0]?.stdoutTruncated).toBe(true);
+    expect(data.shells[0]?.stderrTruncated).toBe(true);
   });
 });
 
