@@ -1,14 +1,7 @@
-import type { ToolUIPart } from "ai";
-
-import {
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolInput,
-  ToolOutput,
-} from "@/components/ai-elements/tool";
 import { normalizeToolInvocations, type MessageToolInvocation } from "@/lib/db";
 import type { MessageRecord } from "@/lib/db";
+
+import { ToolInvocationChip } from "./tool-invocation-chip";
 
 type MessageToolListProps = {
   message: MessageRecord;
@@ -22,7 +15,7 @@ export function MessageToolList({ message }: MessageToolListProps) {
   }
 
   return (
-    <div className="flex w-full flex-col gap-2">
+    <div className="flex flex-wrap gap-2">
       {invocations.map((invocation) => (
         <MessageToolItem key={invocation.id} invocation={invocation} />
       ))}
@@ -36,20 +29,5 @@ type MessageToolItemProps = {
 };
 
 export function MessageToolItem({ invocation, className }: MessageToolItemProps) {
-  return (
-    <Tool className={className} defaultOpen={false}>
-      <ToolHeader
-        type="dynamic-tool"
-        toolName={invocation.name}
-        state={invocation.state as ToolUIPart["state"]}
-      />
-      <ToolContent>
-        <ToolInput input={invocation.input} />
-        <ToolOutput
-          output={invocation.output}
-          errorText={invocation.errorText}
-        />
-      </ToolContent>
-    </Tool>
-  );
+  return <ToolInvocationChip className={className} invocation={invocation} />;
 }
