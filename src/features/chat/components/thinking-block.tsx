@@ -25,8 +25,17 @@ import {
 } from "lucide-react";
 import { useCallback, useState } from "react";
 
-import type { ThinkingSegment } from "./assistant-process";
 import { StreamingPlainText } from "./streaming-message-content";
+
+type ThinkingSegment =
+  | {
+      kind: "text";
+      text: string;
+    }
+  | {
+      kind: "tool";
+      invocation: MessageToolInvocation;
+    };
 
 type ThinkingBlockProps = {
   segments: ThinkingSegment[];

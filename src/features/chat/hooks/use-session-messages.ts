@@ -15,7 +15,12 @@ function applyStreamingOverlays(
   messages: MessageRecord[],
   overlays: ReadonlyMap<
     string,
-    { content: string; thinking: string; processSteps: MessageRecord["processSteps"] }
+    {
+      content: string;
+      thinking: string;
+      processSteps: MessageRecord["processSteps"];
+      toolInvocations: MessageRecord["toolInvocations"];
+    }
   >
 ): MessageRecord[] {
   if (overlays.size === 0) {
@@ -37,6 +42,7 @@ function applyStreamingOverlays(
       content: overlay.content,
       thinking: overlay.thinking,
       processSteps: overlay.processSteps,
+      toolInvocations: overlay.toolInvocations,
     };
   });
 

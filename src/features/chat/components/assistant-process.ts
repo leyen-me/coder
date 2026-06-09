@@ -23,107 +23,30 @@ export type AssistantProcessStep =
       isStreaming: boolean;
     };
 
-export type ThinkingSegment =
-  | {
-      kind: "text";
-      text: string;
-    }
-  | {
-      kind: "tool";
-      invocation: MessageToolInvocation;
-    };
-
-export type AssistantProcessPresentation = {
-  thinkingSegments: ThinkingSegment[];
-  isThinkingStreaming: boolean;
-  answer: {
-    text: string;
-    isStreaming: boolean;
-  } | null;
-};
-
-const pendingToolStates = new Set<MessageToolInvocation["state"]>([
-  "input-available",
-  "input-streaming",
-]);
-
-export function buildAssistantProcessPresentation(
-  steps: AssistantProcessStep[]
-): AssistantProcessPresentation {
-  const thinkingSegments: ThinkingSegment[] = [];
-  let answer: AssistantProcessPresentation["answer"] = null;
-
-  for (const step of steps) {
-    if (step.kind === "answer") {
-      answer = {
-        text: step.text,
-        isStreaming: step.isStreaming,
-      };
-      continue;
-    }
-
-    if (step.kind === "reasoning") {
-      thinkingSegments.push({
-        kind: "text",
-        text: step.text,
-      });
-      continue;
-    }
-
-    thinkingSegments.push({
-      kind: "tool",
-      invocation: step.invocation,
-    });
-  }
-
-  const isThinkingStreaming =
-    steps.some((step) => step.kind === "reasoning" && step.isStreaming) ||
-    steps.some(
-      (step) =>
-        step.kind === "tool" && pendingToolStates.has(step.invocation.state)
-    );
-
-  return {
-    thinkingSegments,
-    isThinkingStreaming,
-    answer,
-  };
-}
-
 export function buildAssistantProcessSteps(input: {
   processSteps?: MessageProcessStep[];
   answerText: string;
   thinkingText: string;
-  isThinkingStreaming: boolean;
-  showReasoning: boolean;
   toolInvocations: MessageToolInvocation[];
-  isAnswerStreaming: boolean;
   isMessageStreaming: boolean;
 }): AssistantProcessStep[] {
   const persistedSteps = normalizeMessageProcessSteps(input.processSteps);
-  const hasToolActivity =
-    input.toolInvocations.length > 0 ||
-    persistedSteps.some((step) => step.kind === "tool");
-  const hideStreamingAnswer =
-    input.isMessageStreaming &&
-    (input.showReasoning ? hasToolActivity || input.showReasoning : hasToolActivity);
   if (persistedSteps.length > 0) {
     return buildPersistedAssistantProcessSteps(
       persistedSteps,
       input.toolInvocations,
-      input.isMessageStreaming,
-      hideStreamingAnswer
+      input.isMessageStreaming
     );
   }
 
   const steps: AssistantProcessStep[] = [];
 
-  if (input.showReasoning) {
+  if (input.thinkingText.trim()) {
     steps.push({
       id: "reasoning",
       kind: "reasoning",
       text: input.thinkingText,
-      isStreaming: input.isThinkingStreaming,
+      isStreaming: input.isMessageStreaming && !input.answerText.trim(),
     });
   }
 
@@ -135,12 +58,12 @@ export function buildAssistantProcessSteps(input: {
     });
   }
 
-  if (input.answerText && !hideStreamingAnswer) {
+  if (input.answerText.trim()) {
     steps.push({
       id: "answer",
       kind: "answer",
       text: input.answerText,
-      isStreaming: input.isAnswerStreaming,
+      isStreaming: input.isMessageStreaming,
     });
   }
 
@@ -150,8 +73,7 @@ export function buildAssistantProcessSteps(input: {
 function buildPersistedAssistantProcessSteps(
   processSteps: MessageProcessStep[],
   toolInvocations: MessageToolInvocation[],
-  isMessageStreaming: boolean,
-  hideStreamingAnswer: boolean
+  isMessageStreaming: boolean
 ): AssistantProcessStep[] {
   const toolInvocationsById = new Map(
     toolInvocations.map((invocation) => [invocation.id, invocation] as const)
@@ -179,17 +101,26 @@ function buildPersistedAssistantProcessSteps(
       continue;
     }
 
-    if (hideStreamingAnswer && step.kind === "answer") {
-      continue;
-    }
-
     resolvedSteps.push({
-        id: step.id,
-        kind: step.kind,
-        text: step.text,
-        isStreaming: isMessageStreaming && step.id === lastTextStepId,
-      });
+      id: step.id,
+      kind: step.kind,
+      text: step.text,
+      isStreaming: isMessageStreaming && step.id === lastTextStepId,
+    });
   }
 
   return resolvedSteps;
+}
+
+export function getLatestAssistantAnswerText(
+  steps: AssistantProcessStep[]
+): string {
+  for (let index = steps.length - 1; index >= 0; index -= 1) {
+    const step = steps[index];
+    if (step?.kind === "answer") {
+      return step.text;
+    }
+  }
+
+  return "";
 }

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildAssistantProcessPresentation,
   buildAssistantProcessSteps,
+  getLatestAssistantAnswerText,
 } from "./assistant-process";
 
 describe("buildAssistantProcessSteps", () => {
@@ -10,8 +10,6 @@ describe("buildAssistantProcessSteps", () => {
     const steps = buildAssistantProcessSteps({
       answerText: "已经找到项目结构。",
       thinkingText: "先读取目录，再总结结果。",
-      isThinkingStreaming: false,
-      showReasoning: true,
       toolInvocations: [
         {
           id: "call_1",
@@ -21,7 +19,6 @@ describe("buildAssistantProcessSteps", () => {
           state: "output-available",
         },
       ],
-      isAnswerStreaming: false,
       isMessageStreaming: false,
     });
 
@@ -36,10 +33,7 @@ describe("buildAssistantProcessSteps", () => {
     const steps = buildAssistantProcessSteps({
       answerText: "这是最终回答。",
       thinkingText: "",
-      isThinkingStreaming: false,
-      showReasoning: false,
       toolInvocations: [],
-      isAnswerStreaming: false,
       isMessageStreaming: false,
     });
 
@@ -63,8 +57,6 @@ describe("buildAssistantProcessSteps", () => {
       ],
       answerText: "你好，我看完项目了。",
       thinkingText: "先打招呼。根据目录继续分析。",
-      isThinkingStreaming: false,
-      showReasoning: true,
       toolInvocations: [
         {
           id: "call_1",
@@ -74,7 +66,6 @@ describe("buildAssistantProcessSteps", () => {
           state: "output-available",
         },
       ],
-      isAnswerStreaming: false,
       isMessageStreaming: false,
     });
 
@@ -91,7 +82,7 @@ describe("buildAssistantProcessSteps", () => {
     });
   });
 
-  it("hides streaming answers while reasoning or tool steps are still active", () => {
+  it("keeps streaming answers visible in the ordered timeline", () => {
     const steps = buildAssistantProcessSteps({
       processSteps: [
         { id: "reasoning:0", kind: "reasoning", text: "先打招呼。" },
@@ -102,8 +93,6 @@ describe("buildAssistantProcessSteps", () => {
       ],
       answerText: "项目结构如下。",
       thinkingText: "先打招呼。根据目录继续分析。",
-      isThinkingStreaming: true,
-      showReasoning: true,
       toolInvocations: [
         {
           id: "call_1",
@@ -112,37 +101,7 @@ describe("buildAssistantProcessSteps", () => {
           state: "input-available",
         },
       ],
-      isAnswerStreaming: true,
       isMessageStreaming: true,
-    });
-
-    expect(steps.map((step) => step.kind)).toEqual(["reasoning", "tool", "reasoning"]);
-  });
-
-  it("shows the final answer after streaming completes", () => {
-    const steps = buildAssistantProcessSteps({
-      processSteps: [
-        { id: "reasoning:0", kind: "reasoning", text: "先打招呼。" },
-        { id: "answer:1", kind: "answer", text: "我先看看目录。" },
-        { id: "tool:call_1", kind: "tool", toolCallId: "call_1" },
-        { id: "reasoning:3", kind: "reasoning", text: "根据目录继续分析。" },
-        { id: "answer:4", kind: "answer", text: "项目结构如下。" },
-      ],
-      answerText: "项目结构如下。",
-      thinkingText: "先打招呼。根据目录继续分析。",
-      isThinkingStreaming: false,
-      showReasoning: true,
-      toolInvocations: [
-        {
-          id: "call_1",
-          name: "list_dir",
-          input: { path: "." },
-          output: { ok: true },
-          state: "output-available",
-        },
-      ],
-      isAnswerStreaming: false,
-      isMessageStreaming: false,
     });
 
     expect(steps.map((step) => step.kind)).toEqual([
@@ -155,24 +114,21 @@ describe("buildAssistantProcessSteps", () => {
     expect(steps.at(-1)).toMatchObject({
       kind: "answer",
       text: "项目结构如下。",
-      isStreaming: false,
+      isStreaming: true,
     });
   });
-});
 
-describe("buildAssistantProcessPresentation", () => {
-  it("merges reasoning and tools into one thinking block with a separate answer", () => {
+  it("marks only the last text step as streaming", () => {
     const steps = buildAssistantProcessSteps({
       processSteps: [
         { id: "reasoning:0", kind: "reasoning", text: "先打招呼。" },
+        { id: "answer:1", kind: "answer", text: "我先看看目录。" },
         { id: "tool:call_1", kind: "tool", toolCallId: "call_1" },
-        { id: "reasoning:2", kind: "reasoning", text: "根据目录继续分析。" },
-        { id: "answer:3", kind: "answer", text: "你好，我看完项目了。" },
+        { id: "reasoning:3", kind: "reasoning", text: "根据目录继续分析。" },
+        { id: "answer:4", kind: "answer", text: "项目结构如下。" },
       ],
-      answerText: "你好，我看完项目了。",
+      answerText: "项目结构如下。",
       thinkingText: "先打招呼。根据目录继续分析。",
-      isThinkingStreaming: false,
-      showReasoning: true,
       toolInvocations: [
         {
           id: "call_1",
@@ -182,29 +138,28 @@ describe("buildAssistantProcessPresentation", () => {
           state: "output-available",
         },
       ],
-      isAnswerStreaming: false,
-      isMessageStreaming: false,
+      isMessageStreaming: true,
     });
 
-    const presentation = buildAssistantProcessPresentation(steps);
-
-    expect(presentation.isThinkingStreaming).toBe(false);
-    expect(presentation.thinkingSegments).toEqual([
-      { kind: "text", text: "先打招呼。" },
-      {
-        kind: "tool",
-        invocation: expect.objectContaining({ id: "call_1", name: "list_dir" }),
-      },
-      { kind: "text", text: "根据目录继续分析。" },
-    ]);
-    expect(presentation.answer).toEqual({
-      text: "你好，我看完项目了。",
-      isStreaming: false,
+    expect(steps[0]).toMatchObject({ kind: "reasoning", isStreaming: false });
+    expect(steps[1]).toMatchObject({ kind: "answer", isStreaming: false });
+    expect(steps[3]).toMatchObject({ kind: "reasoning", isStreaming: false });
+    expect(steps.at(-1)).toMatchObject({
+      kind: "answer",
+      text: "项目结构如下。",
+      isStreaming: true,
     });
   });
 
-  it("keeps short reasoning-only output in the unified thinking block", () => {
-    const presentation = buildAssistantProcessPresentation([
+  it("falls back to reasoning plus answer when no persisted steps exist", () => {
+    const steps = buildAssistantProcessSteps({
+      answerText: "好的。",
+      thinkingText: "简单想一下。",
+      toolInvocations: [],
+      isMessageStreaming: false,
+    });
+
+    expect(steps).toEqual([
       {
         id: "reasoning",
         kind: "reasoning",
@@ -218,38 +173,36 @@ describe("buildAssistantProcessPresentation", () => {
         isStreaming: false,
       },
     ]);
-
-    expect(presentation.thinkingSegments).toEqual([
-      { kind: "text", text: "简单想一下。" },
-    ]);
-    expect(presentation.isThinkingStreaming).toBe(false);
-    expect(presentation.answer).toEqual({
-      text: "好的。",
-      isStreaming: false,
-    });
   });
 
-  it("treats pending tools as streaming thinking", () => {
-    const presentation = buildAssistantProcessPresentation([
-      {
-        id: "reasoning",
-        kind: "reasoning",
-        text: "读取目录。",
-        isStreaming: false,
-      },
-      {
-        id: "tool:call_1",
-        kind: "tool",
-        invocation: {
-          id: "call_1",
-          name: "list_dir",
-          input: { path: "." },
-          state: "input-available",
-        },
-      },
-    ]);
+  it("returns the latest answer text from the timeline", () => {
+    const steps = buildAssistantProcessSteps({
+      processSteps: [
+        { id: "reasoning:0", kind: "reasoning", text: "先打招呼。" },
+        { id: "answer:1", kind: "answer", text: "我先看看目录。" },
+        { id: "tool:call_1", kind: "tool", toolCallId: "call_1" },
+        { id: "reasoning:3", kind: "reasoning", text: "根据目录继续分析。" },
+        { id: "answer:4", kind: "answer", text: "项目结构如下。" },
+      ],
+      answerText: "项目结构如下。",
+      thinkingText: "先打招呼。根据目录继续分析。",
+      toolInvocations: [],
+      isMessageStreaming: false,
+    });
 
-    expect(presentation.isThinkingStreaming).toBe(true);
-    expect(presentation.answer).toBeNull();
+    expect(getLatestAssistantAnswerText(steps)).toBe("项目结构如下。");
+  });
+
+  it("returns an empty string when there is no answer step", () => {
+    expect(
+      getLatestAssistantAnswerText([
+        {
+          id: "reasoning",
+          kind: "reasoning",
+          text: "读取目录。",
+          isStreaming: false,
+        },
+      ])
+    ).toBe("");
   });
 });

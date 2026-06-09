@@ -1,4 +1,4 @@
-import type { MessageProcessStep } from "@/lib/db";
+import type { MessageProcessStep, MessageToolInvocation } from "@/lib/db";
 
 import { deriveMessageFieldsFromProcessSteps } from "./process-steps";
 
@@ -6,6 +6,7 @@ export type StreamingFields = {
   content: string;
   thinking: string;
   processSteps: MessageProcessStep[];
+  toolInvocations: MessageToolInvocation[];
 };
 
 const FLUSH_INTERVAL_MS = 50;
@@ -29,6 +30,7 @@ function cancelScheduledChange(id: number): void {
 
 type BufferState = {
   processSteps: MessageProcessStep[];
+  toolInvocations: MessageToolInvocation[];
   /**
    * Memoized derived view. Invalidated (set to `null`) on every mutation and
    * lazily rebuilt at most once per read, so the O(n) derivation runs once per
@@ -44,6 +46,10 @@ export type StreamingBufferManager = {
     delta: string
   ) => void;
   pushToolStep: (messageId: string, toolCallId: string) => void;
+  setToolInvocations: (
+    messageId: string,
+    toolInvocations: MessageToolInvocation[]
+  ) => void;
   flush: (messageId: string) => Promise<void>;
   clear: (messageId: string) => void;
   flushAndClear: (messageId: string) => Promise<void>;
@@ -82,7 +88,7 @@ export function createStreamingBufferManager(options: {
   const ensureBuffer = (messageId: string): BufferState => {
     let buffer = buffers.get(messageId);
     if (!buffer) {
-      buffer = { processSteps: [], cached: null };
+      buffer = { processSteps: [], toolInvocations: [], cached: null };
       buffers.set(messageId, buffer);
     }
     return buffer;
@@ -104,6 +110,7 @@ export function createStreamingBufferManager(options: {
       thinking,
       content,
       processSteps: [...buffer.processSteps],
+      toolInvocations: [...buffer.toolInvocations],
     };
     return buffer.cached;
   };
@@ -141,6 +148,16 @@ export function createStreamingBufferManager(options: {
       scheduleEmitChange();
       scheduleFlush(messageId);
     }
+  };
+
+  const setToolInvocations = (
+    messageId: string,
+    toolInvocations: MessageToolInvocation[]
+  ) => {
+    const buffer = ensureBuffer(messageId);
+    buffer.toolInvocations = [...toolInvocations];
+    buffer.cached = null;
+    scheduleEmitChange();
   };
 
   const scheduleFlush = (messageId: string) => {
@@ -204,6 +221,7 @@ export function createStreamingBufferManager(options: {
     clear,
     flushAndClear,
     pushToolStep,
+    setToolInvocations,
     get: (messageId) => {
       const buffer = buffers.get(messageId);
       return buffer ? toStreamingFields(buffer) : null;

@@ -51,6 +51,7 @@ export type StreamingMessageOverlay = {
   content: string;
   thinking: string;
   processSteps: NonNullable<MessageRecord["processSteps"]>;
+  toolInvocations: MessageRecord["toolInvocations"];
 };
 
 type AgentStoreValue = {
@@ -147,6 +148,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               existing?.processSteps,
               fields.processSteps
             ),
+            toolInvocations:
+              fields.toolInvocations.length > 0
+                ? fields.toolInvocations
+                : existing?.toolInvocations ?? [],
           },
           { silent: true, touch: false }
         );
@@ -196,13 +201,35 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const handleAgentEvent = useCallback(
     async (event: AgentEvent, assistantMessageId: string) => {
       switch (event.type) {
+        case "thinking_delta":
+          streamingBufferRef.current.append(
+            assistantMessageId,
+            "thinking",
+            event.delta
+          );
+          return;
+        case "content_delta":
+          streamingBufferRef.current.append(
+            assistantMessageId,
+            "content",
+            event.delta
+          );
+          return;
         case "tool_call_started":
-          await addMessageToolInvocation(assistantMessageId, {
-            id: event.toolCallId,
-            name: event.name,
-            input: event.input,
-            state: "input-available",
-          });
+          {
+            const toolInvocations = await addMessageToolInvocation(assistantMessageId, {
+              id: event.toolCallId,
+              name: event.name,
+              input: event.input,
+              state: "input-available",
+            });
+            if (toolInvocations) {
+              streamingBufferRef.current.setToolInvocations(
+                assistantMessageId,
+                toolInvocations
+              );
+            }
+          }
           streamingBufferRef.current.pushToolStep(
             assistantMessageId,
             event.toolCallId
@@ -210,13 +237,24 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           await streamingBufferRef.current.flush(assistantMessageId);
           await setMessageStatus(assistantMessageId, "streaming");
           return;
-        case "tool_call_finished":
-          await completeMessageToolInvocation(assistantMessageId, event.toolCallId, {
-            state: event.errorText ? "output-error" : "output-available",
-            output: event.output,
-            errorText: event.errorText,
-          });
+        case "tool_call_finished": {
+          const toolInvocations = await completeMessageToolInvocation(
+            assistantMessageId,
+            event.toolCallId,
+            {
+              state: event.errorText ? "output-error" : "output-available",
+              output: event.output,
+              errorText: event.errorText,
+            }
+          );
+          if (toolInvocations) {
+            streamingBufferRef.current.setToolInvocations(
+              assistantMessageId,
+              toolInvocations
+            );
+          }
           return;
+        }
         case "error": {
           await streamingBufferRef.current.flush(assistantMessageId);
           const terminalOverlayTimer = terminalOverlayTimersRef.current.get(
@@ -315,24 +353,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
   const dispatchAgentEvent = useCallback(
     (taskId: string, assistantMessageId: string, event: AgentEvent) => {
-      if (event.type === "thinking_delta") {
-        streamingBufferRef.current.append(
-          assistantMessageId,
-          "thinking",
-          event.delta
-        );
-        return;
-      }
-
-      if (event.type === "content_delta") {
-        streamingBufferRef.current.append(
-          assistantMessageId,
-          "content",
-          event.delta
-        );
-        return;
-      }
-
       const previous = eventChainsRef.current.get(taskId) ?? Promise.resolve();
       const next = previous
         .then(() => handleAgentEvent(event, assistantMessageId))

@@ -21,6 +21,7 @@ describe("createStreamingBufferManager", () => {
         { id: "answer:0", kind: "answer", text: "Hello" },
         { id: "reasoning:1", kind: "reasoning", text: "hmm" },
       ],
+      toolInvocations: [],
     });
     expect(onFlush).not.toHaveBeenCalled();
 
@@ -34,6 +35,7 @@ describe("createStreamingBufferManager", () => {
         { id: "answer:0", kind: "answer", text: "Hello" },
         { id: "reasoning:1", kind: "reasoning", text: "hmm" },
       ],
+      toolInvocations: [],
     });
 
     vi.useRealTimers();
@@ -119,6 +121,7 @@ describe("createStreamingBufferManager", () => {
     expect(manager.get("msg-1")).toMatchObject({
       thinking: "先打个招呼。目录读完了，再总结。",
       content: "项目结构如下。",
+      toolInvocations: [],
     });
   });
 
@@ -157,5 +160,31 @@ describe("createStreamingBufferManager", () => {
       text: "Hel",
     });
     expect(manager.get("msg-1")?.content).toBe("Hello");
+  });
+
+  it("updates tool invocations in the live snapshot", () => {
+    const manager = createStreamingBufferManager({
+      onFlush: vi.fn().mockResolvedValue(undefined),
+      onChange: () => {},
+    });
+
+    manager.setToolInvocations("msg-1", [
+      {
+        id: "call_1",
+        name: "list_dir",
+        input: { path: "." },
+        state: "input-available",
+      },
+    ]);
+
+    expect(manager.get("msg-1")).toMatchObject({
+      toolInvocations: [
+        expect.objectContaining({
+          id: "call_1",
+          name: "list_dir",
+          state: "input-available",
+        }),
+      ],
+    });
   });
 });
