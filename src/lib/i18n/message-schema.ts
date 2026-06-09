@@ -229,9 +229,17 @@ export type Messages = {
   rightPanel: {
     fileTree: string;
     browser: string;
+    explorer: string;
     noWorkspace: string;
     loading: string;
     browserPlaceholder: string;
+    closePreview: string;
+    previewLoading: string;
+    previewBinary: string;
+    previewTooLarge: string;
+    previewGitignored: string;
+    previewSecretsWarning: string;
+    previewTruncated: string;
   };
   terminal: {
     agentProcesses: string;

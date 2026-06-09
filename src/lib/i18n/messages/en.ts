@@ -245,9 +245,17 @@ export const enMessages = {
   rightPanel: {
     fileTree: "Files",
     browser: "Browser",
+    explorer: "Explorer",
     noWorkspace: "Select a workspace to browse files",
     loading: "Loading files…",
     browserPlaceholder: "Browser coming soon",
+    closePreview: "Close preview",
+    previewLoading: "Loading preview…",
+    previewBinary: "Binary files cannot be previewed",
+    previewTooLarge: "File is too large to preview",
+    previewGitignored: "This file is ignored by .gitignore",
+    previewSecretsWarning: "This file may contain secrets or credentials",
+    previewTruncated: "Showing lines 1–{endLine} of {totalLines}",
   },
   terminal: {
     agentProcesses: "Agent processes",

@@ -2,7 +2,8 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { toolFailure, toolSuccess } from "./result";
 import { READ_FILE_TOOL_NAME } from "./definitions";
-import type { ReadFileData, ReadFileToolErrorPayload, ToolHandler } from "./types";
+import { parseReadFileToolError } from "./parse-read-file-tool-error";
+import type { ReadFileData, ToolHandler } from "./types";
 
 type ReadFileArgs = {
   path: string;
@@ -101,65 +102,3 @@ function parseReadFileArgs(
   };
 }
 
-function parseReadFileToolError(
-  error: unknown
-): ReadFileToolErrorPayload | null {
-  if (typeof error === "string") {
-    return parseReadFileToolErrorPayload(error);
-  }
-
-  if (error instanceof Error) {
-    const fromMessage = parseReadFileToolErrorPayload(error.message);
-    if (fromMessage) {
-      return fromMessage;
-    }
-  }
-
-  return parseReadFileToolErrorPayload(error);
-}
-
-function parseReadFileToolErrorPayload(
-  raw: unknown
-): ReadFileToolErrorPayload | null {
-  const parsed =
-    typeof raw === "string"
-      ? parseJsonReadFileToolError(raw)
-      : isReadFileToolErrorPayload(raw)
-        ? raw
-        : null;
-
-  if (!parsed) {
-    return null;
-  }
-
-  return {
-    code: parsed.code,
-    message: parsed.message,
-    mimeType: parsed.mimeType,
-    size: parsed.size,
-  };
-}
-
-function parseJsonReadFileToolError(
-  raw: string
-): ReadFileToolErrorPayload | null {
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return isReadFileToolErrorPayload(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function isReadFileToolErrorPayload(
-  value: unknown
-): value is ReadFileToolErrorPayload {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-
-  const record = value as Record<string, unknown>;
-  return (
-    typeof record.code === "string" && typeof record.message === "string"
-  );
-}

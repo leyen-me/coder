@@ -242,9 +242,17 @@ export const zhMessages = {
   rightPanel: {
     fileTree: "文件",
     browser: "浏览器",
+    explorer: "资源管理器",
     noWorkspace: "请先选择工作区以浏览文件",
     loading: "正在加载文件…",
     browserPlaceholder: "浏览器即将推出",
+    closePreview: "关闭预览",
+    previewLoading: "正在加载预览…",
+    previewBinary: "无法预览二进制文件",
+    previewTooLarge: "文件过大，无法预览",
+    previewGitignored: "该文件已被 .gitignore 忽略",
+    previewSecretsWarning: "该文件可能包含密钥或敏感信息",
+    previewTruncated: "已显示第 1–{endLine} 行，共 {totalLines} 行",
   },
   terminal: {
     agentProcesses: "Agent 进程",

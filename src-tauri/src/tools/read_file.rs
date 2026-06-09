@@ -37,6 +37,7 @@ pub fn tool_read_file(
     start_line: Option<u32>,
     max_lines: Option<u32>,
     respect_gitignore: Option<bool>,
+    numbered: Option<bool>,
 ) -> Result<ReadFileResult, ReadFileToolError> {
     let workspace = PathBuf::from(workspace_dir.trim());
     if workspace.as_os_str().is_empty() {
@@ -51,6 +52,7 @@ pub fn tool_read_file(
         .unwrap_or(DEFAULT_MAX_LINES)
         .clamp(1, ABSOLUTE_MAX_LINES);
     let respect_gitignore = respect_gitignore.unwrap_or(true);
+    let numbered = numbered.unwrap_or(true);
 
     let canonical_workspace = workspace
         .canonicalize()
@@ -119,8 +121,11 @@ pub fn tool_read_file(
     let contains_secrets = detect_secrets(&text);
     let (total_lines, selected_lines, truncated_by_lines) =
         select_lines(&text, start_line, max_lines);
-    let (content, truncated_by_bytes) =
-        format_numbered_content(start_line, &selected_lines, MAX_OUTPUT_BYTES);
+    let (content, truncated_by_bytes) = if numbered {
+        format_numbered_content(start_line, &selected_lines, MAX_OUTPUT_BYTES)
+    } else {
+        format_raw_content(&selected_lines, MAX_OUTPUT_BYTES)
+    };
     let end_line = if selected_lines.is_empty() {
         start_line.saturating_sub(1)
     } else {
@@ -155,6 +160,26 @@ fn select_lines(text: &str, start_line: u32, max_lines: u32) -> (u32, Vec<String
     let truncated = end_index < all_lines.len();
 
     (total_lines, selected, truncated)
+}
+
+fn format_raw_content(lines: &[String], max_bytes: usize) -> (String, bool) {
+    let mut content = String::new();
+    let mut truncated = false;
+
+    for (index, line) in lines.iter().enumerate() {
+        let segment = if index == 0 {
+            line.clone()
+        } else {
+            format!("\n{line}")
+        };
+        if content.len() + segment.len() > max_bytes {
+            truncated = true;
+            break;
+        }
+        content.push_str(&segment);
+    }
+
+    (content, truncated)
 }
 
 fn format_numbered_content(start_line: u32, lines: &[String], max_bytes: usize) -> (String, bool) {
@@ -204,6 +229,7 @@ mod tests {
             Some(2),
             Some(2),
             Some(false),
+            None,
         )
         .expect("read file");
 
@@ -228,6 +254,7 @@ mod tests {
             None,
             None,
             Some(false),
+            None,
         )
         .expect_err("binary file");
 
@@ -249,6 +276,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         )
         .expect_err("ignored file");
         assert_eq!(ignored.code, "gitignored");
@@ -259,9 +287,29 @@ mod tests {
             None,
             None,
             None,
+            None,
         )
         .expect("visible file");
         assert_eq!(visible.content, "1 | ok\n");
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn returns_raw_content_when_numbering_disabled() {
+        let temp = temp_workspace("raw");
+        fs::write(temp.join("sample.txt"), "alpha\nbeta\n").expect("write file");
+
+        let result = tool_read_file(
+            temp.to_string_lossy().into_owned(),
+            "sample.txt".to_string(),
+            None,
+            None,
+            Some(false),
+            Some(false),
+        )
+        .expect("read file");
+
+        assert_eq!(result.content, "alpha\nbeta");
         let _ = fs::remove_dir_all(temp);
     }
 

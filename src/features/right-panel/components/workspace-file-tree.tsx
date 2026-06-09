@@ -10,12 +10,28 @@ import type { ListDirEntry } from "@/features/agent/tools/types";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
+import type { FilePreviewTab } from "../hooks/use-file-preview-tabs";
 import { useWorkspaceFileTree } from "../hooks/use-workspace-file-tree";
 
 type WorkspaceFileTreeProps = {
   workspaceDir: string | null;
   className?: string;
+  onFileOpen?: (file: FilePreviewTab) => void;
 };
+
+function findTreeEntry(
+  path: string,
+  entriesByPath: Map<string, ListDirEntry[]>
+): ListDirEntry | null {
+  for (const entries of entriesByPath.values()) {
+    const entry = entries.find((item) => item.path === path);
+    if (entry) {
+      return entry;
+    }
+  }
+
+  return null;
+}
 
 function renderTreeEntries(
   entries: ListDirEntry[],
@@ -43,6 +59,7 @@ function renderTreeEntries(
 export function WorkspaceFileTree({
   workspaceDir,
   className,
+  onFileOpen,
 }: WorkspaceFileTreeProps) {
   const { t } = useTranslation();
   const {
@@ -86,7 +103,14 @@ export function WorkspaceFileTree({
             className="border-none bg-transparent p-0"
             expanded={expanded}
             onExpandedChange={handleExpandedChange}
-            onSelect={setSelectedPath}
+            onSelect={(path) => {
+              setSelectedPath(path);
+
+              const entry = findTreeEntry(path, entriesByPath);
+              if (entry && !entry.isDir) {
+                onFileOpen?.({ path: entry.path, name: entry.name });
+              }
+            }}
             selectedPath={selectedPath}
           >
             {renderTreeEntries(rootEntries, entriesByPath)}

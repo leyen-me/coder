@@ -8,7 +8,7 @@ import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
 import { BrowserTabPlaceholder } from "./browser-tab-placeholder";
-import { WorkspaceFileTree } from "./workspace-file-tree";
+import { FileTreePanel } from "./file-tree-panel";
 
 type RightPanelTab = "file-tree" | "browser";
 
@@ -76,7 +76,7 @@ export function RightPanel({ workspaceDir }: RightPanelProps) {
               : "pointer-events-none z-0 opacity-0"
           )}
         >
-          <WorkspaceFileTree workspaceDir={workspaceDir} />
+          <FileTreePanel workspaceDir={workspaceDir} />
         </div>
         <div
           className={cn(
