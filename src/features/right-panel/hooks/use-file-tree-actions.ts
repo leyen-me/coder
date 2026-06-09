@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import type { ListDirEntry } from "@/features/agent/tools/types";
+import { insertFileMentionIntoComposer } from "@/features/chat/lib/composer-insert-store";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import type { FilePreviewTab } from "../hooks/use-file-preview-tabs";
@@ -184,15 +185,11 @@ export function useFileTreeActions({
   );
 
   const handleAddToChat = useCallback(
-    async (path: string) => {
-      try {
-        await copyText(`@${path}`);
-        toast.success(t("rightPanel.toastAddedToChat"));
-      } catch (error) {
-        handleError(error);
-      }
+    (path: string) => {
+      insertFileMentionIntoComposer(path);
+      toast.success(t("rightPanel.toastAddedToChat"));
     },
-    [handleError, t]
+    [t]
   );
 
   const handleReveal = useCallback(

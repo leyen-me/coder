@@ -102,6 +102,15 @@ export function FileTreeEntryContextMenu({
           <ContextMenuSeparator />
           <ContextMenuItem
             onSelect={() => {
+              actions.handleAddToChat(entry.path);
+            }}
+          >
+            <MessageSquarePlusIcon />
+            {t("rightPanel.menuAddToChat")}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            onSelect={() => {
               void actions.handleCopyPath(entry.path, false);
             }}
           >
@@ -200,7 +209,7 @@ export function FileTreeEntryContextMenu({
         <ContextMenuSeparator />
         <ContextMenuItem
           onSelect={() => {
-            void actions.handleAddToChat(entry.path);
+            actions.handleAddToChat(entry.path);
           }}
         >
           <MessageSquarePlusIcon />

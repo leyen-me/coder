@@ -290,7 +290,7 @@ export const enMessages = {
     dialogConfirm: "Confirm",
     errorNameRequired: "Name is required",
     toastCopied: "Copied to clipboard",
-    toastAddedToChat: "Copied @path — paste into chat",
+    toastAddedToChat: "Added to chat",
     toastCopiedForPaste: "Copied — select a folder and paste",
     toastCutForPaste: "Cut — select a folder and paste",
     toastPasted: "Pasted successfully",

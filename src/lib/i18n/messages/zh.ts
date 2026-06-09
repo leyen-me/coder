@@ -287,7 +287,7 @@ export const zhMessages = {
     dialogConfirm: "确认",
     errorNameRequired: "名称不能为空",
     toastCopied: "已复制到剪贴板",
-    toastAddedToChat: "已复制 @路径，请粘贴到对话中",
+    toastAddedToChat: "已添加到对话",
     toastCopiedForPaste: "已复制，请选择目标文件夹后粘贴",
     toastCutForPaste: "已剪切，请选择目标文件夹后粘贴",
     toastPasted: "粘贴成功",

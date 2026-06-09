@@ -17,6 +17,7 @@ import {
 } from "../hooks/use-session-messages";
 import { useSessionWorkspaceBinding } from "../hooks/use-session-workspace-binding";
 import { useSystemPrompt } from "../hooks/use-system-prompt";
+import { useComposerInsert } from "../hooks/use-composer-insert";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
 import type { MessageRecord } from "@/lib/db";
 
@@ -36,6 +37,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const { session, messages, isLoading } = useSessionData(chatId);
   const displayMessages = useDisplayMessages(messages);
   const [prompt, setPrompt] = useState("");
+  useComposerInsert(setPrompt);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editInitialFiles, setEditInitialFiles] = useState<FileUIPart[]>([]);
   const [model, setModel] = useState(() => resolveDefaultModel(resolved));
