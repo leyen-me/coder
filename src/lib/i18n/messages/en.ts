@@ -76,6 +76,11 @@ export const enMessages = {
     thinkingToggleLabel: "Think",
     thinkingEnabled: "Deep thinking enabled",
     thinkingDisabled: "Deep thinking disabled",
+    contextUsageTrigger: "View context usage",
+    contextUsageInput: "Input",
+    contextUsageOutput: "Output",
+    contextUsageReasoning: "Reasoning",
+    contextUsageCache: "Cache",
   },
   time: {
     justNow: "Just now",

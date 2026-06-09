@@ -73,6 +73,11 @@ export type Messages = {
     thinkingToggleLabel: string;
     thinkingEnabled: string;
     thinkingDisabled: string;
+    contextUsageTrigger: string;
+    contextUsageInput: string;
+    contextUsageOutput: string;
+    contextUsageReasoning: string;
+    contextUsageCache: string;
   };
   time: {
     justNow: string;

@@ -1,5 +1,5 @@
 import type { FileUIPart } from "ai";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { storedImagesToFileUIParts } from "@/features/agent/message-content";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
@@ -10,7 +10,11 @@ import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { ChatMessageList } from "../components/chat-message-list";
 import { PromptComposer } from "../components/prompt-composer";
 import { useComposerThinking } from "../hooks/use-composer-thinking";
-import { useSessionData } from "../hooks/use-session-messages";
+import { estimateSessionContextUsage } from "../lib/estimate-session-context-usage";
+import {
+  useDisplayMessages,
+  useSessionData,
+} from "../hooks/use-session-messages";
 import { useSessionWorkspaceBinding } from "../hooks/use-session-workspace-binding";
 import { useSystemPrompt } from "../hooks/use-system-prompt";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
@@ -30,6 +34,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     isSessionRunning,
   } = useAgentStore();
   const { session, messages, isLoading } = useSessionData(chatId);
+  const displayMessages = useDisplayMessages(messages);
   const [prompt, setPrompt] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editInitialFiles, setEditInitialFiles] = useState<FileUIPart[]>([]);
@@ -138,6 +143,24 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     ? getWorkspaceDisplayName(workspaceBinding.workspaceDir)
     : null;
 
+  const contextUsage = useMemo(
+    () =>
+      estimateSessionContextUsage({
+        messages: displayMessages,
+        systemPrompt,
+        modelId: model,
+        models: resolved.models,
+        editingMessageId,
+      }),
+    [
+      displayMessages,
+      editingMessageId,
+      model,
+      resolved.models,
+      systemPrompt,
+    ]
+  );
+
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -190,6 +213,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             isGitLoading={gitControls.isGitLoading}
             variant="compact"
             isRunning={isRunning}
+            contextUsage={contextUsage}
           />
         </div>
       </div>

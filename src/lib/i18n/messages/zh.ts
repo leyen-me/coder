@@ -75,6 +75,11 @@ export const zhMessages = {
     thinkingToggleLabel: "深度思考",
     thinkingEnabled: "深度思考已开启",
     thinkingDisabled: "深度思考已关闭",
+    contextUsageTrigger: "查看上下文用量",
+    contextUsageInput: "输入",
+    contextUsageOutput: "输出",
+    contextUsageReasoning: "推理",
+    contextUsageCache: "缓存",
   },
   time: {
     justNow: "刚刚",

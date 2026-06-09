@@ -35,11 +35,13 @@ import {
 import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { cn } from "@/lib/utils";
 
+import { ComposerContextUsage } from "./composer-context-usage";
 import { ComposerEditTag } from "./composer-edit-tag";
 import {
   composerFooterControlActiveClassName,
   composerFooterControlClassName,
 } from "@/components/ai-elements/composer-footer-control";
+import type { SessionContextUsage } from "../lib/estimate-session-context-usage";
 
 /** Images only until non-image parsing is implemented. */
 export const COMPOSER_ATTACHMENT_ACCEPT = "image/*";
@@ -76,6 +78,7 @@ type PromptComposerProps = {
   composerKey?: string;
   initialFiles?: FileUIPart[];
   onCancelEdit?: () => void;
+  contextUsage?: SessionContextUsage | null;
 };
 
 function resolveSubmitStatus(
@@ -273,6 +276,7 @@ export function PromptComposer({
   composerKey,
   initialFiles,
   onCancelEdit,
+  contextUsage,
 }: PromptComposerProps) {
   const { t } = useTranslation();
   const isCompact = variant === "compact";
@@ -438,13 +442,18 @@ export function PromptComposer({
           ) : null}
         </div>
 
-        <ComposerSubmit
-          isRunning={isRunning}
-          onStop={onStop}
-          submitStatus={submitStatus}
-          supportsMultimodal={supportsMultimodal}
-          value={value}
-        />
+        <div className="flex shrink-0 items-center gap-1.5">
+          {contextUsage ? (
+            <ComposerContextUsage contextUsage={contextUsage} />
+          ) : null}
+          <ComposerSubmit
+            isRunning={isRunning}
+            onStop={onStop}
+            submitStatus={submitStatus}
+            supportsMultimodal={supportsMultimodal}
+            value={value}
+          />
+        </div>
       </PromptInputFooter>
     </PromptInput>
   );
