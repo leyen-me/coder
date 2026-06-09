@@ -73,6 +73,7 @@ export function AgentProcessesSheet() {
               void killProcess(shellId);
             }}
             processes={processes}
+            toolbarClassName="pr-12"
           />
         </SheetContent>
       </Sheet>

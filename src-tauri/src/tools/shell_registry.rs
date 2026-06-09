@@ -27,6 +27,7 @@ struct RunningShell {
     exit_code: Option<i32>,
     started_at: Instant,
     task_id: Option<String>,
+    pid: Option<u32>,
     child: Arc<Mutex<Option<Child>>>,
 }
 
@@ -76,18 +77,26 @@ impl ShellRegistry {
             .ok_or_else(|| format!("Unknown shell_id: {shell_id}"))?;
 
         if shell.status == ShellStatus::Running {
-            if let Ok(mut child_slot) = shell.child.lock() {
-                if let Some(child) = child_slot.as_mut() {
-                    kill_child_tree(child);
-                }
-            }
+            kill_running_shell(shell);
             shell.status = status;
         }
         Ok(())
     }
 
     pub fn kill(&mut self, shell_id: &str) -> Result<(), String> {
-        self.stop(shell_id, ShellStatus::Cancelled)
+        let shell = self
+            .shells
+            .get_mut(shell_id)
+            .ok_or_else(|| format!("Unknown shell_id: {shell_id}"))?;
+
+        if matches!(
+            shell.status,
+            ShellStatus::Running | ShellStatus::Timeout
+        ) {
+            kill_running_shell(shell);
+            shell.status = ShellStatus::Cancelled;
+        }
+        Ok(())
     }
 
     pub fn kill_by_task(&mut self, task_id: &str) -> usize {
@@ -96,7 +105,10 @@ impl ShellRegistry {
             .iter()
             .filter_map(|(id, shell)| {
                 if shell.task_id.as_deref() == Some(task_id)
-                    && shell.status == ShellStatus::Running
+                    && matches!(
+                        shell.status,
+                        ShellStatus::Running | ShellStatus::Timeout
+                    )
                 {
                     Some(id.clone())
                 } else {
@@ -201,35 +213,41 @@ impl ShellRegistry {
             }
 
             if Instant::now() >= deadline {
-                {
-                    let mut reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
-                    if kill_on_timeout {
-                        reg.stop(&shell_id, ShellStatus::Timeout)?;
-                    } else if let Some(shell) = reg.shells.get_mut(&shell_id) {
-                        shell.status = ShellStatus::Timeout;
-                    }
-                }
-
                 if kill_on_timeout {
-                    let settle_deadline = Instant::now() + Duration::from_millis(POST_KILL_WAIT_MS);
+                    {
+                        let mut reg =
+                            registry.lock().map_err(|_| "Shell registry lock poisoned")?;
+                        reg.stop(&shell_id, ShellStatus::Timeout)?;
+                    }
+
+                    let settle_deadline =
+                        Instant::now() + Duration::from_millis(POST_KILL_WAIT_MS);
                     loop {
                         let current_status = {
-                            let reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
+                            let reg =
+                                registry.lock().map_err(|_| "Shell registry lock poisoned")?;
                             reg.shells
                                 .get(&shell_id)
                                 .map(|shell| shell.status)
                                 .ok_or_else(|| format!("Unknown shell_id: {shell_id}"))?
                         };
 
-                        if current_status != ShellStatus::Running || Instant::now() >= settle_deadline {
+                        if current_status != ShellStatus::Running
+                            || Instant::now() >= settle_deadline
+                        {
                             break;
                         }
                         sleep(Duration::from_millis(50)).await;
                     }
+
+                    let reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
+                    return reg.snapshot_output(&shell_id);
                 }
 
                 let reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
-                return reg.snapshot_output(&shell_id);
+                let mut output = reg.snapshot_output(&shell_id)?;
+                output.status = ShellStatus::Timeout;
+                return Ok(output);
             }
 
             sleep(Duration::from_millis(100)).await;
@@ -263,6 +281,7 @@ impl ShellRegistry {
             .spawn()
             .map_err(|error| format!("Failed to spawn command: {error}"))?;
 
+        let pid = child.id();
         let stdout = child.stdout.take();
         let stderr = child.stderr.take();
         let child_slot = Arc::new(Mutex::new(Some(child)));
@@ -281,6 +300,7 @@ impl ShellRegistry {
                     exit_code: None,
                     started_at,
                     task_id,
+                    pid,
                     child: child_slot.clone(),
                 },
             );
@@ -340,9 +360,30 @@ impl ShellRegistry {
     }
 }
 
+fn kill_running_shell(shell: &mut RunningShell) {
+    if let Ok(mut child_slot) = shell.child.lock() {
+        if let Some(child) = child_slot.as_mut() {
+            kill_child_tree(child);
+            return;
+        }
+    }
+
+    if let Some(pid) = shell.pid {
+        kill_process_tree(pid);
+    }
+}
+
 fn kill_child_tree(child: &mut Child) {
-    #[cfg(target_os = "windows")]
     if let Some(pid) = child.id() {
+        kill_process_tree(pid);
+    }
+
+    let _ = child.start_kill();
+}
+
+fn kill_process_tree(pid: u32) {
+    #[cfg(target_os = "windows")]
+    {
         let _ = std::process::Command::new("taskkill")
             .args(["/PID", &pid.to_string(), "/T", "/F"])
             .stdout(std::process::Stdio::null())
@@ -350,7 +391,14 @@ fn kill_child_tree(child: &mut Child) {
             .status();
     }
 
-    let _ = child.start_kill();
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = std::process::Command::new("kill")
+            .args(["-9", &pid.to_string()])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+    }
 }
 
 async fn read_stream<R: tokio::io::AsyncRead + Unpin>(

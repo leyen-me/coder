@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canKillShellProcess,
   formatShellOutputForDisplay,
   getShellChipLabel,
 } from "./shell-display";
 
 describe("shell-display", () => {
+  it("allows killing running and timed-out background shells", () => {
+    expect(canKillShellProcess("running")).toBe(true);
+    expect(canKillShellProcess("timeout")).toBe(true);
+    expect(canKillShellProcess("completed")).toBe(false);
+    expect(canKillShellProcess("cancelled")).toBe(false);
+  });
+
   it("formats shell chip label from description", () => {
     const label = getShellChipLabel(
       "shell",

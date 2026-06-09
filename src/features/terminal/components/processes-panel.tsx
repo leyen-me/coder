@@ -1,6 +1,9 @@
 "use client";
 
-import { getShellStatusColor } from "@/features/agent/tools/shell-display";
+import {
+  canKillShellProcess,
+  getShellStatusColor,
+} from "@/features/agent/tools/shell-display";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -14,12 +17,14 @@ type ProcessesPanelProps = {
   processes: ShellProcess[];
   onKill: (shellId: string) => void;
   className?: string;
+  toolbarClassName?: string;
 };
 
 export function ProcessesPanel({
   processes,
   onKill,
   className,
+  toolbarClassName,
 }: ProcessesPanelProps) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -91,11 +96,16 @@ export function ProcessesPanel({
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
         {selected ? (
           <>
-            <div className="flex items-center justify-between gap-2">
+            <div
+              className={cn(
+                "flex items-center justify-between gap-2",
+                toolbarClassName
+              )}
+            >
               <p className="truncate font-mono text-xs text-muted-foreground">
                 $ {selected.command || selected.shellId}
               </p>
-              {selected.status === "running" ? (
+              {canKillShellProcess(selected.status) ? (
                 <Button
                   size="sm"
                   variant="outline"
