@@ -188,6 +188,27 @@ describe("createStreamingBufferManager", () => {
     });
   });
 
+  it("cancels a pending scheduled flush when flush is invoked explicitly", async () => {
+    vi.useFakeTimers();
+    const onFlush = vi.fn().mockResolvedValue(undefined);
+
+    const manager = createStreamingBufferManager({
+      onFlush,
+      onChange: () => {},
+    });
+
+    manager.append("msg-1", "content", "Hello");
+    await manager.flush("msg-1");
+
+    expect(onFlush).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(50);
+
+    expect(onFlush).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
+  });
+
   it("promotes reasoning-only turns on finalize", () => {
     const manager = createStreamingBufferManager({
       onFlush: vi.fn().mockResolvedValue(undefined),

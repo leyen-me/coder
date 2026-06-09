@@ -11,6 +11,7 @@ import {
 import {
   addMessageToolInvocation,
   completeMessageToolInvocation,
+  mergeToolInvocations,
   createMessage,
   createTaskId,
   deleteMessagesAfter,
@@ -154,10 +155,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               existing?.processSteps,
               fields.processSteps
             ),
-            toolInvocations:
-              fields.toolInvocations.length > 0
-                ? fields.toolInvocations
-                : existing?.toolInvocations ?? [],
+            toolInvocations: mergeToolInvocations(
+              existing?.toolInvocations,
+              fields.toolInvocations
+            ),
           },
           { silent: true, touch: false }
         );
@@ -309,6 +310,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               toolInvocations
             );
           }
+          await streamingBufferRef.current.flush(assistantMessageId);
           debugAppliedEvent(assistantMessageId, event);
           return;
         }

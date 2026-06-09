@@ -172,6 +172,7 @@ export function createStreamingBufferManager(options: {
     buffer.toolInvocations = [...toolInvocations];
     buffer.cached = null;
     scheduleEmitChange();
+    scheduleFlush(messageId);
   };
 
   const scheduleFlush = (messageId: string) => {
@@ -199,6 +200,8 @@ export function createStreamingBufferManager(options: {
   };
 
   const flush = async (messageId: string): Promise<void> => {
+    cancelScheduledFlush(messageId);
+
     const buffer = buffers.get(messageId);
     if (!buffer) {
       return;
