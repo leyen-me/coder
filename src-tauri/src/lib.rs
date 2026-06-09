@@ -8,7 +8,7 @@ use agent::registry::AgentRegistry;
 use agent::{
     agent_cancel, agent_generate_session_title, agent_get_status, agent_start, AgentState,
 };
-use tauri::Manager;
+use tauri::{Manager, RunEvent};
 use tools::{
     agent_get_runtime_environment, git_checkout_branch, git_get_current_branch, git_list_branches,
     pty_close, pty_create, pty_resize, pty_write, shell_kill, shell_kill_by_task, shell_list,
@@ -26,6 +26,19 @@ fn configure_main_window(app: &tauri::App) {
     };
 
     window_chrome::apply(&window);
+}
+
+fn cleanup_background_shells(app: &tauri::AppHandle) {
+    let state = app.state::<ShellState>();
+    let Ok(mut registry) = state.0.lock() else {
+        log::warn!("shell registry lock poisoned during app exit cleanup");
+        return;
+    };
+
+    let killed = registry.kill_all_active();
+    if killed > 0 {
+        log::info!("Killed {killed} background shell process(es) on app exit");
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -68,6 +81,11 @@ pub fn run() {
             git_get_current_branch,
             git_checkout_branch,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let RunEvent::Exit = event {
+                cleanup_background_shells(app_handle);
+            }
+        });
 }

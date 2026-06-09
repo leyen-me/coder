@@ -89,10 +89,7 @@ impl ShellRegistry {
             .get_mut(shell_id)
             .ok_or_else(|| format!("Unknown shell_id: {shell_id}"))?;
 
-        if matches!(
-            shell.status,
-            ShellStatus::Running | ShellStatus::Timeout
-        ) {
+        if Self::is_active_shell_status(shell.status) {
             kill_running_shell(shell);
             shell.status = ShellStatus::Cancelled;
         }
@@ -105,10 +102,7 @@ impl ShellRegistry {
             .iter()
             .filter_map(|(id, shell)| {
                 if shell.task_id.as_deref() == Some(task_id)
-                    && matches!(
-                        shell.status,
-                        ShellStatus::Running | ShellStatus::Timeout
-                    )
+                    && Self::is_active_shell_status(shell.status)
                 {
                     Some(id.clone())
                 } else {
@@ -117,6 +111,30 @@ impl ShellRegistry {
             })
             .collect();
 
+        self.kill_shell_ids(ids)
+    }
+
+    pub fn kill_all_active(&mut self) -> usize {
+        let ids: Vec<String> = self
+            .shells
+            .iter()
+            .filter_map(|(id, shell)| {
+                if Self::is_active_shell_status(shell.status) {
+                    Some(id.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        self.kill_shell_ids(ids)
+    }
+
+    fn is_active_shell_status(status: ShellStatus) -> bool {
+        matches!(status, ShellStatus::Running | ShellStatus::Timeout)
+    }
+
+    fn kill_shell_ids(&mut self, ids: Vec<String>) -> usize {
         let mut killed = 0;
         for id in ids {
             if self.kill(&id).is_ok() {
