@@ -226,6 +226,13 @@ export type Messages = {
     chatSession: { title: string };
     comingSoon: string;
   };
+  rightPanel: {
+    fileTree: string;
+    browser: string;
+    noWorkspace: string;
+    loading: string;
+    browserPlaceholder: string;
+  };
   terminal: {
     agentProcesses: string;
     runningCount: string;

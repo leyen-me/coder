@@ -6,6 +6,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useRightPanel } from "@/features/right-panel/right-panel-context";
 import { AgentProcessesSheet } from "@/features/terminal/components/agent-processes-sheet";
 import { useBottomPanel } from "@/features/terminal/bottom-panel-context";
 import { useTranslation } from "@/lib/i18n/locale-provider";
@@ -14,6 +15,7 @@ import { cn } from "@/lib/utils";
 export function SessionToolbar() {
   const { t } = useTranslation();
   const { isOpen, toggle } = useBottomPanel();
+  const { isOpen: isRightPanelOpen, toggle: toggleRightPanel } = useRightPanel();
 
   return (
     <div className="flex shrink-0 items-center gap-1">
@@ -45,8 +47,13 @@ export function SessionToolbar() {
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="text-muted-foreground"
+            className={cn(
+              "text-muted-foreground",
+              isRightPanelOpen && "bg-muted text-foreground"
+            )}
             aria-label={t("session.rightPanel")}
+            aria-pressed={isRightPanelOpen}
+            onClick={toggleRightPanel}
           >
             <PanelRight className="size-4" />
           </Button>

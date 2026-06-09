@@ -1,16 +1,12 @@
 import { useMatch } from "react-router-dom";
 
-import { paths } from "@/app/paths";
+import { isChatRoute } from "@/app/paths";
 import { useIsSessionTitleGenerating } from "@/features/agent/session-title-store";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { SessionTitleLabel } from "../components/session-title-label";
 import { SessionToolbar } from "../components/session-toolbar";
 import { useSessionMessages } from "./use-session-messages";
-
-function isChatRoute(pathname: string): boolean {
-  return pathname === paths.chatNew || /^\/chat\/[^/]+$/.test(pathname);
-}
 
 export function useSessionTitleBarSlots(pathname: string) {
   const { t } = useTranslation();

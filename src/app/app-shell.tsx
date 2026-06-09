@@ -2,6 +2,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { FloatingShellNav } from "@/components/layout/floating-shell-nav";
 import { useSidebarOpen } from "@/features/chat/hooks/use-sidebar-open";
+import { RightPanelProvider } from "@/features/right-panel/right-panel-context";
 import { BottomPanelProvider } from "@/features/terminal/bottom-panel-context";
 import { BottomPanelPortalProvider } from "@/features/terminal/bottom-panel-portal-context";
 import { PersistentBottomPanel } from "@/features/terminal/components/persistent-bottom-panel";
@@ -49,14 +50,16 @@ export function AppShell() {
       />
 
       <BottomPanelProvider>
-        <BottomPanelPortalProvider>
-          <ShellProcessesProvider>
-            <PersistentBottomPanel workspaceDir={workspaceDir} />
-            <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
-              <Outlet context={shellContext} />
-            </div>
-          </ShellProcessesProvider>
-        </BottomPanelPortalProvider>
+        <RightPanelProvider>
+          <BottomPanelPortalProvider>
+            <ShellProcessesProvider>
+              <PersistentBottomPanel workspaceDir={workspaceDir} />
+              <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
+                <Outlet context={shellContext} />
+              </div>
+            </ShellProcessesProvider>
+          </BottomPanelPortalProvider>
+        </RightPanelProvider>
       </BottomPanelProvider>
     </div>
   );

@@ -9,3 +9,7 @@ export const paths = {
   automations: "/automations",
   settings: "/settings",
 } as const;
+
+export function isChatRoute(pathname: string): boolean {
+  return pathname === paths.chatNew || /^\/chat\/[^/]+$/.test(pathname);
+}

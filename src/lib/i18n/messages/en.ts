@@ -242,6 +242,13 @@ export const enMessages = {
     chatSession: { title: "Chat {id}" },
     comingSoon: "Coming soon",
   },
+  rightPanel: {
+    fileTree: "Files",
+    browser: "Browser",
+    noWorkspace: "Select a workspace to browse files",
+    loading: "Loading files…",
+    browserPlaceholder: "Browser coming soon",
+  },
   terminal: {
     agentProcesses: "Agent processes",
     runningCount: "{count} running",

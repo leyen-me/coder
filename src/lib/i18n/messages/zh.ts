@@ -239,6 +239,13 @@ export const zhMessages = {
     chatSession: { title: "聊天 {id}" },
     comingSoon: "即将推出",
   },
+  rightPanel: {
+    fileTree: "文件",
+    browser: "浏览器",
+    noWorkspace: "请先选择工作区以浏览文件",
+    loading: "正在加载文件…",
+    browserPlaceholder: "浏览器即将推出",
+  },
   terminal: {
     agentProcesses: "Agent 进程",
     runningCount: "{count} 个运行中",
