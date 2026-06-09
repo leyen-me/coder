@@ -22,6 +22,7 @@ pub struct PtyOutputEvent {
 }
 
 struct PtySession {
+    master: Box<dyn portable_pty::MasterPty + Send>,
     writer: Box<dyn Write + Send>,
     child_killer: Box<dyn portable_pty::ChildKiller + Send + Sync>,
 }
@@ -73,12 +74,11 @@ impl PtyRegistry {
             .spawn_command(command)
             .map_err(|error| format!("Failed to spawn shell: {error}"))?;
 
-        let mut reader = pair
-            .master
+        let master = pair.master;
+        let mut reader = master
             .try_clone_reader()
             .map_err(|error| format!("Failed to clone PTY reader: {error}"))?;
-        let writer = pair
-            .master
+        let writer = master
             .take_writer()
             .map_err(|error| format!("Failed to take PTY writer: {error}"))?;
         let killer = child.clone_killer();
@@ -87,6 +87,7 @@ impl PtyRegistry {
         self.sessions.insert(
             pty_id.clone(),
             PtySession {
+                master,
                 writer,
                 child_killer: killer,
             },
@@ -132,9 +133,20 @@ impl PtyRegistry {
             .map_err(|error| format!("Failed to write to PTY: {error}"))
     }
 
-    pub fn resize(&mut self, _pty_id: &str, _cols: u16, _rows: u16) -> Result<(), String> {
-        // Resize requires keeping master pair; skipped for minimal implementation.
-        Ok(())
+    pub fn resize(&mut self, pty_id: &str, cols: u16, rows: u16) -> Result<(), String> {
+        let session = self
+            .sessions
+            .get(pty_id)
+            .ok_or_else(|| format!("Unknown pty_id: {pty_id}"))?;
+        session
+            .master
+            .resize(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .map_err(|error| format!("Failed to resize PTY: {error}"))
     }
 
     pub fn close(&mut self, pty_id: &str) -> Result<(), String> {

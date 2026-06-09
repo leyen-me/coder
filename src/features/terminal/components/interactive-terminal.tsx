@@ -11,14 +11,24 @@ import "@xterm/xterm/css/xterm.css";
 type InteractiveTerminalProps = {
   cwd: string;
   className?: string;
+  isActive?: boolean;
 };
 
-export function InteractiveTerminal({ cwd, className }: InteractiveTerminalProps) {
+export function InteractiveTerminal({
+  cwd,
+  className,
+  isActive = true,
+}: InteractiveTerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const ptyIdRef = useRef<string | null>(null);
+  const isActiveRef = useRef(isActive);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    isActiveRef.current = isActive;
+  }, [isActive]);
 
   useEffect(() => {
     if (!isTauri() || !containerRef.current) {
@@ -92,6 +102,9 @@ export function InteractiveTerminal({ cwd, className }: InteractiveTerminalProps
         unlisteners.push(() => dataDisposable.dispose());
 
         const resizeObserver = new ResizeObserver(() => {
+          if (!isActiveRef.current) {
+            return;
+          }
           fitAddon.fit();
           const ptyId = ptyIdRef.current;
           if (!ptyId) {
@@ -133,6 +146,35 @@ export function InteractiveTerminal({ cwd, className }: InteractiveTerminalProps
       ptyIdRef.current = null;
     };
   }, [cwd]);
+
+  useEffect(() => {
+    if (!isActive) {
+      return;
+    }
+
+    const terminal = terminalRef.current;
+    const fitAddon = fitAddonRef.current;
+    if (!terminal || !fitAddon) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      fitAddon.fit();
+      const ptyId = ptyIdRef.current;
+      if (ptyId) {
+        void invoke("pty_resize", {
+          ptyId,
+          cols: terminal.cols,
+          rows: terminal.rows,
+        });
+      }
+      terminal.focus();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [isActive]);
 
   if (!isTauri()) {
     return (

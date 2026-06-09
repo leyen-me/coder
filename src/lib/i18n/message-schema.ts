@@ -212,6 +212,7 @@ export type Messages = {
     killProcess: string;
     newTerminal: string;
     sessionLabel: string;
+    closeSession: string;
     openTerminalHint: string;
     workspaceRequired: string;
   };

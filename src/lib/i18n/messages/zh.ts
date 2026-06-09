@@ -224,6 +224,7 @@ export const zhMessages = {
     killProcess: "终止",
     newTerminal: "新建终端",
     sessionLabel: "bash",
+    closeSession: "关闭终端",
     openTerminalHint: "点击「新建终端」打开交互式 Shell",
     workspaceRequired: "请先选择工作区以使用终端",
   },

@@ -225,6 +225,7 @@ export const enMessages = {
     killProcess: "Kill",
     newTerminal: "New terminal",
     sessionLabel: "bash",
+    closeSession: "Close terminal",
     openTerminalHint: "Click New terminal to open an interactive shell",
     workspaceRequired: "Select a workspace to use the terminal",
   },
