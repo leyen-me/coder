@@ -3,9 +3,12 @@
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
-import { PlusIcon, XIcon } from "lucide-react";
-import { useState } from "react";
+import { PlusIcon, TerminalIcon, XIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
+import { formatTerminalTabPath } from "../format-terminal-tab-path";
+import { useBottomPanel } from "../bottom-panel-context";
+import { resolveHomeDirectory, resolveTerminalCwd } from "../resolve-terminal-cwd";
 import { useShellProcesses } from "../use-shell-processes";
 import { InteractiveTerminal } from "./interactive-terminal";
 import { ProcessesOverlay } from "./processes-overlay";
@@ -19,23 +22,77 @@ type TerminalSession = {
   cwd: string;
 };
 
+function createTerminalSession(cwd: string): TerminalSession {
+  return {
+    id: `term-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    cwd,
+  };
+}
+
 export function TerminalTab({ workspaceDir }: TerminalTabProps) {
   const { t } = useTranslation();
+  const { setOpen: setBottomPanelOpen } = useBottomPanel();
   const { processes, killProcess } = useShellProcesses();
+  const [homeDirectory, setHomeDirectory] = useState<string | null>(null);
+  const [defaultCwd, setDefaultCwd] = useState<string | null>(null);
   const [sessions, setSessions] = useState<TerminalSession[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [initError, setInitError] = useState<string | null>(null);
+  const hasInitializedRef = useRef(false);
 
   const activeSession =
     sessions.find((session) => session.id === activeId) ?? sessions[0] ?? null;
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const home = await resolveHomeDirectory();
+      if (!cancelled) {
+        setHomeDirectory(home);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const cwd = await resolveTerminalCwd(workspaceDir);
+      if (cancelled) {
+        return;
+      }
+
+      setDefaultCwd(cwd);
+      setInitError(cwd ? null : t("terminal.unavailable"));
+
+      if (!cwd || hasInitializedRef.current) {
+        return;
+      }
+
+      hasInitializedRef.current = true;
+      const session = createTerminalSession(cwd);
+      setSessions([session]);
+      setActiveId(session.id);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [t, workspaceDir]);
+
   const handleNewTerminal = () => {
-    if (!workspaceDir) {
+    if (!defaultCwd) {
       return;
     }
 
-    const id = `term-${Date.now()}`;
-    setSessions((current) => [...current, { id, cwd: workspaceDir }]);
-    setActiveId(id);
+    const session = createTerminalSession(defaultCwd);
+    setSessions((current) => [...current, session]);
+    setActiveId(session.id);
   };
 
   const handleCloseSession = (sessionId: string) => {
@@ -45,6 +102,12 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
     }
 
     const nextSessions = sessions.filter((session) => session.id !== sessionId);
+
+    if (nextSessions.length === 0) {
+      setBottomPanelOpen(false);
+      return;
+    }
+
     setSessions(nextSessions);
 
     if (activeId === sessionId) {
@@ -53,61 +116,56 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
     }
   };
 
-  if (!workspaceDir) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        {t("terminal.workspaceRequired")}
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 border-b px-3 py-1.5">
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 gap-1 text-xs"
-          onClick={handleNewTerminal}
-          type="button"
-        >
-          <PlusIcon className="size-3" />
-          {t("terminal.newTerminal")}
-        </Button>
-
+      <div className="flex items-center gap-2 px-3 py-1.5">
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-          {sessions.map((session, index) => {
+          {sessions.map((session) => {
             const isActive = activeSession?.id === session.id;
+            const tabLabel = formatTerminalTabPath(session.cwd, homeDirectory);
 
             return (
               <div
                 key={session.id}
                 className={cn(
-                  "inline-flex h-7 shrink-0 items-center rounded-md border text-xs",
+                  "group inline-flex h-7 shrink-0 items-center rounded-md border text-xs",
                   isActive
-                    ? "border-border bg-muted text-foreground"
-                    : "border-transparent text-muted-foreground hover:bg-muted/50"
+                    ? "border-border/40 bg-muted/30 text-foreground/80"
+                    : "border-transparent text-muted-foreground/70 hover:bg-muted/20"
                 )}
               >
                 <button
-                  className="px-2 py-1 font-mono"
-                  onClick={() => setActiveId(session.id)}
-                  type="button"
-                >
-                  {t("terminal.sessionLabel")}
-                  {sessions.length > 1 ? ` ${index + 1}` : ""}
-                </button>
-                <button
                   aria-label={t("terminal.closeSession")}
-                  className="rounded-r-md px-1.5 py-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="rounded-l-md px-1.5 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
                   onClick={() => handleCloseSession(session.id)}
                   type="button"
                 >
-                  <XIcon className="size-3" />
+                  <TerminalIcon className="size-3 group-hover:hidden" />
+                  <XIcon className="hidden size-3 group-hover:block" />
+                </button>
+                <button
+                  className="max-w-56 truncate px-2 py-1 font-mono"
+                  onClick={() => setActiveId(session.id)}
+                  title={session.cwd}
+                  type="button"
+                >
+                  {tabLabel}
                 </button>
               </div>
             );
           })}
+
+          <Button
+            aria-label={t("terminal.addSession")}
+            className="size-7 shrink-0 text-muted-foreground/60 hover:text-muted-foreground"
+            disabled={!defaultCwd}
+            onClick={handleNewTerminal}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <PlusIcon className="size-3.5" />
+          </Button>
         </div>
 
         <ProcessesOverlay
@@ -121,7 +179,7 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
       <div className="relative min-h-0 flex-1 p-2">
         {sessions.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            {t("terminal.openTerminalHint")}
+            {initError ?? t("terminal.loading")}
           </div>
         ) : (
           sessions.map((session) => (

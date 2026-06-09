@@ -29,13 +29,13 @@ export function ChatLayoutWithBottomPanel({
 
   return (
     <ResizablePanelGroup className="min-h-0 flex-1" orientation="vertical">
-      <ResizablePanel defaultSize={75} minSize={40}>
+      <ResizablePanel defaultSize={60} minSize={35}>
         <div className="flex h-full min-h-0 flex-col overflow-hidden">
           {children}
         </div>
       </ResizablePanel>
       <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={25} minSize={15}>
+      <ResizablePanel defaultSize={40} minSize={20}>
         <BottomPanel workspaceDir={workspaceDir} />
       </ResizablePanel>
     </ResizablePanelGroup>

@@ -223,11 +223,10 @@ export const enMessages = {
     runningCount: "{count} running",
     noProcesses: "No background processes",
     killProcess: "Kill",
-    newTerminal: "New terminal",
-    sessionLabel: "bash",
     closeSession: "Close terminal",
-    openTerminalHint: "Click New terminal to open an interactive shell",
-    workspaceRequired: "Select a workspace to use the terminal",
+    addSession: "New terminal",
+    loading: "Opening terminal…",
+    unavailable: "Terminal is unavailable in this environment",
   },
   mockChats: [
     {

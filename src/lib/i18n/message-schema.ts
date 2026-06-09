@@ -210,11 +210,10 @@ export type Messages = {
     runningCount: string;
     noProcesses: string;
     killProcess: string;
-    newTerminal: string;
-    sessionLabel: string;
     closeSession: string;
-    openTerminalHint: string;
-    workspaceRequired: string;
+    addSession: string;
+    loading: string;
+    unavailable: string;
   };
 };
 
