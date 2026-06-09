@@ -21,7 +21,7 @@ import {
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import { CopyIcon, GitForkIcon, PencilIcon, RefreshCwIcon } from "lucide-react";
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { StreamingMessageContent } from "./streaming-message-content";
@@ -89,44 +89,65 @@ export const MessageItem = memo(function MessageItem({
   const [isRegenerating, setIsRegenerating] = useState(false);
   const isActionPending = isForking || isRegenerating;
   const isUser = message.role === "user";
-  const persistedSteps = normalizeMessageProcessSteps(message.processSteps);
-  let latestAnswerText = "";
-  for (let index = persistedSteps.length - 1; index >= 0; index -= 1) {
-    const step = persistedSteps[index];
-    if (step?.kind === "answer") {
-      latestAnswerText = step.text;
-      break;
-    }
-  }
-  const answerText =
-    latestAnswerText ||
-    message.content ||
-    (!isStreaming && message.thinking ? message.thinking : "");
-  const hasThinking =
-    Boolean(message.thinking) &&
-    Boolean(message.content) &&
-    message.thinking !== answerText;
-  const isThinkingStreaming = isStreaming && !message.content;
-  const showReasoning =
-    hasThinking || (Boolean(message.thinking) && isThinkingStreaming);
-  const toolInvocations = normalizeToolInvocations(message.toolInvocations);
-  const hasTools = toolInvocations.length > 0;
-  const processSteps = buildAssistantProcessSteps({
-    processSteps: message.processSteps,
+  const {
     answerText,
-    thinkingText: message.thinking,
-    isThinkingStreaming,
     showReasoning,
-    toolInvocations,
-    isAnswerStreaming: isStreaming,
-    isMessageStreaming: isStreaming,
-  });
-  const showProcessTimeline = showReasoning || hasTools;
-  const showActions =
-    !isStreaming &&
-    (Boolean(answerText) ||
-      message.status === "failed" ||
-      message.status === "cancelled");
+    processSteps,
+    showProcessTimeline,
+    showActions,
+    hasTools,
+  } = useMemo(() => {
+      const persistedSteps = normalizeMessageProcessSteps(message.processSteps);
+      let latestAnswerText = "";
+      for (let index = persistedSteps.length - 1; index >= 0; index -= 1) {
+        const step = persistedSteps[index];
+        if (step?.kind === "answer") {
+          latestAnswerText = step.text;
+          break;
+        }
+      }
+      const resolvedAnswerText =
+        latestAnswerText ||
+        message.content ||
+        (!isStreaming && message.thinking ? message.thinking : "");
+      const hasThinking =
+        Boolean(message.thinking) &&
+        Boolean(message.content) &&
+        message.thinking !== resolvedAnswerText;
+      const isThinkingStreaming = isStreaming && !message.content;
+      const resolvedShowReasoning =
+        hasThinking || (Boolean(message.thinking) && isThinkingStreaming);
+      const toolInvocations = normalizeToolInvocations(message.toolInvocations);
+      const hasTools = toolInvocations.length > 0;
+      return {
+        answerText: resolvedAnswerText,
+        showReasoning: resolvedShowReasoning,
+        hasTools,
+        processSteps: buildAssistantProcessSteps({
+          processSteps: message.processSteps,
+          answerText: resolvedAnswerText,
+          thinkingText: message.thinking,
+          isThinkingStreaming,
+          showReasoning: resolvedShowReasoning,
+          toolInvocations,
+          isAnswerStreaming: isStreaming,
+          isMessageStreaming: isStreaming,
+        }),
+        showProcessTimeline: resolvedShowReasoning || hasTools,
+        showActions:
+          !isStreaming &&
+          (Boolean(resolvedAnswerText) ||
+            message.status === "failed" ||
+            message.status === "cancelled"),
+      };
+    }, [
+      message.processSteps,
+      message.content,
+      message.thinking,
+      message.toolInvocations,
+      message.status,
+      isStreaming,
+    ]);
 
   const handleCopy = useCallback(async () => {
     if (!answerText) {

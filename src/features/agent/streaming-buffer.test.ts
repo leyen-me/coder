@@ -121,4 +121,41 @@ describe("createStreamingBufferManager", () => {
       content: "项目结构如下。",
     });
   });
+
+  it("memoizes the derived snapshot until the next mutation", () => {
+    const manager = createStreamingBufferManager({
+      onFlush: vi.fn().mockResolvedValue(undefined),
+      onChange: () => {},
+    });
+
+    manager.append("msg-1", "content", "Hello");
+    const first = manager.get("msg-1");
+    const second = manager.get("msg-1");
+    expect(second).toBe(first);
+
+    manager.append("msg-1", "content", " world");
+    const third = manager.get("msg-1");
+    expect(third).not.toBe(first);
+    expect(third?.content).toBe("Hello world");
+  });
+
+  it("keeps previously read snapshots immutable as more deltas arrive", () => {
+    const manager = createStreamingBufferManager({
+      onFlush: vi.fn().mockResolvedValue(undefined),
+      onChange: () => {},
+    });
+
+    manager.append("msg-1", "content", "Hel");
+    const snapshot = manager.get("msg-1");
+
+    manager.append("msg-1", "content", "lo");
+
+    expect(snapshot?.content).toBe("Hel");
+    expect(snapshot?.processSteps[0]).toEqual({
+      id: "answer:0",
+      kind: "answer",
+      text: "Hel",
+    });
+    expect(manager.get("msg-1")?.content).toBe("Hello");
+  });
 });

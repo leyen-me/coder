@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import { buildAssistantProcessPresentation } from "./assistant-process";
 import { MessageToolItem } from "./message-tool-list";
 import { StreamingMessageContent } from "./streaming-message-content";
@@ -16,7 +18,10 @@ export function AssistantProcessView({
   steps,
   showReasoning,
 }: AssistantProcessViewProps) {
-  const presentation = buildAssistantProcessPresentation(steps);
+  const presentation = useMemo(
+    () => buildAssistantProcessPresentation(steps),
+    [steps]
+  );
 
   if (showReasoning) {
     const hasThinking =

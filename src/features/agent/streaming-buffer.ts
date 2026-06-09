@@ -29,6 +29,12 @@ function cancelScheduledChange(id: number): void {
 
 type BufferState = {
   processSteps: MessageProcessStep[];
+  /**
+   * Memoized derived view. Invalidated (set to `null`) on every mutation and
+   * lazily rebuilt at most once per read, so the O(n) derivation runs once per
+   * animation frame instead of once per streamed token.
+   */
+  cached: StreamingFields | null;
 };
 
 export type StreamingBufferManager = {
@@ -76,22 +82,30 @@ export function createStreamingBufferManager(options: {
   const ensureBuffer = (messageId: string): BufferState => {
     let buffer = buffers.get(messageId);
     if (!buffer) {
-      buffer = { processSteps: [] };
+      buffer = { processSteps: [], cached: null };
       buffers.set(messageId, buffer);
     }
     return buffer;
   };
 
   const toStreamingFields = (buffer: BufferState): StreamingFields => {
+    if (buffer.cached) {
+      return buffer.cached;
+    }
+
     const { thinking, content } = deriveMessageFieldsFromProcessSteps(
       buffer.processSteps
     );
 
-    return {
+    // `appendTextProcessStep`/`pushToolStep` only ever replace the last element
+    // or push a new one, so a shallow array copy is enough to freeze an
+    // immutable snapshot while keeping unchanged step references stable.
+    buffer.cached = {
       thinking,
       content,
-      processSteps: buffer.processSteps.map((step) => ({ ...step })),
+      processSteps: [...buffer.processSteps],
     };
+    return buffer.cached;
   };
 
   const append = (
@@ -109,6 +123,7 @@ export function createStreamingBufferManager(options: {
       field === "thinking" ? "reasoning" : "answer",
       delta
     );
+    buffer.cached = null;
     scheduleEmitChange();
     scheduleFlush(messageId);
   };
@@ -122,6 +137,7 @@ export function createStreamingBufferManager(options: {
         kind: "tool",
         toolCallId,
       });
+      buffer.cached = null;
       scheduleEmitChange();
       scheduleFlush(messageId);
     }
@@ -207,9 +223,12 @@ function appendTextProcessStep(
   kind: "reasoning" | "answer",
   delta: string
 ) {
-  const lastStep = steps.at(-1);
+  const lastIndex = steps.length - 1;
+  const lastStep = steps[lastIndex];
   if (lastStep?.kind === kind) {
-    lastStep.text += delta;
+    // Replace the element instead of mutating it so previously emitted
+    // snapshots stay immutable and downstream reference equality holds.
+    steps[lastIndex] = { ...lastStep, text: lastStep.text + delta };
     return;
   }
 

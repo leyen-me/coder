@@ -44,6 +44,21 @@ export async function getMessage(messageId: string): Promise<MessageRecord | nul
   return (await db.get(MESSAGES_STORE, messageId)) ?? null;
 }
 
+/**
+ * Controls the side effects of a message write.
+ *
+ * High-frequency streaming flushes persist to IndexedDB purely as a crash/reload
+ * backup while the in-memory streaming overlay drives the visible UI. Such writes
+ * should set `silent: true` (skip the global UI re-fetch) and `touch: false`
+ * (skip re-ordering the session list on every token) to avoid a re-fetch storm.
+ */
+export type UpdateMessageOptions = {
+  /** When true, do not broadcast a DB change (no UI re-fetch is triggered). */
+  silent?: boolean;
+  /** When true (default), bump the owning session's `updatedAt` ordering. */
+  touch?: boolean;
+};
+
 export async function updateMessage(
   messageId: string,
   patch: Partial<
@@ -58,8 +73,10 @@ export async function updateMessage(
       | "toolInvocations"
       | "images"
     >
-  >
+  >,
+  options: UpdateMessageOptions = {}
 ): Promise<MessageRecord | null> {
+  const { silent = false, touch = true } = options;
   const db = await getDb();
   const existing = await db.get(MESSAGES_STORE, messageId);
   if (!existing) {
@@ -71,8 +88,12 @@ export async function updateMessage(
     delete next.images;
   }
   await db.put(MESSAGES_STORE, next);
-  await touchSession(existing.sessionId);
-  notifyDbChange();
+  if (touch) {
+    await touchSession(existing.sessionId);
+  }
+  if (!silent) {
+    notifyDbChange();
+  }
   return next;
 }
 

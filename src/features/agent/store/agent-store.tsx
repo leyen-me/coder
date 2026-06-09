@@ -134,13 +134,22 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     createStreamingBufferManager({
       onFlush: async (messageId, fields) => {
         const existing = await getMessage(messageId);
-        await updateMessage(messageId, {
-          ...fields,
-          processSteps: mergeProcessSteps(
-            existing?.processSteps,
-            fields.processSteps
-          ),
-        });
+        // Streaming flushes persist as a reload/crash backup only; the in-memory
+        // overlay drives the live UI. Persist silently (no global re-fetch) and
+        // without re-ordering the session on every token. Each event that needs a
+        // UI sync (tool start/finish, status changes) issues its own non-silent
+        // write right after the flush it depends on.
+        await updateMessage(
+          messageId,
+          {
+            ...fields,
+            processSteps: mergeProcessSteps(
+              existing?.processSteps,
+              fields.processSteps
+            ),
+          },
+          { silent: true, touch: false }
+        );
       },
       onChange: () => {
         emitStreaming();
