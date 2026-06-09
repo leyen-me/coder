@@ -1,6 +1,5 @@
 import "./index.css";
 import "katex/dist/katex.min.css";
-import "streamdown/styles.css";
 
 import React from "react";
 import ReactDOM from "react-dom/client";
