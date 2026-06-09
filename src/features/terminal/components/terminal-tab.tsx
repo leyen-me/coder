@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import { PlusIcon, TerminalIcon, XIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { formatTerminalTabPath } from "../format-terminal-tab-path";
 import { useBottomPanel } from "../bottom-panel-context";
@@ -29,13 +29,13 @@ function createTerminalSession(cwd: string): TerminalSession {
 
 export function TerminalTab({ workspaceDir }: TerminalTabProps) {
   const { t } = useTranslation();
-  const { setOpen: setBottomPanelOpen } = useBottomPanel();
+  const { isOpen: isBottomPanelOpen, setOpen: setBottomPanelOpen } =
+    useBottomPanel();
   const [homeDirectory, setHomeDirectory] = useState<string | null>(null);
   const [defaultCwd, setDefaultCwd] = useState<string | null>(null);
   const [sessions, setSessions] = useState<TerminalSession[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
-  const hasInitializedRef = useRef(false);
 
   const activeSession =
     sessions.find((session) => session.id === activeId) ?? sessions[0] ?? null;
@@ -66,21 +66,22 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
 
       setDefaultCwd(cwd);
       setInitError(cwd ? null : t("terminal.unavailable"));
-
-      if (!cwd || hasInitializedRef.current) {
-        return;
-      }
-
-      hasInitializedRef.current = true;
-      const session = createTerminalSession(cwd);
-      setSessions([session]);
-      setActiveId(session.id);
     })();
 
     return () => {
       cancelled = true;
     };
   }, [t, workspaceDir]);
+
+  useEffect(() => {
+    if (!isBottomPanelOpen || !defaultCwd || sessions.length > 0) {
+      return;
+    }
+
+    const session = createTerminalSession(defaultCwd);
+    setSessions([session]);
+    setActiveId(session.id);
+  }, [defaultCwd, isBottomPanelOpen, sessions.length]);
 
   const handleNewTerminal = () => {
     if (!defaultCwd) {
@@ -101,6 +102,8 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
     const nextSessions = sessions.filter((session) => session.id !== sessionId);
 
     if (nextSessions.length === 0) {
+      setSessions([]);
+      setActiveId(null);
       setBottomPanelOpen(false);
       return;
     }
@@ -185,7 +188,9 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
               <InteractiveTerminal
                 className="h-full w-full"
                 cwd={session.cwd}
-                isActive={activeSession?.id === session.id}
+                isActive={
+                  isBottomPanelOpen && activeSession?.id === session.id
+                }
               />
             </div>
           ))

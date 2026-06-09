@@ -7,7 +7,6 @@ import { useAgentStore } from "@/features/agent/store/agent-store";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
-import { ChatLayoutWithBottomPanel } from "../components/chat-layout-with-bottom-panel";
 import { ChatMessageList } from "../components/chat-message-list";
 import { PromptComposer } from "../components/prompt-composer";
 import { useComposerThinking } from "../hooks/use-composer-thinking";
@@ -221,9 +220,5 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     </>
   );
 
-  return (
-    <ChatLayoutWithBottomPanel workspaceDir={workspaceBinding.workspaceDir}>
-      {chatContent}
-    </ChatLayoutWithBottomPanel>
-  );
+  return chatContent;
 }

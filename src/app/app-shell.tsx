@@ -2,6 +2,11 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { FloatingShellNav } from "@/components/layout/floating-shell-nav";
 import { useSidebarOpen } from "@/features/chat/hooks/use-sidebar-open";
+import { BottomPanelProvider } from "@/features/terminal/bottom-panel-context";
+import { BottomPanelPortalProvider } from "@/features/terminal/bottom-panel-portal-context";
+import { PersistentBottomPanel } from "@/features/terminal/components/persistent-bottom-panel";
+import { ShellProcessesProvider } from "@/features/terminal/shell-processes-context";
+import { useRouteWorkspaceDir } from "@/features/terminal/use-route-workspace-dir";
 import { useAppWindow } from "@/lib/tauri/use-app-window";
 import { useWindowMaximized } from "@/lib/tauri/use-window-maximized";
 import { cn } from "@/lib/utils";
@@ -22,6 +27,7 @@ export function AppShell() {
   const useRoundedShell = appWindow !== null && !isMaximized;
 
   const shellContext: ShellOutletContext = { sidebarOpen: isSidebarOpen };
+  const workspaceDir = useRouteWorkspaceDir();
 
   const handleBack = isSettingsRoute(pathname)
     ? () => {
@@ -42,9 +48,16 @@ export function AppShell() {
         onBack={handleBack}
       />
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
-        <Outlet context={shellContext} />
-      </div>
+      <BottomPanelProvider>
+        <BottomPanelPortalProvider>
+          <ShellProcessesProvider>
+            <PersistentBottomPanel workspaceDir={workspaceDir} />
+            <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
+              <Outlet context={shellContext} />
+            </div>
+          </ShellProcessesProvider>
+        </BottomPanelPortalProvider>
+      </BottomPanelProvider>
     </div>
   );
 }
