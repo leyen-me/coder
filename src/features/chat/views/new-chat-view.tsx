@@ -11,6 +11,7 @@ import { createSession } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
+import { ChatLayoutWithBottomPanel } from "../components/chat-layout-with-bottom-panel";
 import { PromptComposer } from "../components/prompt-composer";
 import { StarterPromptList } from "../components/starter-prompt-list";
 import { useComposerThinking } from "../hooks/use-composer-thinking";
@@ -70,41 +71,43 @@ export function NewChatView() {
     : null;
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 pb-12">
-      <h2 className="max-w-3xl text-center text-2xl font-semibold tracking-tight">
-        {t("chat.headline", {
-          project: workspaceName ?? DEFAULT_PROJECT_NAME,
-        })}
-      </h2>
+    <ChatLayoutWithBottomPanel workspaceDir={workspaceDir}>
+      <div className="flex flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-6 pb-12">
+        <h2 className="max-w-3xl text-center text-2xl font-semibold tracking-tight">
+          {t("chat.headline", {
+            project: workspaceName ?? DEFAULT_PROJECT_NAME,
+          })}
+        </h2>
 
-      <PromptComposer
-        value={prompt}
-        onChange={setPrompt}
-        onSend={(payload) => {
-          void handleSend(payload);
-        }}
-        model={model}
-        models={resolved.models}
-        onModelChange={setModel}
-        thinkingEnabled={thinkingEnabled}
-        onThinkingEnabledChange={onThinkingEnabledChange}
-        showWorkspaceControls
-        workspaceName={gitControls.workspaceName ?? workspaceName}
-        onPickWorkspace={() => {
-          void pickWorkspace();
-        }}
-        isGitRepository={gitControls.isGitRepository}
-        gitBranch={gitControls.gitBranch}
-        gitBranches={gitControls.gitBranches}
-        onGitBranchChange={(branch) => {
-          void gitControls.checkoutBranch(branch);
-        }}
-        isGitLoading={gitControls.isGitLoading}
-        variant="compact"
-        isRunning={isSubmitting}
-      />
+        <PromptComposer
+          value={prompt}
+          onChange={setPrompt}
+          onSend={(payload) => {
+            void handleSend(payload);
+          }}
+          model={model}
+          models={resolved.models}
+          onModelChange={setModel}
+          thinkingEnabled={thinkingEnabled}
+          onThinkingEnabledChange={onThinkingEnabledChange}
+          showWorkspaceControls
+          workspaceName={gitControls.workspaceName ?? workspaceName}
+          onPickWorkspace={() => {
+            void pickWorkspace();
+          }}
+          isGitRepository={gitControls.isGitRepository}
+          gitBranch={gitControls.gitBranch}
+          gitBranches={gitControls.gitBranches}
+          onGitBranchChange={(branch) => {
+            void gitControls.checkoutBranch(branch);
+          }}
+          isGitLoading={gitControls.isGitLoading}
+          variant="compact"
+          isRunning={isSubmitting}
+        />
 
-      <StarterPromptList onSelect={setPrompt} />
-    </div>
+        <StarterPromptList onSelect={setPrompt} />
+      </div>
+    </ChatLayoutWithBottomPanel>
   );
 }
