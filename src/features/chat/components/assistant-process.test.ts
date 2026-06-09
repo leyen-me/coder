@@ -10,6 +10,8 @@ describe("buildAssistantProcessSteps", () => {
     const steps = buildAssistantProcessSteps({
       answerText: "已经找到项目结构。",
       thinkingText: "先读取目录，再总结结果。",
+      isThinkingStreaming: false,
+      showReasoning: true,
       toolInvocations: [
         {
           id: "call_1",
@@ -19,6 +21,7 @@ describe("buildAssistantProcessSteps", () => {
           state: "output-available",
         },
       ],
+      isAnswerStreaming: false,
       isMessageStreaming: false,
     });
 
@@ -33,7 +36,10 @@ describe("buildAssistantProcessSteps", () => {
     const steps = buildAssistantProcessSteps({
       answerText: "这是最终回答。",
       thinkingText: "",
+      isThinkingStreaming: false,
+      showReasoning: false,
       toolInvocations: [],
+      isAnswerStreaming: false,
       isMessageStreaming: false,
     });
 
@@ -57,6 +63,8 @@ describe("buildAssistantProcessSteps", () => {
       ],
       answerText: "你好，我看完项目了。",
       thinkingText: "先打招呼。根据目录继续分析。",
+      isThinkingStreaming: false,
+      showReasoning: true,
       toolInvocations: [
         {
           id: "call_1",
@@ -66,6 +74,7 @@ describe("buildAssistantProcessSteps", () => {
           state: "output-available",
         },
       ],
+      isAnswerStreaming: false,
       isMessageStreaming: false,
     });
 
@@ -93,6 +102,8 @@ describe("buildAssistantProcessSteps", () => {
       ],
       answerText: "项目结构如下。",
       thinkingText: "先打招呼。根据目录继续分析。",
+      isThinkingStreaming: true,
+      showReasoning: true,
       toolInvocations: [
         {
           id: "call_1",
@@ -101,6 +112,7 @@ describe("buildAssistantProcessSteps", () => {
           state: "input-available",
         },
       ],
+      isAnswerStreaming: true,
       isMessageStreaming: true,
     });
 
@@ -129,6 +141,8 @@ describe("buildAssistantProcessSteps", () => {
       ],
       answerText: "项目结构如下。",
       thinkingText: "先打招呼。根据目录继续分析。",
+      isThinkingStreaming: false,
+      showReasoning: true,
       toolInvocations: [
         {
           id: "call_1",
@@ -138,6 +152,7 @@ describe("buildAssistantProcessSteps", () => {
           state: "output-available",
         },
       ],
+      isAnswerStreaming: true,
       isMessageStreaming: true,
     });
 
@@ -155,7 +170,10 @@ describe("buildAssistantProcessSteps", () => {
     const steps = buildAssistantProcessSteps({
       answerText: "好的。",
       thinkingText: "简单想一下。",
+      isThinkingStreaming: false,
+      showReasoning: true,
       toolInvocations: [],
+      isAnswerStreaming: false,
       isMessageStreaming: false,
     });
 
@@ -186,7 +204,10 @@ describe("buildAssistantProcessSteps", () => {
       ],
       answerText: "项目结构如下。",
       thinkingText: "先打招呼。根据目录继续分析。",
+      isThinkingStreaming: false,
+      showReasoning: true,
       toolInvocations: [],
+      isAnswerStreaming: false,
       isMessageStreaming: false,
     });
 
@@ -204,5 +225,99 @@ describe("buildAssistantProcessSteps", () => {
         },
       ])
     ).toBe("");
+  });
+
+  it("appends a fallback answer when persisted steps only contain reasoning", () => {
+    const steps = buildAssistantProcessSteps({
+      processSteps: [
+        { id: "reasoning:0", kind: "reasoning", text: "先想一下。" },
+      ],
+      answerText: "你好！",
+      thinkingText: "先想一下。",
+      isThinkingStreaming: false,
+      showReasoning: false,
+      toolInvocations: [],
+      isAnswerStreaming: false,
+      isMessageStreaming: false,
+    });
+
+    expect(steps).toEqual([
+      {
+        id: "answer:compat",
+        kind: "answer",
+        text: "你好！",
+        isStreaming: false,
+      },
+    ]);
+  });
+
+  it("upgrades the latest persisted answer text when content is newer", () => {
+    const steps = buildAssistantProcessSteps({
+      processSteps: [
+        { id: "reasoning:0", kind: "reasoning", text: "先想一下。" },
+        { id: "answer:1", kind: "answer", text: "你" },
+      ],
+      answerText: "你好！",
+      thinkingText: "先想一下。",
+      isThinkingStreaming: false,
+      showReasoning: true,
+      toolInvocations: [],
+      isAnswerStreaming: true,
+      isMessageStreaming: true,
+    });
+
+    expect(steps.at(-1)).toEqual({
+      id: "answer:1",
+      kind: "answer",
+      text: "你好！",
+      isStreaming: true,
+    });
+  });
+
+  it("shows both reasoning and answer when the API only streamed reasoning text", () => {
+    const steps = buildAssistantProcessSteps({
+      processSteps: [
+        {
+          id: "reasoning:0",
+          kind: "reasoning",
+          text: "你好！有什么我可以帮你的吗？😊",
+        },
+        {
+          id: "answer:1",
+          kind: "answer",
+          text: "你好！有什么我可以帮你的吗？😊",
+        },
+      ],
+      answerText: "你好！有什么我可以帮你的吗？😊",
+      thinkingText: "你好！有什么我可以帮你的吗？😊",
+      isThinkingStreaming: false,
+      showReasoning: true,
+      toolInvocations: [],
+      isAnswerStreaming: false,
+      isMessageStreaming: false,
+    });
+
+    expect(steps.map((step) => step.kind)).toEqual(["reasoning", "answer"]);
+  });
+
+  it("keeps reasoning visible while a no-tool turn is still streaming", () => {
+    const steps = buildAssistantProcessSteps({
+      answerText: "",
+      thinkingText: "你好！有什么我可以帮你的吗？😊",
+      isThinkingStreaming: true,
+      showReasoning: true,
+      toolInvocations: [],
+      isAnswerStreaming: false,
+      isMessageStreaming: true,
+    });
+
+    expect(steps).toEqual([
+      {
+        id: "reasoning",
+        kind: "reasoning",
+        text: "你好！有什么我可以帮你的吗？😊",
+        isStreaming: true,
+      },
+    ]);
   });
 });

@@ -3,7 +3,30 @@ import { describe, expect, it } from "vitest";
 import {
   buildAgentMessagesFromProcessSteps,
   deriveMessageFieldsFromProcessSteps,
+  ensureAnswerForReasoningOnlyTurn,
 } from "./process-steps";
+
+describe("ensureAnswerForReasoningOnlyTurn", () => {
+  it("keeps reasoning and adds an answer when the API only streamed reasoning", () => {
+    expect(
+      ensureAnswerForReasoningOnlyTurn([
+        { id: "reasoning:0", kind: "reasoning", text: "你好！" },
+      ])
+    ).toEqual([
+      { id: "reasoning:0", kind: "reasoning", text: "你好！" },
+      { id: "answer:1", kind: "answer", text: "你好！" },
+    ]);
+  });
+
+  it("leaves tool turns unchanged", () => {
+    const steps = [
+      { id: "reasoning:0", kind: "reasoning", text: "先查一下。" },
+      { id: "tool:call_1", kind: "tool", toolCallId: "call_1" },
+    ] as const;
+
+    expect(ensureAnswerForReasoningOnlyTurn([...steps])).toEqual([...steps]);
+  });
+});
 
 describe("deriveMessageFieldsFromProcessSteps", () => {
   it("keeps only the final answer segment after tool calls", () => {

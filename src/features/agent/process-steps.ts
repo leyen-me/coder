@@ -40,6 +40,35 @@ export function mergeProcessSteps(
     .filter((step): step is MessageProcessStep => step != null);
 }
 
+/** When the API streams only `reasoning_content`, keep the reasoning step and add an answer. */
+export function ensureAnswerForReasoningOnlyTurn(
+  steps: MessageProcessStep[]
+): MessageProcessStep[] {
+  const hasTool = steps.some((step) => step.kind === "tool");
+  const hasAnswer = steps.some((step) => step.kind === "answer");
+  if (hasTool || hasAnswer) {
+    return steps;
+  }
+
+  const reasoningText = steps
+    .filter((step) => step.kind === "reasoning")
+    .map((step) => step.text)
+    .join("");
+
+  if (!reasoningText.trim()) {
+    return steps;
+  }
+
+  return [
+    ...steps,
+    {
+      id: `answer:${steps.length}`,
+      kind: "answer",
+      text: reasoningText,
+    },
+  ];
+}
+
 export function deriveMessageFieldsFromProcessSteps(
   steps: MessageProcessStep[]
 ): { thinking: string; content: string } {
@@ -185,6 +214,15 @@ export function buildAgentMessagesFromProcessSteps(
   }
 
   flushAssistantSegment();
+
+  if (messages.length === 0) {
+    const reasoning = reasoningText.trim();
+    const content = contentText.trim();
+    if (reasoning && !content && !options.includeReasoning) {
+      return [{ role: "assistant", content: reasoning }];
+    }
+  }
+
   return messages.length > 0 ? messages : null;
 }
 

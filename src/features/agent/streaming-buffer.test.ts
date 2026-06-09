@@ -187,4 +187,30 @@ describe("createStreamingBufferManager", () => {
       ],
     });
   });
+
+  it("promotes reasoning-only turns on finalize", () => {
+    const manager = createStreamingBufferManager({
+      onFlush: vi.fn().mockResolvedValue(undefined),
+      onChange: () => {},
+    });
+
+    manager.append("msg-1", "thinking", "你好！");
+
+    expect(manager.get("msg-1")).toMatchObject({
+      content: "",
+      thinking: "你好！",
+      processSteps: [{ id: "reasoning:0", kind: "reasoning", text: "你好！" }],
+    });
+
+    manager.finalize("msg-1");
+
+    expect(manager.get("msg-1")).toMatchObject({
+      content: "你好！",
+      thinking: "你好！",
+      processSteps: [
+        { id: "reasoning:0", kind: "reasoning", text: "你好！" },
+        { id: "answer:1", kind: "answer", text: "你好！" },
+      ],
+    });
+  });
 });

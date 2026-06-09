@@ -13,6 +13,7 @@ import {
 import { paths } from "@/app/paths";
 import { forkSessionFromMessage } from "@/lib/db";
 import {
+  normalizeMessageProcessSteps,
   normalizeToolInvocations,
   type MessageRecord,
 } from "@/lib/db";
@@ -24,7 +25,6 @@ import { useNavigate } from "react-router-dom";
 
 import {
   buildAssistantProcessSteps,
-  getLatestAssistantAnswerText,
 } from "./assistant-process";
 import { StreamingMessageContent } from "./streaming-message-content";
 
@@ -95,28 +95,58 @@ export const MessageItem = memo(function MessageItem({
     () => normalizeToolInvocations(message.toolInvocations),
     [message.toolInvocations]
   );
+  const persistedSteps = useMemo(
+    () => normalizeMessageProcessSteps(message.processSteps),
+    [message.processSteps]
+  );
+  const answerText = useMemo(() => {
+    for (let index = persistedSteps.length - 1; index >= 0; index -= 1) {
+      const step = persistedSteps[index];
+      if (step?.kind === "answer") {
+        return step.text;
+      }
+    }
+
+    return (
+      message.content ||
+      (!isStreaming && message.thinking ? message.thinking : "")
+    );
+  }, [persistedSteps, message.content, message.thinking, isStreaming]);
+  const hasReasoningSteps = persistedSteps.some((step) => step.kind === "reasoning");
+  const hasThinkingText = Boolean(message.thinking.trim());
+  const hasSeparateThinking =
+    hasThinkingText &&
+    Boolean(message.content) &&
+    message.thinking !== answerText;
+  const isThinkingStreaming = isStreaming && !message.content;
+  const showReasoning =
+    hasReasoningSteps ||
+    hasSeparateThinking ||
+    (hasThinkingText && isThinkingStreaming);
+  const hasTools = toolInvocations.length > 0;
   const processSteps = useMemo(
     () =>
       buildAssistantProcessSteps({
         processSteps: message.processSteps,
-        answerText: message.content,
+        answerText,
         thinkingText: message.thinking,
+        isThinkingStreaming,
+        showReasoning,
         toolInvocations,
+        isAnswerStreaming: isStreaming,
         isMessageStreaming: isStreaming,
       }),
     [
       message.processSteps,
-      message.content,
+      answerText,
       message.thinking,
+      isThinkingStreaming,
+      showReasoning,
       toolInvocations,
       isStreaming,
     ]
   );
-  const answerText = useMemo(() => {
-    const latest = getLatestAssistantAnswerText(processSteps);
-    return latest || message.content || (!isStreaming ? message.thinking : "");
-  }, [processSteps, message.content, message.thinking, isStreaming]);
-  const showProcessTimeline = processSteps.length > 0;
+  const showProcessTimeline = showReasoning || hasTools;
   const showActions =
     !isStreaming &&
     (Boolean(answerText) ||
@@ -298,7 +328,7 @@ export const MessageItem = memo(function MessageItem({
       {message.status === "failed" && message.error ? (
         <p className="text-sm text-destructive">{message.error}</p>
       ) : null}
-      {isStreaming && !answerText && processSteps.length === 0 ? (
+      {isStreaming && !answerText && !showReasoning && !hasTools ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span
             className={cn(

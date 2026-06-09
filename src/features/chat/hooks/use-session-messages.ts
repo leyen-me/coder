@@ -30,9 +30,7 @@ function applyStreamingOverlays(
   let didChange = false;
   const nextMessages = messages.map((message) => {
     const overlay = overlays.get(message.id);
-    const isStreaming =
-      message.status === "pending" || message.status === "streaming";
-    if (!overlay || !isStreaming) {
+    if (!overlay) {
       return message;
     }
 

@@ -2,7 +2,7 @@
 
 import { MessageToolItem } from "./message-tool-list";
 import { StreamingMessageContent } from "./streaming-message-content";
-import { StreamingPlainText } from "./streaming-message-content";
+import { ThinkingBlock } from "./thinking-block";
 
 import type { AssistantProcessStep } from "./assistant-process";
 
@@ -20,11 +20,10 @@ export function AssistantProcessView({ steps }: AssistantProcessViewProps) {
 
         if (step.kind === "reasoning") {
           return (
-            <StreamingPlainText
-              className="text-muted-foreground"
-              isStreaming={step.isStreaming}
+            <ThinkingBlock
               key={step.id}
-              text={step.text}
+              isStreaming={step.isStreaming}
+              segments={[{ kind: "text", text: step.text }]}
             />
           );
         }

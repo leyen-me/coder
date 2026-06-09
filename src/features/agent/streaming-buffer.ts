@@ -1,6 +1,9 @@
 import type { MessageProcessStep, MessageToolInvocation } from "@/lib/db";
 
-import { deriveMessageFieldsFromProcessSteps } from "./process-steps";
+import {
+  deriveMessageFieldsFromProcessSteps,
+  ensureAnswerForReasoningOnlyTurn,
+} from "./process-steps";
 
 export type StreamingFields = {
   content: string;
@@ -51,6 +54,7 @@ export type StreamingBufferManager = {
     toolInvocations: MessageToolInvocation[]
   ) => void;
   flush: (messageId: string) => Promise<void>;
+  finalize: (messageId: string) => void;
   clear: (messageId: string) => void;
   flushAndClear: (messageId: string) => Promise<void>;
   get: (messageId: string) => StreamingFields | null;
@@ -115,6 +119,16 @@ export function createStreamingBufferManager(options: {
     return buffer.cached;
   };
 
+  const applyPromotedSteps = (buffer: BufferState) => {
+    const finalizedSteps = ensureAnswerForReasoningOnlyTurn(buffer.processSteps);
+    if (finalizedSteps === buffer.processSteps) {
+      return;
+    }
+
+    buffer.processSteps = finalizedSteps;
+    buffer.cached = null;
+  };
+
   const append = (
     messageId: string,
     field: "content" | "thinking",
@@ -174,6 +188,16 @@ export function createStreamingBufferManager(options: {
     );
   };
 
+  const finalize = (messageId: string) => {
+    const buffer = buffers.get(messageId);
+    if (!buffer) {
+      return;
+    }
+
+    applyPromotedSteps(buffer);
+    scheduleEmitChange();
+  };
+
   const flush = async (messageId: string): Promise<void> => {
     const buffer = buffers.get(messageId);
     if (!buffer) {
@@ -218,6 +242,7 @@ export function createStreamingBufferManager(options: {
   return {
     append,
     flush,
+    finalize,
     clear,
     flushAndClear,
     pushToolStep,

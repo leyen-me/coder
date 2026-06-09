@@ -81,7 +81,13 @@ const StreamingOverlaysContext = createContext<
   ReadonlyMap<string, StreamingMessageOverlay>
 >(new Map());
 
+const ENABLE_AGENT_STREAM_DEBUG = import.meta.env.DEV;
+const TERMINAL_STATUS_SETTLE_DELAY_MS = 150;
 const TERMINAL_OVERLAY_CLEAR_DELAY_MS = 320;
+
+function previewText(value: string, limit = 120): string {
+  return value.length > limit ? `${value.slice(0, limit)}...` : value;
+}
 
 type AgentStoreProviderProps = {
   children: ReactNode;
@@ -162,6 +168,53 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     })
   );
 
+  const debugAppliedEvent = useCallback(
+    (assistantMessageId: string, event: AgentEvent) => {
+      if (!ENABLE_AGENT_STREAM_DEBUG) {
+        return;
+      }
+
+      const snapshot = streamingBufferRef.current.get(assistantMessageId);
+      const lastStep = snapshot?.processSteps.at(-1);
+      const lastStepSummary =
+        lastStep?.kind === "tool"
+          ? { kind: "tool", toolCallId: lastStep.toolCallId }
+          : lastStep
+            ? {
+                kind: lastStep.kind,
+                textPreview: previewText(lastStep.text),
+                textLength: lastStep.text.length,
+              }
+            : null;
+
+      console.debug("[agent-stream][applied]", {
+        assistantMessageId,
+        taskId: event.taskId,
+        eventType: event.type,
+        status:
+          event.type === "status"
+            ? event.status
+            : event.type === "tool_call_started"
+              ? "tool-started"
+              : event.type === "tool_call_finished"
+                ? "tool-finished"
+                : undefined,
+        contentPreview: previewText(snapshot?.content ?? ""),
+        contentLength: snapshot?.content.length ?? 0,
+        thinkingPreview: previewText(snapshot?.thinking ?? ""),
+        thinkingLength: snapshot?.thinking.length ?? 0,
+        processStepKinds: snapshot?.processSteps.map((step) => step.kind) ?? [],
+        toolInvocationStates:
+          snapshot?.toolInvocations.map((invocation) => ({
+            id: invocation.id,
+            state: invocation.state,
+          })) ?? [],
+        lastStep: lastStepSummary,
+      });
+    },
+    []
+  );
+
   const subscribe = useCallback((listener: () => void) => {
     listenersRef.current.add(listener);
     return () => {
@@ -207,6 +260,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             "thinking",
             event.delta
           );
+          debugAppliedEvent(assistantMessageId, event);
           return;
         case "content_delta":
           streamingBufferRef.current.append(
@@ -214,6 +268,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             "content",
             event.delta
           );
+          debugAppliedEvent(assistantMessageId, event);
           return;
         case "tool_call_started":
           {
@@ -236,6 +291,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           );
           await streamingBufferRef.current.flush(assistantMessageId);
           await setMessageStatus(assistantMessageId, "streaming");
+          debugAppliedEvent(assistantMessageId, event);
           return;
         case "tool_call_finished": {
           const toolInvocations = await completeMessageToolInvocation(
@@ -253,10 +309,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               toolInvocations
             );
           }
+          debugAppliedEvent(assistantMessageId, event);
           return;
         }
         case "error": {
-          await streamingBufferRef.current.flush(assistantMessageId);
           const terminalOverlayTimer = terminalOverlayTimersRef.current.get(
             assistantMessageId
           );
@@ -271,8 +327,20 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               error: event.message,
             });
           }
-          await setMessageStatus(assistantMessageId, "failed", event.message);
-          streamingBufferRef.current.clear(assistantMessageId);
+          terminalOverlayTimersRef.current.set(
+            assistantMessageId,
+            setTimeout(() => {
+              terminalOverlayTimersRef.current.delete(assistantMessageId);
+              void (async () => {
+                await streamingBufferRef.current.flush(assistantMessageId);
+                await setMessageStatus(assistantMessageId, "failed", event.message);
+                debugAppliedEvent(assistantMessageId, event);
+                setTimeout(() => {
+                  streamingBufferRef.current.clear(assistantMessageId);
+                }, TERMINAL_OVERLAY_CLEAR_DELAY_MS);
+              })();
+            }, TERMINAL_STATUS_SETTLE_DELAY_MS)
+          );
           emit();
           return;
         }
@@ -295,33 +363,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           }
 
           if (isTerminalStatus(event.status)) {
-            await streamingBufferRef.current.flush(assistantMessageId);
-
-            const messageStatus =
-              event.status === "completed"
-                ? "completed"
-                : event.status === "cancelled"
-                  ? "cancelled"
-                  : "failed";
-            await setMessageStatus(
-              assistantMessageId,
-              messageStatus,
-              task.error
-            );
-
-            const shouldGenerateTitle =
-              event.status === "completed" && task.isFirstTurn;
-            const titleInput = shouldGenerateTitle
-              ? {
-                  sessionId: task.sessionId,
-                  model: task.model,
-                  userMessage: task.userContent,
-                  assistantMessageId,
-                }
-              : null;
-
-            tasksRef.current.delete(event.taskId);
-
             const terminalOverlayTimer = terminalOverlayTimersRef.current.get(
               assistantMessageId
             );
@@ -332,23 +373,57 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               assistantMessageId,
               setTimeout(() => {
                 terminalOverlayTimersRef.current.delete(assistantMessageId);
-                streamingBufferRef.current.clear(assistantMessageId);
-              }, TERMINAL_OVERLAY_CLEAR_DELAY_MS)
-            );
+                void (async () => {
+                  streamingBufferRef.current.finalize(assistantMessageId);
+                  await streamingBufferRef.current.flush(assistantMessageId);
 
-            if (titleInput) {
-              void scheduleSessionTitleGeneration(
-                titleInput,
-                resolvedRef.current
-              );
-            }
+                  const messageStatus =
+                    event.status === "completed"
+                      ? "completed"
+                      : event.status === "cancelled"
+                        ? "cancelled"
+                        : "failed";
+                  await setMessageStatus(
+                    assistantMessageId,
+                    messageStatus,
+                    task.error
+                  );
+                  debugAppliedEvent(assistantMessageId, event);
+
+                  const shouldGenerateTitle =
+                    event.status === "completed" && task.isFirstTurn;
+                  const titleInput = shouldGenerateTitle
+                    ? {
+                        sessionId: task.sessionId,
+                        model: task.model,
+                        userMessage: task.userContent,
+                        assistantMessageId,
+                      }
+                    : null;
+
+                  tasksRef.current.delete(event.taskId);
+                  emit();
+
+                  setTimeout(() => {
+                    streamingBufferRef.current.clear(assistantMessageId);
+                  }, TERMINAL_OVERLAY_CLEAR_DELAY_MS);
+
+                  if (titleInput) {
+                    void scheduleSessionTitleGeneration(
+                      titleInput,
+                      resolvedRef.current
+                    );
+                  }
+                })();
+              }, TERMINAL_STATUS_SETTLE_DELAY_MS)
+            );
           }
 
           emit();
         }
       }
     },
-    [emit]
+    [debugAppliedEvent, emit]
   );
 
   const dispatchAgentEvent = useCallback(

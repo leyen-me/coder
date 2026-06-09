@@ -15,6 +15,54 @@ use super::types::{
     GenerateSessionTitleParams,
 };
 
+fn debug_emit_log(event: &AgentEvent) {
+    if !cfg!(debug_assertions) {
+        return;
+    }
+
+    match event {
+        AgentEvent::Status { task_id, status } => {
+            eprintln!("[agent-stream-rs] emit task_id={} type=status status={:?}", task_id, status);
+        }
+        AgentEvent::ThinkingDelta { task_id, delta } => {
+            let preview: String = delta.chars().take(120).collect();
+            let suffix = if delta.chars().count() > 120 { "..." } else { "" };
+            eprintln!(
+                "[agent-stream-rs] emit task_id={} type=thinking len={} preview={:?}",
+                task_id,
+                delta.len(),
+                format!("{preview}{suffix}")
+            );
+        }
+        AgentEvent::ContentDelta { task_id, delta } => {
+            let preview: String = delta.chars().take(120).collect();
+            let suffix = if delta.chars().count() > 120 { "..." } else { "" };
+            eprintln!(
+                "[agent-stream-rs] emit task_id={} type=content len={} preview={:?}",
+                task_id,
+                delta.len(),
+                format!("{preview}{suffix}")
+            );
+        }
+        AgentEvent::TurnComplete { task_id, tool_calls } => {
+            eprintln!(
+                "[agent-stream-rs] emit task_id={} type=turn_complete tool_calls={}",
+                task_id,
+                tool_calls.len()
+            );
+        }
+        AgentEvent::Done { task_id } => {
+            eprintln!("[agent-stream-rs] emit task_id={} type=done", task_id);
+        }
+        AgentEvent::Error { task_id, message } => {
+            eprintln!(
+                "[agent-stream-rs] emit task_id={} type=error message={:?}",
+                task_id, message
+            );
+        }
+    }
+}
+
 struct AgentRun {
     status: AgentStatus,
     cancel: CancellationToken,
@@ -164,10 +212,12 @@ impl AgentRegistry {
         );
 
         let emit_task_id = task_id.clone();
-        let _ = channel.send(AgentEvent::Status {
+        let initial_event = AgentEvent::Status {
             task_id: emit_task_id.clone(),
             status: AgentStatus::Running,
-        });
+        };
+        debug_emit_log(&initial_event);
+        let _ = channel.send(initial_event);
 
         tauri::async_runtime::spawn(async move {
             let result = stream_chat_completion(
@@ -180,6 +230,7 @@ impl AgentRegistry {
                 request_extensions.as_ref(),
                 child_cancel.clone(),
                 |event| {
+                    debug_emit_log(&event);
                     let _ = channel.send(event);
                 },
                 &task_id,
@@ -196,16 +247,20 @@ impl AgentRegistry {
             };
 
             if let Err(message) = result {
-                let _ = channel.send(AgentEvent::Error {
+                let error_event = AgentEvent::Error {
                     task_id: task_id.clone(),
                     message,
-                });
+                };
+                debug_emit_log(&error_event);
+                let _ = channel.send(error_event);
             }
 
-            let _ = channel.send(AgentEvent::Status {
+            let final_event = AgentEvent::Status {
                 task_id: task_id.clone(),
                 status: final_status,
-            });
+            };
+            debug_emit_log(&final_event);
+            let _ = channel.send(final_event);
 
             if let Ok(mut registry) = registry.lock() {
                 registry.runs.remove(&task_id);

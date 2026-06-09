@@ -11,6 +11,22 @@ use super::types::{AgentEvent, AgentStatus, AgentToolDefinition, ChatMessage, To
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 
+fn preview_text(value: &str, limit: usize) -> String {
+    let mut chars = value.chars();
+    let preview: String = chars.by_ref().take(limit).collect();
+    if chars.next().is_some() {
+        format!("{preview}...")
+    } else {
+        preview
+    }
+}
+
+fn debug_stream_log(message: impl AsRef<str>) {
+    if cfg!(debug_assertions) {
+        eprintln!("[agent-stream-rs] {}", message.as_ref());
+    }
+}
+
 pub fn chat_completions_url(base_url: &str) -> String {
     let trimmed = base_url.trim().trim_end_matches('/');
     if trimmed.ends_with("/v1") {
@@ -142,6 +158,15 @@ pub async fn stream_chat_completion(
     mut emit: impl FnMut(AgentEvent) + Send,
     task_id: &str,
 ) -> Result<(), String> {
+    debug_stream_log(format!(
+        "start task_id={} model={} messages={} tools={} request_extensions={}",
+        task_id,
+        model,
+        messages.len(),
+        tools.map(|value| value.len()).unwrap_or(0),
+        request_extensions.is_some()
+    ));
+
     let request_body = ChatCompletionRequest {
         model,
         messages,
@@ -191,6 +216,7 @@ pub async fn stream_chat_completion(
 
     while let Some(chunk_result) = stream.next().await {
         if cancel.is_cancelled() {
+            debug_stream_log(format!("cancelled task_id={} while reading stream", task_id));
             emit(AgentEvent::Status {
                 task_id: task_id.to_string(),
                 status: AgentStatus::Cancelled,
@@ -240,6 +266,12 @@ fn finalize_stream(
     mut emit: impl FnMut(AgentEvent),
 ) -> Result<(), String> {
     let resolved_tool_calls = tool_calls.finalize();
+    debug_stream_log(format!(
+        "finalize task_id={} finish_reason={:?} tool_calls={}",
+        task_id,
+        finish_reason,
+        resolved_tool_calls.len()
+    ));
     if finish_reason.as_deref() == Some("tool_calls") || !resolved_tool_calls.is_empty() {
         emit(AgentEvent::TurnComplete {
             task_id: task_id.to_string(),
@@ -267,6 +299,7 @@ fn process_sse_line(
 
     let payload = line.strip_prefix("data:").map(str::trim).unwrap_or(line);
     if payload == "[DONE]" {
+        debug_stream_log(format!("done task_id={} received [DONE]", task_id));
         return true;
     }
 
@@ -289,6 +322,12 @@ fn process_sse_line(
 
     if let Some(reasoning) = &delta.reasoning_content {
         if !reasoning.is_empty() {
+            debug_stream_log(format!(
+                "delta task_id={} kind=reasoning len={} preview={:?}",
+                task_id,
+                reasoning.len(),
+                preview_text(reasoning, 120)
+            ));
             emit(AgentEvent::ThinkingDelta {
                 task_id: task_id.to_string(),
                 delta: reasoning.clone(),
@@ -298,6 +337,12 @@ fn process_sse_line(
 
     if let Some(content) = &delta.content {
         if !content.is_empty() {
+            debug_stream_log(format!(
+                "delta task_id={} kind=content len={} preview={:?}",
+                task_id,
+                content.len(),
+                preview_text(content, 120)
+            ));
             emit(AgentEvent::ContentDelta {
                 task_id: task_id.to_string(),
                 delta: content.clone(),
@@ -306,6 +351,11 @@ fn process_sse_line(
     }
 
     if let Some(next_tool_calls) = &delta.tool_calls {
+        debug_stream_log(format!(
+            "delta task_id={} kind=tool_calls count={}",
+            task_id,
+            next_tool_calls.len()
+        ));
         for tool_call in next_tool_calls {
             tool_calls.ingest(StreamToolCallDelta {
                 index: tool_call.index,

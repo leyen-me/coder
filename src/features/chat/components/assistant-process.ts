@@ -27,7 +27,10 @@ export function buildAssistantProcessSteps(input: {
   processSteps?: MessageProcessStep[];
   answerText: string;
   thinkingText: string;
+  isThinkingStreaming: boolean;
+  showReasoning: boolean;
   toolInvocations: MessageToolInvocation[];
+  isAnswerStreaming: boolean;
   isMessageStreaming: boolean;
 }): AssistantProcessStep[] {
   const persistedSteps = normalizeMessageProcessSteps(input.processSteps);
@@ -35,18 +38,21 @@ export function buildAssistantProcessSteps(input: {
     return buildPersistedAssistantProcessSteps(
       persistedSteps,
       input.toolInvocations,
+      input.answerText,
+      input.thinkingText,
+      input.showReasoning,
       input.isMessageStreaming
     );
   }
 
   const steps: AssistantProcessStep[] = [];
 
-  if (input.thinkingText.trim()) {
+  if (input.showReasoning && input.thinkingText.trim()) {
     steps.push({
       id: "reasoning",
       kind: "reasoning",
       text: input.thinkingText,
-      isStreaming: input.isMessageStreaming && !input.answerText.trim(),
+      isStreaming: input.isThinkingStreaming,
     });
   }
 
@@ -63,7 +69,7 @@ export function buildAssistantProcessSteps(input: {
       id: "answer",
       kind: "answer",
       text: input.answerText,
-      isStreaming: input.isMessageStreaming,
+      isStreaming: input.isAnswerStreaming,
     });
   }
 
@@ -73,6 +79,9 @@ export function buildAssistantProcessSteps(input: {
 function buildPersistedAssistantProcessSteps(
   processSteps: MessageProcessStep[],
   toolInvocations: MessageToolInvocation[],
+  answerText: string,
+  thinkingText: string,
+  showReasoning: boolean,
   isMessageStreaming: boolean
 ): AssistantProcessStep[] {
   const toolInvocationsById = new Map(
@@ -83,6 +92,8 @@ function buildPersistedAssistantProcessSteps(
     .find((step) => step.kind !== "tool")?.id;
 
   const resolvedSteps: AssistantProcessStep[] = [];
+  let lastReasoningIndex = -1;
+  let lastAnswerIndex = -1;
 
   for (const step of processSteps) {
     if (step.kind === "tool") {
@@ -101,17 +112,63 @@ function buildPersistedAssistantProcessSteps(
       continue;
     }
 
+    if (step.kind === "reasoning" && !showReasoning) {
+      continue;
+    }
+
     resolvedSteps.push({
       id: step.id,
       kind: step.kind,
       text: step.text,
       isStreaming: isMessageStreaming && step.id === lastTextStepId,
     });
+
+    if (step.kind === "reasoning") {
+      lastReasoningIndex = resolvedSteps.length - 1;
+      continue;
+    }
+
+    lastAnswerIndex = resolvedSteps.length - 1;
+  }
+
+  const normalizedThinking = thinkingText.trim();
+  if (showReasoning && normalizedThinking) {
+    if (lastReasoningIndex === -1) {
+      resolvedSteps.unshift({
+        id: "reasoning:compat",
+        kind: "reasoning",
+        text: normalizedThinking,
+        isStreaming: isMessageStreaming && !answerText.trim(),
+      });
+    }
+  }
+
+  const normalizedAnswer = answerText.trim();
+  if (normalizedAnswer) {
+    if (lastAnswerIndex === -1) {
+      resolvedSteps.push({
+        id: "answer:compat",
+        kind: "answer",
+        text: normalizedAnswer,
+        isStreaming: isMessageStreaming,
+      });
+    } else {
+      const existing = resolvedSteps[lastAnswerIndex];
+      if (
+        existing?.kind === "answer" &&
+        existing.text !== normalizedAnswer
+      ) {
+        resolvedSteps[lastAnswerIndex] = {
+          ...existing,
+          text: normalizedAnswer,
+          isStreaming: isMessageStreaming,
+        };
+      }
+    }
   }
 
   return resolvedSteps;
 }
-
 export function getLatestAssistantAnswerText(
   steps: AssistantProcessStep[]
 ): string {
