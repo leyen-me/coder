@@ -258,7 +258,10 @@ export const MessageItem = memo(function MessageItem({
   return (
     <Message from="assistant">
       {showProcessTimeline ? (
-        <AssistantProcessView steps={processSteps} />
+        <AssistantProcessView
+          showReasoning={showReasoning}
+          steps={processSteps}
+        />
       ) : answerText ? (
         <StreamingMessageContent isStreaming={isStreaming} text={answerText} />
       ) : null}

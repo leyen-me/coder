@@ -100,9 +100,13 @@ export function buildAssistantProcessSteps(input: {
   isAnswerStreaming: boolean;
   isMessageStreaming: boolean;
 }): AssistantProcessStep[] {
-  const hideStreamingAnswer =
-    input.isMessageStreaming && (input.showReasoning || input.toolInvocations.length > 0);
   const persistedSteps = normalizeMessageProcessSteps(input.processSteps);
+  const hasToolActivity =
+    input.toolInvocations.length > 0 ||
+    persistedSteps.some((step) => step.kind === "tool");
+  const hideStreamingAnswer =
+    input.isMessageStreaming &&
+    (input.showReasoning ? hasToolActivity || input.showReasoning : hasToolActivity);
   if (persistedSteps.length > 0) {
     return buildPersistedAssistantProcessSteps(
       persistedSteps,
