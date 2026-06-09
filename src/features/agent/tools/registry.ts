@@ -4,7 +4,9 @@ import {
   EDIT_FILE_TOOL_NAME,
   GLOB_TOOL_NAME,
   GREP_TOOL_NAME,
+  KILL_SHELL_TOOL_NAME,
   LIST_DIR_TOOL_NAME,
+  LIST_SHELLS_TOOL_NAME,
   READ_FILE_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
   SHELL_TOOL_NAME,
@@ -14,7 +16,9 @@ import { awaitShellHandler } from "./await-shell";
 import { editFileHandler } from "./edit-file";
 import { globHandler } from "./glob";
 import { grepHandler } from "./grep";
+import { killShellHandler } from "./kill-shell";
 import { listDirHandler } from "./list-dir";
+import { listShellsHandler } from "./list-shells";
 import { readFileHandler } from "./read-file";
 import { replaceFileHandler } from "./replace-file";
 import { shellHandler } from "./shell";
@@ -36,6 +40,8 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [GREP_TOOL_NAME]: grepHandler,
   [SHELL_TOOL_NAME]: shellHandler,
   [AWAIT_TOOL_NAME]: awaitShellHandler,
+  [LIST_SHELLS_TOOL_NAME]: listShellsHandler,
+  [KILL_SHELL_TOOL_NAME]: killShellHandler,
 };
 
 export function getAgentToolDefinitions(): AgentToolDefinition[] {

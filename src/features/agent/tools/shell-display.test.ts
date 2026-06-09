@@ -71,6 +71,34 @@ describe("shell-display", () => {
     expect(output).not.toContain("\u001B[32m");
   });
 
+  it("formats list_shells chip label from result count", () => {
+    const label = getShellChipLabel(
+      "list_shells",
+      { status_filter: "running" },
+      {
+        ok: true,
+        tool: "list_shells",
+        data: { shells: [], total: 2 },
+      }
+    );
+
+    expect(label).toBe("list_shells: 2 shells (running)");
+  });
+
+  it("formats kill_shell chip label from shell_id", () => {
+    const label = getShellChipLabel(
+      "kill_shell",
+      { shell_id: "shell-123" },
+      {
+        ok: true,
+        tool: "kill_shell",
+        data: { shellId: "shell-123", killed: true },
+      }
+    );
+
+    expect(label).toBe("kill_shell: shell-123");
+  });
+
   it("formats timed-out shell output so AI and UI can read partial stdout", () => {
     const output = formatShellOutputForDisplay({
       ok: true,

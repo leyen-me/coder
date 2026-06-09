@@ -1,7 +1,12 @@
 import { stripAnsi } from "@/lib/strip-ansi";
 
-import { AWAIT_TOOL_NAME, SHELL_TOOL_NAME } from "./definitions";
-import type { ShellData, ShellStatus } from "./types";
+import {
+  AWAIT_TOOL_NAME,
+  KILL_SHELL_TOOL_NAME,
+  LIST_SHELLS_TOOL_NAME,
+  SHELL_TOOL_NAME,
+} from "./definitions";
+import type { ListShellsData, ShellData, ShellStatus } from "./types";
 
 export function getShellChipLabel(
   toolName: string,
@@ -14,6 +19,14 @@ export function getShellChipLabel(
 
   if (toolName === AWAIT_TOOL_NAME) {
     return formatAwaitChipLabel(input, output);
+  }
+
+  if (toolName === LIST_SHELLS_TOOL_NAME) {
+    return formatListShellsChipLabel(input, output);
+  }
+
+  if (toolName === KILL_SHELL_TOOL_NAME) {
+    return formatKillShellChipLabel(input, output);
   }
 
   return null;
@@ -67,6 +80,39 @@ function formatShellChipLabel(input: unknown, output: unknown): string {
   }
 
   return `shell${statusSuffix}`;
+}
+
+function formatListShellsChipLabel(input: unknown, output: unknown): string {
+  const data = extractListShellsData(output);
+  const inputRecord = asRecord(input);
+  const statusFilter =
+    typeof inputRecord?.status_filter === "string"
+      ? inputRecord.status_filter
+      : "running";
+
+  if (data) {
+    const countLabel = data.total === 1 ? "1 shell" : `${data.total} shells`;
+    return `list_shells: ${countLabel} (${statusFilter})`;
+  }
+
+  return `list_shells (${statusFilter})`;
+}
+
+function formatKillShellChipLabel(input: unknown, output: unknown): string {
+  const inputRecord = asRecord(input);
+  const shellId =
+    typeof inputRecord?.shell_id === "string"
+      ? inputRecord.shell_id
+      : "shell";
+
+  const envelope = asRecord(output);
+  if (envelope?.ok === true) {
+    return `kill_shell: ${shellId}`;
+  }
+
+  const preview =
+    shellId.length > 24 ? `${shellId.slice(0, 24)}…` : shellId;
+  return `kill_shell: ${preview}`;
 }
 
 function formatAwaitChipLabel(input: unknown, output: unknown): string {
@@ -139,6 +185,28 @@ function extractShellData(output: unknown): ShellData | null {
       ? record.status
       : "completed") as ShellStatus,
     shellId: typeof record.shellId === "string" ? record.shellId : undefined,
+  };
+}
+
+function extractListShellsData(output: unknown): ListShellsData | null {
+  const envelope = asRecord(output);
+  if (!envelope || envelope.ok !== true) {
+    return null;
+  }
+
+  const data = envelope.data;
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+
+  const record = data as Record<string, unknown>;
+  if (!Array.isArray(record.shells) || typeof record.total !== "number") {
+    return null;
+  }
+
+  return {
+    shells: record.shells as ListShellsData["shells"],
+    total: record.total,
   };
 }
 

@@ -18,6 +18,10 @@ export {
   SHELL_TOOL_NAME,
   AWAIT_TOOL,
   AWAIT_TOOL_NAME,
+  LIST_SHELLS_TOOL,
+  LIST_SHELLS_TOOL_NAME,
+  KILL_SHELL_TOOL,
+  KILL_SHELL_TOOL_NAME,
 } from "./definitions";
 export { toApiToolCall, toApiToolCalls, type ApiToolCall } from "./api-tool-call";
 export { executeToolCall, getAgentToolDefinitions, getToolHandler } from "./registry";
@@ -46,5 +50,8 @@ export type {
   ShellData,
   ShellInfo,
   ShellStatus,
+  ListShellsData,
+  ListShellsEntry,
+  KillShellData,
   ToolExecutionContext,
 } from "./types";

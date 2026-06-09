@@ -164,6 +164,31 @@ export type ShellInfo = {
   stderr?: string;
 };
 
+export type ListShellsEntry = {
+  shellId: string;
+  command: string;
+  description?: string;
+  workingDirectory: string;
+  status: ShellStatus;
+  exitCode?: number;
+  startedAtMs: number;
+  taskId?: string;
+  stdout: string;
+  stderr: string;
+  stdoutTruncated: boolean;
+  stderrTruncated: boolean;
+};
+
+export type ListShellsData = {
+  shells: ListShellsEntry[];
+  total: number;
+};
+
+export type KillShellData = {
+  shellId: string;
+  killed: boolean;
+};
+
 export type ToolExecutionContext = {
   workspaceDir: string | null;
   taskId?: string;

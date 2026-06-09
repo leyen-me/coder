@@ -9,6 +9,8 @@ export const GLOB_TOOL_NAME = "glob";
 export const GREP_TOOL_NAME = "grep";
 export const SHELL_TOOL_NAME = "shell";
 export const AWAIT_TOOL_NAME = "await";
+export const LIST_SHELLS_TOOL_NAME = "list_shells";
+export const KILL_SHELL_TOOL_NAME = "kill_shell";
 
 export const LIST_DIR_TOOL: AgentToolDefinition = {
   type: "function",
@@ -360,6 +362,52 @@ export const AWAIT_TOOL: AgentToolDefinition = {
   },
 };
 
+export const LIST_SHELLS_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: LIST_SHELLS_TOOL_NAME,
+    description:
+      "List background shell processes started by the agent. Defaults to running shells only. Use before await when shell_id was lost, or to find processes to kill.",
+    parameters: {
+      type: "object",
+      properties: {
+        status_filter: {
+          type: "string",
+          description:
+            'Filter by status. Default "running". Use "all" to include completed and failed shells.',
+          enum: ["running", "completed", "failed", "timeout", "cancelled", "all"],
+          default: "running",
+        },
+        task_id_filter: {
+          type: "string",
+          description: "Optional task ID to list only shells from a specific agent run.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+};
+
+export const KILL_SHELL_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: KILL_SHELL_TOOL_NAME,
+    description:
+      "Kill a background shell process by shell_id. Use list_shells first to find the target shell_id.",
+    parameters: {
+      type: "object",
+      properties: {
+        shell_id: {
+          type: "string",
+          description: "The shell_id to terminate.",
+        },
+      },
+      required: ["shell_id"],
+      additionalProperties: false,
+    },
+  },
+};
+
 export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   LIST_DIR_TOOL,
   READ_FILE_TOOL,
@@ -370,4 +418,6 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   GREP_TOOL,
   SHELL_TOOL,
   AWAIT_TOOL,
+  LIST_SHELLS_TOOL,
+  KILL_SHELL_TOOL,
 ];
