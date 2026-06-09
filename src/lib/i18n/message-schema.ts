@@ -205,6 +205,16 @@ export type Messages = {
     chatSession: { title: string };
     comingSoon: string;
   };
+  terminal: {
+    processesTab: string;
+    terminalTab: string;
+    noProcesses: string;
+    killProcess: string;
+    newTerminal: string;
+    sessionLabel: string;
+    openTerminalHint: string;
+    workspaceRequired: string;
+  };
 };
 
 type Join<K extends string, P extends string> = P extends "" ? K : `${K}.${P}`;

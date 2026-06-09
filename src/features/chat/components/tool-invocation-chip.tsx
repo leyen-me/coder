@@ -7,6 +7,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { AWAIT_TOOL_NAME, SHELL_TOOL_NAME } from "@/features/agent/tools/definitions";
+import { getShellChipLabel } from "@/features/agent/tools/shell-display";
 import type { MessageToolInvocation } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -19,6 +21,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { ShellToolOutput } from "./shell-tool-output";
+
 type ToolInvocationChipProps = {
   invocation: MessageToolInvocation;
   className?: string;
@@ -30,6 +34,11 @@ export function ToolInvocationChip({
 }: ToolInvocationChipProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const chipLabel =
+    getShellChipLabel(invocation.name, invocation.input, invocation.output) ??
+    invocation.name;
+  const isShellTool =
+    invocation.name === SHELL_TOOL_NAME || invocation.name === AWAIT_TOOL_NAME;
 
   return (
     <>
@@ -43,7 +52,7 @@ export function ToolInvocationChip({
         type="button"
       >
         <ToolStatusIcon state={invocation.state as ToolUIPart["state"]} />
-        <span>{invocation.name}</span>
+        <span>{chipLabel}</span>
       </button>
       <Sheet onOpenChange={setOpen} open={open}>
         <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-2xl">
@@ -54,9 +63,12 @@ export function ToolInvocationChip({
           </SheetHeader>
           <div className="space-y-4 px-4 pb-4">
             <ToolInput input={invocation.input} />
+            {isShellTool && invocation.output ? (
+              <ShellToolOutput output={invocation.output} />
+            ) : null}
             <ToolOutput
               errorText={invocation.errorText}
-              output={invocation.output}
+              output={isShellTool ? undefined : invocation.output}
             />
           </div>
         </SheetContent>

@@ -218,6 +218,16 @@ export const enMessages = {
     chatSession: { title: "Chat {id}" },
     comingSoon: "Coming soon",
   },
+  terminal: {
+    processesTab: "Processes",
+    terminalTab: "Terminal",
+    noProcesses: "No background processes",
+    killProcess: "Kill",
+    newTerminal: "New terminal",
+    sessionLabel: "bash",
+    openTerminalHint: "Click New terminal to open an interactive shell",
+    workspaceRequired: "Select a workspace to use the terminal",
+  },
   mockChats: [
     {
       id: "1",

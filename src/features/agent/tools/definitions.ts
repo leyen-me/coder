@@ -7,6 +7,8 @@ export const REPLACE_FILE_TOOL_NAME = "replace_file";
 export const EDIT_FILE_TOOL_NAME = "edit_file";
 export const GLOB_TOOL_NAME = "glob";
 export const GREP_TOOL_NAME = "grep";
+export const SHELL_TOOL_NAME = "shell";
+export const AWAIT_TOOL_NAME = "await";
 
 export const LIST_DIR_TOOL: AgentToolDefinition = {
   type: "function",
@@ -297,6 +299,67 @@ export const GREP_TOOL: AgentToolDefinition = {
   },
 };
 
+export const SHELL_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: SHELL_TOOL_NAME,
+    description:
+      "Execute a shell command in the workspace. Use for builds, tests, git, and other CLI tasks. Not for interactive programs (no -i flags). Set block_until_ms to 0 to run in background and use await to poll.",
+    parameters: {
+      type: "object",
+      properties: {
+        command: {
+          type: "string",
+          description: "The shell command to execute.",
+        },
+        description: {
+          type: "string",
+          description: "Short human-readable description for UI display only.",
+        },
+        working_directory: {
+          type: "string",
+          description:
+            "Directory to run the command in, relative to workspace root. Defaults to workspace root.",
+        },
+        block_until_ms: {
+          type: "integer",
+          description:
+            "Max wait time in ms. Default 30000. Use 0 for background mode (returns shell_id). Max 600000.",
+          default: 30000,
+        },
+      },
+      required: ["command"],
+      additionalProperties: false,
+    },
+  },
+};
+
+export const AWAIT_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: AWAIT_TOOL_NAME,
+    description:
+      "Poll a background shell started with shell(block_until_ms=0) until it completes or times out.",
+    parameters: {
+      type: "object",
+      properties: {
+        shell_id: {
+          type: "string",
+          description: "The shell_id returned from a background shell invocation.",
+        },
+        block_until_ms: {
+          type: "integer",
+          description:
+            "Max wait time in ms before returning current output. Default 30000. Max 600000.",
+          default: 30000,
+        },
+      },
+      required: ["shell_id"],
+      additionalProperties: false,
+    },
+  },
+};
+
 export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   LIST_DIR_TOOL,
   READ_FILE_TOOL,
@@ -305,4 +368,6 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   EDIT_FILE_TOOL,
   GLOB_TOOL,
   GREP_TOOL,
+  SHELL_TOOL,
+  AWAIT_TOOL,
 ];

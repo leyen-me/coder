@@ -50,6 +50,10 @@ fn resolve_os_version() -> String {
 }
 
 fn resolve_shell() -> String {
+    resolve_shell_for_command()
+}
+
+pub fn resolve_shell_for_command() -> String {
     std::env::var("SHELL").unwrap_or_else(|_| {
         if cfg!(target_os = "windows") {
             std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".to_string())

@@ -110,7 +110,7 @@ describe("runAgentWithTools", () => {
     expect(executeToolCallMock).toHaveBeenCalledWith(
       "list_dir",
       '{"path":"."}',
-      { workspaceDir: null }
+      { workspaceDir: null, taskId: "task-1" }
     );
   });
 });

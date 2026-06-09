@@ -128,8 +128,43 @@ export type GrepData = {
   skippedFiles?: number;
 };
 
+export type ShellStatus =
+  | "running"
+  | "completed"
+  | "failed"
+  | "timeout"
+  | "cancelled";
+
+export type ShellData = {
+  command: string;
+  description?: string;
+  workingDirectory: string;
+  stdout: string;
+  stderr: string;
+  stdoutTruncated: boolean;
+  stderrTruncated: boolean;
+  stdoutTotalBytes: number;
+  stderrTotalBytes: number;
+  exitCode?: number;
+  durationMs: number;
+  status: ShellStatus;
+  shellId?: string;
+};
+
+export type ShellInfo = {
+  shellId: string;
+  command: string;
+  description?: string;
+  workingDirectory: string;
+  status: ShellStatus;
+  exitCode?: number;
+  startedAtMs: number;
+  taskId?: string;
+};
+
 export type ToolExecutionContext = {
   workspaceDir: string | null;
+  taskId?: string;
 };
 
 export type ToolHandler = (

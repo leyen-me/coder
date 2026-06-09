@@ -217,6 +217,16 @@ export const zhMessages = {
     chatSession: { title: "聊天 {id}" },
     comingSoon: "即将推出",
   },
+  terminal: {
+    processesTab: "进程",
+    terminalTab: "终端",
+    noProcesses: "暂无后台进程",
+    killProcess: "终止",
+    newTerminal: "新建终端",
+    sessionLabel: "bash",
+    openTerminalHint: "点击「新建终端」打开交互式 Shell",
+    workspaceRequired: "请先选择工作区以使用终端",
+  },
   mockChats: [
     { id: "1", title: "帮我构思一个合适的入门任务", relativeTime: "2 周前" },
     { id: "2", title: "向我介绍这个项目", relativeTime: "2 周前" },

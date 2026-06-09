@@ -11,8 +11,10 @@ use agent::{
 use tauri::Manager;
 use tools::{
     agent_get_runtime_environment, git_checkout_branch, git_get_current_branch, git_list_branches,
-    tool_edit_file, tool_glob, tool_grep, tool_list_dir, tool_read_file, tool_replace_file,
-    tool_write_file,
+    pty_close, pty_create, pty_resize, pty_write, shell_kill, shell_kill_by_task, shell_list,
+    tool_await, tool_edit_file, tool_glob, tool_grep, tool_list_dir, tool_read_file,
+    tool_replace_file, tool_shell, tool_write_file, PtyRegistry, PtyState, ShellRegistry,
+    ShellState,
 };
 
 const MAIN_WINDOW_LABEL: &str = "main";
@@ -34,6 +36,8 @@ pub fn run() {
         .manage(AgentState(Arc::new(Mutex::new(
             AgentRegistry::new().expect("failed to initialize agent registry"),
         ))))
+        .manage(ShellState(Arc::new(Mutex::new(ShellRegistry::new()))))
+        .manage(PtyState(Arc::new(Mutex::new(PtyRegistry::new()))))
         .setup(|app| {
             configure_main_window(app);
             Ok(())
@@ -50,6 +54,15 @@ pub fn run() {
             tool_edit_file,
             tool_glob,
             tool_grep,
+            tool_shell,
+            tool_await,
+            shell_kill,
+            shell_kill_by_task,
+            shell_list,
+            pty_create,
+            pty_write,
+            pty_resize,
+            pty_close,
             agent_get_runtime_environment,
             git_list_branches,
             git_get_current_branch,

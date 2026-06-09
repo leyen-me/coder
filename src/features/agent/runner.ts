@@ -78,6 +78,11 @@ export async function startAgent(
 
 export async function cancelAgent(taskId: string): Promise<void> {
   if (isTauri()) {
+    try {
+      await invoke("shell_kill_by_task", { taskId });
+    } catch {
+      // Best-effort cleanup for background shell processes.
+    }
     await invoke("agent_cancel", { taskId });
     return;
   }

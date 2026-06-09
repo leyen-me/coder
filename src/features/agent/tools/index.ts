@@ -14,6 +14,10 @@ export {
   GLOB_TOOL_NAME,
   GREP_TOOL,
   GREP_TOOL_NAME,
+  SHELL_TOOL,
+  SHELL_TOOL_NAME,
+  AWAIT_TOOL,
+  AWAIT_TOOL_NAME,
 } from "./definitions";
 export { toApiToolCall, toApiToolCalls, type ApiToolCall } from "./api-tool-call";
 export { executeToolCall, getAgentToolDefinitions, getToolHandler } from "./registry";
@@ -39,5 +43,8 @@ export type {
   GrepContentMatch,
   GrepCountMatch,
   GrepData,
+  ShellData,
+  ShellInfo,
+  ShellStatus,
   ToolExecutionContext,
 } from "./types";

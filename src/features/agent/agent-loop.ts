@@ -180,6 +180,7 @@ async function appendToolResults(
 
     const result = await executeToolCall(call.name, call.arguments, {
       workspaceDir: context.workspaceDir,
+      taskId: context.taskId,
     });
 
     const patch = toolResultToInvocationPatch(result);

@@ -7,6 +7,14 @@ import { useAgentStore } from "@/features/agent/store/agent-store";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import { BottomPanel } from "@/features/terminal/components/bottom-panel";
+import { useBottomPanel } from "@/features/terminal/bottom-panel-context";
+
 import { ChatMessageList } from "../components/chat-message-list";
 import { PromptComposer } from "../components/prompt-composer";
 import { useComposerThinking } from "../hooks/use-composer-thinking";
@@ -59,6 +67,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
   const activeTask = getSessionTask(chatId);
   const isRunning = isSessionRunning(chatId) || isSubmitting;
+  const { isOpen: isBottomPanelOpen } = useBottomPanel();
 
   useEffect(() => {
     if (session?.model) {
@@ -169,8 +178,8 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     );
   }
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+  const chatContent = (
+    <>
       <ChatMessageList
         editingMessageId={editingMessageId}
         messages={messages}
@@ -217,6 +226,31 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
           />
         </div>
       </div>
-    </div>
+    </>
+  );
+
+  if (!isBottomPanelOpen) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {chatContent}
+      </div>
+    );
+  }
+
+  return (
+    <ResizablePanelGroup
+      className="min-h-0 flex-1"
+      orientation="vertical"
+    >
+      <ResizablePanel defaultSize={75} minSize={40}>
+        <div className="flex h-full min-h-0 flex-col overflow-hidden">
+          {chatContent}
+        </div>
+      </ResizablePanel>
+      <ResizableHandle withHandle />
+      <ResizablePanel defaultSize={25} minSize={15}>
+        <BottomPanel workspaceDir={workspaceBinding.workspaceDir} />
+      </ResizablePanel>
+    </ResizablePanelGroup>
   );
 }

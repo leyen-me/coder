@@ -3,6 +3,7 @@ import { Outlet, useLocation, useOutletContext } from "react-router-dom";
 import { MainColumn } from "@/components/layout/main-column";
 import { AppSidebar } from "@/features/chat/components/app-sidebar";
 import { useSessionTitleBarSlots } from "@/features/chat/hooks/use-session-title-bar-slots";
+import { BottomPanelProvider } from "@/features/terminal/bottom-panel-context";
 
 import type { ShellOutletContext } from "./shell-outlet-context";
 
@@ -13,7 +14,7 @@ export function MainLayout() {
   const sessionTitleBar = useSessionTitleBarSlots(pathname);
 
   return (
-    <>
+    <BottomPanelProvider>
       <AppSidebar open={sidebarOpen} />
 
       <MainColumn
@@ -24,6 +25,6 @@ export function MainLayout() {
           <Outlet />
         </div>
       </MainColumn>
-    </>
+    </BottomPanelProvider>
   );
 }

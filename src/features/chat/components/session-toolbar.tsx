@@ -6,10 +6,13 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useBottomPanel } from "@/features/terminal/bottom-panel-context";
 import { useTranslation } from "@/lib/i18n/locale-provider";
+import { cn } from "@/lib/utils";
 
 export function SessionToolbar() {
   const { t } = useTranslation();
+  const { isOpen, toggle } = useBottomPanel();
 
   return (
     <div className="flex shrink-0 items-center gap-1">
@@ -19,8 +22,13 @@ export function SessionToolbar() {
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="text-muted-foreground"
+            className={cn(
+              "text-muted-foreground",
+              isOpen && "bg-muted text-foreground"
+            )}
             aria-label={t("session.bottomPanel")}
+            aria-pressed={isOpen}
+            onClick={toggle}
           >
             <PanelBottom className="size-4" />
           </Button>
