@@ -11,7 +11,7 @@ use agent::{
 use tauri::Manager;
 use tools::{
     agent_get_runtime_environment, git_checkout_branch, git_get_current_branch, git_list_branches,
-    tool_list_dir, tool_read_file,
+    tool_edit_file, tool_list_dir, tool_read_file, tool_replace_file, tool_write_file,
 };
 
 const MAIN_WINDOW_LABEL: &str = "main";
@@ -44,6 +44,9 @@ pub fn run() {
             agent_generate_session_title,
             tool_list_dir,
             tool_read_file,
+            tool_write_file,
+            tool_replace_file,
+            tool_edit_file,
             agent_get_runtime_environment,
             git_list_branches,
             git_get_current_branch,

@@ -36,6 +36,75 @@ pub fn resolve_workspace_path(workspace: &Path, raw_path: &str) -> Result<PathBu
     Ok(canonical_target)
 }
 
+/// Resolves a write target that may not exist yet.
+///
+/// Existing path prefixes are canonicalized so symlink escapes are rejected.
+/// Missing parent directories are preserved for create-style operations.
+pub fn resolve_workspace_write_path(workspace: &Path, raw_path: &str) -> Result<PathBuf, String> {
+    let trimmed = raw_path.trim();
+    if trimmed.is_empty() {
+        return Err("path is required".to_string());
+    }
+    if trimmed == "." {
+        return Err("path must refer to a file".to_string());
+    }
+
+    let canonical_workspace = workspace
+        .canonicalize()
+        .map_err(|error| format!("Invalid workspaceDir: {error}"))?;
+
+    let candidate = {
+        let path = PathBuf::from(trimmed);
+        if path.is_absolute() {
+            path
+        } else {
+            canonical_workspace.join(path)
+        }
+    };
+
+    let resolved = resolve_with_missing_suffix(&candidate)?;
+
+    if !is_within_workspace(&resolved, &canonical_workspace) {
+        return Err("Path must stay within the workspace".to_string());
+    }
+
+    Ok(resolved)
+}
+
+fn resolve_with_missing_suffix(path: &Path) -> Result<PathBuf, String> {
+    if path.exists() {
+        return path
+            .canonicalize()
+            .map_err(|error| format!("Invalid path: {error}"));
+    }
+
+    let mut suffix: Vec<std::ffi::OsString> = Vec::new();
+    let mut current = path.to_path_buf();
+
+    while !current.exists() {
+        let file_name = current
+            .file_name()
+            .ok_or_else(|| "Invalid path".to_string())?
+            .to_os_string();
+        suffix.push(file_name);
+        current = current
+            .parent()
+            .ok_or_else(|| "Invalid path".to_string())?
+            .to_path_buf();
+    }
+
+    let canonical_base = current
+        .canonicalize()
+        .map_err(|error| format!("Invalid path: {error}"))?;
+
+    let mut resolved = canonical_base;
+    while let Some(component) = suffix.pop() {
+        resolved.push(component);
+    }
+
+    Ok(resolved)
+}
+
 /// Returns the workspace-relative path using forward slashes.
 pub fn workspace_relative_path(workspace: &Path, absolute_path: &Path) -> String {
     let canonical_workspace = workspace
@@ -120,6 +189,17 @@ mod tests {
         let error = resolve_workspace_path(&temp, outside.to_string_lossy().as_ref())
             .expect_err("outside path");
         assert!(error.contains("within the workspace"));
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn resolves_nonexistent_write_path_inside_workspace() {
+        let temp = temp_workspace("write");
+        let canonical_workspace = temp.canonicalize().expect("canonical workspace");
+        let resolved = super::resolve_workspace_write_path(&temp, "src/new.ts")
+            .expect("resolve write path");
+        assert!(resolved.starts_with(&canonical_workspace));
+        assert_eq!(resolved.file_name().and_then(|name| name.to_str()), Some("new.ts"));
         let _ = fs::remove_dir_all(temp);
     }
 

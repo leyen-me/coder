@@ -1,6 +1,16 @@
-import { AGENT_TOOL_DEFINITIONS, LIST_DIR_TOOL_NAME, READ_FILE_TOOL_NAME } from "./definitions";
+import {
+  AGENT_TOOL_DEFINITIONS,
+  EDIT_FILE_TOOL_NAME,
+  LIST_DIR_TOOL_NAME,
+  READ_FILE_TOOL_NAME,
+  REPLACE_FILE_TOOL_NAME,
+  WRITE_FILE_TOOL_NAME,
+} from "./definitions";
+import { editFileHandler } from "./edit-file";
 import { listDirHandler } from "./list-dir";
 import { readFileHandler } from "./read-file";
+import { replaceFileHandler } from "./replace-file";
+import { writeFileHandler } from "./write-file";
 import type {
   AgentToolDefinition,
   ToolExecutionContext,
@@ -11,6 +21,9 @@ import type { ToolResultEnvelope } from "./result";
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [LIST_DIR_TOOL_NAME]: listDirHandler,
   [READ_FILE_TOOL_NAME]: readFileHandler,
+  [WRITE_FILE_TOOL_NAME]: writeFileHandler,
+  [REPLACE_FILE_TOOL_NAME]: replaceFileHandler,
+  [EDIT_FILE_TOOL_NAME]: editFileHandler,
 };
 
 export function getAgentToolDefinitions(): AgentToolDefinition[] {

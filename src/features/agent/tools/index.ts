@@ -4,6 +4,12 @@ export {
   LIST_DIR_TOOL_NAME,
   READ_FILE_TOOL,
   READ_FILE_TOOL_NAME,
+  WRITE_FILE_TOOL,
+  WRITE_FILE_TOOL_NAME,
+  REPLACE_FILE_TOOL,
+  REPLACE_FILE_TOOL_NAME,
+  EDIT_FILE_TOOL,
+  EDIT_FILE_TOOL_NAME,
 } from "./definitions";
 export { toApiToolCall, toApiToolCalls, type ApiToolCall } from "./api-tool-call";
 export { executeToolCall, getAgentToolDefinitions, getToolHandler } from "./registry";
@@ -21,5 +27,9 @@ export type {
   ListDirEntry,
   ReadFileData,
   ReadFileToolErrorPayload,
+  WriteFileData,
+  WriteFileToolErrorPayload,
+  FileModifyData,
+  FileModifyToolErrorPayload,
   ToolExecutionContext,
 } from "./types";

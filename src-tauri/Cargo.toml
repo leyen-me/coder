@@ -30,4 +30,5 @@ tokio-util = { version = "0.7", features = ["rt"] }
 futures = "0.3"
 encoding_rs = "0.8"
 ignore = "0.4"
+sha2 = "0.10"
 

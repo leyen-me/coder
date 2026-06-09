@@ -45,6 +45,7 @@ export type ReadFileData = {
   path: string;
   encoding: string;
   mimeType: string;
+  sha256: string;
   totalLines: number;
   startLine: number;
   endLine: number;
@@ -57,6 +58,40 @@ export type ReadFileToolErrorPayload = {
   code: string;
   message: string;
   mimeType?: string;
+  size?: number;
+};
+
+export type WriteFileData = {
+  path: string;
+  action: "created";
+  sha256: string;
+  bytesWritten: number;
+  linesAdded: number;
+  linesRemoved: number;
+  backupPath?: string;
+  warning?: string;
+};
+
+export type WriteFileToolErrorPayload = {
+  code: string;
+  message: string;
+  size?: number;
+};
+
+export type FileModifyData = {
+  path: string;
+  action: "replaced" | "modified";
+  sha256: string;
+  bytesWritten: number;
+  linesAdded: number;
+  linesRemoved: number;
+  backupPath?: string;
+  warning?: string;
+};
+
+export type FileModifyToolErrorPayload = {
+  code: string;
+  message: string;
   size?: number;
 };
 

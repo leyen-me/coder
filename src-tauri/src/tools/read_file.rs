@@ -1,19 +1,17 @@
 use std::fs;
-use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
-use encoding_rs::{GB18030, SHIFT_JIS, UTF_16BE, UTF_16LE};
-use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use serde::Serialize;
 
+use super::text_file::{
+    decode_text, detect_binary, detect_secrets, guess_text_mime_type, is_gitignored,
+    read_binary_sample, sha256_hex, TextFileToolError, MAX_READ_BYTES,
+};
 use super::workspace_path::{resolve_workspace_path, workspace_relative_path};
 
 const DEFAULT_MAX_LINES: u32 = 500;
 const ABSOLUTE_MAX_LINES: u32 = 1000;
 const MAX_OUTPUT_BYTES: usize = 256 * 1024;
-const MAX_READ_BYTES: u64 = 50 * 1024 * 1024;
-const BINARY_SAMPLE_BYTES: usize = 4096;
-const BINARY_RATIO_THRESHOLD: f64 = 0.30;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -21,6 +19,7 @@ pub struct ReadFileResult {
     pub path: String,
     pub encoding: String,
     pub mime_type: String,
+    pub sha256: String,
     pub total_lines: u32,
     pub start_line: u32,
     pub end_line: u32,
@@ -29,27 +28,7 @@ pub struct ReadFileResult {
     pub content: String,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ReadFileToolError {
-    pub code: String,
-    pub message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub mime_type: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub size: Option<u64>,
-}
-
-impl ReadFileToolError {
-    fn new(code: &str, message: impl Into<String>) -> Self {
-        Self {
-            code: code.to_string(),
-            message: message.into(),
-            mime_type: None,
-            size: None,
-        }
-    }
-}
+pub type ReadFileToolError = TextFileToolError;
 
 #[tauri::command]
 pub fn tool_read_file(
@@ -155,6 +134,7 @@ pub fn tool_read_file(
         path: relative_path,
         encoding: encoding.to_string(),
         mime_type,
+        sha256: sha256_hex(&bytes),
         total_lines,
         start_line,
         end_line,
@@ -162,172 +142,6 @@ pub fn tool_read_file(
         contains_secrets,
         content,
     })
-}
-
-fn read_binary_sample(path: &Path) -> Result<Vec<u8>, ReadFileToolError> {
-    let mut file = fs::File::open(path).map_err(|error| {
-        ReadFileToolError::new("io_error", format!("Failed to open file: {error}"))
-    })?;
-    let mut sample = vec![0_u8; BINARY_SAMPLE_BYTES];
-    let read = file.read(&mut sample).map_err(|error| {
-        ReadFileToolError::new("io_error", format!("Failed to sample file: {error}"))
-    })?;
-    sample.truncate(read);
-    Ok(sample)
-}
-
-fn detect_binary(sample: &[u8]) -> Option<String> {
-    if sample.is_empty() {
-        return None;
-    }
-
-    if sample.contains(&0) {
-        return Some(detect_mime_from_magic(sample));
-    }
-
-    let non_text = sample
-        .iter()
-        .filter(|byte| {
-            matches!(**byte, 0..=8 | 11..=12 | 14..=31 | 127)
-        })
-        .count();
-    let ratio = non_text as f64 / sample.len() as f64;
-    if ratio > BINARY_RATIO_THRESHOLD {
-        return Some(detect_mime_from_magic(sample));
-    }
-
-    None
-}
-
-fn detect_mime_from_magic(sample: &[u8]) -> String {
-    if sample.starts_with(b"\x89PNG\r\n\x1a\n") {
-        return "image/png".to_string();
-    }
-    if sample.starts_with(b"\xFF\xD8\xFF") {
-        return "image/jpeg".to_string();
-    }
-    if sample.starts_with(b"GIF87a") || sample.starts_with(b"GIF89a") {
-        return "image/gif".to_string();
-    }
-    if sample.starts_with(b"%PDF") {
-        return "application/pdf".to_string();
-    }
-    if sample.starts_with(b"PK\x03\x04") {
-        return "application/zip".to_string();
-    }
-    if sample.starts_with(b"\x1F\x8B") {
-        return "application/gzip".to_string();
-    }
-    if sample.starts_with(b"SQLite format 3\0") {
-        return "application/x-sqlite3".to_string();
-    }
-
-    "application/octet-stream".to_string()
-}
-
-fn decode_text(bytes: &[u8]) -> Option<(String, &'static str)> {
-    if let Ok(text) = std::str::from_utf8(bytes) {
-        return Some((text.to_string(), "utf-8"));
-    }
-
-    if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
-        if let Ok(text) = std::str::from_utf8(&bytes[3..]) {
-            return Some((text.to_string(), "utf-8-sig"));
-        }
-    }
-
-    if bytes.starts_with(&[0xFF, 0xFE]) {
-        let (text, _, _) = UTF_16LE.decode(&bytes[2..]);
-        if !text.contains('\u{FFFD}') {
-            return Some((text.into_owned(), "utf-16le"));
-        }
-    }
-
-    if bytes.starts_with(&[0xFE, 0xFF]) {
-        let (text, _, _) = UTF_16BE.decode(&bytes[2..]);
-        if !text.contains('\u{FFFD}') {
-            return Some((text.into_owned(), "utf-16be"));
-        }
-    }
-
-    let (text, _, had_errors) = GB18030.decode(bytes);
-    if !had_errors {
-        return Some((text.into_owned(), "gb18030"));
-    }
-
-    let (text, _, had_errors) = SHIFT_JIS.decode(bytes);
-    if !had_errors {
-        return Some((text.into_owned(), "shift-jis"));
-    }
-
-    None
-}
-
-fn is_gitignored(workspace: &Path, target: &Path) -> Result<bool, ReadFileToolError> {
-    let gitignore = build_gitignore(workspace).map_err(|error| {
-        ReadFileToolError::new("gitignore_error", format!("Failed to load .gitignore: {error}"))
-    })?;
-    let relative = target
-        .strip_prefix(workspace)
-        .map_err(|_| ReadFileToolError::new("invalid_path", "Path is outside workspace"))?;
-
-    Ok(gitignore
-        .matched(relative, false)
-        .is_ignore())
-}
-
-fn build_gitignore(workspace: &Path) -> Result<Gitignore, ignore::Error> {
-    let mut builder = GitignoreBuilder::new(workspace);
-    let root_gitignore = workspace.join(".gitignore");
-    if root_gitignore.is_file() {
-        builder.add(root_gitignore);
-    }
-
-    let exclude = workspace.join(".git").join("info").join("exclude");
-    if exclude.is_file() {
-        builder.add(exclude);
-    }
-
-    builder.build()
-}
-
-fn detect_secrets(text: &str) -> bool {
-    const MARKERS: [&str; 6] = [
-        "AWS_SECRET_ACCESS_KEY",
-        "OPENAI_API_KEY",
-        "DATABASE_URL",
-        "PRIVATE KEY",
-        "API_SECRET",
-        "BEGIN RSA PRIVATE KEY",
-    ];
-
-    MARKERS.iter().any(|marker| text.contains(marker))
-}
-
-fn guess_text_mime_type(path: &str) -> String {
-    match Path::new(path)
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .map(str::to_ascii_lowercase)
-        .as_deref()
-    {
-        Some("py") => "text/x-python".to_string(),
-        Some("rs") => "text/x-rust".to_string(),
-        Some("js") => "text/javascript".to_string(),
-        Some("jsx") => "text/javascript".to_string(),
-        Some("ts") => "text/typescript".to_string(),
-        Some("tsx") => "text/typescript".to_string(),
-        Some("json") => "application/json".to_string(),
-        Some("md") => "text/markdown".to_string(),
-        Some("html") | Some("htm") => "text/html".to_string(),
-        Some("css") => "text/css".to_string(),
-        Some("yaml") | Some("yml") => "text/yaml".to_string(),
-        Some("toml") => "text/toml".to_string(),
-        Some("xml") => "application/xml".to_string(),
-        Some("sql") => "application/sql".to_string(),
-        Some("sh") => "application/x-sh".to_string(),
-        _ => "text/plain".to_string(),
-    }
 }
 
 fn select_lines(text: &str, start_line: u32, max_lines: u32) -> (u32, Vec<String>, bool) {
@@ -370,9 +184,9 @@ fn format_numbered_content(
 #[cfg(test)]
 mod tests {
     use super::{
-        decode_text, detect_binary, detect_secrets, format_numbered_content, select_lines,
-        tool_read_file,
+        format_numbered_content, select_lines, tool_read_file,
     };
+    use super::super::text_file::{decode_text, detect_binary, detect_secrets};
     use std::fs;
     use std::path::PathBuf;
 
