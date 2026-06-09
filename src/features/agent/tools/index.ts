@@ -10,6 +10,10 @@ export {
   REPLACE_FILE_TOOL_NAME,
   EDIT_FILE_TOOL,
   EDIT_FILE_TOOL_NAME,
+  GLOB_TOOL,
+  GLOB_TOOL_NAME,
+  GREP_TOOL,
+  GREP_TOOL_NAME,
 } from "./definitions";
 export { toApiToolCall, toApiToolCalls, type ApiToolCall } from "./api-tool-call";
 export { executeToolCall, getAgentToolDefinitions, getToolHandler } from "./registry";
@@ -31,5 +35,9 @@ export type {
   WriteFileToolErrorPayload,
   FileModifyData,
   FileModifyToolErrorPayload,
+  GlobData,
+  GrepContentMatch,
+  GrepCountMatch,
+  GrepData,
   ToolExecutionContext,
 } from "./types";

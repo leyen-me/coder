@@ -1,12 +1,16 @@
 import {
   AGENT_TOOL_DEFINITIONS,
   EDIT_FILE_TOOL_NAME,
+  GLOB_TOOL_NAME,
+  GREP_TOOL_NAME,
   LIST_DIR_TOOL_NAME,
   READ_FILE_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
   WRITE_FILE_TOOL_NAME,
 } from "./definitions";
 import { editFileHandler } from "./edit-file";
+import { globHandler } from "./glob";
+import { grepHandler } from "./grep";
 import { listDirHandler } from "./list-dir";
 import { readFileHandler } from "./read-file";
 import { replaceFileHandler } from "./replace-file";
@@ -24,6 +28,8 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [WRITE_FILE_TOOL_NAME]: writeFileHandler,
   [REPLACE_FILE_TOOL_NAME]: replaceFileHandler,
   [EDIT_FILE_TOOL_NAME]: editFileHandler,
+  [GLOB_TOOL_NAME]: globHandler,
+  [GREP_TOOL_NAME]: grepHandler,
 };
 
 export function getAgentToolDefinitions(): AgentToolDefinition[] {

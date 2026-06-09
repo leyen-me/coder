@@ -487,8 +487,10 @@ version = "0.1.0"
 dependencies = [
  "encoding_rs",
  "futures",
+ "globset",
  "ignore",
  "log",
+ "regex",
  "reqwest 0.12.28",
  "serde",
  "serde_json",

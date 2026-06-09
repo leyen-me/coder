@@ -95,6 +95,39 @@ export type FileModifyToolErrorPayload = {
   size?: number;
 };
 
+export type GlobData = {
+  pattern: string;
+  targetDirectory: string;
+  matches: string[];
+  totalMatches: number;
+  truncated: boolean;
+};
+
+export type GrepContentMatch = {
+  path: string;
+  lineNumber: number;
+  line: string;
+  contextBefore?: string[];
+  contextAfter?: string[];
+};
+
+export type GrepCountMatch = {
+  path: string;
+  count: number;
+};
+
+export type GrepData = {
+  pattern: string;
+  path: string;
+  outputMode: string;
+  matches?: GrepContentMatch[];
+  files?: string[];
+  counts?: GrepCountMatch[];
+  totalMatches: number;
+  truncated: boolean;
+  skippedFiles?: number;
+};
+
 export type ToolExecutionContext = {
   workspaceDir: string | null;
 };

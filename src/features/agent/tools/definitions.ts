@@ -5,6 +5,8 @@ export const READ_FILE_TOOL_NAME = "read_file";
 export const WRITE_FILE_TOOL_NAME = "write_file";
 export const REPLACE_FILE_TOOL_NAME = "replace_file";
 export const EDIT_FILE_TOOL_NAME = "edit_file";
+export const GLOB_TOOL_NAME = "glob";
+export const GREP_TOOL_NAME = "grep";
 
 export const LIST_DIR_TOOL: AgentToolDefinition = {
   type: "function",
@@ -190,10 +192,117 @@ export const EDIT_FILE_TOOL: AgentToolDefinition = {
   },
 };
 
+export const GLOB_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: GLOB_TOOL_NAME,
+    description:
+      "Find files by glob pattern under a directory. Relative paths are resolved against the workspace root.",
+    parameters: {
+      type: "object",
+      properties: {
+        glob_pattern: {
+          type: "string",
+          description: "Glob pattern such as **/*.tsx or src/**/*.rs.",
+        },
+        target_directory: {
+          type: "string",
+          description: "Directory to search from. Defaults to the workspace root.",
+        },
+        head_limit: {
+          type: "integer",
+          description: "Maximum number of matching paths to return.",
+          default: 100,
+        },
+        respect_gitignore: {
+          type: "boolean",
+          description: "Whether to skip paths ignored by .gitignore.",
+          default: true,
+        },
+      },
+      required: ["glob_pattern"],
+      additionalProperties: false,
+    },
+  },
+};
+
+export const GREP_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: GREP_TOOL_NAME,
+    description:
+      "Search file contents with a regex pattern. Relative paths are resolved against the workspace root.",
+    parameters: {
+      type: "object",
+      properties: {
+        pattern: {
+          type: "string",
+          description: "Regular expression pattern to search for.",
+        },
+        path: {
+          type: "string",
+          description: "File or directory to search. Defaults to the workspace root.",
+        },
+        glob: {
+          type: "string",
+          description: "Optional glob filter to limit searched files, such as *.{ts,tsx}.",
+        },
+        output_mode: {
+          type: "string",
+          description: "One of content, files_with_matches, or count.",
+          enum: ["content", "files_with_matches", "count"],
+          default: "content",
+        },
+        case_insensitive: {
+          type: "boolean",
+          description: "Whether to ignore letter case while matching.",
+          default: false,
+        },
+        context_before: {
+          type: "integer",
+          description: "Number of lines to include before each match.",
+        },
+        context_after: {
+          type: "integer",
+          description: "Number of lines to include after each match.",
+        },
+        context: {
+          type: "integer",
+          description: "Number of lines to include before and after each match.",
+        },
+        head_limit: {
+          type: "integer",
+          description: "Maximum number of results to return.",
+          default: 200,
+        },
+        offset: {
+          type: "integer",
+          description: "Number of results to skip in content mode.",
+          default: 0,
+        },
+        multiline: {
+          type: "boolean",
+          description: "Whether . should match newlines.",
+          default: false,
+        },
+        respect_gitignore: {
+          type: "boolean",
+          description: "Whether to skip paths ignored by .gitignore.",
+          default: true,
+        },
+      },
+      required: ["pattern"],
+      additionalProperties: false,
+    },
+  },
+};
+
 export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   LIST_DIR_TOOL,
   READ_FILE_TOOL,
   WRITE_FILE_TOOL,
   REPLACE_FILE_TOOL,
   EDIT_FILE_TOOL,
+  GLOB_TOOL,
+  GREP_TOOL,
 ];

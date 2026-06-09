@@ -1,16 +1,21 @@
 mod edit_file;
 mod file_modify;
 mod git;
+mod glob;
+mod grep;
 mod list_dir;
 mod read_file;
 mod replace_file;
 mod runtime;
+mod search;
 mod text_file;
 mod workspace_path;
 mod write_file;
 
 pub use edit_file::tool_edit_file;
 pub use git::{git_checkout_branch, git_get_current_branch, git_list_branches};
+pub use glob::tool_glob;
+pub use grep::tool_grep;
 pub use list_dir::tool_list_dir;
 pub use read_file::tool_read_file;
 pub use replace_file::tool_replace_file;

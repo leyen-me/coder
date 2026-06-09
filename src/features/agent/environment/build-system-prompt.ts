@@ -24,6 +24,7 @@ export function buildSystemPrompt(environment: AgentEnvironment): string {
     "",
     "## Tools",
     "You can call tools when you need local filesystem information.",
+    "Use glob to find files by name pattern and grep to search file contents.",
     "Paths are resolved relative to workspaceDir unless noted otherwise.",
     "When a tool fails, read the error code and message, then adjust your approach.",
     "Prefer tools over guessing file or directory contents.",
