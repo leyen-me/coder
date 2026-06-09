@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
+import { stripAnsi } from "@/lib/strip-ansi";
 import { cn } from "@/lib/utils";
 
 type ProcessLogViewerProps = {
@@ -25,7 +26,7 @@ export function ProcessLogViewer({
     element.scrollTop = element.scrollHeight;
   }, [stdout, stderr]);
 
-  const content = mergeProcessLogContent(stdout, stderr);
+  const content = stripAnsi(mergeProcessLogContent(stdout, stderr));
 
   return (
     <pre

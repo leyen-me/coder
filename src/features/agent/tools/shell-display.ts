@@ -1,3 +1,5 @@
+import { stripAnsi } from "@/lib/strip-ansi";
+
 import { AWAIT_TOOL_NAME, SHELL_TOOL_NAME } from "./definitions";
 import type { ShellData, ShellStatus } from "./types";
 
@@ -91,7 +93,7 @@ function formatStreamSection(
   const header = truncated
     ? `--- ${label} (${totalBytes} bytes, truncated) ---`
     : `--- ${label} ---`;
-  return `${header}\n${content}`;
+  return `${header}\n${stripAnsi(content)}`;
 }
 
 function extractShellData(output: unknown): ShellData | null {

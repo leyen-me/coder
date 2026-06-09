@@ -39,6 +39,30 @@ describe("shell-display", () => {
     expect(output).toContain("--- stdout ---");
   });
 
+  it("strips ANSI color codes from shell output", () => {
+    const output = formatShellOutputForDisplay({
+      ok: true,
+      tool: "shell",
+      data: {
+        command: "npm run dev",
+        workingDirectory: "/workspace/vue-app",
+        stdout:
+          "\u001B[32m\u001B[1mVITE\u001B[22m v8.0.16\u001B[39m  \u001B[2mready in \u001B[0m\u001B[1m341\u001B[22m\u001B[2m\u001B[0m ms\u001B[22m\n",
+        stderr: "",
+        stdoutTruncated: false,
+        stderrTruncated: false,
+        stdoutTotalBytes: 80,
+        stderrTotalBytes: 0,
+        exitCode: 0,
+        durationMs: 5000,
+        status: "timeout",
+      },
+    });
+
+    expect(output).toContain("VITE v8.0.16  ready in 341 ms");
+    expect(output).not.toContain("\u001B[32m");
+  });
+
   it("formats timed-out shell output so AI and UI can read partial stdout", () => {
     const output = formatShellOutputForDisplay({
       ok: true,
