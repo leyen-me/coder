@@ -6,7 +6,14 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 
+import { useTheme } from "@/lib/theme/theme-provider";
+import { cn } from "@/lib/utils";
+
+import { getXtermTheme } from "../get-xterm-theme";
+import { waitForTerminalFit } from "../wait-for-terminal-fit";
+
 import "@xterm/xterm/css/xterm.css";
+import "../interactive-terminal.css";
 
 type InteractiveTerminalProps = {
   cwd: string;
@@ -25,6 +32,7 @@ export function InteractiveTerminal({
   const ptyIdRef = useRef<string | null>(null);
   const isActiveRef = useRef(isActive);
   const [error, setError] = useState<string | null>(null);
+  const { resolved } = useTheme();
 
   useEffect(() => {
     isActiveRef.current = isActive;
@@ -42,34 +50,24 @@ export function InteractiveTerminal({
       cursorBlink: true,
       fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
       fontSize: 13,
-      theme: {
-        background: "transparent",
-      },
+      theme: getXtermTheme(resolved),
     });
     const fitAddon = new FitAddon();
     terminal.loadAddon(fitAddon);
     terminal.open(containerRef.current);
-    fitAddon.fit();
 
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
+    const container = containerRef.current;
+
     void (async () => {
       try {
-        const cols = terminal.cols;
-        const rows = terminal.rows;
-        const session = await invoke<{ ptyId: string; cwd: string }>("pty_create", {
-          cwd,
-          cols,
-          rows,
-        });
+        await waitForTerminalFit(container, terminal, fitAddon);
 
         if (disposed) {
-          await invoke("pty_close", { ptyId: session.ptyId });
           return;
         }
-
-        ptyIdRef.current = session.ptyId;
 
         const outputUnlisten = await listen<{ ptyId: string; data: string }>(
           "pty-output",
@@ -91,6 +89,21 @@ export function InteractiveTerminal({
         );
         unlisteners.push(closedUnlisten);
 
+        const cols = terminal.cols;
+        const rows = terminal.rows;
+        const session = await invoke<{ ptyId: string; cwd: string }>("pty_create", {
+          cwd,
+          cols,
+          rows,
+        });
+
+        if (disposed) {
+          await invoke("pty_close", { ptyId: session.ptyId });
+          return;
+        }
+
+        ptyIdRef.current = session.ptyId;
+
         const dataDisposable = terminal.onData((data) => {
           const ptyId = ptyIdRef.current;
           if (!ptyId) {
@@ -102,10 +115,10 @@ export function InteractiveTerminal({
         unlisteners.push(() => dataDisposable.dispose());
 
         const resizeObserver = new ResizeObserver(() => {
+          fitAddon.fit();
           if (!isActiveRef.current) {
             return;
           }
-          fitAddon.fit();
           const ptyId = ptyIdRef.current;
           if (!ptyId) {
             return;
@@ -148,6 +161,15 @@ export function InteractiveTerminal({
   }, [cwd]);
 
   useEffect(() => {
+    const terminal = terminalRef.current;
+    if (!terminal) {
+      return;
+    }
+
+    terminal.options.theme = getXtermTheme(resolved);
+  }, [resolved]);
+
+  useEffect(() => {
     if (!isActive) {
       return;
     }
@@ -158,17 +180,26 @@ export function InteractiveTerminal({
       return;
     }
 
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
     const frame = window.requestAnimationFrame(() => {
-      fitAddon.fit();
-      const ptyId = ptyIdRef.current;
-      if (ptyId) {
-        void invoke("pty_resize", {
-          ptyId,
-          cols: terminal.cols,
-          rows: terminal.rows,
-        });
-      }
-      terminal.focus();
+      void (async () => {
+        await waitForTerminalFit(container, terminal, fitAddon);
+        fitAddon.fit();
+        const ptyId = ptyIdRef.current;
+        if (ptyId) {
+          void invoke("pty_resize", {
+            ptyId,
+            cols: terminal.cols,
+            rows: terminal.rows,
+          });
+        }
+        terminal.refresh(0, terminal.rows - 1);
+        terminal.focus();
+      })();
     });
 
     return () => {
@@ -192,5 +223,7 @@ export function InteractiveTerminal({
     );
   }
 
-  return <div className={className} ref={containerRef} />;
+  return (
+    <div className={cn("interactive-terminal-host", className)} ref={containerRef} />
+  );
 }

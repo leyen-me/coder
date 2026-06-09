@@ -120,8 +120,8 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
               className={cn(
                 "absolute inset-2",
                 activeSession?.id === session.id
-                  ? "z-10 visible"
-                  : "pointer-events-none invisible z-0"
+                  ? "z-10 opacity-100"
+                  : "pointer-events-none z-0 opacity-0"
               )}
             >
               <InteractiveTerminal
