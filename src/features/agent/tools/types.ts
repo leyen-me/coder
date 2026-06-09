@@ -41,6 +41,25 @@ export type ListDirData = {
   entries: ListDirEntry[];
 };
 
+export type ReadFileData = {
+  path: string;
+  encoding: string;
+  mimeType: string;
+  totalLines: number;
+  startLine: number;
+  endLine: number;
+  truncated: boolean;
+  containsSecrets: boolean;
+  content: string;
+};
+
+export type ReadFileToolErrorPayload = {
+  code: string;
+  message: string;
+  mimeType?: string;
+  size?: number;
+};
+
 export type ToolExecutionContext = {
   workspaceDir: string | null;
 };

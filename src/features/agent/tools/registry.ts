@@ -1,5 +1,6 @@
-import { AGENT_TOOL_DEFINITIONS, LIST_DIR_TOOL_NAME } from "./definitions";
+import { AGENT_TOOL_DEFINITIONS, LIST_DIR_TOOL_NAME, READ_FILE_TOOL_NAME } from "./definitions";
 import { listDirHandler } from "./list-dir";
+import { readFileHandler } from "./read-file";
 import type {
   AgentToolDefinition,
   ToolExecutionContext,
@@ -9,6 +10,7 @@ import type { ToolResultEnvelope } from "./result";
 
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [LIST_DIR_TOOL_NAME]: listDirHandler,
+  [READ_FILE_TOOL_NAME]: readFileHandler,
 };
 
 export function getAgentToolDefinitions(): AgentToolDefinition[] {
