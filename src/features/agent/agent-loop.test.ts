@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { AgentCancellationError } from "./cancellation";
 import type { AgentEventHandler, AgentStartInput } from "./types";
 
 const startAgentMock = vi.fn<
@@ -110,7 +111,60 @@ describe("runAgentWithTools", () => {
     expect(executeToolCallMock).toHaveBeenCalledWith(
       "list_dir",
       '{"path":"."}',
-      { workspaceDir: null, taskId: "task-1" }
+      { workspaceDir: null, taskId: "task-1", signal: undefined }
     );
+  });
+
+  it("stops after a cancelled tool call and does not start another turn", async () => {
+    const events: Parameters<AgentEventHandler>[0][] = [];
+
+    startAgentMock.mockImplementationOnce(async (_input, onEvent) => {
+      onEvent({
+        type: "turn_complete",
+        taskId: "task-1",
+        toolCalls: [
+          {
+            id: "call_1",
+            name: "shell",
+            arguments: '{"command":"npm create vite@latest vue-app"}',
+          },
+        ],
+      });
+      onEvent({ type: "status", taskId: "task-1", status: "completed" });
+    });
+
+    executeToolCallMock.mockRejectedValue(new AgentCancellationError("task-1"));
+
+    const runPromise = runAgentWithTools(
+      {
+        taskId: "task-1",
+        baseUrl: "https://api.example.com",
+        apiKey: "test-key",
+        apiKeySource: "manual",
+        apiKeyEnvVar: "TEST_API_KEY",
+        model: "deepseek-v4-pro",
+        messages: [{ role: "user", content: "帮我创建一个 vue 项目" }],
+      },
+      { workspaceDir: null, taskId: "task-1", signal: undefined },
+      (event) => {
+        events.push(event);
+      }
+    );
+
+    await expect(runPromise).rejects.toThrow("Agent execution cancelled");
+    expect(startAgentMock).toHaveBeenCalledTimes(1);
+    expect(events).toContainEqual({
+      type: "tool_call_started",
+      taskId: "task-1",
+      toolCallId: "call_1",
+      name: "shell",
+      input: { command: "npm create vite@latest vue-app" },
+    });
+    expect(events).toContainEqual({
+      type: "tool_call_finished",
+      taskId: "task-1",
+      toolCallId: "call_1",
+      errorText: "Cancelled",
+    });
   });
 });

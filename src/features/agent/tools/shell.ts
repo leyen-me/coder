@@ -1,5 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
+import { AgentCancellationError, throwIfAborted } from "../cancellation";
 import { SHELL_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
 import type { ShellData, ToolHandler } from "./types";
@@ -33,8 +34,10 @@ export const shellHandler: ToolHandler = async (rawArgs, context) => {
     return toolFailure(SHELL_TOOL_NAME, "invalid_arguments", args.message);
   }
 
+  throwIfAborted(context.signal, context.taskId);
+
   try {
-    const data = await invoke<ShellData>("tool_shell", {
+    const shellPromise = invoke<ShellData>("tool_shell", {
       workspaceDir: context.workspaceDir,
       command: args.value.command,
       description: args.value.description ?? null,
@@ -42,12 +45,60 @@ export const shellHandler: ToolHandler = async (rawArgs, context) => {
       blockUntilMs: args.value.block_until_ms ?? null,
       taskId: context.taskId ?? null,
     });
+    const data = context.signal
+      ? await raceShellWithAbort(shellPromise, context.signal, context.taskId)
+      : await shellPromise;
     return toolSuccess(SHELL_TOOL_NAME, data);
   } catch (error) {
+    if (error instanceof AgentCancellationError) {
+      throw error;
+    }
     const message = error instanceof Error ? error.message : String(error);
     return toolFailure(SHELL_TOOL_NAME, "execution_failed", message);
   }
 };
+
+async function raceShellWithAbort(
+  shellPromise: Promise<ShellData>,
+  signal: AbortSignal,
+  taskId?: string
+): Promise<ShellData> {
+  throwIfAborted(signal, taskId);
+
+  let cleanup = () => {};
+  try {
+    return await Promise.race([
+      shellPromise,
+      new Promise<never>((_, reject) => {
+        const onAbort = () => {
+          cleanup();
+          void killShellsForTask(taskId).finally(() => {
+            reject(new AgentCancellationError(taskId));
+          });
+        };
+
+        cleanup = () => {
+          signal.removeEventListener("abort", onAbort);
+        };
+        signal.addEventListener("abort", onAbort, { once: true });
+      }),
+    ]);
+  } finally {
+    cleanup();
+  }
+}
+
+async function killShellsForTask(taskId?: string): Promise<void> {
+  if (!taskId) {
+    return;
+  }
+
+  try {
+    await invoke("shell_kill_by_task", { taskId });
+  } catch {
+    // Best effort only. Cancellation still needs to unblock the agent loop.
+  }
+}
 
 function parseShellArgs(
   rawArgs: unknown

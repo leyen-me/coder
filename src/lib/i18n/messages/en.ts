@@ -35,6 +35,8 @@ export const enMessages = {
     splitLayout: "Split layout",
     bottomPanel: "Bottom panel",
     rightPanel: "Right panel",
+    agentProcesses: "Agent processes",
+    agentProcessesRunning: "Agent processes ({count} running)",
     workbench: "Workbench",
   },
   chat: {

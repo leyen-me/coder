@@ -3,6 +3,7 @@ import {
   getAgentToolDefinitions,
   serializeToolResult,
 } from "./tools";
+import { AgentCancellationError, isAgentCancellationError, throwIfAborted } from "./cancellation";
 import { parseToolCallInput, toolResultToInvocationPatch } from "./tools/tool-display";
 import { toApiToolCalls } from "./tools/api-tool-call";
 import type { AgentToolCall } from "./tools/types";
@@ -13,6 +14,7 @@ import { MAX_AGENT_TOOL_ITERATIONS } from "./types";
 type ToolExecutionContextInput = {
   workspaceDir: string | null;
   taskId: string;
+  signal?: AbortSignal;
 };
 
 export async function runAgentWithTools(
@@ -24,12 +26,15 @@ export async function runAgentWithTools(
   const tools = input.tools ?? getAgentToolDefinitions();
 
   for (let iteration = 0; iteration < MAX_AGENT_TOOL_ITERATIONS; iteration += 1) {
+    throwIfAborted(context.signal, input.taskId);
+
     const turn = await runSingleAgentTurn(
       {
         ...input,
         messages,
         tools,
       },
+      context.signal,
       (event) => {
         if (isAssistantOutputEvent(event)) {
           onEvent(event);
@@ -60,6 +65,7 @@ export async function runAgentWithTools(
 
 async function runSingleAgentTurn(
   input: AgentStartInput,
+  signal: AbortSignal | undefined,
   onEvent: AgentEventHandler
 ): Promise<{
   toolCalls: AgentToolCall[];
@@ -75,14 +81,33 @@ async function runSingleAgentTurn(
     let content = "";
     let reasoningContent = "";
     let settled = false;
+    let detachAbortListener = () => {};
 
     const finish = (handler: () => void) => {
       if (settled) {
         return;
       }
       settled = true;
+      detachAbortListener();
       handler();
     };
+
+    try {
+      throwIfAborted(signal, input.taskId);
+    } catch (error) {
+      finish(() => reject(error));
+      return;
+    }
+
+    if (signal) {
+      const onAbort = () => {
+        finish(() => reject(new AgentCancellationError(input.taskId)));
+      };
+      detachAbortListener = () => {
+        signal.removeEventListener("abort", onAbort);
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+    }
 
     void startAgent(input, (event) => {
       if (event.type === "thinking_delta") {
@@ -151,6 +176,8 @@ async function appendToolResults(
   context: ToolExecutionContextInput,
   onEvent: AgentEventHandler
 ): Promise<AgentStartInput["messages"]> {
+  throwIfAborted(context.signal, context.taskId);
+
   const assistantMessage: AgentChatMessage = {
     role: "assistant",
     tool_calls: toApiToolCalls(turn.toolCalls),
@@ -168,6 +195,8 @@ async function appendToolResults(
   ];
 
   for (const call of turn.toolCalls) {
+    throwIfAborted(context.signal, context.taskId);
+
     const input = parseToolCallInput(call.arguments);
 
     onEvent({
@@ -178,10 +207,24 @@ async function appendToolResults(
       input,
     });
 
-    const result = await executeToolCall(call.name, call.arguments, {
-      workspaceDir: context.workspaceDir,
-      taskId: context.taskId,
-    });
+    let result;
+    try {
+      result = await executeToolCall(call.name, call.arguments, {
+        workspaceDir: context.workspaceDir,
+        taskId: context.taskId,
+        signal: context.signal,
+      });
+    } catch (error) {
+      if (isAgentCancellationError(error)) {
+        onEvent({
+          type: "tool_call_finished",
+          taskId: context.taskId ?? "",
+          toolCallId: call.id,
+          errorText: "Cancelled",
+        });
+      }
+      throw error;
+    }
 
     const patch = toolResultToInvocationPatch(result);
     onEvent({

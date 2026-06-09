@@ -6,11 +6,9 @@ use std::time::Instant;
 use tauri::{AppHandle, Emitter, State};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
-use tokio::task::JoinHandle;
-use tokio::time::{sleep, timeout, Duration};
+use tokio::time::{sleep, Duration};
 
 const POST_KILL_WAIT_MS: u64 = 3_000;
-const PIPE_DRAIN_GRACE_MS: u64 = 2_000;
 
 use super::shell::{
     build_shell_output, normalize_block_until_ms, resolve_command_shell,
@@ -71,7 +69,7 @@ impl ShellRegistry {
             .collect()
     }
 
-    pub fn kill(&mut self, shell_id: &str) -> Result<(), String> {
+    fn stop(&mut self, shell_id: &str, status: ShellStatus) -> Result<(), String> {
         let shell = self
             .shells
             .get_mut(shell_id)
@@ -80,12 +78,16 @@ impl ShellRegistry {
         if shell.status == ShellStatus::Running {
             if let Ok(mut child_slot) = shell.child.lock() {
                 if let Some(child) = child_slot.as_mut() {
-                    let _ = child.start_kill();
+                    kill_child_tree(child);
                 }
             }
-            shell.status = ShellStatus::Cancelled;
+            shell.status = status;
         }
         Ok(())
+    }
+
+    pub fn kill(&mut self, shell_id: &str) -> Result<(), String> {
+        self.stop(shell_id, ShellStatus::Cancelled)
     }
 
     pub fn kill_by_task(&mut self, task_id: &str) -> usize {
@@ -145,26 +147,34 @@ impl ShellRegistry {
         let cwd_display = cwd.to_string_lossy().replace('\\', "/");
         let block_ms = normalize_block_until_ms(block_until_ms);
 
+        let output = Self::spawn_background(
+            registry.clone(),
+            app.clone(),
+            command,
+            description,
+            cwd,
+            cwd_display,
+            task_id,
+        )
+        .await?;
+
         if block_ms == 0 {
-            return Self::spawn_background(
-                registry,
-                app.clone(),
-                command,
-                description,
-                cwd,
-                cwd_display,
-                task_id,
-            )
-            .await;
+            return Ok(output);
         }
 
-        Self::run_blocking(command, description, cwd, cwd_display, block_ms).await
+        let shell_id = output
+            .shell_id
+            .clone()
+            .ok_or_else(|| "Shell did not return an id".to_string())?;
+
+        Self::await_shell_shared(registry, shell_id, Some(block_ms), true).await
     }
 
     pub async fn await_shell_shared(
         registry: Arc<Mutex<ShellRegistry>>,
         shell_id: String,
         block_until_ms: Option<u64>,
+        kill_on_timeout: bool,
     ) -> Result<ShellOutput, String> {
         {
             let reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
@@ -191,94 +201,39 @@ impl ShellRegistry {
             }
 
             if Instant::now() >= deadline {
-                let mut reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
-                if let Some(shell) = reg.shells.get_mut(&shell_id) {
-                    shell.status = ShellStatus::Timeout;
+                {
+                    let mut reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
+                    if kill_on_timeout {
+                        reg.stop(&shell_id, ShellStatus::Timeout)?;
+                    } else if let Some(shell) = reg.shells.get_mut(&shell_id) {
+                        shell.status = ShellStatus::Timeout;
+                    }
                 }
+
+                if kill_on_timeout {
+                    let settle_deadline = Instant::now() + Duration::from_millis(POST_KILL_WAIT_MS);
+                    loop {
+                        let current_status = {
+                            let reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
+                            reg.shells
+                                .get(&shell_id)
+                                .map(|shell| shell.status)
+                                .ok_or_else(|| format!("Unknown shell_id: {shell_id}"))?
+                        };
+
+                        if current_status != ShellStatus::Running || Instant::now() >= settle_deadline {
+                            break;
+                        }
+                        sleep(Duration::from_millis(50)).await;
+                    }
+                }
+
+                let reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
                 return reg.snapshot_output(&shell_id);
             }
 
             sleep(Duration::from_millis(100)).await;
         }
-    }
-
-    async fn run_blocking(
-        command: String,
-        description: Option<String>,
-        cwd: PathBuf,
-        cwd_display: String,
-        block_ms: u64,
-    ) -> Result<ShellOutput, String> {
-        let started_at = Instant::now();
-        let shell = resolve_command_shell();
-        let (program, args) = shell_command_builder(&shell, &command);
-
-        let mut cmd = Command::new(&program);
-        cmd.args(args).current_dir(&cwd);
-        cmd.stdout(std::process::Stdio::piped());
-        cmd.stderr(std::process::Stdio::piped());
-        cmd.kill_on_drop(true);
-
-        let mut child = cmd
-            .spawn()
-            .map_err(|error| format!("Failed to spawn command: {error}"))?;
-
-        let stdout_pipe = child.stdout.take();
-        let stderr_pipe = child.stderr.take();
-        let stdout_acc = Arc::new(Mutex::new(String::new()));
-        let stderr_acc = Arc::new(Mutex::new(String::new()));
-
-        let stdout_reader = tokio::spawn(read_pipe_to_buffer(
-            stdout_pipe,
-            stdout_acc.clone(),
-        ));
-        let stderr_reader = tokio::spawn(read_pipe_to_buffer(
-            stderr_pipe,
-            stderr_acc.clone(),
-        ));
-
-        let wait_result = timeout(Duration::from_millis(block_ms), child.wait()).await;
-
-        let (status, exit_code) = match wait_result {
-            Ok(Ok(exit_status)) => {
-                let code = exit_status.code();
-                let status = if exit_status.success() {
-                    ShellStatus::Completed
-                } else {
-                    ShellStatus::Failed
-                };
-                (status, code)
-            }
-            Ok(Err(_)) => (ShellStatus::Failed, None),
-            Err(_) => {
-                kill_child_tree(&mut child);
-                wait_for_child_exit(&mut child, POST_KILL_WAIT_MS).await;
-                (ShellStatus::Timeout, None)
-            }
-        };
-
-        drain_pipe_readers(stdout_reader, stderr_reader, PIPE_DRAIN_GRACE_MS).await;
-
-        let stdout = stdout_acc
-            .lock()
-            .map(|buffer| buffer.clone())
-            .unwrap_or_default();
-        let stderr = stderr_acc
-            .lock()
-            .map(|buffer| buffer.clone())
-            .unwrap_or_default();
-
-        Ok(build_shell_output(
-            command,
-            description,
-            cwd_display,
-            &stdout,
-            &stderr,
-            exit_code,
-            started_at,
-            status,
-            None,
-        ))
     }
 
     async fn spawn_background(
@@ -398,49 +353,6 @@ fn kill_child_tree(child: &mut Child) {
     let _ = child.start_kill();
 }
 
-async fn wait_for_child_exit(child: &mut Child, max_ms: u64) {
-    let _ = timeout(Duration::from_millis(max_ms), child.wait()).await;
-}
-
-async fn drain_pipe_readers(
-    stdout_reader: JoinHandle<()>,
-    stderr_reader: JoinHandle<()>,
-    grace_ms: u64,
-) {
-    let stdout_abort = stdout_reader.abort_handle();
-    let stderr_abort = stderr_reader.abort_handle();
-
-    if timeout(
-        Duration::from_millis(grace_ms),
-        async {
-            let _ = tokio::join!(stdout_reader, stderr_reader);
-        },
-    )
-    .await
-    .is_err()
-    {
-        stdout_abort.abort();
-        stderr_abort.abort();
-    }
-}
-
-async fn read_pipe_to_buffer<R: tokio::io::AsyncRead + Unpin>(
-    reader: Option<R>,
-    buffer: Arc<Mutex<String>>,
-) {
-    let Some(reader) = reader else {
-        return;
-    };
-
-    let mut lines = BufReader::new(reader).lines();
-    while let Ok(Some(line)) = lines.next_line().await {
-        let chunk = format!("{line}\n");
-        if let Ok(mut acc) = buffer.lock() {
-            acc.push_str(&chunk);
-        }
-    }
-}
-
 async fn read_stream<R: tokio::io::AsyncRead + Unpin>(
     reader: R,
     stream: &'static str,
@@ -552,7 +464,7 @@ pub async fn tool_await(
     shell_id: String,
     block_until_ms: Option<u64>,
 ) -> Result<ShellOutput, String> {
-    ShellRegistry::await_shell_shared(state.0.clone(), shell_id, block_until_ms).await
+    ShellRegistry::await_shell_shared(state.0.clone(), shell_id, block_until_ms, false).await
 }
 
 #[tauri::command]

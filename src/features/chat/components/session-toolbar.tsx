@@ -6,6 +6,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { AgentProcessesSheet } from "@/features/terminal/components/agent-processes-sheet";
 import { useBottomPanel } from "@/features/terminal/bottom-panel-context";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,8 @@ export function SessionToolbar() {
 
   return (
     <div className="flex shrink-0 items-center gap-1">
+      <AgentProcessesSheet />
+
       <Tooltip>
         <TooltipTrigger asChild>
           <Button

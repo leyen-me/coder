@@ -35,6 +35,8 @@ export const zhMessages = {
     splitLayout: "分屏布局",
     bottomPanel: "底部面板",
     rightPanel: "右侧面板",
+    agentProcesses: "Agent 进程",
+    agentProcessesRunning: "Agent 进程（{count} 个运行中）",
     workbench: "工作台",
   },
   chat: {

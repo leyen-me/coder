@@ -167,6 +167,7 @@ export type ShellInfo = {
 export type ToolExecutionContext = {
   workspaceDir: string | null;
   taskId?: string;
+  signal?: AbortSignal;
 };
 
 export type ToolHandler = (

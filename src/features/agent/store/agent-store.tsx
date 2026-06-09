@@ -26,6 +26,7 @@ import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
 import { runAgentWithTools } from "../agent-loop";
 import { buildAgentMessages } from "../build-agent-messages";
+import { isAgentCancellationError } from "../cancellation";
 import { mergeProcessSteps } from "../process-steps";
 import { createStreamingBufferManager } from "../streaming-buffer";
 import { fileUIPartsToStoredImages } from "../message-content";
@@ -122,6 +123,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   >(new Map());
   const streamingListenersRef = useRef(new Set<() => void>());
   const eventChainsRef = useRef(new Map<string, Promise<void>>());
+  const taskAbortControllersRef = useRef(new Map<string, AbortController>());
   const terminalOverlayTimersRef = useRef(
     new Map<string, ReturnType<typeof setTimeout>>()
   );
@@ -297,6 +299,11 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             return;
           }
 
+          if (task.status === "cancelling" && event.status === "running") {
+            emit();
+            return;
+          }
+
           tasksRef.current.set(event.taskId, {
             ...task,
             status: event.status,
@@ -345,6 +352,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
                       }
                     : null;
 
+                  taskAbortControllersRef.current.delete(event.taskId);
                   tasksRef.current.delete(event.taskId);
                   emit();
 
@@ -419,6 +427,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         ) {
           tasksRef.current.set(task.taskId, { ...task, status: "cancelling" });
           emit();
+          taskAbortControllersRef.current.get(task.taskId)?.abort();
           await cancelAgent(task.taskId);
         }
       }
@@ -513,6 +522,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           "[image]",
       };
       tasksRef.current.set(taskId, activeTask);
+      const abortController = new AbortController();
+      taskAbortControllersRef.current.set(taskId, abortController);
       emit();
 
       void runAgentWithTools(
@@ -534,11 +545,22 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             ),
           }),
         },
-        { workspaceDir, taskId },
+        { workspaceDir, taskId, signal: abortController.signal },
         (event) => {
           dispatchAgentEvent(taskId, assistantMessage.id, event);
         }
       ).catch((error: unknown) => {
+        if (
+          abortController.signal.aborted ||
+          isAgentCancellationError(error)
+        ) {
+          dispatchAgentEvent(taskId, assistantMessage.id, {
+            type: "status",
+            taskId,
+            status: "cancelled",
+          });
+          return;
+        }
         const message = error instanceof Error ? error.message : String(error);
         dispatchAgentEvent(taskId, assistantMessage.id, {
           type: "error",
@@ -577,6 +599,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         ) {
           tasksRef.current.set(task.taskId, { ...task, status: "cancelling" });
           emit();
+          taskAbortControllersRef.current.get(task.taskId)?.abort();
           await cancelAgent(task.taskId);
         }
       }
@@ -653,6 +676,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           "[image]",
       };
       tasksRef.current.set(taskId, activeTask);
+      const abortController = new AbortController();
+      taskAbortControllersRef.current.set(taskId, abortController);
       emit();
 
       void runAgentWithTools(
@@ -674,11 +699,22 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             ),
           }),
         },
-        { workspaceDir, taskId },
+        { workspaceDir, taskId, signal: abortController.signal },
         (event) => {
           dispatchAgentEvent(taskId, newAssistantMessage.id, event);
         }
       ).catch((error: unknown) => {
+        if (
+          abortController.signal.aborted ||
+          isAgentCancellationError(error)
+        ) {
+          dispatchAgentEvent(taskId, newAssistantMessage.id, {
+            type: "status",
+            taskId,
+            status: "cancelled",
+          });
+          return;
+        }
         const message = error instanceof Error ? error.message : String(error);
         dispatchAgentEvent(taskId, newAssistantMessage.id, {
           type: "error",
@@ -710,6 +746,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
       tasksRef.current.set(taskId, { ...task, status: "cancelling" });
       emit();
+      taskAbortControllersRef.current.get(taskId)?.abort();
       await cancelAgent(taskId);
     },
     [emit]

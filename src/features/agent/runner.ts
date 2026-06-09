@@ -83,7 +83,14 @@ export async function cancelAgent(taskId: string): Promise<void> {
     } catch {
       // Best-effort cleanup for background shell processes.
     }
-    await invoke("agent_cancel", { taskId });
+    try {
+      await invoke("agent_cancel", { taskId });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes("Task not found")) {
+        throw error;
+      }
+    }
     return;
   }
 

@@ -34,6 +34,8 @@ export type Messages = {
     rightPanel: string;
     workbench: string;
     bottomPanel: string;
+    agentProcesses: string;
+    agentProcessesRunning: string;
   };
   chat: {
     headline: string;

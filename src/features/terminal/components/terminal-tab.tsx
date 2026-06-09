@@ -9,9 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatTerminalTabPath } from "../format-terminal-tab-path";
 import { useBottomPanel } from "../bottom-panel-context";
 import { resolveHomeDirectory, resolveTerminalCwd } from "../resolve-terminal-cwd";
-import { useShellProcesses } from "../use-shell-processes";
 import { InteractiveTerminal } from "./interactive-terminal";
-import { ProcessesOverlay } from "./processes-overlay";
 
 type TerminalTabProps = {
   workspaceDir: string | null;
@@ -32,7 +30,6 @@ function createTerminalSession(cwd: string): TerminalSession {
 export function TerminalTab({ workspaceDir }: TerminalTabProps) {
   const { t } = useTranslation();
   const { setOpen: setBottomPanelOpen } = useBottomPanel();
-  const { processes, killProcess } = useShellProcesses();
   const [homeDirectory, setHomeDirectory] = useState<string | null>(null);
   const [defaultCwd, setDefaultCwd] = useState<string | null>(null);
   const [sessions, setSessions] = useState<TerminalSession[]>([]);
@@ -167,13 +164,6 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
             <PlusIcon className="size-3.5" />
           </Button>
         </div>
-
-        <ProcessesOverlay
-          onKill={(shellId) => {
-            void killProcess(shellId);
-          }}
-          processes={processes}
-        />
       </div>
 
       <div className="relative min-h-0 flex-1 p-2">
