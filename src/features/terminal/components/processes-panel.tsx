@@ -5,21 +5,40 @@ import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import { SquareIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type { ShellProcess } from "../use-shell-processes";
 import { ProcessLogViewer } from "./process-log-viewer";
 
-type ProcessesTabProps = {
+type ProcessesPanelProps = {
   processes: ShellProcess[];
   onKill: (shellId: string) => void;
+  className?: string;
 };
 
-export function ProcessesTab({ processes, onKill }: ProcessesTabProps) {
+export function ProcessesPanel({
+  processes,
+  onKill,
+  className,
+}: ProcessesPanelProps) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | null>(
     processes[0]?.shellId ?? null
   );
+
+  useEffect(() => {
+    if (processes.length === 0) {
+      setSelectedId(null);
+      return;
+    }
+
+    const stillSelected = processes.some(
+      (process) => process.shellId === selectedId
+    );
+    if (!stillSelected) {
+      setSelectedId(processes[0]?.shellId ?? null);
+    }
+  }, [processes, selectedId]);
 
   const selected =
     processes.find((process) => process.shellId === selectedId) ??
@@ -28,15 +47,20 @@ export function ProcessesTab({ processes, onKill }: ProcessesTabProps) {
 
   if (processes.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+      <div
+        className={cn(
+          "flex h-full items-center justify-center text-sm text-muted-foreground",
+          className
+        )}
+      >
         {t("terminal.noProcesses")}
       </div>
     );
   }
 
   return (
-    <div className="flex h-full min-h-0 gap-3 p-3">
-      <div className="flex w-56 shrink-0 flex-col gap-1 overflow-y-auto">
+    <div className={cn("flex h-full min-h-0 gap-3 p-3", className)}>
+      <div className="flex w-52 shrink-0 flex-col gap-1 overflow-y-auto">
         {processes.map((process) => (
           <button
             key={process.shellId}

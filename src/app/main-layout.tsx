@@ -4,6 +4,7 @@ import { MainColumn } from "@/components/layout/main-column";
 import { AppSidebar } from "@/features/chat/components/app-sidebar";
 import { useSessionTitleBarSlots } from "@/features/chat/hooks/use-session-title-bar-slots";
 import { BottomPanelProvider } from "@/features/terminal/bottom-panel-context";
+import { ShellProcessesProvider } from "@/features/terminal/shell-processes-context";
 
 import type { ShellOutletContext } from "./shell-outlet-context";
 
@@ -15,16 +16,18 @@ export function MainLayout() {
 
   return (
     <BottomPanelProvider>
-      <AppSidebar open={sidebarOpen} />
+      <ShellProcessesProvider>
+        <AppSidebar open={sidebarOpen} />
 
-      <MainColumn
-        titleBarLeading={sessionTitleBar?.leading}
-        titleBarTrailing={sessionTitleBar?.trailing}
-      >
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <Outlet />
-        </div>
-      </MainColumn>
+        <MainColumn
+          titleBarLeading={sessionTitleBar?.leading}
+          titleBarTrailing={sessionTitleBar?.trailing}
+        >
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <Outlet />
+          </div>
+        </MainColumn>
+      </ShellProcessesProvider>
     </BottomPanelProvider>
   );
 }

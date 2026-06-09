@@ -218,8 +218,8 @@ export const zhMessages = {
     comingSoon: "即将推出",
   },
   terminal: {
-    processesTab: "进程",
-    terminalTab: "终端",
+    agentProcesses: "Agent 进程",
+    runningCount: "{count} 个运行中",
     noProcesses: "暂无后台进程",
     killProcess: "终止",
     newTerminal: "新建终端",

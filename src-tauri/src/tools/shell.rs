@@ -58,6 +58,8 @@ pub struct ShellInfo {
     pub exit_code: Option<i32>,
     pub started_at_ms: u64,
     pub task_id: Option<String>,
+    pub stdout: String,
+    pub stderr: String,
 }
 
 pub fn normalize_block_until_ms(block_until_ms: Option<u64>) -> u64 {

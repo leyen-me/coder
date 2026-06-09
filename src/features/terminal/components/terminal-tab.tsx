@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils";
 import { PlusIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 
+import { useShellProcesses } from "../use-shell-processes";
 import { InteractiveTerminal } from "./interactive-terminal";
+import { ProcessesOverlay } from "./processes-overlay";
 
 type TerminalTabProps = {
   workspaceDir: string | null;
@@ -19,6 +21,7 @@ type TerminalSession = {
 
 export function TerminalTab({ workspaceDir }: TerminalTabProps) {
   const { t } = useTranslation();
+  const { processes, killProcess } = useShellProcesses();
   const [sessions, setSessions] = useState<TerminalSession[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -60,7 +63,7 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 border-b px-3 py-2">
+      <div className="flex items-center gap-2 border-b px-3 py-1.5">
         <Button
           size="sm"
           variant="outline"
@@ -106,6 +109,13 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
             );
           })}
         </div>
+
+        <ProcessesOverlay
+          onKill={(shellId) => {
+            void killProcess(shellId);
+          }}
+          processes={processes}
+        />
       </div>
 
       <div className="relative min-h-0 flex-1 p-2">

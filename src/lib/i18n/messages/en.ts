@@ -219,8 +219,8 @@ export const enMessages = {
     comingSoon: "Coming soon",
   },
   terminal: {
-    processesTab: "Processes",
-    terminalTab: "Terminal",
+    agentProcesses: "Agent processes",
+    runningCount: "{count} running",
     noProcesses: "No background processes",
     killProcess: "Kill",
     newTerminal: "New terminal",

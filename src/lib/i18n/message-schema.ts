@@ -206,8 +206,8 @@ export type Messages = {
     comingSoon: string;
   };
   terminal: {
-    processesTab: string;
-    terminalTab: string;
+    agentProcesses: string;
+    runningCount: string;
     noProcesses: string;
     killProcess: string;
     newTerminal: string;

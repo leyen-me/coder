@@ -61,6 +61,8 @@ impl ShellRegistry {
                 exit_code: shell.exit_code,
                 started_at_ms: shell.started_at.elapsed().as_millis() as u64,
                 task_id: shell.task_id.clone(),
+                stdout: shell.stdout.clone(),
+                stderr: shell.stderr.clone(),
             })
             .collect()
     }

@@ -160,6 +160,8 @@ export type ShellInfo = {
   exitCode?: number;
   startedAtMs: number;
   taskId?: string;
+  stdout?: string;
+  stderr?: string;
 };
 
 export type ToolExecutionContext = {

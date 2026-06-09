@@ -25,9 +25,7 @@ export function ProcessLogViewer({
     element.scrollTop = element.scrollHeight;
   }, [stdout, stderr]);
 
-  const content = [stdout, stderr ? `\n[stderr]\n${stderr}` : ""]
-    .join("")
-    .trim();
+  const content = mergeProcessLogContent(stdout, stderr);
 
   return (
     <pre
@@ -40,4 +38,20 @@ export function ProcessLogViewer({
       {content || " "}
     </pre>
   );
+}
+
+/** Skip stderr when it duplicates stdout (common with piped npm/vite output). */
+function mergeProcessLogContent(stdout: string, stderr: string): string {
+  const trimmedStdout = stdout.trimEnd();
+  const trimmedStderr = stderr.trim();
+
+  if (!trimmedStderr) {
+    return trimmedStdout;
+  }
+
+  if (trimmedStderr === trimmedStdout.trim()) {
+    return trimmedStdout;
+  }
+
+  return `${trimmedStdout}${trimmedStdout ? "\n\n" : ""}[stderr]\n${stderr}`.trim();
 }
