@@ -109,23 +109,57 @@ function parseReadFileToolError(
   }
 
   if (error instanceof Error) {
-    return parseReadFileToolErrorPayload(error.message);
+    const fromMessage = parseReadFileToolErrorPayload(error.message);
+    if (fromMessage) {
+      return fromMessage;
+    }
   }
 
-  return null;
+  return parseReadFileToolErrorPayload(error);
 }
 
 function parseReadFileToolErrorPayload(
-  raw: string
+  raw: unknown
 ): ReadFileToolErrorPayload | null {
-  try {
-    const parsed = JSON.parse(raw) as ReadFileToolErrorPayload;
-    if (typeof parsed.code === "string" && typeof parsed.message === "string") {
-      return parsed;
-    }
-  } catch {
+  const parsed =
+    typeof raw === "string"
+      ? parseJsonReadFileToolError(raw)
+      : isReadFileToolErrorPayload(raw)
+        ? raw
+        : null;
+
+  if (!parsed) {
     return null;
   }
 
-  return null;
+  return {
+    code: parsed.code,
+    message: parsed.message,
+    mimeType: parsed.mimeType,
+    size: parsed.size,
+  };
+}
+
+function parseJsonReadFileToolError(
+  raw: string
+): ReadFileToolErrorPayload | null {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return isReadFileToolErrorPayload(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function isReadFileToolErrorPayload(
+  value: unknown
+): value is ReadFileToolErrorPayload {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.code === "string" && typeof record.message === "string"
+  );
 }

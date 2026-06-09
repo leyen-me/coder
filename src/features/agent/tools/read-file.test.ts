@@ -34,7 +34,7 @@ describe("readFileHandler", () => {
     );
   });
 
-  it("returns structured tool failures from the backend", async () => {
+  it("returns structured tool failures from JSON string rejections", async () => {
     vi.mocked(invoke).mockRejectedValueOnce(
       JSON.stringify({
         code: "binary_file",
@@ -53,6 +53,26 @@ describe("readFileHandler", () => {
         READ_FILE_TOOL_NAME,
         "binary_file",
         "Binary file detected (image/png)"
+      )
+    );
+  });
+
+  it("returns structured tool failures from object rejections", async () => {
+    vi.mocked(invoke).mockRejectedValueOnce({
+      code: "path_not_found",
+      message: "Path not found: /tmp/project/missing.ts",
+    });
+
+    const result = await readFileHandler(
+      { path: "missing.ts" },
+      { workspaceDir: "/tmp/project" }
+    );
+
+    expect(result).toEqual(
+      toolFailure(
+        READ_FILE_TOOL_NAME,
+        "path_not_found",
+        "Path not found: /tmp/project/missing.ts"
       )
     );
   });
