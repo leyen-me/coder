@@ -16,7 +16,7 @@ export type UseWorkspaceFileTreeResult = {
   error: string | null;
   setSelectedPath: (path: string | undefined) => void;
   handleExpandedChange: (nextExpanded: Set<string>) => void;
-  refresh: () => void;
+  refresh: (options?: { preserveExpanded?: boolean }) => void;
   reloadPaths: (paths: string[]) => Promise<void>;
   collapseAll: () => void;
   ensureExpanded: (path: string) => void;
@@ -39,7 +39,7 @@ export function useWorkspaceFileTree(
   const [showHidden, setShowHidden] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const requestIdRef = useRef(0);
+  const directoryRequestIdsRef = useRef(new Map<string, number>());
   const expandedRef = useRef(expanded);
   const showHiddenRef = useRef(showHidden);
   const entriesByPathRef = useRef(entriesByPath);
@@ -55,8 +55,9 @@ export function useWorkspaceFileTree(
       }
 
       const cacheKey = normalizeTreePath(path);
-      const requestId = requestIdRef.current + 1;
-      requestIdRef.current = requestId;
+      const requestId =
+        (directoryRequestIdsRef.current.get(cacheKey) ?? 0) + 1;
+      directoryRequestIdsRef.current.set(cacheKey, requestId);
       const isRootLoad = cacheKey === ROOT_PATH;
       if (isRootLoad && !entriesByPathRef.current.has(ROOT_PATH)) {
         setLoading(true);
@@ -69,7 +70,7 @@ export function useWorkspaceFileTree(
           cacheKey,
           showHiddenRef.current
         );
-        if (requestIdRef.current !== requestId) {
+        if (directoryRequestIdsRef.current.get(cacheKey) !== requestId) {
           return;
         }
 
@@ -79,7 +80,7 @@ export function useWorkspaceFileTree(
           return next;
         });
       } catch (loadError) {
-        if (requestIdRef.current !== requestId) {
+        if (directoryRequestIdsRef.current.get(cacheKey) !== requestId) {
           return;
         }
 
@@ -87,7 +88,10 @@ export function useWorkspaceFileTree(
           loadError instanceof Error ? loadError.message : String(loadError);
         setError(message);
       } finally {
-        if (requestIdRef.current === requestId && isRootLoad) {
+        if (
+          directoryRequestIdsRef.current.get(cacheKey) === requestId &&
+          isRootLoad
+        ) {
           setLoading(false);
         }
       }
@@ -95,22 +99,38 @@ export function useWorkspaceFileTree(
     [workspaceDir]
   );
 
-  const refresh = useCallback(() => {
-    if (!workspaceDir) {
-      setRootPath(null);
-      setEntriesByPath(new Map());
-      setExpanded(new Set());
-      setSelectedPath(undefined);
-      setError(null);
-      return;
-    }
+  const refresh = useCallback(
+    (options?: { preserveExpanded?: boolean }) => {
+      if (!workspaceDir) {
+        setRootPath(null);
+        setEntriesByPath(new Map());
+        setExpanded(new Set());
+        setSelectedPath(undefined);
+        setError(null);
+        return;
+      }
 
-    setRootPath(ROOT_PATH);
-    setEntriesByPath(new Map());
-    setExpanded(new Set());
-    setSelectedPath(undefined);
-    void loadDirectory(ROOT_PATH);
-  }, [loadDirectory, workspaceDir]);
+      const preserveExpanded = options?.preserveExpanded ?? false;
+      const expandedPaths = preserveExpanded
+        ? [...expandedRef.current]
+        : [];
+
+      setRootPath(ROOT_PATH);
+      setEntriesByPath(new Map());
+      if (!preserveExpanded) {
+        setExpanded(new Set());
+      }
+      setSelectedPath(undefined);
+
+      void (async () => {
+        await loadDirectory(ROOT_PATH);
+        if (preserveExpanded) {
+          await Promise.all(expandedPaths.map((path) => loadDirectory(path)));
+        }
+      })();
+    },
+    [loadDirectory, workspaceDir]
+  );
 
   useEffect(() => {
     refresh();

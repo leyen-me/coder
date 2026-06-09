@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ListDirEntry } from "@/features/agent/tools/types";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
+import { forwardRef, useCallback, useImperativeHandle } from "react";
 
 import {
   FileTreeDeleteDialog,
@@ -28,7 +29,12 @@ type WorkspaceFileTreeProps = {
   className?: string;
   onFileOpen?: (file: FilePreviewTab) => void;
   onFileClose?: (path: string) => void;
+  onFileRename?: (oldPath: string, file: FilePreviewTab) => void;
   openPreviewPaths?: Set<string>;
+};
+
+export type WorkspaceFileTreeHandle = {
+  refreshAll: () => void;
 };
 
 function findTreeEntry(
@@ -51,6 +57,7 @@ type RenderTreeEntriesOptions = {
   actions: ReturnType<typeof useFileTreeActions>;
   isExpanded: (path: string) => boolean;
   toggleExpanded: (path: string) => void;
+  onRefresh: () => void;
 };
 
 function renderTreeEntries({
@@ -59,6 +66,7 @@ function renderTreeEntries({
   actions,
   isExpanded,
   toggleExpanded,
+  onRefresh,
 }: RenderTreeEntriesOptions) {
   return entries.map((entry) => {
     if (entry.isDir) {
@@ -70,6 +78,7 @@ function renderTreeEntries({
           actions={actions}
           entry={entry}
           isExpanded={isExpanded(entry.path)}
+          onRefresh={onRefresh}
           onToggleExpanded={() => toggleExpanded(entry.path)}
         >
           <FileTreeFolder name={entry.name} path={entry.path}>
@@ -80,6 +89,7 @@ function renderTreeEntries({
                   actions,
                   isExpanded,
                   toggleExpanded,
+                  onRefresh,
                 })
               : null}
           </FileTreeFolder>
@@ -101,13 +111,20 @@ function renderTreeEntries({
   });
 }
 
-export function WorkspaceFileTree({
-  workspaceDir,
-  className,
-  onFileOpen,
-  onFileClose,
-  openPreviewPaths,
-}: WorkspaceFileTreeProps) {
+export const WorkspaceFileTree = forwardRef<
+  WorkspaceFileTreeHandle,
+  WorkspaceFileTreeProps
+>(function WorkspaceFileTree(
+  {
+    workspaceDir,
+    className,
+    onFileOpen,
+    onFileClose,
+    onFileRename,
+    openPreviewPaths,
+  },
+  ref
+) {
   const { t } = useTranslation();
   const tree = useWorkspaceFileTree(workspaceDir);
   const actions = useFileTreeActions({
@@ -115,6 +132,7 @@ export function WorkspaceFileTree({
     tree,
     onFileOpen,
     onFileClose,
+    onFileRename,
     openPreviewPaths,
   });
 
@@ -126,6 +144,18 @@ export function WorkspaceFileTree({
 
   const nameDialogMode = actions.nameDialog?.mode ?? null;
   const nameDialogDefaultName = actions.nameDialog?.defaultName ?? "";
+
+  const handleRefreshAll = useCallback(() => {
+    tree.refresh({ preserveExpanded: true });
+  }, [tree]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      refreshAll: handleRefreshAll,
+    }),
+    [handleRefreshAll]
+  );
 
   if (!workspaceDir) {
     return (
@@ -149,7 +179,7 @@ export function WorkspaceFileTree({
         <FileTreeBlankContextMenu
           actions={actions}
           onCollapseAll={tree.collapseAll}
-          onRefresh={tree.refresh}
+          onRefresh={handleRefreshAll}
           onToggleShowHidden={tree.toggleShowHidden}
           showHidden={tree.showHidden}
         >
@@ -179,6 +209,7 @@ export function WorkspaceFileTree({
                   actions,
                   isExpanded: tree.isExpanded,
                   toggleExpanded: tree.toggleExpanded,
+                  onRefresh: handleRefreshAll,
                 })}
               </FileTree>
             )}
@@ -210,4 +241,4 @@ export function WorkspaceFileTree({
       />
     </>
   );
-}
+});

@@ -9,11 +9,7 @@ import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import type { FilePreviewTab } from "../hooks/use-file-preview-tabs";
 import type { UseWorkspaceFileTreeResult } from "../hooks/use-workspace-file-tree";
-import {
-  clearFileTreeClipboard,
-  getFileTreeClipboard,
-  setFileTreeClipboard,
-} from "../lib/file-tree-clipboard";
+import type { FileTreeClipboardEntry } from "../lib/file-tree-clipboard";
 import {
   copyWorkspacePath,
   createWorkspaceDir,
@@ -24,10 +20,14 @@ import {
   resolveWorkspaceAbsolutePath,
 } from "../lib/workspace-file-ops";
 import {
+  basenameTreePath,
   joinTreePath,
   normalizeTreePath,
   parentTreePath,
+  resolvePasteDestinationPath,
   ROOT_PATH,
+  withCopySuffix,
+  withNumberedSuffix,
 } from "../lib/workspace-path-utils";
 import type { FileTreeNameDialogMode } from "../components/file-tree-dialogs";
 
@@ -36,6 +36,7 @@ type UseFileTreeActionsOptions = {
   tree: UseWorkspaceFileTreeResult;
   onFileOpen?: (file: FilePreviewTab) => void;
   onFileClose?: (path: string) => void;
+  onFileRename?: (oldPath: string, file: FilePreviewTab) => void;
   openPreviewPaths?: Set<string>;
 };
 
@@ -75,21 +76,78 @@ async function openWithDefaultApp(
   await openPath(absolutePath);
 }
 
+function isAlreadyExistsError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("already_exists") || message.includes("already exists")
+  );
+}
+
+async function pasteClipboardEntry(
+  workspaceDir: string,
+  folderPath: string,
+  clipboard: FileTreeClipboardEntry
+): Promise<string | null> {
+  if (clipboard.operation === "cut") {
+    const destPath = resolvePasteDestinationPath(
+      folderPath,
+      clipboard.path,
+      clipboard.name,
+      "cut"
+    );
+    if (!destPath) {
+      return null;
+    }
+    await moveWorkspacePath(workspaceDir, clipboard.path, destPath);
+    return destPath;
+  }
+
+  const initialDest = resolvePasteDestinationPath(
+    folderPath,
+    clipboard.path,
+    clipboard.name,
+    "copy"
+  );
+  if (!initialDest) {
+    return null;
+  }
+
+  let attemptName = basenameTreePath(initialDest);
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const destPath = joinTreePath(folderPath, attemptName);
+    try {
+      await copyWorkspacePath(workspaceDir, clipboard.path, destPath);
+      return destPath;
+    } catch (error) {
+      if (!isAlreadyExistsError(error)) {
+        throw error;
+      }
+
+      attemptName =
+        attempt === 0
+          ? withCopySuffix(clipboard.name)
+          : withNumberedSuffix(clipboard.name, attempt + 1);
+    }
+  }
+
+  throw new Error("Unable to find an available paste destination name");
+}
+
 export function useFileTreeActions({
   workspaceDir,
   tree,
   onFileOpen,
   onFileClose,
+  onFileRename,
   openPreviewPaths,
 }: UseFileTreeActionsOptions) {
   const { t } = useTranslation();
   const [nameDialog, setNameDialog] = useState<NameDialogState | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
-  const [hasClipboard, setHasClipboard] = useState(false);
+  const [clipboard, setClipboard] = useState<FileTreeClipboardEntry | null>(null);
 
-  const syncClipboard = useCallback(() => {
-    setHasClipboard(getFileTreeClipboard() !== null);
-  }, []);
+  const hasClipboard = clipboard !== null;
 
   const invalidateAfterChange = useCallback(
     async (paths: string[]) => {
@@ -183,68 +241,66 @@ export function useFileTreeActions({
 
   const handleCopyEntry = useCallback(
     (entry: ListDirEntry) => {
-      setFileTreeClipboard({
+      setClipboard({
         operation: "copy",
         path: entry.path,
         name: entry.name,
         isDir: entry.isDir,
       });
-      syncClipboard();
       toast.success(t("rightPanel.toastCopiedForPaste"));
     },
-    [syncClipboard, t]
+    [t]
   );
 
   const handleCutEntry = useCallback(
     (entry: ListDirEntry) => {
-      setFileTreeClipboard({
+      setClipboard({
         operation: "cut",
         path: entry.path,
         name: entry.name,
         isDir: entry.isDir,
       });
-      syncClipboard();
       toast.success(t("rightPanel.toastCutForPaste"));
     },
-    [syncClipboard, t]
+    [t]
   );
 
   const handlePasteInto = useCallback(
     async (folderPath: string) => {
-      if (!workspaceDir) {
+      if (!workspaceDir || !clipboard) {
         return;
       }
 
-      const clipboard = getFileTreeClipboard();
-      if (!clipboard) {
-        return;
-      }
-
-      const destPath = joinTreePath(folderPath, clipboard.name);
-      if (destPath === clipboard.path) {
-        return;
-      }
+      const source = clipboard;
 
       try {
-        if (clipboard.operation === "copy") {
-          await copyWorkspacePath(workspaceDir, clipboard.path, destPath);
-        } else {
-          await moveWorkspacePath(workspaceDir, clipboard.path, destPath);
-          clearFileTreeClipboard();
-          syncClipboard();
-          onFileClose?.(clipboard.path);
+        const pastedPath = await pasteClipboardEntry(
+          workspaceDir,
+          folderPath,
+          source
+        );
+        if (!pastedPath) {
+          return;
         }
 
+        setClipboard(null);
+
+        if (source.operation === "cut") {
+          onFileClose?.(source.path);
+        }
+
+        tree.ensureExpanded(folderPath);
         await invalidateAfterChange([
           folderPath,
-          parentTreePath(clipboard.path),
+          parentTreePath(source.path),
+          parentTreePath(pastedPath),
         ]);
         toast.success(t("rightPanel.toastPasted"));
       } catch (error) {
         handleError(error);
       }
     },
-    [handleError, invalidateAfterChange, onFileClose, syncClipboard, t, workspaceDir]
+    [clipboard, handleError, invalidateAfterChange, onFileClose, t, tree, workspaceDir]
   );
 
   const openNameDialog = useCallback(
@@ -283,12 +339,10 @@ export function useFileTreeActions({
         );
         if (nameDialog.isDir) {
           tree.renameExpandedPath(nameDialog.targetPath, nextPath);
+        } else if (openPreviewPaths?.has(nameDialog.targetPath)) {
+          onFileRename?.(nameDialog.targetPath, { path: nextPath, name });
         }
-        onFileClose?.(nameDialog.targetPath);
         await invalidateAfterChange([parentPath]);
-        if (!nameDialog.isDir) {
-          onFileOpen?.({ path: nextPath, name });
-        }
         toast.success(t("rightPanel.toastRenamed"));
         return;
       }
@@ -311,8 +365,9 @@ export function useFileTreeActions({
     [
       invalidateAfterChange,
       nameDialog,
-      onFileClose,
+      onFileRename,
       onFileOpen,
+      openPreviewPaths,
       t,
       tree,
       workspaceDir,

@@ -13,6 +13,7 @@ type UseFilePreviewTabsResult = {
   isExplorerActive: boolean;
   openFile: (file: FilePreviewTab) => void;
   closeFile: (path: string) => void;
+  renameFile: (oldPath: string, file: FilePreviewTab) => void;
   showExplorer: () => void;
   activateFile: (path: string) => void;
 };
@@ -58,6 +59,15 @@ export function useFilePreviewTabs(): UseFilePreviewTabsResult {
     });
   }, []);
 
+  const renameFile = useCallback((oldPath: string, file: FilePreviewTab) => {
+    setTabs((current) =>
+      current.map((tab) =>
+        tab.path === oldPath ? { path: file.path, name: file.name } : tab
+      )
+    );
+    setActiveTabPath((active) => (active === oldPath ? file.path : active));
+  }, []);
+
   const showExplorer = useCallback(() => {
     setActiveTabPath(null);
   }, []);
@@ -73,6 +83,7 @@ export function useFilePreviewTabs(): UseFilePreviewTabsResult {
       isExplorerActive: activeTabPath === null,
       openFile,
       closeFile,
+      renameFile,
       showExplorer,
       activateFile,
     }),
@@ -81,6 +92,7 @@ export function useFilePreviewTabs(): UseFilePreviewTabsResult {
       activeTabPath,
       closeFile,
       openFile,
+      renameFile,
       showExplorer,
       tabs,
     ]

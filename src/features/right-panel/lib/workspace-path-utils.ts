@@ -36,3 +36,49 @@ export function joinTreePath(base: string, name: string): string {
   }
   return `${normalizedBase}/${trimmedName}`;
 }
+
+export function withCopySuffix(name: string): string {
+  const dotIndex = name.lastIndexOf(".");
+  if (dotIndex > 0) {
+    return `${name.slice(0, dotIndex)} copy${name.slice(dotIndex)}`;
+  }
+  return `${name} copy`;
+}
+
+export function withNumberedSuffix(name: string, index: number): string {
+  const dotIndex = name.lastIndexOf(".");
+  if (dotIndex > 0) {
+    const stem = name.slice(0, dotIndex);
+    const ext = name.slice(dotIndex);
+    return `${stem} (${index})${ext}`;
+  }
+  return `${name} (${index})`;
+}
+
+export function resolvePasteDestinationPath(
+  folderPath: string,
+  sourcePath: string,
+  name: string,
+  operation: "copy" | "cut"
+): string | null {
+  const normalizedFolder = normalizeTreePath(folderPath);
+  const normalizedSource = normalizeTreePath(sourcePath);
+  let destName = name;
+  let destPath = joinTreePath(normalizedFolder, destName);
+  let normalizedDest = normalizeTreePath(destPath);
+
+  if (operation === "cut") {
+    if (normalizedDest === normalizedSource) {
+      return null;
+    }
+    return destPath;
+  }
+
+  if (normalizedDest === normalizedSource) {
+    destName = withCopySuffix(name);
+    destPath = joinTreePath(normalizedFolder, destName);
+    normalizedDest = normalizeTreePath(destPath);
+  }
+
+  return destPath;
+}

@@ -41,6 +41,7 @@ type FileTreeEntryContextMenuProps = {
   entry: ListDirEntry;
   actions: FileTreeActions;
   isExpanded: boolean;
+  onRefresh?: () => void;
   onToggleExpanded: () => void;
   children: ReactNode;
 };
@@ -49,6 +50,7 @@ export function FileTreeEntryContextMenu({
   entry,
   actions,
   isExpanded,
+  onRefresh,
   onToggleExpanded,
   children,
 }: FileTreeEntryContextMenuProps) {
@@ -157,6 +159,17 @@ export function FileTreeEntryContextMenu({
             <TrashIcon />
             {t("rightPanel.menuDelete")}
           </ContextMenuItem>
+          <ContextMenuSeparator />
+          {onRefresh ? (
+            <ContextMenuItem
+              onSelect={() => {
+                onRefresh();
+              }}
+            >
+              <RefreshCwIcon />
+              {t("rightPanel.menuRefresh")}
+            </ContextMenuItem>
+          ) : null}
         </ContextMenuContent>
       </ContextMenu>
     );
@@ -225,6 +238,15 @@ export function FileTreeEntryContextMenu({
         >
           <ScissorsIcon />
           {t("rightPanel.menuCut")}
+        </ContextMenuItem>
+        <ContextMenuItem
+          disabled={!actions.hasClipboard}
+          onSelect={() => {
+            void actions.handlePasteInto(pasteTarget);
+          }}
+        >
+          <ClipboardPasteIcon />
+          {t("rightPanel.menuPaste")}
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem

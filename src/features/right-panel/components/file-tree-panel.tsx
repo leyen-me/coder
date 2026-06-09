@@ -1,7 +1,7 @@
 "use client";
 
-import { FileIcon, FilesIcon, XIcon } from "lucide-react";
-import { useMemo } from "react";
+import { FileIcon, FilesIcon, RefreshCwIcon, XIcon } from "lucide-react";
+import { useMemo, useRef } from "react";
 
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useFilePreviewTabs } from "../hooks/use-file-preview-tabs";
 import { FilePreview } from "./file-preview";
 import { WorkspaceFileTree } from "./workspace-file-tree";
+import type { WorkspaceFileTreeHandle } from "./workspace-file-tree";
 
 type FileTreePanelProps = {
   workspaceDir: string | null;
@@ -22,6 +23,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     isExplorerActive,
     openFile,
     closeFile,
+    renameFile,
     showExplorer,
     activateFile,
   } = useFilePreviewTabs();
@@ -30,6 +32,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     () => new Set(tabs.map((tab) => tab.path)),
     [tabs]
   );
+  const fileTreeRef = useRef<WorkspaceFileTreeHandle>(null);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -56,6 +59,18 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
             type="button"
           >
             {t("rightPanel.explorer")}
+          </button>
+          <button
+            aria-label={t("rightPanel.menuRefresh")}
+            className="rounded-r-md px-1.5 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
+            onClick={(event) => {
+              event.stopPropagation();
+              fileTreeRef.current?.refreshAll();
+            }}
+            title={t("rightPanel.menuRefresh")}
+            type="button"
+          >
+            <RefreshCwIcon className="size-3" />
           </button>
         </div>
 
@@ -104,8 +119,10 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
           )}
         >
           <WorkspaceFileTree
+            ref={fileTreeRef}
             onFileClose={closeFile}
             onFileOpen={openFile}
+            onFileRename={renameFile}
             openPreviewPaths={openPreviewPaths}
             workspaceDir={workspaceDir}
           />
