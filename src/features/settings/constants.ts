@@ -1,4 +1,4 @@
-import { Bot, Database, Palette, SlidersHorizontal } from "lucide-react";
+import { Bot, Database, Globe, Palette, SlidersHorizontal } from "lucide-react";
 
 import type { SettingsCategoryId } from "./types";
 
@@ -11,6 +11,7 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   { id: "general", icon: SlidersHorizontal },
   { id: "appearance", icon: Palette },
   { id: "modelProvider", icon: Bot },
+  { id: "webTools", icon: Globe },
   { id: "data", icon: Database },
 ];
 

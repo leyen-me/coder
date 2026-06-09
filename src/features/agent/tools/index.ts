@@ -22,6 +22,10 @@ export {
   LIST_SHELLS_TOOL_NAME,
   KILL_SHELL_TOOL,
   KILL_SHELL_TOOL_NAME,
+  WEB_SEARCH_TOOL,
+  WEB_SEARCH_TOOL_NAME,
+  BROWSE_PAGE_TOOL,
+  BROWSE_PAGE_TOOL_NAME,
 } from "./definitions";
 export { toApiToolCall, toApiToolCalls, type ApiToolCall } from "./api-tool-call";
 export { executeToolCall, getAgentToolDefinitions, getToolHandler } from "./registry";
@@ -53,5 +57,8 @@ export type {
   ListShellsData,
   ListShellsEntry,
   KillShellData,
+  BrowsePageData,
+  WebSearchData,
+  TavilyConfig,
   ToolExecutionContext,
 } from "./types";

@@ -9,6 +9,7 @@ import { initLocaleBeforeRender } from "@/lib/i18n/init-locale";
 import { LocaleProvider } from "@/lib/i18n/locale-provider";
 import { initThemeBeforeRender } from "@/lib/theme/init-theme";
 import { ModelProviderProvider } from "@/lib/model-provider/model-provider-provider";
+import { WebToolsProvider } from "@/lib/web-tools/web-tools-provider";
 import { ThemeProvider } from "@/lib/theme/theme-provider";
 import { AgentStoreProvider } from "@/features/agent/store/agent-store";
 import { WorkspaceProvider } from "@/features/workspace/workspace-provider";
@@ -21,13 +22,15 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <LocaleProvider>
       <ThemeProvider>
         <ModelProviderProvider>
-          <WorkspaceProvider>
-            <AgentStoreProvider>
-              <TooltipProvider>
-                <App />
-              </TooltipProvider>
-            </AgentStoreProvider>
-          </WorkspaceProvider>
+          <WebToolsProvider>
+            <WorkspaceProvider>
+              <AgentStoreProvider>
+                <TooltipProvider>
+                  <App />
+                </TooltipProvider>
+              </AgentStoreProvider>
+            </WorkspaceProvider>
+          </WebToolsProvider>
         </ModelProviderProvider>
       </ThemeProvider>
     </LocaleProvider>

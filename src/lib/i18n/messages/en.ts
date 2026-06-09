@@ -99,6 +99,7 @@ export const enMessages = {
       general: "General",
       appearance: "Appearance",
       modelProvider: "Models",
+      webTools: "Web tools",
       data: "Data",
     },
     general: {
@@ -169,6 +170,26 @@ export const enMessages = {
       thinkingDisabledParamsLabel: "API params when thinking is disabled",
       thinkingDisabledParamsAriaLabel: "API params when thinking is disabled",
       thinkingDefaultEnabledLabel: "Enable deep thinking by default",
+    },
+    webTools: {
+      tavilyApiKeySourceLabel: "Tavily API key source",
+      tavilyApiKeySourceDescription:
+        "Enter the Tavily key manually or read it from an environment variable",
+      tavilyApiKeySourceAriaLabel: "Tavily API key source",
+      apiKeySources: {
+        manual: "Manual",
+        env: "Environment variable",
+      },
+      tavilyApiKeyLabel: "Tavily API key",
+      tavilyApiKeyDescription:
+        "Required for the web_search tool. Get a key at tavily.com.",
+      tavilyApiKeyPlaceholder: "tvly-...",
+      tavilyApiKeyAriaLabel: "Tavily API key",
+      tavilyApiKeyEnvVarLabel: "Environment variable",
+      tavilyApiKeyEnvVarDescription:
+        "Read the Tavily API key from this variable at runtime",
+      tavilyApiKeyEnvVarPlaceholder: "TAVILY_API_KEY",
+      tavilyApiKeyEnvVarAriaLabel: "Tavily API key environment variable",
     },
     data: {
       clearChatHistoryLabel: "Clear chat history",

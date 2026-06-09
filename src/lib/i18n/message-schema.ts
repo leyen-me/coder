@@ -96,6 +96,7 @@ export type Messages = {
       general: string;
       appearance: string;
       modelProvider: string;
+      webTools: string;
       data: string;
     };
     general: {
@@ -165,6 +166,23 @@ export type Messages = {
       thinkingDisabledParamsLabel: string;
       thinkingDisabledParamsAriaLabel: string;
       thinkingDefaultEnabledLabel: string;
+    };
+    webTools: {
+      tavilyApiKeySourceLabel: string;
+      tavilyApiKeySourceDescription: string;
+      tavilyApiKeySourceAriaLabel: string;
+      apiKeySources: {
+        manual: string;
+        env: string;
+      };
+      tavilyApiKeyLabel: string;
+      tavilyApiKeyDescription: string;
+      tavilyApiKeyPlaceholder: string;
+      tavilyApiKeyAriaLabel: string;
+      tavilyApiKeyEnvVarLabel: string;
+      tavilyApiKeyEnvVarDescription: string;
+      tavilyApiKeyEnvVarPlaceholder: string;
+      tavilyApiKeyEnvVarAriaLabel: string;
     };
     data: {
       clearChatHistoryLabel: string;

@@ -12,8 +12,9 @@ use tauri::{Manager, RunEvent};
 use tools::{
     agent_get_runtime_environment, git_checkout_branch, git_get_current_branch, git_list_branches,
     pty_close, pty_create, pty_resize, pty_write, shell_kill, shell_kill_by_task, shell_list,
-    tool_await, tool_edit_file, tool_glob, tool_grep, tool_list_dir, tool_read_file,
-    tool_replace_file, tool_shell, tool_write_file, PtyRegistry, PtyState, ShellRegistry,
+    tool_await, tool_browse_page, tool_edit_file, tool_glob, tool_grep, tool_list_dir,
+    tool_read_file, tool_replace_file, tool_shell, tool_web_search, tool_write_file,
+    PtyRegistry, PtyState, ShellRegistry,
     ShellState,
 };
 
@@ -67,6 +68,8 @@ pub fn run() {
             tool_edit_file,
             tool_glob,
             tool_grep,
+            tool_web_search,
+            tool_browse_page,
             tool_shell,
             tool_await,
             shell_kill,

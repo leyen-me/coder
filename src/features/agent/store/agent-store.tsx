@@ -22,6 +22,7 @@ import {
   type MessageRecord,
 } from "@/lib/db";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
+import { useWebTools } from "@/lib/web-tools/web-tools-provider";
 import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
 import { runAgentWithTools } from "../agent-loop";
@@ -113,6 +114,7 @@ function resolveThinkingEnabledForRequest(
 
 export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const { resolved } = useModelProvider();
+  const { tavilyConfig } = useWebTools();
   const resolvedRef = useRef(resolved);
   resolvedRef.current = resolved;
   const tasksRef = useRef(new Map<string, ActiveTaskState>());
@@ -545,7 +547,12 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             ),
           }),
         },
-        { workspaceDir, taskId, signal: abortController.signal },
+        {
+          workspaceDir,
+          taskId,
+          signal: abortController.signal,
+          tavilyConfig,
+        },
         (event) => {
           dispatchAgentEvent(taskId, assistantMessage.id, event);
         }
@@ -580,7 +587,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         taskId,
       };
     },
-    [dispatchAgentEvent, emit, resolved]
+    [dispatchAgentEvent, emit, resolved, tavilyConfig]
   );
 
   const regenerateMessage = useCallback(
@@ -699,7 +706,12 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             ),
           }),
         },
-        { workspaceDir, taskId, signal: abortController.signal },
+        {
+          workspaceDir,
+          taskId,
+          signal: abortController.signal,
+          tavilyConfig,
+        },
         (event) => {
           dispatchAgentEvent(taskId, newAssistantMessage.id, event);
         }
@@ -734,7 +746,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         taskId,
       };
     },
-    [dispatchAgentEvent, emit, resolved]
+    [dispatchAgentEvent, emit, resolved, tavilyConfig]
   );
 
   const cancelTask = useCallback(

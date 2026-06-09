@@ -189,10 +189,40 @@ export type KillShellData = {
   killed: boolean;
 };
 
+export type TavilyConfig = {
+  apiKeySource: "manual" | "env";
+  apiKey: string;
+  apiKeyEnvVar: string;
+};
+
+export type WebSearchResultItem = {
+  title: string;
+  url: string;
+  snippet: string;
+  score?: number;
+};
+
+export type WebSearchData = {
+  query: string;
+  results: WebSearchResultItem[];
+  answer?: string;
+};
+
+export type BrowsePageData = {
+  url: string;
+  finalUrl: string;
+  title?: string;
+  content: string;
+  truncated: boolean;
+  statusCode: number;
+  contentType?: string;
+};
+
 export type ToolExecutionContext = {
   workspaceDir: string | null;
   taskId?: string;
   signal?: AbortSignal;
+  tavilyConfig?: TavilyConfig | null;
 };
 
 export type ToolHandler = (

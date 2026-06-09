@@ -1,9 +1,11 @@
+mod browse_page;
 mod edit_file;
 mod file_modify;
 mod git;
 mod glob;
 mod grep;
 mod list_dir;
+mod network;
 mod pty_terminal;
 mod read_file;
 mod replace_file;
@@ -12,9 +14,11 @@ mod search;
 mod shell;
 mod shell_registry;
 mod text_file;
+mod web_search;
 mod workspace_path;
 mod write_file;
 
+pub use browse_page::tool_browse_page;
 pub use edit_file::tool_edit_file;
 pub use git::{git_checkout_branch, git_get_current_branch, git_list_branches};
 pub use glob::tool_glob;
@@ -27,4 +31,5 @@ pub use runtime::agent_get_runtime_environment;
 pub use shell_registry::{
     shell_kill, shell_kill_by_task, shell_list, tool_await, tool_shell, ShellRegistry, ShellState,
 };
+pub use web_search::tool_web_search;
 pub use write_file::tool_write_file;

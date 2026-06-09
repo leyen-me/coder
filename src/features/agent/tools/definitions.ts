@@ -11,6 +11,8 @@ export const SHELL_TOOL_NAME = "shell";
 export const AWAIT_TOOL_NAME = "await";
 export const LIST_SHELLS_TOOL_NAME = "list_shells";
 export const KILL_SHELL_TOOL_NAME = "kill_shell";
+export const WEB_SEARCH_TOOL_NAME = "web_search";
+export const BROWSE_PAGE_TOOL_NAME = "browse_page";
 
 export const LIST_DIR_TOOL: AgentToolDefinition = {
   type: "function",
@@ -408,6 +410,62 @@ export const KILL_SHELL_TOOL: AgentToolDefinition = {
   },
 };
 
+export const WEB_SEARCH_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: WEB_SEARCH_TOOL_NAME,
+    description:
+      "Search the web for real-time information outside training data, such as news, version numbers, or current events. Include version numbers or dates in technical queries when relevant.",
+    parameters: {
+      type: "object",
+      properties: {
+        search_term: {
+          type: "string",
+          description:
+            "The search term to look up on the web. Be specific and include relevant keywords.",
+        },
+        explanation: {
+          type: "string",
+          description:
+            "One sentence explanation of why this search is being used.",
+        },
+        max_results: {
+          type: "integer",
+          description: "Maximum number of search results to return.",
+          default: 5,
+        },
+      },
+      required: ["search_term"],
+      additionalProperties: false,
+    },
+  },
+};
+
+export const BROWSE_PAGE_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: BROWSE_PAGE_TOOL_NAME,
+    description:
+      "Fetch a public web page and return readable Markdown content. Use after web_search when you need the full page text. Does not render JavaScript-heavy pages. Do not call repeatedly for the same URL.",
+    parameters: {
+      type: "object",
+      properties: {
+        url: {
+          type: "string",
+          description: "The URL to fetch. Must be http or https.",
+        },
+        explanation: {
+          type: "string",
+          description:
+            "One sentence explanation of why this page is being fetched.",
+        },
+      },
+      required: ["url"],
+      additionalProperties: false,
+    },
+  },
+};
+
 export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   LIST_DIR_TOOL,
   READ_FILE_TOOL,
@@ -420,4 +478,6 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   AWAIT_TOOL,
   LIST_SHELLS_TOOL,
   KILL_SHELL_TOOL,
+  WEB_SEARCH_TOOL,
+  BROWSE_PAGE_TOOL,
 ];

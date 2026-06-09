@@ -6,7 +6,7 @@ import {
 import { AgentCancellationError, isAgentCancellationError, throwIfAborted } from "./cancellation";
 import { parseToolCallInput, toolResultToInvocationPatch } from "./tools/tool-display";
 import { toApiToolCalls } from "./tools/api-tool-call";
-import type { AgentToolCall } from "./tools/types";
+import type { AgentToolCall, TavilyConfig } from "./tools/types";
 import { startAgent } from "./runner";
 import type { AgentChatMessage, AgentEvent, AgentEventHandler, AgentStartInput } from "./types";
 import { MAX_AGENT_TOOL_ITERATIONS } from "./types";
@@ -15,6 +15,7 @@ type ToolExecutionContextInput = {
   workspaceDir: string | null;
   taskId: string;
   signal?: AbortSignal;
+  tavilyConfig?: TavilyConfig | null;
 };
 
 export async function runAgentWithTools(
@@ -54,12 +55,7 @@ export async function runAgentWithTools(
       throw new Error("Maximum tool iterations exceeded");
     }
 
-    messages = await appendToolResults(
-      messages,
-      turn,
-      { workspaceDir: context.workspaceDir, taskId: input.taskId },
-      onEvent
-    );
+    messages = await appendToolResults(messages, turn, context, onEvent);
   }
 }
 
@@ -213,6 +209,7 @@ async function appendToolResults(
         workspaceDir: context.workspaceDir,
         taskId: context.taskId,
         signal: context.signal,
+        tavilyConfig: context.tavilyConfig,
       });
     } catch (error) {
       if (isAgentCancellationError(error)) {

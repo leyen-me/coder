@@ -111,7 +111,70 @@ describe("runAgentWithTools", () => {
     expect(executeToolCallMock).toHaveBeenCalledWith(
       "list_dir",
       '{"path":"."}',
-      { workspaceDir: null, taskId: "task-1", signal: undefined }
+      {
+        workspaceDir: null,
+        taskId: "task-1",
+        signal: undefined,
+        tavilyConfig: undefined,
+      }
+    );
+  });
+
+  it("passes tavilyConfig through to tool execution", async () => {
+    executeToolCallMock.mockResolvedValue({
+      ok: true,
+      tool: "web_search",
+      data: { query: "rust async", results: [] },
+    });
+
+    const tavilyConfig = {
+      apiKeySource: "manual" as const,
+      apiKey: "tvly-test-key",
+      apiKeyEnvVar: "TAVILY_API_KEY",
+    };
+
+    startAgentMock
+      .mockImplementationOnce(async (_input, onEvent) => {
+        onEvent({
+          type: "turn_complete",
+          taskId: "task-1",
+          toolCalls: [
+            {
+              id: "call_1",
+              name: "web_search",
+              arguments: '{"search_term":"rust async"}',
+            },
+          ],
+        });
+        onEvent({ type: "status", taskId: "task-1", status: "completed" });
+      })
+      .mockImplementationOnce(async (_input, onEvent) => {
+        onEvent({ type: "status", taskId: "task-1", status: "completed" });
+      });
+
+    await runAgentWithTools(
+      {
+        taskId: "task-1",
+        baseUrl: "https://api.example.com",
+        apiKey: "test-key",
+        apiKeySource: "manual",
+        apiKeyEnvVar: "TEST_API_KEY",
+        model: "deepseek-v4-pro",
+        messages: [{ role: "user", content: "搜索 rust async" }],
+      },
+      { workspaceDir: null, taskId: "task-1", tavilyConfig },
+      () => {}
+    );
+
+    expect(executeToolCallMock).toHaveBeenCalledWith(
+      "web_search",
+      '{"search_term":"rust async"}',
+      {
+        workspaceDir: null,
+        taskId: "task-1",
+        signal: undefined,
+        tavilyConfig,
+      }
     );
   });
 

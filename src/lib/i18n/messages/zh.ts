@@ -98,6 +98,7 @@ export const zhMessages = {
       general: "常规",
       appearance: "外观",
       modelProvider: "模型",
+      webTools: "网络工具",
       data: "数据",
     },
     general: {
@@ -168,6 +169,24 @@ export const zhMessages = {
       thinkingDisabledParamsLabel: "关闭思考时的 API 参数",
       thinkingDisabledParamsAriaLabel: "关闭思考时的 API 参数",
       thinkingDefaultEnabledLabel: "默认开启深度思考",
+    },
+    webTools: {
+      tavilyApiKeySourceLabel: "Tavily API Key 获取方式",
+      tavilyApiKeySourceDescription: "选择手动填写或从环境变量读取",
+      tavilyApiKeySourceAriaLabel: "Tavily API Key 获取方式",
+      apiKeySources: {
+        manual: "手动填写",
+        env: "环境变量",
+      },
+      tavilyApiKeyLabel: "Tavily API Key",
+      tavilyApiKeyDescription:
+        "web_search 工具需要此密钥。可在 tavily.com 获取。",
+      tavilyApiKeyPlaceholder: "tvly-...",
+      tavilyApiKeyAriaLabel: "Tavily API Key",
+      tavilyApiKeyEnvVarLabel: "环境变量名",
+      tavilyApiKeyEnvVarDescription: "运行时从此环境变量读取 Tavily API Key",
+      tavilyApiKeyEnvVarPlaceholder: "TAVILY_API_KEY",
+      tavilyApiKeyEnvVarAriaLabel: "Tavily API Key 环境变量名",
     },
     data: {
       clearChatHistoryLabel: "清除聊天记录",
