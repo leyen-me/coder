@@ -121,9 +121,26 @@ pub fn workspace_relative_path(workspace: &Path, absolute_path: &Path) -> String
         .replace('\\', "/")
 }
 
-/// Returns the absolute path using forward slashes.
+/// Returns a human-readable absolute path using forward slashes.
+///
+/// On Windows, strips the `\\?\` verbatim prefix produced by `canonicalize()`.
 pub fn format_absolute_path(path: &Path) -> String {
-    path.to_string_lossy().replace('\\', "/")
+    strip_windows_verbatim_prefix(&path.to_string_lossy()).replace('\\', "/")
+}
+
+fn strip_windows_verbatim_prefix(path: &str) -> String {
+    const VERBATIM_PREFIX: &str = r"\\?\";
+    const VERBATIM_UNC_PREFIX: &str = r"\\?\UNC\";
+
+    if let Some(rest) = path.strip_prefix(VERBATIM_UNC_PREFIX) {
+        return format!(r"\\{rest}");
+    }
+
+    if let Some(rest) = path.strip_prefix(VERBATIM_PREFIX) {
+        return rest.to_string();
+    }
+
+    path.to_string()
 }
 
 fn is_within_workspace(target: &Path, workspace: &Path) -> bool {
@@ -212,5 +229,23 @@ mod tests {
         let error = resolve_workspace_path(&temp, "   ").expect_err("empty path");
         assert!(error.contains("required"));
         let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn format_absolute_path_strips_windows_verbatim_prefix() {
+        use super::format_absolute_path;
+        use std::path::Path;
+
+        let path = Path::new(r"\\?\C:\Users\test\file.txt");
+        assert_eq!(
+            format_absolute_path(path),
+            "C:/Users/test/file.txt"
+        );
+
+        let unc = Path::new(r"\\?\UNC\server\share\file.txt");
+        assert_eq!(
+            format_absolute_path(unc),
+            "//server/share/file.txt"
+        );
     }
 }

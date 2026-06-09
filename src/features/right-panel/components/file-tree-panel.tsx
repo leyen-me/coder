@@ -1,6 +1,7 @@
 "use client";
 
 import { FileIcon, FilesIcon, XIcon } from "lucide-react";
+import { useMemo } from "react";
 
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,11 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     showExplorer,
     activateFile,
   } = useFilePreviewTabs();
+
+  const openPreviewPaths = useMemo(
+    () => new Set(tabs.map((tab) => tab.path)),
+    [tabs]
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -97,7 +103,12 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
               : "pointer-events-none z-0 opacity-0"
           )}
         >
-          <WorkspaceFileTree onFileOpen={openFile} workspaceDir={workspaceDir} />
+          <WorkspaceFileTree
+            onFileClose={closeFile}
+            onFileOpen={openFile}
+            openPreviewPaths={openPreviewPaths}
+            workspaceDir={workspaceDir}
+          />
         </div>
 
         {tabs.map((tab) => (

@@ -1,6 +1,7 @@
 mod browse_page;
 mod edit_file;
 mod file_modify;
+mod file_ops;
 mod git;
 mod glob;
 mod grep;
@@ -20,6 +21,10 @@ mod write_file;
 
 pub use browse_page::tool_browse_page;
 pub use edit_file::tool_edit_file;
+pub use file_ops::{
+    tool_copy_path, tool_create_dir, tool_delete_path, tool_move_path, tool_rename_path,
+    tool_resolve_absolute_path,
+};
 pub use git::{git_checkout_branch, git_get_current_branch, git_list_branches};
 pub use glob::tool_glob;
 pub use grep::tool_grep;

@@ -4,24 +4,27 @@ import type { ListDirEntry } from "@/features/agent/tools/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { listWorkspaceDir } from "../lib/list-workspace-dir";
+import { normalizeTreePath, ROOT_PATH } from "../lib/workspace-path-utils";
 
-const ROOT_PATH = ".";
-
-function normalizeTreePath(path: string): string {
-  const trimmed = path.trim().replace(/\\/g, "/");
-  return trimmed.length === 0 ? ROOT_PATH : trimmed;
-}
-
-type UseWorkspaceFileTreeResult = {
+export type UseWorkspaceFileTreeResult = {
   rootPath: string | null;
   entriesByPath: Map<string, ListDirEntry[]>;
   expanded: Set<string>;
   selectedPath: string | undefined;
+  showHidden: boolean;
   loading: boolean;
   error: string | null;
   setSelectedPath: (path: string | undefined) => void;
   handleExpandedChange: (nextExpanded: Set<string>) => void;
   refresh: () => void;
+  reloadPaths: (paths: string[]) => Promise<void>;
+  collapseAll: () => void;
+  ensureExpanded: (path: string) => void;
+  renameExpandedPath: (oldPath: string, newPath: string) => void;
+  removeExpandedPath: (path: string) => void;
+  toggleShowHidden: () => void;
+  isExpanded: (path: string) => boolean;
+  toggleExpanded: (path: string) => void;
 };
 
 export function useWorkspaceFileTree(
@@ -33,9 +36,17 @@ export function useWorkspaceFileTree(
   >(new Map());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedPath, setSelectedPath] = useState<string | undefined>();
+  const [showHidden, setShowHidden] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
+  const expandedRef = useRef(expanded);
+  const showHiddenRef = useRef(showHidden);
+  const entriesByPathRef = useRef(entriesByPath);
+
+  expandedRef.current = expanded;
+  showHiddenRef.current = showHidden;
+  entriesByPathRef.current = entriesByPath;
 
   const loadDirectory = useCallback(
     async (path: string) => {
@@ -46,11 +57,18 @@ export function useWorkspaceFileTree(
       const cacheKey = normalizeTreePath(path);
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
-      setLoading(true);
+      const isRootLoad = cacheKey === ROOT_PATH;
+      if (isRootLoad && !entriesByPathRef.current.has(ROOT_PATH)) {
+        setLoading(true);
+      }
       setError(null);
 
       try {
-        const data = await listWorkspaceDir(workspaceDir, cacheKey);
+        const data = await listWorkspaceDir(
+          workspaceDir,
+          cacheKey,
+          showHiddenRef.current
+        );
         if (requestIdRef.current !== requestId) {
           return;
         }
@@ -69,7 +87,7 @@ export function useWorkspaceFileTree(
           loadError instanceof Error ? loadError.message : String(loadError);
         setError(message);
       } finally {
-        if (requestIdRef.current === requestId) {
+        if (requestIdRef.current === requestId && isRootLoad) {
           setLoading(false);
         }
       }
@@ -116,27 +134,176 @@ export function useWorkspaceFileTree(
     [entriesByPath, loadDirectory, workspaceDir]
   );
 
+  const reloadPaths = useCallback(
+    async (paths: string[]) => {
+      if (!workspaceDir) {
+        return;
+      }
+
+      const uniquePaths = [...new Set(paths.map(normalizeTreePath))];
+
+      await Promise.all(
+        uniquePaths.map(async (cacheKey) => {
+          await loadDirectory(cacheKey);
+        })
+      );
+    },
+    [loadDirectory, workspaceDir]
+  );
+
+  const ensureExpanded = useCallback(
+    (path: string) => {
+      const cacheKey = normalizeTreePath(path);
+      setExpanded((current) => {
+        if (current.has(cacheKey)) {
+          return current;
+        }
+        const next = new Set(current);
+        next.add(cacheKey);
+        return next;
+      });
+      if (!entriesByPathRef.current.has(cacheKey)) {
+        void loadDirectory(cacheKey);
+      }
+    },
+    [loadDirectory]
+  );
+
+  const renameExpandedPath = useCallback((oldPath: string, newPath: string) => {
+    const normalizedOld = normalizeTreePath(oldPath);
+    const normalizedNew = normalizeTreePath(newPath);
+    const oldPrefix = `${normalizedOld}/`;
+
+    setExpanded((current) => {
+      const next = new Set<string>();
+      for (const path of current) {
+        if (path === normalizedOld) {
+          next.add(normalizedNew);
+        } else if (path.startsWith(oldPrefix)) {
+          next.add(`${normalizedNew}/${path.slice(oldPrefix.length)}`);
+        } else {
+          next.add(path);
+        }
+      }
+      return next;
+    });
+
+    setEntriesByPath((current) => {
+      const next = new Map<string, ListDirEntry[]>();
+      for (const [cacheKey, entries] of current) {
+        if (cacheKey === normalizedOld) {
+          next.set(normalizedNew, entries);
+        } else if (cacheKey.startsWith(oldPrefix)) {
+          next.set(
+            `${normalizedNew}/${cacheKey.slice(oldPrefix.length)}`,
+            entries
+          );
+        } else {
+          next.set(cacheKey, entries);
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  const removeExpandedPath = useCallback((path: string) => {
+    const normalized = normalizeTreePath(path);
+    const prefix = `${normalized}/`;
+
+    setExpanded((current) => {
+      const next = new Set<string>();
+      for (const expandedPath of current) {
+        if (expandedPath !== normalized && !expandedPath.startsWith(prefix)) {
+          next.add(expandedPath);
+        }
+      }
+      return next;
+    });
+
+    setEntriesByPath((current) => {
+      const next = new Map<string, ListDirEntry[]>();
+      for (const [cacheKey, entries] of current) {
+        if (cacheKey !== normalized && !cacheKey.startsWith(prefix)) {
+          next.set(cacheKey, entries);
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  const collapseAll = useCallback(() => {
+    setExpanded(new Set());
+  }, []);
+
+  const toggleShowHidden = useCallback(() => {
+    setShowHidden((current) => !current);
+    setEntriesByPath(new Map());
+    if (workspaceDir) {
+      void loadDirectory(ROOT_PATH);
+      for (const path of expandedRef.current) {
+        void loadDirectory(path);
+      }
+    }
+  }, [loadDirectory, workspaceDir]);
+
+  const isExpanded = useCallback(
+    (path: string) => expanded.has(normalizeTreePath(path)),
+    [expanded]
+  );
+
+  const toggleExpanded = useCallback(
+    (path: string) => {
+      const cacheKey = normalizeTreePath(path);
+      const nextExpanded = new Set(expanded);
+      if (nextExpanded.has(cacheKey)) {
+        nextExpanded.delete(cacheKey);
+      } else {
+        nextExpanded.add(cacheKey);
+      }
+      handleExpandedChange(nextExpanded);
+    },
+    [expanded, handleExpandedChange]
+  );
+
   return useMemo(
     () => ({
       rootPath,
       entriesByPath,
       expanded,
       selectedPath,
+      showHidden,
       loading,
       error,
       setSelectedPath,
       handleExpandedChange,
       refresh,
+      reloadPaths,
+      collapseAll,
+      ensureExpanded,
+      renameExpandedPath,
+      removeExpandedPath,
+      toggleShowHidden,
+      isExpanded,
+      toggleExpanded,
     }),
     [
+      collapseAll,
+      ensureExpanded,
       entriesByPath,
       error,
       expanded,
       handleExpandedChange,
+      isExpanded,
       loading,
       refresh,
+      reloadPaths,
+      removeExpandedPath,
+      renameExpandedPath,
       rootPath,
       selectedPath,
+      showHidden,
+      toggleExpanded,
+      toggleShowHidden,
     ]
   );
 }
