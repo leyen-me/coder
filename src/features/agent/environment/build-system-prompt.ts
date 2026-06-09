@@ -1,3 +1,4 @@
+import { buildGitCommitRules } from "./git-commit-rules";
 import type { AgentEnvironment, AgentEnvironmentInput } from "./types";
 
 export function buildSystemPrompt(environment: AgentEnvironment): string {
@@ -30,6 +31,8 @@ export function buildSystemPrompt(environment: AgentEnvironment): string {
     "Paths are resolved relative to workspaceDir unless noted otherwise.",
     "When a tool fails, read the error code and message, then adjust your approach.",
     "Prefer tools over guessing file or directory contents.",
+    "",
+    ...(environment.isGitRepository ? buildGitCommitRules(environment) : []),
   ].join("\n");
 }
 

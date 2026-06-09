@@ -24,6 +24,25 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("shell: /bin/zsh");
     expect(prompt).toContain("gitRepository: no");
     expect(prompt).toContain("## Tools");
+    expect(prompt).not.toContain("## Git");
+  });
+
+  it("includes git commit rules in git repositories", () => {
+    const prompt = buildSystemPrompt(
+      normalizeEnvironment({
+        workspaceDir: "C:\\Users\\dev\\project",
+        os: "windows x86_64 (10.0)",
+        shell: "powershell",
+        isGitRepository: true,
+        today: "2026-06-09, Tuesday",
+      })
+    );
+
+    expect(prompt).toContain("## Git");
+    expect(prompt).toContain("git status");
+    expect(prompt).toContain("wait for confirmation");
+    expect(prompt).toContain("### Windows shell");
+    expect(prompt).toContain("git commit -F");
   });
 });
 
