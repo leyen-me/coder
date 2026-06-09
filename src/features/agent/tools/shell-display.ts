@@ -218,7 +218,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 export function canKillShellProcess(status: ShellStatus): boolean {
-  return status === "running" || status === "timeout";
+  return status === "running";
 }
 
 export function getShellStatusColor(status: ShellStatus): string {

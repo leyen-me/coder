@@ -7,9 +7,9 @@ import {
 } from "./shell-display";
 
 describe("shell-display", () => {
-  it("allows killing running and timed-out background shells", () => {
+  it("allows killing running background shells only", () => {
     expect(canKillShellProcess("running")).toBe(true);
-    expect(canKillShellProcess("timeout")).toBe(true);
+    expect(canKillShellProcess("timeout")).toBe(false);
     expect(canKillShellProcess("completed")).toBe(false);
     expect(canKillShellProcess("cancelled")).toBe(false);
   });

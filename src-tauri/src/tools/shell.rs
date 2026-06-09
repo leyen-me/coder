@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::time::Instant;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::runtime::resolve_shell_for_command;
 use super::workspace_path::resolve_workspace_path;
@@ -19,6 +19,17 @@ pub enum ShellStatus {
     Failed,
     Timeout,
     Cancelled,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ShellStatusFilter {
+    Running,
+    Completed,
+    Failed,
+    Timeout,
+    Cancelled,
+    All,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -63,7 +74,9 @@ pub struct ShellInfo {
 }
 
 pub fn normalize_block_until_ms(block_until_ms: Option<u64>) -> u64 {
-    block_until_ms.unwrap_or(DEFAULT_BLOCK_UNTIL_MS).min(MAX_BLOCK_UNTIL_MS)
+    block_until_ms
+        .unwrap_or(DEFAULT_BLOCK_UNTIL_MS)
+        .min(MAX_BLOCK_UNTIL_MS)
 }
 
 pub fn resolve_working_directory(
@@ -90,9 +103,8 @@ pub fn truncate_stream_for_llm(raw: &str) -> (String, bool, u64) {
     }
 
     let tail = tail_lines(raw, MAX_TAIL_LINES);
-    let truncated_marker = format!(
-        "...[{total_bytes} bytes truncated, showing last {MAX_TAIL_LINES} lines]...\n"
-    );
+    let truncated_marker =
+        format!("...[{total_bytes} bytes truncated, showing last {MAX_TAIL_LINES} lines]...\n");
     let mut candidate = format!("{truncated_marker}{tail}");
 
     if candidate.len() > MAX_STREAM_BYTES_FOR_LLM {
@@ -144,9 +156,15 @@ pub fn build_shell_output(
 
 pub fn shell_command_builder(shell: &str, command: &str) -> (String, Vec<String>) {
     if cfg!(target_os = "windows") {
-        ("cmd".to_string(), vec!["/C".to_string(), command.to_string()])
+        (
+            "cmd".to_string(),
+            vec!["/C".to_string(), command.to_string()],
+        )
     } else {
-        (shell.to_string(), vec!["-c".to_string(), command.to_string()])
+        (
+            shell.to_string(),
+            vec!["-c".to_string(), command.to_string()],
+        )
     }
 }
 

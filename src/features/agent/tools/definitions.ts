@@ -367,7 +367,7 @@ export const LIST_SHELLS_TOOL: AgentToolDefinition = {
   function: {
     name: LIST_SHELLS_TOOL_NAME,
     description:
-      "List background shell processes started by the agent. Defaults to running shells only. Use before await when shell_id was lost, or to find processes to kill.",
+      "List background shell processes started by the agent. Returns running shells by default; use status_filter to inspect other states when needed.",
     parameters: {
       type: "object",
       properties: {
@@ -393,7 +393,7 @@ export const KILL_SHELL_TOOL: AgentToolDefinition = {
   function: {
     name: KILL_SHELL_TOOL_NAME,
     description:
-      "Kill a background shell process by shell_id. Use list_shells first to find the target shell_id.",
+      "Kill a running background shell process by shell_id. Use list_shells first to find the target shell_id.",
     parameters: {
       type: "object",
       properties: {

@@ -54,7 +54,9 @@ async function refreshProcesses(): Promise<void> {
   }
 
   try {
-    const shells = await invoke<ShellInfo[]>("shell_list");
+    const shells = await invoke<ShellInfo[]>("shell_list", {
+      statusFilter: "running",
+    });
     setProcesses((current) => mergeShellList(shells, current));
   } catch {
     // Ignore list failures in UI polling.

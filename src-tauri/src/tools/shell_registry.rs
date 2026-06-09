@@ -11,9 +11,9 @@ use tokio::time::{sleep, Duration};
 const POST_KILL_WAIT_MS: u64 = 3_000;
 
 use super::shell::{
-    build_shell_output, normalize_block_until_ms, resolve_command_shell,
-    resolve_working_directory, shell_command_builder, ShellInfo, ShellOutput,
-    ShellOutputEvent, ShellStatus,
+    build_shell_output, normalize_block_until_ms, resolve_command_shell, resolve_working_directory,
+    shell_command_builder, ShellInfo, ShellOutput, ShellOutputEvent, ShellStatus,
+    ShellStatusFilter,
 };
 
 #[derive(Debug)]
@@ -52,9 +52,10 @@ impl ShellRegistry {
         )
     }
 
-    pub fn list(&self) -> Vec<ShellInfo> {
+    pub fn list(&self, status_filter: ShellStatusFilter) -> Vec<ShellInfo> {
         self.shells
             .iter()
+            .filter(|(_, shell)| matches_status_filter(shell.status, status_filter))
             .map(|(shell_id, shell)| ShellInfo {
                 shell_id: shell_id.clone(),
                 command: shell.command.clone(),
@@ -89,10 +90,15 @@ impl ShellRegistry {
             .get_mut(shell_id)
             .ok_or_else(|| format!("Unknown shell_id: {shell_id}"))?;
 
-        if Self::is_active_shell_status(shell.status) {
-            kill_running_shell(shell);
-            shell.status = ShellStatus::Cancelled;
+        if shell.status != ShellStatus::Running {
+            return Err(format!(
+                "Only running shells can be killed: {shell_id} is {}",
+                shell_status_label(shell.status)
+            ));
         }
+
+        kill_running_shell(shell);
+        shell.status = ShellStatus::Cancelled;
         Ok(())
     }
 
@@ -137,7 +143,7 @@ impl ShellRegistry {
     fn kill_shell_ids(&mut self, ids: Vec<String>) -> usize {
         let mut killed = 0;
         for id in ids {
-            if self.kill(&id).is_ok() {
+            if self.stop(&id, ShellStatus::Cancelled).is_ok() {
                 killed += 1;
             }
         }
@@ -207,7 +213,9 @@ impl ShellRegistry {
         kill_on_timeout: bool,
     ) -> Result<ShellOutput, String> {
         {
-            let reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
+            let reg = registry
+                .lock()
+                .map_err(|_| "Shell registry lock poisoned")?;
             if !reg.shells.contains_key(&shell_id) {
                 return Err(format!("Unknown shell_id: {shell_id}"));
             }
@@ -218,7 +226,9 @@ impl ShellRegistry {
 
         loop {
             let status = {
-                let reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
+                let reg = registry
+                    .lock()
+                    .map_err(|_| "Shell registry lock poisoned")?;
                 reg.shells
                     .get(&shell_id)
                     .map(|shell| shell.status)
@@ -226,24 +236,27 @@ impl ShellRegistry {
             };
 
             if status != ShellStatus::Running {
-                let reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
+                let reg = registry
+                    .lock()
+                    .map_err(|_| "Shell registry lock poisoned")?;
                 return reg.snapshot_output(&shell_id);
             }
 
             if Instant::now() >= deadline {
                 if kill_on_timeout {
                     {
-                        let mut reg =
-                            registry.lock().map_err(|_| "Shell registry lock poisoned")?;
+                        let mut reg = registry
+                            .lock()
+                            .map_err(|_| "Shell registry lock poisoned")?;
                         reg.stop(&shell_id, ShellStatus::Timeout)?;
                     }
 
-                    let settle_deadline =
-                        Instant::now() + Duration::from_millis(POST_KILL_WAIT_MS);
+                    let settle_deadline = Instant::now() + Duration::from_millis(POST_KILL_WAIT_MS);
                     loop {
                         let current_status = {
-                            let reg =
-                                registry.lock().map_err(|_| "Shell registry lock poisoned")?;
+                            let reg = registry
+                                .lock()
+                                .map_err(|_| "Shell registry lock poisoned")?;
                             reg.shells
                                 .get(&shell_id)
                                 .map(|shell| shell.status)
@@ -258,11 +271,15 @@ impl ShellRegistry {
                         sleep(Duration::from_millis(50)).await;
                     }
 
-                    let reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
+                    let reg = registry
+                        .lock()
+                        .map_err(|_| "Shell registry lock poisoned")?;
                     return reg.snapshot_output(&shell_id);
                 }
 
-                let reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
+                let reg = registry
+                    .lock()
+                    .map_err(|_| "Shell registry lock poisoned")?;
                 let mut output = reg.snapshot_output(&shell_id)?;
                 output.status = ShellStatus::Timeout;
                 return Ok(output);
@@ -282,7 +299,9 @@ impl ShellRegistry {
         task_id: Option<String>,
     ) -> Result<ShellOutput, String> {
         let shell_id = {
-            let reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
+            let reg = registry
+                .lock()
+                .map_err(|_| "Shell registry lock poisoned")?;
             reg.next_shell_id()
         };
         let started_at = Instant::now();
@@ -305,7 +324,9 @@ impl ShellRegistry {
         let child_slot = Arc::new(Mutex::new(Some(child)));
 
         {
-            let mut reg = registry.lock().map_err(|_| "Shell registry lock poisoned")?;
+            let mut reg = registry
+                .lock()
+                .map_err(|_| "Shell registry lock poisoned")?;
             reg.shells.insert(
                 shell_id.clone(),
                 RunningShell {
@@ -375,6 +396,28 @@ impl ShellRegistry {
             ShellStatus::Running,
             Some(shell_id),
         ))
+    }
+}
+
+fn matches_status_filter(status: ShellStatus, status_filter: ShellStatusFilter) -> bool {
+    matches!(status_filter, ShellStatusFilter::All)
+        || matches!(
+            (status_filter, status),
+            (ShellStatusFilter::Running, ShellStatus::Running)
+                | (ShellStatusFilter::Completed, ShellStatus::Completed)
+                | (ShellStatusFilter::Failed, ShellStatus::Failed)
+                | (ShellStatusFilter::Timeout, ShellStatus::Timeout)
+                | (ShellStatusFilter::Cancelled, ShellStatus::Cancelled)
+        )
+}
+
+fn shell_status_label(status: ShellStatus) -> &'static str {
+    match status {
+        ShellStatus::Running => "running",
+        ShellStatus::Completed => "completed",
+        ShellStatus::Failed => "failed",
+        ShellStatus::Timeout => "timeout",
+        ShellStatus::Cancelled => "cancelled",
     }
 }
 
@@ -546,7 +589,83 @@ pub fn shell_kill_by_task(state: State<'_, ShellState>, task_id: String) -> Resu
 }
 
 #[tauri::command]
-pub fn shell_list(state: State<'_, ShellState>) -> Result<Vec<ShellInfo>, String> {
+pub fn shell_list(
+    state: State<'_, ShellState>,
+    status_filter: Option<ShellStatusFilter>,
+) -> Result<Vec<ShellInfo>, String> {
     let registry = state.0.lock().map_err(|_| "Shell registry lock poisoned")?;
-    Ok(registry.list())
+    Ok(registry.list(status_filter.unwrap_or(ShellStatusFilter::Running)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_shell(status: ShellStatus) -> RunningShell {
+        RunningShell {
+            command: "echo test".to_string(),
+            description: Some("test shell".to_string()),
+            working_directory: "/workspace".to_string(),
+            stdout: String::new(),
+            stderr: String::new(),
+            status,
+            exit_code: None,
+            started_at: Instant::now(),
+            task_id: Some("task-1".to_string()),
+            pid: None,
+            child: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    #[test]
+    fn list_filters_by_status() {
+        let mut registry = ShellRegistry::new();
+        registry.shells.insert(
+            "shell-running".to_string(),
+            test_shell(ShellStatus::Running),
+        );
+        registry.shells.insert(
+            "shell-completed".to_string(),
+            test_shell(ShellStatus::Completed),
+        );
+
+        let running = registry.list(ShellStatusFilter::Running);
+        assert_eq!(running.len(), 1);
+        assert_eq!(running[0].shell_id, "shell-running");
+
+        let all = registry.list(ShellStatusFilter::All);
+        assert_eq!(all.len(), 2);
+    }
+
+    #[test]
+    fn kill_only_allows_running_shells() {
+        let mut registry = ShellRegistry::new();
+        registry.shells.insert(
+            "shell-completed".to_string(),
+            test_shell(ShellStatus::Completed),
+        );
+        registry.shells.insert(
+            "shell-running".to_string(),
+            test_shell(ShellStatus::Running),
+        );
+
+        let error = registry
+            .kill("shell-completed")
+            .expect_err("completed shell should not be killable");
+        assert_eq!(
+            error,
+            "Only running shells can be killed: shell-completed is completed"
+        );
+
+        registry
+            .kill("shell-running")
+            .expect("running shell should be killable");
+        assert_eq!(
+            registry
+                .shells
+                .get("shell-running")
+                .map(|shell| shell.status),
+            Some(ShellStatus::Cancelled)
+        );
+    }
 }

@@ -34,7 +34,10 @@ export const listShellsHandler: ToolHandler = async (rawArgs, _context) => {
   }
 
   try {
-    const shells = await invoke<ShellInfo[]>("shell_list");
+    const statusFilter = args.value.status_filter ?? "running";
+    const shells = await invoke<ShellInfo[]>("shell_list", {
+      statusFilter,
+    });
     const filtered = filterShells(shells, args.value);
     const data: ListShellsData = {
       shells: filtered.map(toListShellEntry),

@@ -94,7 +94,9 @@ describe("listShellsHandler", () => {
         total: 1,
       })
     );
-    expect(invoke).toHaveBeenCalledWith("shell_list");
+    expect(invoke).toHaveBeenCalledWith("shell_list", {
+      statusFilter: "running",
+    });
   });
 
   it("filters by status and task id", async () => {
@@ -125,6 +127,9 @@ describe("listShellsHandler", () => {
         total: 1,
       })
     );
+    expect(invoke).toHaveBeenCalledWith("shell_list", {
+      statusFilter: "all",
+    });
   });
 
   it("truncates long stdout and stderr tails", async () => {
