@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
+use super::stream_log::agent_stream_log;
 use super::types::{AgentEvent, AgentStatus, AgentToolDefinition, ChatMessage, ToolCall};
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
@@ -18,12 +19,6 @@ fn preview_text(value: &str, limit: usize) -> String {
         format!("{preview}...")
     } else {
         preview
-    }
-}
-
-fn debug_stream_log(message: impl AsRef<str>) {
-    if cfg!(debug_assertions) {
-        eprintln!("[agent-stream-rs] {}", message.as_ref());
     }
 }
 
@@ -158,7 +153,7 @@ pub async fn stream_chat_completion(
     mut emit: impl FnMut(AgentEvent) + Send,
     task_id: &str,
 ) -> Result<(), String> {
-    debug_stream_log(format!(
+    agent_stream_log(format!(
         "start task_id={} model={} messages={} tools={} request_extensions={}",
         task_id,
         model,
@@ -216,7 +211,7 @@ pub async fn stream_chat_completion(
 
     while let Some(chunk_result) = stream.next().await {
         if cancel.is_cancelled() {
-            debug_stream_log(format!("cancelled task_id={} while reading stream", task_id));
+            agent_stream_log(format!("cancelled task_id={} while reading stream", task_id));
             emit(AgentEvent::Status {
                 task_id: task_id.to_string(),
                 status: AgentStatus::Cancelled,
@@ -266,7 +261,7 @@ fn finalize_stream(
     mut emit: impl FnMut(AgentEvent),
 ) -> Result<(), String> {
     let resolved_tool_calls = tool_calls.finalize();
-    debug_stream_log(format!(
+    agent_stream_log(format!(
         "finalize task_id={} finish_reason={:?} tool_calls={}",
         task_id,
         finish_reason,
@@ -299,7 +294,7 @@ fn process_sse_line(
 
     let payload = line.strip_prefix("data:").map(str::trim).unwrap_or(line);
     if payload == "[DONE]" {
-        debug_stream_log(format!("done task_id={} received [DONE]", task_id));
+        agent_stream_log(format!("done task_id={} received [DONE]", task_id));
         return true;
     }
 
@@ -322,7 +317,7 @@ fn process_sse_line(
 
     if let Some(reasoning) = &delta.reasoning_content {
         if !reasoning.is_empty() {
-            debug_stream_log(format!(
+            agent_stream_log(format!(
                 "delta task_id={} kind=reasoning len={} preview={:?}",
                 task_id,
                 reasoning.len(),
@@ -337,7 +332,7 @@ fn process_sse_line(
 
     if let Some(content) = &delta.content {
         if !content.is_empty() {
-            debug_stream_log(format!(
+            agent_stream_log(format!(
                 "delta task_id={} kind=content len={} preview={:?}",
                 task_id,
                 content.len(),
@@ -351,7 +346,7 @@ fn process_sse_line(
     }
 
     if let Some(next_tool_calls) = &delta.tool_calls {
-        debug_stream_log(format!(
+        agent_stream_log(format!(
             "delta task_id={} kind=tool_calls count={}",
             task_id,
             next_tool_calls.len()

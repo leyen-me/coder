@@ -25,40 +25,6 @@ type TauriAgentEvent =
   | { type: "done"; taskId: string }
   | { type: "error"; taskId: string; message: string };
 
-const ENABLE_AGENT_STREAM_DEBUG = import.meta.env.DEV;
-
-function previewText(value: string, limit = 120): string {
-  return value.length > limit ? `${value.slice(0, limit)}...` : value;
-}
-
-function debugInboundEvent(source: "tauri" | "browser", event: unknown): void {
-  if (!ENABLE_AGENT_STREAM_DEBUG) {
-    return;
-  }
-
-  if (
-    event &&
-    typeof event === "object" &&
-    "type" in event &&
-    ((event as { type: unknown }).type === "thinkingDelta" ||
-      (event as { type: unknown }).type === "contentDelta" ||
-      (event as { type: unknown }).type === "thinking_delta" ||
-      (event as { type: unknown }).type === "content_delta")
-  ) {
-    const typed = event as { type: string; taskId?: string; delta?: string };
-    console.debug("[agent-stream][inbound]", {
-      source,
-      taskId: typed.taskId,
-      type: typed.type,
-      deltaPreview: previewText(typed.delta ?? ""),
-      deltaLength: typed.delta?.length ?? 0,
-    });
-    return;
-  }
-
-  console.debug("[agent-stream][inbound]", { source, event });
-}
-
 function mapTauriEvent(event: TauriAgentEvent): AgentEvent {
   switch (event.type) {
     case "status":
@@ -87,7 +53,6 @@ export async function startAgent(
   if (isTauri()) {
     const channel = new Channel<TauriAgentEvent>();
     channel.onmessage = (event) => {
-      debugInboundEvent("tauri", event);
       onEvent(mapTauriEvent(event));
     };
 

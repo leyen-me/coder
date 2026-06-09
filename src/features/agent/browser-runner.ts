@@ -21,37 +21,6 @@ type StreamChunk = {
 };
 
 const activeControllers = new Map<string, AbortController>();
-const ENABLE_AGENT_STREAM_DEBUG = import.meta.env.DEV;
-
-function previewText(value: string, limit = 120): string {
-  return value.length > limit ? `${value.slice(0, limit)}...` : value;
-}
-
-function debugInboundEvent(event: unknown): void {
-  if (!ENABLE_AGENT_STREAM_DEBUG) {
-    return;
-  }
-
-  if (
-    event &&
-    typeof event === "object" &&
-    "type" in event &&
-    ((event as { type: unknown }).type === "thinking_delta" ||
-      (event as { type: unknown }).type === "content_delta")
-  ) {
-    const typed = event as { type: string; taskId?: string; delta?: string };
-    console.debug("[agent-stream][inbound]", {
-      source: "browser",
-      taskId: typed.taskId,
-      type: typed.type,
-      deltaPreview: previewText(typed.delta ?? ""),
-      deltaLength: typed.delta?.length ?? 0,
-    });
-    return;
-  }
-
-  console.debug("[agent-stream][inbound]", { source: "browser", event });
-}
 
 export async function startBrowserAgent(
   input: AgentStartInput,
@@ -170,7 +139,6 @@ function parseSseLine(
   const payload = line.startsWith("data:") ? line.slice(5).trim() : line;
   if (payload === "[DONE]") {
     const event = { type: "done", taskId } as const;
-    debugInboundEvent(event);
     onEvent(event);
     return previousFinishReason;
   }
@@ -191,7 +159,6 @@ function parseSseLine(
         taskId,
         delta: delta.reasoning_content,
       } as const;
-      debugInboundEvent(event);
       onEvent(event);
     }
 
@@ -201,7 +168,6 @@ function parseSseLine(
         taskId,
         delta: delta.content,
       } as const;
-      debugInboundEvent(event);
       onEvent(event);
     }
 

@@ -1,5 +1,6 @@
 mod openai;
 pub mod registry;
+mod stream_log;
 mod types;
 
 use std::sync::{Arc, Mutex};

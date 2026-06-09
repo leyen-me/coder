@@ -10,6 +10,7 @@ use super::openai::{
     build_http_client, chat_completions_url, complete_chat_completion, stream_chat_completion,
     SESSION_TITLE_SYSTEM_PROMPT,
 };
+use super::stream_log::agent_stream_log;
 use super::types::{
     AgentEvent, AgentStartParams, AgentStatus, AgentStatusResponse, ChatMessage,
     GenerateSessionTitleParams,
@@ -22,43 +23,41 @@ fn debug_emit_log(event: &AgentEvent) {
 
     match event {
         AgentEvent::Status { task_id, status } => {
-            eprintln!("[agent-stream-rs] emit task_id={} type=status status={:?}", task_id, status);
+            agent_stream_log(format!(
+                "emit task_id={task_id} type=status status={status:?}"
+            ));
         }
         AgentEvent::ThinkingDelta { task_id, delta } => {
             let preview: String = delta.chars().take(120).collect();
             let suffix = if delta.chars().count() > 120 { "..." } else { "" };
-            eprintln!(
-                "[agent-stream-rs] emit task_id={} type=thinking len={} preview={:?}",
-                task_id,
-                delta.len(),
-                format!("{preview}{suffix}")
-            );
+            let preview_text = format!("{preview}{suffix}");
+            agent_stream_log(format!(
+                "emit task_id={task_id} type=thinking len={} preview={preview_text:?}",
+                delta.len()
+            ));
         }
         AgentEvent::ContentDelta { task_id, delta } => {
             let preview: String = delta.chars().take(120).collect();
             let suffix = if delta.chars().count() > 120 { "..." } else { "" };
-            eprintln!(
-                "[agent-stream-rs] emit task_id={} type=content len={} preview={:?}",
-                task_id,
-                delta.len(),
-                format!("{preview}{suffix}")
-            );
+            let preview_text = format!("{preview}{suffix}");
+            agent_stream_log(format!(
+                "emit task_id={task_id} type=content len={} preview={preview_text:?}",
+                delta.len()
+            ));
         }
         AgentEvent::TurnComplete { task_id, tool_calls } => {
-            eprintln!(
-                "[agent-stream-rs] emit task_id={} type=turn_complete tool_calls={}",
-                task_id,
+            agent_stream_log(format!(
+                "emit task_id={task_id} type=turn_complete tool_calls={}",
                 tool_calls.len()
-            );
+            ));
         }
         AgentEvent::Done { task_id } => {
-            eprintln!("[agent-stream-rs] emit task_id={} type=done", task_id);
+            agent_stream_log(format!("emit task_id={task_id} type=done"));
         }
         AgentEvent::Error { task_id, message } => {
-            eprintln!(
-                "[agent-stream-rs] emit task_id={} type=error message={:?}",
-                task_id, message
-            );
+            agent_stream_log(format!(
+                "emit task_id={task_id} type=error message={message:?}"
+            ));
         }
     }
 }

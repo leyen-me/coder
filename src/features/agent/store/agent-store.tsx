@@ -82,13 +82,8 @@ const StreamingOverlaysContext = createContext<
   ReadonlyMap<string, StreamingMessageOverlay>
 >(new Map());
 
-const ENABLE_AGENT_STREAM_DEBUG = import.meta.env.DEV;
 const TERMINAL_STATUS_SETTLE_DELAY_MS = 150;
 const TERMINAL_OVERLAY_CLEAR_DELAY_MS = 320;
-
-function previewText(value: string, limit = 120): string {
-  return value.length > limit ? `${value.slice(0, limit)}...` : value;
-}
 
 type AgentStoreProviderProps = {
   children: ReactNode;
@@ -169,53 +164,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     })
   );
 
-  const debugAppliedEvent = useCallback(
-    (assistantMessageId: string, event: AgentEvent) => {
-      if (!ENABLE_AGENT_STREAM_DEBUG) {
-        return;
-      }
-
-      const snapshot = streamingBufferRef.current.get(assistantMessageId);
-      const lastStep = snapshot?.processSteps.at(-1);
-      const lastStepSummary =
-        lastStep?.kind === "tool"
-          ? { kind: "tool", toolCallId: lastStep.toolCallId }
-          : lastStep
-            ? {
-                kind: lastStep.kind,
-                textPreview: previewText(lastStep.text),
-                textLength: lastStep.text.length,
-              }
-            : null;
-
-      console.debug("[agent-stream][applied]", {
-        assistantMessageId,
-        taskId: event.taskId,
-        eventType: event.type,
-        status:
-          event.type === "status"
-            ? event.status
-            : event.type === "tool_call_started"
-              ? "tool-started"
-              : event.type === "tool_call_finished"
-                ? "tool-finished"
-                : undefined,
-        contentPreview: previewText(snapshot?.content ?? ""),
-        contentLength: snapshot?.content.length ?? 0,
-        thinkingPreview: previewText(snapshot?.thinking ?? ""),
-        thinkingLength: snapshot?.thinking.length ?? 0,
-        processStepKinds: snapshot?.processSteps.map((step) => step.kind) ?? [],
-        toolInvocationStates:
-          snapshot?.toolInvocations.map((invocation) => ({
-            id: invocation.id,
-            state: invocation.state,
-          })) ?? [],
-        lastStep: lastStepSummary,
-      });
-    },
-    []
-  );
-
   const subscribe = useCallback((listener: () => void) => {
     listenersRef.current.add(listener);
     return () => {
@@ -261,7 +209,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             "thinking",
             event.delta
           );
-          debugAppliedEvent(assistantMessageId, event);
           return;
         case "content_delta":
           streamingBufferRef.current.append(
@@ -269,7 +216,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             "content",
             event.delta
           );
-          debugAppliedEvent(assistantMessageId, event);
           return;
         case "tool_call_started":
           {
@@ -292,7 +238,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           );
           await streamingBufferRef.current.flush(assistantMessageId);
           await setMessageStatus(assistantMessageId, "streaming");
-          debugAppliedEvent(assistantMessageId, event);
           return;
         case "tool_call_finished": {
           const toolInvocations = await completeMessageToolInvocation(
@@ -311,7 +256,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             );
           }
           await streamingBufferRef.current.flush(assistantMessageId);
-          debugAppliedEvent(assistantMessageId, event);
           return;
         }
         case "error": {
@@ -336,7 +280,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               void (async () => {
                 await streamingBufferRef.current.flush(assistantMessageId);
                 await setMessageStatus(assistantMessageId, "failed", event.message);
-                debugAppliedEvent(assistantMessageId, event);
                 setTimeout(() => {
                   streamingBufferRef.current.clear(assistantMessageId);
                 }, TERMINAL_OVERLAY_CLEAR_DELAY_MS);
@@ -390,7 +333,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
                     messageStatus,
                     task.error
                   );
-                  debugAppliedEvent(assistantMessageId, event);
 
                   const shouldGenerateTitle =
                     event.status === "completed" && task.isFirstTurn;
@@ -425,7 +367,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         }
       }
     },
-    [debugAppliedEvent, emit]
+    [emit]
   );
 
   const dispatchAgentEvent = useCallback(
