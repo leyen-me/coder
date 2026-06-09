@@ -7,16 +7,31 @@ export const LIST_DIR_TOOL: AgentToolDefinition = {
   function: {
     name: LIST_DIR_TOOL_NAME,
     description:
-      "List files and directories at a path relative to the workspace root, or at the workspace root when path is omitted.",
+      "List files and directories under a path. Relative paths are resolved against the workspace root.",
     parameters: {
       type: "object",
       properties: {
         path: {
           type: "string",
-          description:
-            "Relative path within the workspace. Use \".\" or omit for the workspace root.",
+          description: "Relative or absolute path within the workspace.",
+        },
+        recursive: {
+          type: "boolean",
+          description: "Whether to list entries recursively.",
+          default: false,
+        },
+        max_depth: {
+          type: "integer",
+          description: "Maximum recursion depth when recursive is true.",
+          default: 1,
+        },
+        show_hidden: {
+          type: "boolean",
+          description: "Whether to include dotfiles and dot-directories.",
+          default: false,
         },
       },
+      required: ["path"],
       additionalProperties: false,
     },
   },

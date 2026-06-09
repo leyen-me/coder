@@ -11,6 +11,7 @@ export type JsonSchemaProperty = {
   type: "string" | "number" | "boolean" | "integer";
   description?: string;
   enum?: string[];
+  default?: boolean | number | string;
 };
 
 export type AgentToolDefinition = {
@@ -28,12 +29,11 @@ export type AgentToolCall = {
   arguments: string;
 };
 
-export type ListDirEntryKind = "file" | "directory" | "symlink" | "other";
-
 export type ListDirEntry = {
   name: string;
   path: string;
-  kind: ListDirEntryKind;
+  isDir: boolean;
+  size?: number;
 };
 
 export type ListDirData = {

@@ -5,7 +5,10 @@ import { LIST_DIR_TOOL_NAME } from "./definitions";
 import type { ListDirData, ToolHandler } from "./types";
 
 type ListDirArgs = {
-  path?: string;
+  path: string;
+  recursive?: boolean;
+  max_depth?: number;
+  show_hidden?: boolean;
 };
 
 export const listDirHandler: ToolHandler = async (rawArgs, context) => {
@@ -33,7 +36,10 @@ export const listDirHandler: ToolHandler = async (rawArgs, context) => {
   try {
     const data = await invoke<ListDirData>("tool_list_dir", {
       workspaceDir: context.workspaceDir,
-      path: args.value.path ?? ".",
+      path: args.value.path,
+      recursive: args.value.recursive ?? false,
+      maxDepth: args.value.max_depth ?? 1,
+      showHidden: args.value.show_hidden ?? false,
     });
     return toolSuccess(LIST_DIR_TOOL_NAME, data);
   } catch (error) {
@@ -46,7 +52,7 @@ function parseListDirArgs(
   rawArgs: unknown
 ): { ok: true; value: ListDirArgs } | { ok: false; message: string } {
   if (rawArgs === undefined || rawArgs === null) {
-    return { ok: true, value: {} };
+    return { ok: false, message: "path is required" };
   }
 
   if (typeof rawArgs !== "object" || Array.isArray(rawArgs)) {
@@ -56,9 +62,32 @@ function parseListDirArgs(
   const record = rawArgs as Record<string, unknown>;
   const path = record.path;
 
-  if (path !== undefined && typeof path !== "string") {
-    return { ok: false, message: "path must be a string" };
+  if (typeof path !== "string" || path.trim().length === 0) {
+    return { ok: false, message: "path is required and must be a non-empty string" };
   }
 
-  return { ok: true, value: { path } };
+  const recursive = record.recursive;
+  if (recursive !== undefined && typeof recursive !== "boolean") {
+    return { ok: false, message: "recursive must be a boolean" };
+  }
+
+  const maxDepth = record.max_depth;
+  if (maxDepth !== undefined && typeof maxDepth !== "number") {
+    return { ok: false, message: "max_depth must be a number" };
+  }
+
+  const showHidden = record.show_hidden;
+  if (showHidden !== undefined && typeof showHidden !== "boolean") {
+    return { ok: false, message: "show_hidden must be a boolean" };
+  }
+
+  return {
+    ok: true,
+    value: {
+      path,
+      recursive,
+      max_depth: maxDepth,
+      show_hidden: showHidden,
+    },
+  };
 }

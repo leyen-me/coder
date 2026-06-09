@@ -376,6 +376,8 @@ pub fn build_http_client() -> Result<Client, String> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use super::{process_sse_line, ToolCallAccumulator};
 
     #[test]

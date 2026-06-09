@@ -27,7 +27,7 @@ describe("messageRecordToAgentMessages", () => {
             tool: "list_dir",
             data: {
               path: ".",
-              entries: [{ name: "src", path: "src", kind: "directory" }],
+              entries: [{ name: "src", path: "src", isDir: true }],
             },
           },
           state: "output-available",
@@ -60,7 +60,7 @@ describe("messageRecordToAgentMessages", () => {
         tool_call_id: "call_1",
         name: "list_dir",
         content:
-          '{"ok":true,"tool":"list_dir","data":{"path":".","entries":[{"name":"src","path":"src","kind":"directory"}]}}',
+          '{"ok":true,"tool":"list_dir","data":{"path":".","entries":[{"name":"src","path":"src","isDir":true}]}}',
       },
     ]);
   });
