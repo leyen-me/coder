@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { usePanelRef } from "react-resizable-panels";
 
 import {
@@ -16,7 +16,9 @@ import {
   useBottomPanelPortal,
 } from "../bottom-panel-portal-context";
 
-const BOTTOM_PANEL_GROUP_ID = "coder-bottom-panel";
+const MAIN_CONTENT_DEFAULT_SIZE = 60;
+const BOTTOM_PANEL_DEFAULT_SIZE = 40;
+const BOTTOM_PANEL_MIN_SIZE = 20;
 
 type BottomPanelSlotProps = {
   children: ReactNode;
@@ -40,7 +42,7 @@ export function BottomPanelSlot({ children }: BottomPanelSlotProps) {
     return () => unregisterSlot(slotIdRef.current);
   }, [registerSlot, unregisterSlot]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const panel = bottomPanelRef.current;
     if (!panel) {
       return;
@@ -51,16 +53,25 @@ export function BottomPanelSlot({ children }: BottomPanelSlotProps) {
       return;
     }
 
+    // expand() restores pre-collapse size; if the panel was already collapsed
+    // (size 0) that size was never recorded and expand() falls back to minSize.
+    if (panel.isCollapsed()) {
+      panel.resize(BOTTOM_PANEL_DEFAULT_SIZE);
+    }
+
     panel.collapse();
   }, [bottomPanelRef, isBottomPanelOpen]);
 
   return (
     <ResizablePanelGroup
-      autoSave={BOTTOM_PANEL_GROUP_ID}
       className="min-h-0 flex-1"
       orientation="vertical"
     >
-      <ResizablePanel defaultSize={60} id="main-content" minSize={35}>
+      <ResizablePanel
+        defaultSize={MAIN_CONTENT_DEFAULT_SIZE}
+        id="main-content"
+        minSize={35}
+      >
         <div className="flex h-full min-h-0 flex-col overflow-hidden">
           {children}
         </div>
@@ -69,9 +80,9 @@ export function BottomPanelSlot({ children }: BottomPanelSlotProps) {
       <ResizablePanel
         collapsedSize={0}
         collapsible
-        defaultSize={40}
+        defaultSize={BOTTOM_PANEL_DEFAULT_SIZE}
         id="bottom-panel-slot"
-        minSize={20}
+        minSize={BOTTOM_PANEL_MIN_SIZE}
         panelRef={bottomPanelRef}
       >
         <div
