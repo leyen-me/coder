@@ -38,4 +38,26 @@ describe("shell-display", () => {
     expect(output).toContain("status: completed");
     expect(output).toContain("--- stdout ---");
   });
+
+  it("formats timed-out shell output so AI and UI can read partial stdout", () => {
+    const output = formatShellOutputForDisplay({
+      ok: true,
+      tool: "shell",
+      data: {
+        command: "npm create vite@latest vue-app -- --template vue",
+        workingDirectory: "/workspace",
+        stdout: "> create-vite vue-app --template vue\n",
+        stderr: "",
+        stdoutTruncated: false,
+        stderrTruncated: false,
+        stdoutTotalBytes: 35,
+        stderrTotalBytes: 0,
+        durationMs: 60000,
+        status: "timeout",
+      },
+    });
+
+    expect(output).toContain("status: timeout");
+    expect(output).toContain("create-vite");
+  });
 });

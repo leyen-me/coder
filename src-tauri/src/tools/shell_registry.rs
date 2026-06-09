@@ -6,7 +6,11 @@ use std::time::Instant;
 use tauri::{AppHandle, Emitter, State};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
+use tokio::task::JoinHandle;
 use tokio::time::{sleep, timeout, Duration};
+
+const POST_KILL_WAIT_MS: u64 = 3_000;
+const PIPE_DRAIN_GRACE_MS: u64 = 2_000;
 
 use super::shell::{
     build_shell_output, normalize_block_until_ms, resolve_command_shell,
@@ -215,19 +219,54 @@ impl ShellRegistry {
         cmd.stderr(std::process::Stdio::piped());
         cmd.kill_on_drop(true);
 
-        let output = timeout(Duration::from_millis(block_ms), cmd.output())
-            .await
-            .map_err(|_| "Command timed out".to_string())?
-            .map_err(|error| format!("Failed to run command: {error}"))?;
+        let mut child = cmd
+            .spawn()
+            .map_err(|error| format!("Failed to spawn command: {error}"))?;
 
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        let exit_code = output.status.code();
-        let status = if output.status.success() {
-            ShellStatus::Completed
-        } else {
-            ShellStatus::Failed
+        let stdout_pipe = child.stdout.take();
+        let stderr_pipe = child.stderr.take();
+        let stdout_acc = Arc::new(Mutex::new(String::new()));
+        let stderr_acc = Arc::new(Mutex::new(String::new()));
+
+        let stdout_reader = tokio::spawn(read_pipe_to_buffer(
+            stdout_pipe,
+            stdout_acc.clone(),
+        ));
+        let stderr_reader = tokio::spawn(read_pipe_to_buffer(
+            stderr_pipe,
+            stderr_acc.clone(),
+        ));
+
+        let wait_result = timeout(Duration::from_millis(block_ms), child.wait()).await;
+
+        let (status, exit_code) = match wait_result {
+            Ok(Ok(exit_status)) => {
+                let code = exit_status.code();
+                let status = if exit_status.success() {
+                    ShellStatus::Completed
+                } else {
+                    ShellStatus::Failed
+                };
+                (status, code)
+            }
+            Ok(Err(_)) => (ShellStatus::Failed, None),
+            Err(_) => {
+                kill_child_tree(&mut child);
+                wait_for_child_exit(&mut child, POST_KILL_WAIT_MS).await;
+                (ShellStatus::Timeout, None)
+            }
         };
+
+        drain_pipe_readers(stdout_reader, stderr_reader, PIPE_DRAIN_GRACE_MS).await;
+
+        let stdout = stdout_acc
+            .lock()
+            .map(|buffer| buffer.clone())
+            .unwrap_or_default();
+        let stderr = stderr_acc
+            .lock()
+            .map(|buffer| buffer.clone())
+            .unwrap_or_default();
 
         Ok(build_shell_output(
             command,
@@ -343,6 +382,62 @@ impl ShellRegistry {
             ShellStatus::Running,
             Some(shell_id),
         ))
+    }
+}
+
+fn kill_child_tree(child: &mut Child) {
+    #[cfg(target_os = "windows")]
+    if let Some(pid) = child.id() {
+        let _ = std::process::Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+    }
+
+    let _ = child.start_kill();
+}
+
+async fn wait_for_child_exit(child: &mut Child, max_ms: u64) {
+    let _ = timeout(Duration::from_millis(max_ms), child.wait()).await;
+}
+
+async fn drain_pipe_readers(
+    stdout_reader: JoinHandle<()>,
+    stderr_reader: JoinHandle<()>,
+    grace_ms: u64,
+) {
+    let stdout_abort = stdout_reader.abort_handle();
+    let stderr_abort = stderr_reader.abort_handle();
+
+    if timeout(
+        Duration::from_millis(grace_ms),
+        async {
+            let _ = tokio::join!(stdout_reader, stderr_reader);
+        },
+    )
+    .await
+    .is_err()
+    {
+        stdout_abort.abort();
+        stderr_abort.abort();
+    }
+}
+
+async fn read_pipe_to_buffer<R: tokio::io::AsyncRead + Unpin>(
+    reader: Option<R>,
+    buffer: Arc<Mutex<String>>,
+) {
+    let Some(reader) = reader else {
+        return;
+    };
+
+    let mut lines = BufReader::new(reader).lines();
+    while let Ok(Some(line)) = lines.next_line().await {
+        let chunk = format!("{line}\n");
+        if let Ok(mut acc) = buffer.lock() {
+            acc.push_str(&chunk);
+        }
     }
 }
 
