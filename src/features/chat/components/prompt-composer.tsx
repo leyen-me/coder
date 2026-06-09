@@ -1,5 +1,11 @@
 import type { ChatStatus, FileUIPart } from "ai";
-import { ChevronDownIcon, FolderOpenIcon, GitBranchIcon, BrainIcon } from "lucide-react";
+import {
+  BrainIcon,
+  ChevronDownIcon,
+  FolderOpenIcon,
+  GitBranchIcon,
+  XIcon,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -67,6 +73,7 @@ type PromptComposerProps = {
   showWorkspaceControls?: boolean;
   workspaceName?: string | null;
   onPickWorkspace?: () => void;
+  onClearWorkspace?: () => void;
   isGitRepository?: boolean;
   gitBranch?: string | null;
   gitBranches?: readonly string[];
@@ -165,6 +172,7 @@ function ComposerMultimodalGuard({ enabled }: { enabled: boolean }) {
 type ComposerContextBarProps = {
   workspaceName?: string | null;
   onPickWorkspace?: () => void;
+  onClearWorkspace?: () => void;
   isRunning: boolean;
   showBranch: boolean;
   gitBranch?: string | null;
@@ -176,6 +184,7 @@ type ComposerContextBarProps = {
 function ComposerContextBar({
   workspaceName,
   onPickWorkspace,
+  onClearWorkspace,
   isRunning,
   showBranch,
   gitBranch,
@@ -184,31 +193,52 @@ function ComposerContextBar({
   isGitLoading,
 }: ComposerContextBarProps) {
   const { t } = useTranslation();
+  const showClearWorkspace =
+    Boolean(workspaceName) && Boolean(onClearWorkspace);
 
   return (
     <div className="relative z-0 -mt-3 flex items-center gap-1 bg-muted/50 px-3 pb-2 pt-5 dark:bg-[#1c1c1f]">
-      <Button
-        aria-label={
-          workspaceName
-            ? t("chat.workspaceSelected", { name: workspaceName })
-            : t("chat.selectWorkspace")
-        }
-        className="h-8 max-w-40 shrink-0 rounded-xl px-2.5"
-        disabled={isRunning || !onPickWorkspace}
-        onClick={onPickWorkspace}
-        title={
-          workspaceName
-            ? t("chat.workspaceSelected", { name: workspaceName })
-            : t("chat.selectWorkspace")
-        }
-        type="button"
-        variant="ghost"
-      >
-        <FolderOpenIcon className="size-4 shrink-0" />
-        <span className="truncate">
-          {workspaceName ?? t("chat.localWork")}
-        </span>
-      </Button>
+      <div className="flex min-w-0 max-w-44 shrink-0 items-center">
+        <Button
+          aria-label={
+            workspaceName
+              ? t("chat.workspaceSelected", { name: workspaceName })
+              : t("chat.selectWorkspace")
+          }
+          className={cn(
+            "h-8 min-w-0 flex-1 rounded-xl px-2.5",
+            showClearWorkspace && "rounded-r-none pr-2"
+          )}
+          disabled={isRunning || !onPickWorkspace}
+          onClick={onPickWorkspace}
+          title={
+            workspaceName
+              ? t("chat.workspaceSelected", { name: workspaceName })
+              : t("chat.selectWorkspace")
+          }
+          type="button"
+          variant="ghost"
+        >
+          <FolderOpenIcon className="size-4 shrink-0" />
+          <span className="truncate">
+            {workspaceName ?? t("chat.localWork")}
+          </span>
+        </Button>
+
+        {showClearWorkspace ? (
+          <Button
+            aria-label={t("chat.clearWorkspace")}
+            className="h-8 shrink-0 rounded-l-none rounded-r-xl px-2"
+            disabled={isRunning}
+            onClick={onClearWorkspace}
+            title={t("chat.clearWorkspace")}
+            type="button"
+            variant="ghost"
+          >
+            <XIcon className="size-3.5 shrink-0 opacity-70" />
+          </Button>
+        ) : null}
+      </div>
 
       {showBranch ? (
         <DropdownMenu>
@@ -265,6 +295,7 @@ export function PromptComposer({
   showWorkspaceControls = true,
   workspaceName,
   onPickWorkspace,
+  onClearWorkspace,
   isGitRepository = false,
   gitBranch,
   gitBranches = [],
@@ -490,6 +521,7 @@ export function PromptComposer({
             isGitLoading={isGitLoading}
             isRunning={isRunning}
             onGitBranchChange={onGitBranchChange}
+            onClearWorkspace={onClearWorkspace}
             onPickWorkspace={onPickWorkspace}
             showBranch={showBranch}
             workspaceName={workspaceName}

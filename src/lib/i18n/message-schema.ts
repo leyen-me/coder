@@ -53,6 +53,7 @@ export type Messages = {
     stop: string;
     localWork: string;
     selectWorkspace: string;
+    clearWorkspace: string;
     workspaceSelected: string;
     selectGitBranch: string;
     gitBranchLoading: string;

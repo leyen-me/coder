@@ -55,6 +55,7 @@ export const zhMessages = {
     stop: "停止",
     localWork: "本地工作",
     selectWorkspace: "选择工作区",
+    clearWorkspace: "清除工作区",
     workspaceSelected: "工作区：{name}",
     selectGitBranch: "选择分支",
     gitBranchLoading: "加载分支…",

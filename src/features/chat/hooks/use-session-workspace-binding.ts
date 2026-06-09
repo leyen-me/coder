@@ -14,7 +14,11 @@ export function useSessionWorkspaceBinding({
   session,
   canEdit,
 }: UseSessionWorkspaceBindingInput) {
-  const { workspaceDir: globalWorkspaceDir, pickWorkspace } = useWorkspace();
+  const {
+    workspaceDir: globalWorkspaceDir,
+    pickWorkspace,
+    setWorkspaceDir,
+  } = useWorkspace();
 
   const effectiveWorkspaceDir =
     session?.workspaceDir?.trim() || globalWorkspaceDir;
@@ -34,6 +38,19 @@ export function useSessionWorkspaceBinding({
     });
   }, [canEdit, pickWorkspace, session]);
 
+  const handleClearWorkspace = useCallback(async () => {
+    if (!canEdit) {
+      return;
+    }
+
+    setWorkspaceDir(null);
+    if (session) {
+      await updateSession(session.id, {
+        workspaceDir: null,
+      });
+    }
+  }, [canEdit, session, setWorkspaceDir]);
+
   const handleBranchChange = useCallback(
     async (branch: string) => {
       if (!canEdit || !effectiveWorkspaceDir?.trim()) {
@@ -48,15 +65,17 @@ export function useSessionWorkspaceBinding({
   return {
     workspaceDir: effectiveWorkspaceDir,
     handlePickWorkspace,
+    handleClearWorkspace,
     handleBranchChange,
   };
 }
 
 /** Workspace shown on the new-chat page before a session exists. */
 export function useNewChatWorkspace() {
-  const { workspaceDir, pickWorkspace } = useWorkspace();
+  const { workspaceDir, pickWorkspace, setWorkspaceDir } = useWorkspace();
   return {
     workspaceDir: workspaceDir ?? readWorkspaceDir(),
     pickWorkspace,
+    clearWorkspace: () => setWorkspaceDir(null),
   };
 }

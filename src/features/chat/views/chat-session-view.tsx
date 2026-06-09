@@ -202,6 +202,9 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             onPickWorkspace={() => {
               void workspaceBinding.handlePickWorkspace();
             }}
+            onClearWorkspace={() => {
+              void workspaceBinding.handleClearWorkspace();
+            }}
             isGitRepository={gitControls.isGitRepository}
             gitBranch={gitControls.gitBranch}
             gitBranches={gitControls.gitBranches}

@@ -23,7 +23,7 @@ export function NewChatView() {
   const navigate = useNavigate();
   const { resolved } = useModelProvider();
   const { sendMessage } = useAgentStore();
-  const { workspaceDir, pickWorkspace } = useNewChatWorkspace();
+  const { workspaceDir, pickWorkspace, clearWorkspace } = useNewChatWorkspace();
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState(() => resolveDefaultModel(resolved));
   const { thinkingEnabled, onThinkingEnabledChange } = useComposerThinking(
@@ -93,6 +93,7 @@ export function NewChatView() {
           onPickWorkspace={() => {
             void pickWorkspace();
           }}
+          onClearWorkspace={clearWorkspace}
           isGitRepository={gitControls.isGitRepository}
           gitBranch={gitControls.gitBranch}
           gitBranches={gitControls.gitBranches}
