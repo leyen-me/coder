@@ -1,6 +1,5 @@
 import { convertFileSrc, isTauri } from "@tauri-apps/api/core";
 
-import { parseReadFileToolError } from "@/features/agent/tools/parse-read-file-tool-error";
 import { normalizeExternalPathForWorkspace } from "@/features/right-panel/lib/workspace-file-ops";
 import {
   isImageFile,
@@ -13,10 +12,8 @@ import { insertFileMentionIntoComposer } from "./composer-insert-store";
 type ProcessNativeFileDropMessages = {
   attachmentErrorMultimodalUnsupported: string;
   externalDropInvalidPath: string;
-  externalDropOutsideWorkspace: string;
   externalDropPathUnresolved: string;
   externalDropUnsupportedRuntime: string;
-  externalDropWorkspaceRequired: string;
 };
 
 type ProcessNativeFileDropItemsOptions = {
@@ -57,8 +54,6 @@ export async function processNativeFileDropItems({
     return;
   }
 
-  const trimmedWorkspaceDir = workspaceDir?.trim() ?? "";
-
   for (const item of items) {
     const path = item.path;
     const treatsAsImage =
@@ -85,11 +80,6 @@ export async function processNativeFileDropItems({
       continue;
     }
 
-    if (!trimmedWorkspaceDir) {
-      onError(messages.externalDropWorkspaceRequired);
-      continue;
-    }
-
     if (!isTauri()) {
       onError(messages.externalDropUnsupportedRuntime);
       continue;
@@ -97,20 +87,14 @@ export async function processNativeFileDropItems({
 
     try {
       const normalized = await normalizeExternalPathForWorkspace(
-        trimmedWorkspaceDir,
+        workspaceDir,
         path
       );
       insertFileMentionIntoComposer(normalized.path, {
         isDir: normalized.isDir,
         name: normalized.name,
       });
-    } catch (error) {
-      const structured = parseReadFileToolError(error);
-      if (structured?.code === "outside_workspace") {
-        onError(messages.externalDropOutsideWorkspace);
-        continue;
-      }
-
+    } catch {
       onError(messages.externalDropInvalidPath);
     }
   }

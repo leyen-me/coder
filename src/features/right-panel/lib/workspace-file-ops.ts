@@ -105,12 +105,13 @@ export type NormalizedWorkspaceReference = {
 };
 
 export async function normalizeExternalPathForWorkspace(
-  workspaceDir: string,
+  workspaceDir: string | null | undefined,
   absolutePath: string
 ): Promise<NormalizedWorkspaceReference> {
   assertTauri();
+  const trimmedWorkspaceDir = workspaceDir?.trim();
   return invoke<NormalizedWorkspaceReference>("tool_normalize_external_path", {
-    workspaceDir,
+    workspaceDir: trimmedWorkspaceDir ? trimmedWorkspaceDir : null,
     absolutePath,
   });
 }

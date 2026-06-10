@@ -52,8 +52,6 @@ export const zhMessages = {
     attachmentErrorMultimodalUnsupported: "当前模型不支持图片输入",
     attachmentErrorMaxSize: "单张图片不能超过 {size}",
     attachmentErrorMaxFiles: "最多只能添加 {count} 张图片",
-    externalDropWorkspaceRequired: "请先在本地工作中选择工作区，再拖入文件引用",
-    externalDropOutsideWorkspace: "只能引用当前工作区内的文件或文件夹",
     externalDropPathUnresolved: "无法识别拖入的文件路径，请从访达或资源管理器重新拖入",
     externalDropInvalidPath: "无法引用该路径，请检查文件是否存在",
     externalDropUnsupportedRuntime: "外部文件拖入引用仅支持桌面应用",

@@ -406,10 +406,8 @@ export function PromptComposer({
         "chat.attachmentErrorMultimodalUnsupported"
       ),
       externalDropInvalidPath: t("chat.externalDropInvalidPath"),
-      externalDropOutsideWorkspace: t("chat.externalDropOutsideWorkspace"),
       externalDropPathUnresolved: t("chat.externalDropPathUnresolved"),
       externalDropUnsupportedRuntime: t("chat.externalDropUnsupportedRuntime"),
-      externalDropWorkspaceRequired: t("chat.externalDropWorkspaceRequired"),
     }),
     [t]
   );

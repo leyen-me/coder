@@ -343,28 +343,45 @@ pub fn tool_resolve_absolute_path(
 
 #[tauri::command]
 pub fn tool_normalize_external_path(
-    workspace_dir: String,
+    workspace_dir: Option<String>,
     absolute_path: String,
 ) -> Result<NormalizedWorkspaceReference, TextFileToolError> {
-    let workspace = parse_workspace(&workspace_dir)?;
-    let canonical_workspace = canonical_workspace(&workspace)?;
-    let target = resolve_workspace_path(&workspace, absolute_path.trim()).map_err(|error| {
-        if error.contains("within the workspace") {
-            TextFileToolError::new("outside_workspace", error)
-        } else {
-            TextFileToolError::new("invalid_path", error)
-        }
+    let trimmed = absolute_path.trim();
+    if trimmed.is_empty() {
+        return Err(TextFileToolError::new("invalid_path", "path is required"));
+    }
+
+    let target = PathBuf::from(trimmed).canonicalize().map_err(|error| {
+        TextFileToolError::new("invalid_path", format!("Invalid path: {error}"))
     })?;
 
     let name = target
         .file_name()
         .map(|value| value.to_string_lossy().to_string())
-        .unwrap_or_else(|| workspace_relative_path(&canonical_workspace, &target));
+        .unwrap_or_else(|| format_absolute_path(&target));
+    let is_dir = target.is_dir();
+
+    let path = if let Some(workspace_dir) = workspace_dir {
+        let workspace = workspace_dir.trim();
+        if workspace.is_empty() {
+            format_absolute_path(&target)
+        } else if let Ok(canonical_workspace) = canonical_workspace(&PathBuf::from(workspace)) {
+            if target.starts_with(&canonical_workspace) {
+                workspace_relative_path(&canonical_workspace, &target)
+            } else {
+                format_absolute_path(&target)
+            }
+        } else {
+            format_absolute_path(&target)
+        }
+    } else {
+        format_absolute_path(&target)
+    };
 
     Ok(NormalizedWorkspaceReference {
-        path: workspace_relative_path(&canonical_workspace, &target),
+        path,
         name,
-        is_dir: target.is_dir(),
+        is_dir,
     })
 }
 
@@ -473,7 +490,7 @@ mod tests {
 
         let absolute = temp.join("src/App.tsx").canonicalize().expect("canonical file");
         let normalized = tool_normalize_external_path(
-            temp.to_string_lossy().into_owned(),
+            Some(temp.to_string_lossy().into_owned()),
             absolute.to_string_lossy().into_owned(),
         )
         .expect("normalize");
@@ -485,7 +502,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_external_path_outside_workspace() {
+    fn keeps_external_path_outside_workspace_as_absolute() {
         let temp = temp_workspace("outside");
         let outside = std::env::temp_dir().canonicalize().expect("temp dir");
         if outside.starts_with(&temp) {
@@ -493,13 +510,36 @@ mod tests {
             return;
         }
 
-        let error = tool_normalize_external_path(
-            temp.to_string_lossy().into_owned(),
+        let normalized = tool_normalize_external_path(
+            Some(temp.to_string_lossy().into_owned()),
             outside.to_string_lossy().into_owned(),
         )
-        .expect_err("outside path");
+        .expect("outside path");
 
-        assert_eq!(error.code, "outside_workspace");
+        assert_eq!(
+            normalized.path,
+            super::format_absolute_path(&outside)
+        );
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn normalizes_external_path_without_workspace_as_absolute() {
+        let temp = temp_workspace("no-workspace");
+        fs::write(temp.join("note.txt"), "hello").expect("write file");
+        let absolute = temp.join("note.txt").canonicalize().expect("canonical file");
+
+        let normalized = tool_normalize_external_path(
+            None,
+            absolute.to_string_lossy().into_owned(),
+        )
+        .expect("normalize");
+
+        assert_eq!(
+            normalized.path,
+            super::format_absolute_path(&absolute)
+        );
+        assert_eq!(normalized.name, "note.txt");
         let _ = fs::remove_dir_all(temp);
     }
 }
