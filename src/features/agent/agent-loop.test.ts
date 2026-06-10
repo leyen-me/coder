@@ -388,6 +388,53 @@ describe("runAgentWithTools", () => {
     });
   });
 
+  it("requests a handoff before starting the next turn when context is nearly full", async () => {
+    const events: Parameters<AgentEventHandler>[0][] = [];
+
+    await runAgentWithTools(
+      {
+        taskId: "task-1",
+        baseUrl: "https://api.example.com",
+        apiKey: "test-key",
+        apiKeySource: "manual",
+        apiKeyEnvVar: "TEST_API_KEY",
+        model: "deepseek-v4-pro",
+        maxContextTokens: 4_500,
+        messages: [
+          { role: "system", content: "System prompt" },
+          { role: "user", content: "继续这个长任务" },
+          {
+            role: "assistant",
+            content: "我已经完成了大量检查和修改。".repeat(300),
+          },
+          {
+            role: "tool",
+            tool_call_id: "call_1",
+            name: "read_file",
+            content: "文件输出".repeat(300),
+          },
+        ],
+      },
+      { workspaceDir: null, taskId: "task-1" },
+      (event) => {
+        events.push(event);
+      }
+    );
+
+    expect(startAgentMock).not.toHaveBeenCalled();
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "handoff_required",
+        taskId: "task-1",
+      })
+    );
+    expect(events).toContainEqual({
+      type: "status",
+      taskId: "task-1",
+      status: "completed",
+    });
+  });
+
   it("does not retry after partial stream output was already emitted", async () => {
     startAgentMock.mockImplementationOnce(async (_input, onEvent) => {
       onEvent({

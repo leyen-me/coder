@@ -26,6 +26,11 @@ export type AgentEvent =
   | { type: "content_delta"; taskId: string; delta: string }
   | { type: "turn_complete"; taskId: string; toolCalls: AgentToolCall[] }
   | {
+      type: "handoff_required";
+      taskId: string;
+      contextUsage: AgentContextUsageSnapshot;
+    }
+  | {
       type: "tool_call_pending";
       taskId: string;
       toolCallId: string;
@@ -67,11 +72,25 @@ export type AgentStartInput = {
   emitAssistantOutput?: boolean;
   /** Provider-specific fields merged into the chat completion request body. */
   requestExtensions?: Record<string, unknown>;
+  /** Estimated provider context window used for proactive rollover before overflow. */
+  maxContextTokens?: number;
 };
 
 export type ChatRetryState = {
   attempt: number;
   maxAttempts: number;
+};
+
+export type AgentContextUsageSnapshot = {
+  usedTokens: number;
+  maxTokens: number;
+  remainingTokens: number;
+  reservedTokens: number;
+  triggerThreshold: number;
+};
+
+export type AgentHandoffRequest = {
+  contextUsage: AgentContextUsageSnapshot;
 };
 
 export type ActiveTaskState = {
@@ -85,6 +104,8 @@ export type ActiveTaskState = {
   isFirstTurn: boolean;
   model: string;
   userContent: string;
+  thinkingEnabled: boolean;
+  handoff: AgentHandoffRequest | null;
 };
 
 export type AgentEventHandler = (event: AgentEvent) => void;

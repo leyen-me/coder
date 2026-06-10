@@ -13,6 +13,9 @@ export type SessionRecord = {
   model: string;
   /** Absolute path; owned by this session after the first message. */
   workspaceDir: string | null;
+  parentSessionId?: string | null;
+  handoffFromSessionId?: string | null;
+  handoffMessageId?: string | null;
   createdAt: number;
   updatedAt: number;
 };

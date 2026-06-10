@@ -21,6 +21,9 @@ export type CreateSessionInput = {
   title: string;
   model: string;
   workspaceDir?: string | null;
+  parentSessionId?: string | null;
+  handoffFromSessionId?: string | null;
+  handoffMessageId?: string | null;
 };
 
 export async function createSession(input: CreateSessionInput): Promise<SessionRecord> {
@@ -30,6 +33,9 @@ export async function createSession(input: CreateSessionInput): Promise<SessionR
     title: input.title,
     model: input.model,
     workspaceDir: input.workspaceDir ?? null,
+    parentSessionId: input.parentSessionId ?? null,
+    handoffFromSessionId: input.handoffFromSessionId ?? null,
+    handoffMessageId: input.handoffMessageId ?? null,
     createdAt: now,
     updatedAt: now,
   });
@@ -47,7 +53,15 @@ export async function getSession(sessionId: string): Promise<SessionRecord | nul
 }
 
 export type SessionPatch = Partial<
-  Pick<SessionRecord, "title" | "model" | "workspaceDir">
+  Pick<
+    SessionRecord,
+    | "title"
+    | "model"
+    | "workspaceDir"
+    | "parentSessionId"
+    | "handoffFromSessionId"
+    | "handoffMessageId"
+  >
 >;
 
 export async function updateSession(

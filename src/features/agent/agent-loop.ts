@@ -21,6 +21,7 @@ import {
   ToolCallStallDetector,
   agentToolCallStallError,
 } from "./tool-call-stall";
+import { shouldTriggerContextHandoff } from "./context-monitor";
 
 type ToolExecutionContextInput = {
   workspaceDir: string | null;
@@ -41,6 +42,21 @@ export async function runAgentWithTools(
 
   while (true) {
     throwIfAborted(context.signal, input.taskId);
+
+    const handoffUsage = shouldTriggerContextHandoff({
+      messages,
+      maxTokens: input.maxContextTokens,
+    });
+    if (handoffUsage) {
+      onEvent({
+        type: "handoff_required",
+        taskId: input.taskId,
+        contextUsage: handoffUsage,
+      });
+      onEvent({ type: "done", taskId: input.taskId });
+      onEvent({ type: "status", taskId: input.taskId, status: "completed" });
+      return;
+    }
 
     const turn = await runSingleAgentTurn(
       {
