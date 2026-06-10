@@ -67,6 +67,9 @@ pub fn tool_search_workspace_paths(
         .into_iter()
         .filter_map(|(path, is_dir)| {
             let name = basename_path(&path);
+            if name.is_empty() {
+                return None;
+            }
             let score = match_score(&path, &name, &query)?;
             Some((
                 score,
@@ -127,6 +130,10 @@ fn collect_workspace_paths(
         let Some(relative) = relative_file_path(&canonical_workspace, &absolute) else {
             continue;
         };
+
+        if relative.is_empty() || relative == "." {
+            continue;
+        }
 
         if options.respect_gitignore
             && is_gitignored(&canonical_workspace, &absolute).unwrap_or(false)
@@ -219,6 +226,24 @@ mod tests {
 
         assert_eq!(result.total_matches, 1);
         assert_eq!(result.matches[0].path, "src/components/button.tsx");
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn excludes_workspace_root_from_results() {
+        let temp = temp_workspace("root");
+        fs::write(temp.join("README.md"), "x").expect("write readme");
+
+        let result = tool_search_workspace_paths(
+            temp.to_string_lossy().into_owned(),
+            Some(String::new()),
+            None,
+            None,
+        )
+        .expect("search");
+
+        assert!(result.matches.iter().all(|item| !item.path.is_empty()));
+        assert!(result.matches.iter().all(|item| !item.name.is_empty()));
         let _ = fs::remove_dir_all(temp);
     }
 
