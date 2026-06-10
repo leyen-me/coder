@@ -8,6 +8,7 @@ import {
   KILL_SHELL_TOOL_NAME,
   LIST_DIR_TOOL_NAME,
   LIST_SHELLS_TOOL_NAME,
+  CREATE_SKILL_TOOL_NAME,
   LIST_SKILLS_TOOL_NAME,
   READ_FILE_TOOL_NAME,
   READ_SKILL_TOOL_NAME,
@@ -24,6 +25,7 @@ import { grepHandler } from "./grep";
 import { killShellHandler } from "./kill-shell";
 import { listDirHandler } from "./list-dir";
 import { listShellsHandler } from "./list-shells";
+import { createSkillHandler } from "./create-skill";
 import { listSkillsHandler } from "./list-skills";
 import { readFileHandler } from "./read-file";
 import { readSkillHandler } from "./read-skill";
@@ -54,6 +56,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [BROWSE_PAGE_TOOL_NAME]: browsePageHandler,
   [LIST_SKILLS_TOOL_NAME]: listSkillsHandler,
   [READ_SKILL_TOOL_NAME]: readSkillHandler,
+  [CREATE_SKILL_TOOL_NAME]: createSkillHandler,
 };
 
 export function getAgentToolDefinitions(): AgentToolDefinition[] {

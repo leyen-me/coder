@@ -15,6 +15,7 @@ export const WEB_SEARCH_TOOL_NAME = "web_search";
 export const BROWSE_PAGE_TOOL_NAME = "browse_page";
 export const LIST_SKILLS_TOOL_NAME = "list_skills";
 export const READ_SKILL_TOOL_NAME = "read_skill";
+export const CREATE_SKILL_TOOL_NAME = "create_skill";
 
 export const LIST_DIR_TOOL: AgentToolDefinition = {
   type: "function",
@@ -510,6 +511,41 @@ export const READ_SKILL_TOOL: AgentToolDefinition = {
   },
 };
 
+export const CREATE_SKILL_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: CREATE_SKILL_TOOL_NAME,
+    description:
+      "Create a custom user skill with instructions the agent can follow later. New skills are disabled until the user enables them on the Skills page. Slug must be lowercase letters, numbers, and hyphens.",
+    parameters: {
+      type: "object",
+      properties: {
+        slug: {
+          type: "string",
+          description:
+            'Unique identifier, e.g. "code-review". Lowercase letters, numbers, and hyphens only.',
+        },
+        name: {
+          type: "string",
+          description: "Short display name for the skill.",
+        },
+        description: {
+          type: "string",
+          description:
+            "When to use this skill — shown in list_skills and used to decide relevance.",
+        },
+        content: {
+          type: "string",
+          description:
+            "Full skill instructions (markdown). Same format as a SKILL.md body.",
+        },
+      },
+      required: ["slug", "name", "description", "content"],
+      additionalProperties: false,
+    },
+  },
+};
+
 export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   LIST_DIR_TOOL,
   READ_FILE_TOOL,
@@ -526,4 +562,5 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   BROWSE_PAGE_TOOL,
   LIST_SKILLS_TOOL,
   READ_SKILL_TOOL,
+  CREATE_SKILL_TOOL,
 ];

@@ -37,6 +37,7 @@ export function buildSystemPrompt(environment: AgentEnvironment): string {
     "browse_page does not render JavaScript-heavy pages. Prefer quoting tool output instead of inventing details.",
     "Use list_skills to browse user-enabled skills (slug, name, description).",
     "Use read_skill with a slug to load full skill instructions before following them.",
+    "Use create_skill when the user asks you to save reusable instructions as a custom skill.",
     "Paths are resolved relative to workspaceDir unless noted otherwise.",
     "When a tool fails, read the error code and message, then adjust your approach.",
     "Prefer tools over guessing file, directory, or web page contents.",
@@ -75,6 +76,8 @@ function buildUserSkillsSection(): string[] {
     "They are NOT included in this prompt by default.",
     "- Call list_skills to browse enabled skills (slug, name, description).",
     "- Call read_skill with a slug to load full instructions before following them.",
+    "- Call create_skill to persist new custom skills when the user wants reusable instructions.",
+    "- New skills are disabled until the user enables them on the Skills page.",
     "- The user may also reference an enabled skill via /slug in their message.",
     "",
   ];
