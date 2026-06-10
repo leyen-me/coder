@@ -165,10 +165,12 @@ function ComposerSubmit({
     value.trim().length > 0 ||
     (supportsMultimodal && attachments.files.length > 0);
 
+  const isStopMode = isRunning && Boolean(onStop);
+
   return (
     <PromptInputSubmit
       className="shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/90"
-      disabled={!canSend || isRunning}
+      disabled={isStopMode ? false : !canSend}
       onStop={onStop}
       status={submitStatus}
     />
