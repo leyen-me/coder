@@ -1,9 +1,16 @@
+export type AgentProjectInstructions = {
+  path: string;
+  content: string;
+  truncated: boolean;
+} | null;
+
 export type AgentEnvironment = {
   workspaceDir: string | null;
   os: string;
   shell: string;
   isGitRepository: boolean;
   today: string;
+  agentsMd: AgentProjectInstructions;
 };
 
 export type AgentEnvironmentInput = {
@@ -12,4 +19,5 @@ export type AgentEnvironmentInput = {
   shell: string;
   isGitRepository: boolean;
   today?: string;
+  agentsMd?: AgentProjectInstructions;
 };

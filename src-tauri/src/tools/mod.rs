@@ -8,6 +8,7 @@ mod grep;
 mod list_dir;
 mod network;
 mod pty_terminal;
+mod project_instructions;
 mod read_file;
 mod replace_file;
 mod runtime;

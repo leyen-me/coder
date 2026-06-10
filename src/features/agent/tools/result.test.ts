@@ -44,6 +44,62 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("### Windows shell");
     expect(prompt).toContain("git commit -F");
   });
+
+  it("includes project instructions when agentsMd is present", () => {
+    const prompt = buildSystemPrompt(
+      normalizeEnvironment({
+        workspaceDir: "/tmp/project",
+        os: "macos aarch64 (15.5)",
+        shell: "/bin/zsh",
+        isGitRepository: false,
+        today: "2026-06-02, Monday",
+        agentsMd: {
+          path: "AGENTS.md",
+          content: "## Style\nUse TypeScript strict mode.",
+          truncated: false,
+        },
+      })
+    );
+
+    expect(prompt).toContain("## Project instructions (AGENTS.md)");
+    expect(prompt).toContain("Use TypeScript strict mode.");
+    expect(prompt).not.toContain("truncated to 32 KB");
+  });
+
+  it("notes truncation when agentsMd was truncated", () => {
+    const prompt = buildSystemPrompt(
+      normalizeEnvironment({
+        workspaceDir: "/tmp/project",
+        os: "macos aarch64 (15.5)",
+        shell: "/bin/zsh",
+        isGitRepository: false,
+        today: "2026-06-02, Monday",
+        agentsMd: {
+          path: "AGENTS.md",
+          content: "partial content",
+          truncated: true,
+        },
+      })
+    );
+
+    expect(prompt).toContain("truncated to 32 KB");
+    expect(prompt).toContain("read_file on AGENTS.md");
+  });
+
+  it("omits project instructions when agentsMd is absent", () => {
+    const prompt = buildSystemPrompt(
+      normalizeEnvironment({
+        workspaceDir: "/tmp/project",
+        os: "macos aarch64 (15.5)",
+        shell: "/bin/zsh",
+        isGitRepository: false,
+        today: "2026-06-02, Monday",
+        agentsMd: null,
+      })
+    );
+
+    expect(prompt).not.toContain("## Project instructions (AGENTS.md)");
+  });
 });
 
 describe("tool result envelope", () => {

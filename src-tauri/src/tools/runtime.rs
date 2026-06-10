@@ -2,18 +2,28 @@ use std::path::Path;
 
 use serde::Serialize;
 
+use super::project_instructions::{load_workspace_agents_md, AgentsMdContent};
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeEnvironmentResponse {
     pub os: String,
     pub shell: String,
     pub is_git_repository: bool,
+    pub agents_md: Option<AgentsMdContent>,
 }
 
 #[tauri::command]
 pub fn agent_get_runtime_environment(
     workspace_dir: Option<String>,
 ) -> Result<RuntimeEnvironmentResponse, String> {
+    let trimmed_workspace = workspace_dir.as_deref().map(str::trim).unwrap_or("");
+    let agents_md = if trimmed_workspace.is_empty() {
+        None
+    } else {
+        load_workspace_agents_md(trimmed_workspace)?
+    };
+
     Ok(RuntimeEnvironmentResponse {
         os: resolve_os(),
         shell: resolve_shell(),
@@ -21,6 +31,7 @@ pub fn agent_get_runtime_environment(
             .as_deref()
             .map(is_git_repository)
             .unwrap_or(false),
+        agents_md,
     })
 }
 

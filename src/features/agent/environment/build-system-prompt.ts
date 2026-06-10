@@ -1,5 +1,9 @@
 import { buildGitCommitRules } from "./git-commit-rules";
-import type { AgentEnvironment, AgentEnvironmentInput } from "./types";
+import type {
+  AgentEnvironment,
+  AgentEnvironmentInput,
+  AgentProjectInstructions,
+} from "./types";
 
 export function buildSystemPrompt(environment: AgentEnvironment): string {
   const workspaceLine = environment.workspaceDir
@@ -35,8 +39,33 @@ export function buildSystemPrompt(environment: AgentEnvironment): string {
     "When a tool fails, read the error code and message, then adjust your approach.",
     "Prefer tools over guessing file, directory, or web page contents.",
     "",
+    ...buildProjectInstructionsSection(environment.agentsMd),
     ...(environment.isGitRepository ? buildGitCommitRules(environment) : []),
   ].join("\n");
+}
+
+function buildProjectInstructionsSection(
+  agentsMd: AgentProjectInstructions
+): string[] {
+  if (!agentsMd?.content.trim()) {
+    return [];
+  }
+
+  const lines = [
+    "## Project instructions (AGENTS.md)",
+    "Follow these project-specific rules when they do not conflict with the user's current message.",
+    agentsMd.content.trimEnd(),
+  ];
+
+  if (agentsMd.truncated) {
+    lines.push(
+      "",
+      `Note: ${agentsMd.path} was truncated to 32 KB. Use read_file on ${agentsMd.path} to read the full file if needed.`
+    );
+  }
+
+  lines.push("");
+  return lines;
 }
 
 export function normalizeEnvironment(
@@ -48,6 +77,7 @@ export function normalizeEnvironment(
     shell: input.shell.trim() || "unknown",
     isGitRepository: input.isGitRepository,
     today: input.today ?? formatToday(new Date()),
+    agentsMd: input.agentsMd ?? null,
   };
 }
 

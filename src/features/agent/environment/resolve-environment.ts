@@ -1,12 +1,13 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { normalizeEnvironment } from "./build-system-prompt";
-import type { AgentEnvironment } from "./types";
+import type { AgentEnvironment, AgentProjectInstructions } from "./types";
 
 type RuntimeEnvironmentResponse = {
   os: string;
   shell: string;
   isGitRepository: boolean;
+  agentsMd?: AgentProjectInstructions;
 };
 
 export async function resolveAgentEnvironment(
@@ -26,6 +27,7 @@ export async function resolveAgentEnvironment(
         os: runtime.os,
         shell: runtime.shell,
         isGitRepository: runtime.isGitRepository,
+        agentsMd: runtime.agentsMd ?? null,
       });
     } catch {
       // Fall through to browser-style defaults when the command is unavailable.
@@ -37,6 +39,7 @@ export async function resolveAgentEnvironment(
     os: resolveBrowserOs(),
     shell: resolveBrowserShell(),
     isGitRepository: false,
+    agentsMd: null,
   });
 }
 
