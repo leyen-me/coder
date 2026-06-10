@@ -82,6 +82,11 @@ pub enum AgentEvent {
         task_id: String,
         delta: String,
     },
+    ToolCallPending {
+        task_id: String,
+        tool_call_id: String,
+        name: String,
+    },
     TurnComplete {
         task_id: String,
         tool_calls: Vec<ToolCall>,

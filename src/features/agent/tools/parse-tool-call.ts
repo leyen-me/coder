@@ -6,11 +6,28 @@ type PartialToolCall = {
   arguments: string;
 };
 
-export function createToolCallAccumulator(): {
+export type ToolCallIdentified = {
+  id: string;
+  name: string;
+};
+
+export function createToolCallAccumulator(options?: {
+  onIdentified?: (call: ToolCallIdentified) => void;
+}): {
   ingest: (delta: ToolCallDelta) => void;
   finalize: () => AgentToolCall[];
 } {
   const calls = new Map<number, PartialToolCall>();
+  const announcedIds = new Set<string>();
+
+  const maybeAnnounce = (call: PartialToolCall) => {
+    if (!call.id || !call.name || announcedIds.has(call.id)) {
+      return;
+    }
+
+    announcedIds.add(call.id);
+    options?.onIdentified?.({ id: call.id, name: call.name });
+  };
 
   return {
     ingest(delta: ToolCallDelta) {
@@ -32,6 +49,7 @@ export function createToolCallAccumulator(): {
       }
 
       calls.set(index, current);
+      maybeAnnounce(current);
     },
     finalize() {
       return [...calls.entries()]

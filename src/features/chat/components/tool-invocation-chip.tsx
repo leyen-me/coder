@@ -85,6 +85,7 @@ function ToolStatusIcon({ state }: { state: ToolUIPart["state"] }) {
       );
     case "output-error":
       return <XCircleIcon className="size-3.5 shrink-0 text-destructive" />;
+    case "input-streaming":
     case "input-available":
       return (
         <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin text-muted-foreground" />

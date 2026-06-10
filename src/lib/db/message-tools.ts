@@ -59,15 +59,22 @@ export async function addMessageToolInvocation(
   messageId: string,
   invocation: MessageToolInvocation
 ): Promise<MessageToolInvocation[] | null> {
+  return upsertMessageToolInvocation(messageId, invocation);
+}
+
+export async function upsertMessageToolInvocation(
+  messageId: string,
+  invocation: MessageToolInvocation
+): Promise<MessageToolInvocation[] | null> {
   const existing = await getMessage(messageId);
   if (!existing) {
     return null;
   }
 
-  const toolInvocations = [
-    ...normalizeToolInvocations(existing.toolInvocations),
-    invocation,
-  ];
+  const toolInvocations = mergeToolInvocations(
+    existing.toolInvocations,
+    [invocation]
+  );
 
   const updated = await updateMessage(messageId, { toolInvocations });
   return updated ? toolInvocations : null;

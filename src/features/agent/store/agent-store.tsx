@@ -221,28 +221,47 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             event.delta
           );
           return;
-        case "tool_call_started":
-          {
-            const toolInvocations = await addMessageToolInvocation(assistantMessageId, {
-              id: event.toolCallId,
-              name: event.name,
-              input: event.input,
-              state: "input-available",
-            });
-            if (toolInvocations) {
-              streamingBufferRef.current.setToolInvocations(
-                assistantMessageId,
-                toolInvocations
-              );
-            }
-          }
+        case "tool_call_pending":
+          streamingBufferRef.current.upsertToolInvocation(assistantMessageId, {
+            id: event.toolCallId,
+            name: event.name,
+            input: {},
+            state: "input-streaming",
+          });
           streamingBufferRef.current.pushToolStep(
             assistantMessageId,
             event.toolCallId
           );
+          return;
+        case "tool_call_started": {
+          const invocation = {
+            id: event.toolCallId,
+            name: event.name,
+            input: event.input,
+            state: "input-available" as const,
+          };
+          streamingBufferRef.current.upsertToolInvocation(
+            assistantMessageId,
+            invocation
+          );
+          streamingBufferRef.current.pushToolStep(
+            assistantMessageId,
+            event.toolCallId
+          );
+          const toolInvocations = await addMessageToolInvocation(
+            assistantMessageId,
+            invocation
+          );
+          if (toolInvocations) {
+            streamingBufferRef.current.setToolInvocations(
+              assistantMessageId,
+              toolInvocations
+            );
+          }
           await streamingBufferRef.current.flush(assistantMessageId);
           await setMessageStatus(assistantMessageId, "streaming");
           return;
+        }
         case "tool_call_finished": {
           const toolInvocations = await completeMessageToolInvocation(
             assistantMessageId,

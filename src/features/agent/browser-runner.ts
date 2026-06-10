@@ -65,7 +65,16 @@ export async function startBrowserAgent(
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
-    const toolCalls = createToolCallAccumulator();
+    const toolCalls = createToolCallAccumulator({
+      onIdentified: (call) => {
+        onEvent({
+          type: "tool_call_pending",
+          taskId: input.taskId,
+          toolCallId: call.id,
+          name: call.name,
+        });
+      },
+    });
     let finishReason: string | null = null;
 
     while (true) {

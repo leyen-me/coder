@@ -96,6 +96,7 @@ struct CompletionMessage {
 
 struct ToolCallAccumulator {
     calls: BTreeMap<usize, PartialToolCall>,
+    announced_ids: std::collections::HashSet<String>,
 }
 
 #[derive(Default)]
@@ -106,7 +107,12 @@ struct PartialToolCall {
 }
 
 impl ToolCallAccumulator {
-    fn ingest(&mut self, delta: StreamToolCallDelta) {
+    fn ingest(
+        &mut self,
+        delta: StreamToolCallDelta,
+        task_id: &str,
+        emit: &mut impl FnMut(AgentEvent),
+    ) {
         let index = delta.index.unwrap_or(0);
         let entry = self.calls.entry(index).or_default();
 
@@ -120,6 +126,16 @@ impl ToolCallAccumulator {
             }
             if let Some(arguments) = function.arguments {
                 entry.arguments.push_str(&arguments);
+            }
+        }
+
+        if let (Some(id), Some(name)) = (&entry.id, &entry.name) {
+            if self.announced_ids.insert(id.clone()) {
+                emit(AgentEvent::ToolCallPending {
+                    task_id: task_id.to_string(),
+                    tool_call_id: id.clone(),
+                    name: name.clone(),
+                });
             }
         }
     }
@@ -206,6 +222,7 @@ pub async fn stream_chat_completion(
     let mut line_buffer = String::new();
     let mut tool_calls = ToolCallAccumulator {
         calls: BTreeMap::new(),
+        announced_ids: std::collections::HashSet::new(),
     };
     let mut finish_reason: Option<String> = None;
 
@@ -355,11 +372,15 @@ fn process_sse_line(
             next_tool_calls.len()
         ));
         for tool_call in next_tool_calls {
-            tool_calls.ingest(StreamToolCallDelta {
-                index: tool_call.index,
-                id: tool_call.id.clone(),
-                function: tool_call.function.clone(),
-            });
+            tool_calls.ingest(
+                StreamToolCallDelta {
+                    index: tool_call.index,
+                    id: tool_call.id.clone(),
+                    function: tool_call.function.clone(),
+                },
+                task_id,
+                emit,
+            );
         }
     }
 
@@ -433,6 +454,7 @@ mod tests {
         let mut events = Vec::new();
         let mut tool_calls = ToolCallAccumulator {
             calls: BTreeMap::new(),
+            announced_ids: std::collections::HashSet::new(),
         };
         let mut finish_reason = None;
         let done = process_sse_line(

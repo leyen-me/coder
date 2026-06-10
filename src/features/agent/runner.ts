@@ -21,6 +21,7 @@ type TauriAgentEvent =
   | { type: "status"; taskId: string; status: TauriAgentStatus }
   | { type: "thinkingDelta"; taskId: string; delta: string }
   | { type: "contentDelta"; taskId: string; delta: string }
+  | { type: "toolCallPending"; taskId: string; toolCallId: string; name: string }
   | { type: "turnComplete"; taskId: string; toolCalls: TauriToolCall[] }
   | { type: "done"; taskId: string }
   | { type: "error"; taskId: string; message: string };
@@ -33,6 +34,13 @@ function mapTauriEvent(event: TauriAgentEvent): AgentEvent {
       return { type: "thinking_delta", taskId: event.taskId, delta: event.delta };
     case "contentDelta":
       return { type: "content_delta", taskId: event.taskId, delta: event.delta };
+    case "toolCallPending":
+      return {
+        type: "tool_call_pending",
+        taskId: event.taskId,
+        toolCallId: event.toolCallId,
+        name: event.name,
+      };
     case "turnComplete":
       return {
         type: "turn_complete",

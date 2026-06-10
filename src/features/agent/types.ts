@@ -26,6 +26,12 @@ export type AgentEvent =
   | { type: "content_delta"; taskId: string; delta: string }
   | { type: "turn_complete"; taskId: string; toolCalls: AgentToolCall[] }
   | {
+      type: "tool_call_pending";
+      taskId: string;
+      toolCallId: string;
+      name: string;
+    }
+  | {
       type: "tool_call_started";
       taskId: string;
       toolCallId: string;

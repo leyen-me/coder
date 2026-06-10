@@ -162,6 +162,35 @@ describe("createStreamingBufferManager", () => {
     expect(manager.get("msg-1")?.content).toBe("Hello");
   });
 
+  it("upserts a single tool invocation without replacing the list", () => {
+    const manager = createStreamingBufferManager({
+      onFlush: vi.fn().mockResolvedValue(undefined),
+      onChange: () => {},
+    });
+
+    manager.upsertToolInvocation("msg-1", {
+      id: "call_1",
+      name: "list_dir",
+      input: {},
+      state: "input-streaming",
+    });
+    manager.upsertToolInvocation("msg-1", {
+      id: "call_1",
+      name: "list_dir",
+      input: { path: "." },
+      state: "input-available",
+    });
+
+    expect(manager.get("msg-1")?.toolInvocations).toEqual([
+      {
+        id: "call_1",
+        name: "list_dir",
+        input: { path: "." },
+        state: "input-available",
+      },
+    ]);
+  });
+
   it("updates tool invocations in the live snapshot", () => {
     const manager = createStreamingBufferManager({
       onFlush: vi.fn().mockResolvedValue(undefined),

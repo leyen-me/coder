@@ -1,4 +1,8 @@
-import type { MessageProcessStep, MessageToolInvocation } from "@/lib/db";
+import {
+  mergeToolInvocations,
+  type MessageProcessStep,
+  type MessageToolInvocation,
+} from "@/lib/db";
 
 import {
   deriveMessageFieldsFromProcessSteps,
@@ -52,6 +56,10 @@ export type StreamingBufferManager = {
   setToolInvocations: (
     messageId: string,
     toolInvocations: MessageToolInvocation[]
+  ) => void;
+  upsertToolInvocation: (
+    messageId: string,
+    invocation: MessageToolInvocation
   ) => void;
   flush: (messageId: string) => Promise<void>;
   finalize: (messageId: string) => void;
@@ -175,6 +183,20 @@ export function createStreamingBufferManager(options: {
     scheduleFlush(messageId);
   };
 
+  const upsertToolInvocation = (
+    messageId: string,
+    invocation: MessageToolInvocation
+  ) => {
+    const buffer = ensureBuffer(messageId);
+    buffer.toolInvocations = mergeToolInvocations(
+      buffer.toolInvocations,
+      [invocation]
+    );
+    buffer.cached = null;
+    scheduleEmitChange();
+    scheduleFlush(messageId);
+  };
+
   const scheduleFlush = (messageId: string) => {
     if (timers.has(messageId)) {
       return;
@@ -250,6 +272,7 @@ export function createStreamingBufferManager(options: {
     flushAndClear,
     pushToolStep,
     setToolInvocations,
+    upsertToolInvocation,
     get: (messageId) => {
       const buffer = buffers.get(messageId);
       return buffer ? toStreamingFields(buffer) : null;
