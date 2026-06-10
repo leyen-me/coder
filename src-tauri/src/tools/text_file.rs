@@ -337,6 +337,31 @@ pub fn is_sensitive_path(path: &str) -> bool {
     false
 }
 
+pub fn guess_image_mime_type(path: &str, sample: &[u8]) -> Option<String> {
+    let magic = detect_mime_from_magic(sample);
+    if magic.starts_with("image/") {
+        return Some(magic);
+    }
+
+    match Path::new(path)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("avif") => Some("image/avif".to_string()),
+        Some("bmp") => Some("image/bmp".to_string()),
+        Some("gif") => Some("image/gif".to_string()),
+        Some("heic") => Some("image/heic".to_string()),
+        Some("heif") => Some("image/heif".to_string()),
+        Some("jpg") | Some("jpeg") => Some("image/jpeg".to_string()),
+        Some("png") => Some("image/png".to_string()),
+        Some("svg") => Some("image/svg+xml".to_string()),
+        Some("webp") => Some("image/webp".to_string()),
+        _ => None,
+    }
+}
+
 pub fn guess_text_mime_type(path: &str) -> String {
     match Path::new(path)
         .extension()

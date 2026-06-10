@@ -1,4 +1,4 @@
-import { convertFileSrc, isTauri } from "@tauri-apps/api/core";
+import { isTauri } from "@tauri-apps/api/core";
 
 import { normalizeExternalPathForWorkspace } from "@/features/right-panel/lib/workspace-file-ops";
 import {
@@ -7,10 +7,11 @@ import {
   type NativeFileDropItem,
 } from "@/lib/dnd/external-file-drop";
 
+import { imageFileFromAbsolutePath } from "./composer-image-attachments";
 import { insertFileMentionIntoComposer } from "./composer-insert-store";
 
 type ProcessNativeFileDropMessages = {
-  attachmentErrorMultimodalUnsupported: string;
+  externalDropImageLoadFailed: string;
   externalDropInvalidPath: string;
   externalDropPathUnresolved: string;
   externalDropUnsupportedRuntime: string;
@@ -19,33 +20,14 @@ type ProcessNativeFileDropMessages = {
 type ProcessNativeFileDropItemsOptions = {
   items: NativeFileDropItem[];
   workspaceDir?: string | null;
-  supportsMultimodal: boolean;
   addAttachments: (files: File[] | FileList) => void;
   onError: (message: string) => void;
   messages: ProcessNativeFileDropMessages;
 };
 
-async function fileFromAbsolutePath(path: string): Promise<File | null> {
-  try {
-    const response = await fetch(convertFileSrc(path));
-    if (!response.ok) {
-      return null;
-    }
-
-    const blob = await response.blob();
-    const name = path.split(/[/\\]/).pop() ?? "file";
-    return new File([blob], name, {
-      type: blob.type || "application/octet-stream",
-    });
-  } catch {
-    return null;
-  }
-}
-
 export async function processNativeFileDropItems({
   items,
   workspaceDir,
-  supportsMultimodal,
   addAttachments,
   onError,
   messages,
@@ -61,17 +43,22 @@ export async function processNativeFileDropItems({
       (path ? isImagePath(path) : false);
 
     if (treatsAsImage) {
-      if (!supportsMultimodal) {
-        onError(messages.attachmentErrorMultimodalUnsupported);
+      if (item.file) {
+        addAttachments([item.file]);
         continue;
       }
 
-      const file =
-        item.file ?? (path && isTauri() ? await fileFromAbsolutePath(path) : null);
-
-      if (file) {
-        addAttachments([file]);
+      if (path && isTauri()) {
+        const file = await imageFileFromAbsolutePath(path);
+        if (file) {
+          addAttachments([file]);
+        } else {
+          onError(messages.externalDropImageLoadFailed);
+        }
+        continue;
       }
+
+      onError(messages.externalDropPathUnresolved);
       continue;
     }
 

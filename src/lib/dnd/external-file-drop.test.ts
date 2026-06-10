@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  basenameFromPath,
   collectNativeFileDropItems,
   extractAbsolutePathsFromDataTransfer,
   fileUriToPath,
+  guessImageMimeType,
   hasExtractableExternalPaths,
   isImagePath,
   looksLikeAbsolutePath,
@@ -102,5 +104,10 @@ describe("external-file-drop", () => {
   it("classifies image paths by extension", () => {
     expect(isImagePath("photo.PNG")).toBe(true);
     expect(isImagePath("notes.md")).toBe(false);
+  });
+
+  it("guesses image mime types and basenames from paths", () => {
+    expect(guessImageMimeType("/tmp/photo.webp")).toBe("image/webp");
+    expect(basenameFromPath("/Users/test/My Photo.png")).toBe("My Photo.png");
   });
 });

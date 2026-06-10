@@ -11,6 +11,19 @@ const IMAGE_EXTENSIONS = new Set([
   "webp",
 ]);
 
+const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
+  avif: "image/avif",
+  bmp: "image/bmp",
+  gif: "image/gif",
+  heic: "image/heic",
+  heif: "image/heif",
+  jpeg: "image/jpeg",
+  jpg: "image/jpeg",
+  png: "image/png",
+  svg: "image/svg+xml",
+  webp: "image/webp",
+};
+
 export function hasExtractableExternalPaths(dataTransfer: DataTransfer): boolean {
   return extractAbsolutePathsFromDataTransfer(dataTransfer).length > 0;
 }
@@ -88,6 +101,20 @@ export function isImageFile(file: File): boolean {
 export function isImagePath(path: string): boolean {
   const extension = path.split(".").pop()?.toLowerCase();
   return extension ? IMAGE_EXTENSIONS.has(extension) : false;
+}
+
+export function basenameFromPath(path: string): string {
+  const segments = path.split(/[/\\]/);
+  return segments.at(-1) ?? path;
+}
+
+export function guessImageMimeType(path: string): string {
+  const extension = path.split(".").pop()?.toLowerCase();
+  if (!extension) {
+    return "image/png";
+  }
+
+  return IMAGE_MIME_BY_EXTENSION[extension] ?? "image/png";
 }
 
 export type NativeFileDropItem = {

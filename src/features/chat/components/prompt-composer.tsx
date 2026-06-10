@@ -201,18 +201,6 @@ function ComposerTauriFileDropBridge({
   return null;
 }
 
-function ComposerMultimodalGuard({ enabled }: { enabled: boolean }) {
-  const attachments = usePromptInputAttachments();
-
-  useEffect(() => {
-    if (!enabled && attachments.files.length > 0) {
-      attachments.clear();
-    }
-  }, [attachments, enabled]);
-
-  return null;
-}
-
 type ComposerContextBarProps = {
   workspaceName?: string | null;
   onPickWorkspace?: () => void;
@@ -402,9 +390,7 @@ export function PromptComposer({
 
   const dropMessages = useCallback(
     () => ({
-      attachmentErrorMultimodalUnsupported: t(
-        "chat.attachmentErrorMultimodalUnsupported"
-      ),
+      externalDropImageLoadFailed: t("chat.externalDropImageLoadFailed"),
       externalDropInvalidPath: t("chat.externalDropInvalidPath"),
       externalDropPathUnresolved: t("chat.externalDropPathUnresolved"),
       externalDropUnsupportedRuntime: t("chat.externalDropUnsupportedRuntime"),
@@ -425,13 +411,12 @@ export function PromptComposer({
       void processNativeFileDropItems({
         items,
         workspaceDir,
-        supportsMultimodal,
         addAttachments,
         onError: setAttachmentError,
         messages: dropMessages(),
       });
     },
-    [dropMessages, supportsMultimodal, workspaceDir]
+    [dropMessages, workspaceDir]
   );
 
   const handleNativeFileDrop = useCallback(
@@ -506,7 +491,6 @@ export function PromptComposer({
         dropTargetRef={dropTargetRef}
         onDropPaths={handleTauriNativeFileDrop}
       />
-      <ComposerMultimodalGuard enabled={supportsMultimodal} />
       <PromptComposerAttachmentsHeader />
       <ComposerAttachmentError
         message={attachmentError}

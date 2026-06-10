@@ -3,7 +3,9 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
-use super::text_file::TextFileToolError;
+use super::text_file::{guess_image_mime_type, read_binary_sample, TextFileToolError};
+
+const MAX_LOCAL_IMAGE_BYTES: u64 = 10 * 1024 * 1024;
 use super::workspace_path::{
     format_absolute_path, resolve_workspace_path, resolve_workspace_write_path,
     workspace_relative_path,
@@ -22,6 +24,13 @@ pub struct NormalizedWorkspaceReference {
     pub path: String,
     pub name: String,
     pub is_dir: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalImageBytes {
+    pub bytes: Vec<u8>,
+    pub mime_type: String,
 }
 
 fn parse_workspace(workspace_dir: &str) -> Result<PathBuf, TextFileToolError> {
@@ -385,11 +394,62 @@ pub fn tool_normalize_external_path(
     })
 }
 
+#[tauri::command]
+pub fn tool_read_local_image_bytes(path: String) -> Result<LocalImageBytes, TextFileToolError> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return Err(TextFileToolError::new("invalid_path", "path is required"));
+    }
+
+    let target = PathBuf::from(trimmed).canonicalize().map_err(|error| {
+        TextFileToolError::new("invalid_path", format!("Invalid path: {error}"))
+    })?;
+
+    if !target.exists() {
+        return Err(TextFileToolError::new(
+            "path_not_found",
+            format!("Path not found: {}", target.display()),
+        ));
+    }
+
+    if target.is_dir() {
+        return Err(TextFileToolError::new(
+            "is_directory",
+            format!("Path is a directory, not a file: {}", target.display()),
+        ));
+    }
+
+    let metadata = fs::metadata(&target).map_err(|error| {
+        TextFileToolError::new("io_error", format!("Failed to read file metadata: {error}"))
+    })?;
+
+    if metadata.len() > MAX_LOCAL_IMAGE_BYTES {
+        return Err(TextFileToolError::new(
+            "file_too_large",
+            format!(
+                "Image exceeds the maximum size of {} bytes",
+                MAX_LOCAL_IMAGE_BYTES
+            ),
+        ));
+    }
+
+    let sample = read_binary_sample(&target)?;
+    let mime_type = guess_image_mime_type(trimmed, &sample).ok_or_else(|| {
+        TextFileToolError::new("invalid_path", "Path does not refer to a supported image file")
+    })?;
+
+    let bytes = fs::read(&target).map_err(|error| {
+        TextFileToolError::new("io_error", format!("Failed to read image file: {error}"))
+    })?;
+
+    Ok(LocalImageBytes { bytes, mime_type })
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         tool_copy_path, tool_create_dir, tool_delete_path, tool_move_path, tool_normalize_external_path,
-        tool_rename_path,
+        tool_read_local_image_bytes, tool_rename_path,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -520,6 +580,24 @@ mod tests {
             normalized.path,
             super::format_absolute_path(&outside)
         );
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn reads_local_image_bytes_for_preview() {
+        let temp = temp_workspace("image");
+        let image_bytes = [
+            0xFF, 0xD8, 0xFF, 0xDB, 0x00, 0x43, 0x00, 0xFF, 0xD9,
+        ];
+        fs::write(temp.join("photo.jpg"), image_bytes).expect("write image");
+
+        let result = tool_read_local_image_bytes(
+            temp.join("photo.jpg").to_string_lossy().into_owned(),
+        )
+        .expect("read image");
+
+        assert_eq!(result.mime_type, "image/jpeg");
+        assert_eq!(result.bytes, image_bytes);
         let _ = fs::remove_dir_all(temp);
     }
 

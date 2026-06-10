@@ -53,6 +53,7 @@ export const enMessages = {
     attachmentErrorMultimodalUnsupported: "The selected model does not support image input",
     attachmentErrorMaxSize: "Each image must be {size} or smaller",
     attachmentErrorMaxFiles: "You can attach up to {count} images",
+    externalDropImageLoadFailed: "Could not load the image preview. Check that the file exists and is under 10 MB",
     externalDropPathUnresolved: "Could not resolve the dropped file path. Try dragging again from Finder or Explorer",
     externalDropInvalidPath: "That path cannot be referenced. Check that the file exists",
     externalDropUnsupportedRuntime: "External file references are only supported in the desktop app",

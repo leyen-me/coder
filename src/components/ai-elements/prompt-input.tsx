@@ -39,6 +39,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { isBlobAttachmentUrl } from "@/features/chat/lib/composer-image-attachments";
 import { cn } from "@/lib/utils";
 import { hasExtractableExternalPaths } from "@/lib/dnd/external-file-drop";
 import {
@@ -309,7 +310,7 @@ export const PromptInputProvider = ({
   const remove = useCallback((id: string) => {
     setAttachmentFiles((prev) => {
       const found = prev.find((f) => f.id === id);
-      if (found?.url) {
+      if (found && isBlobAttachmentUrl(found.url)) {
         URL.revokeObjectURL(found.url);
       }
       return prev.filter((f) => f.id !== id);
@@ -319,7 +320,7 @@ export const PromptInputProvider = ({
   const clear = useCallback(() => {
     setAttachmentFiles((prev) => {
       for (const f of prev) {
-        if (f.url) {
+        if (isBlobAttachmentUrl(f.url)) {
           URL.revokeObjectURL(f.url);
         }
       }
@@ -338,7 +339,7 @@ export const PromptInputProvider = ({
   useEffect(
     () => () => {
       for (const f of attachmentsRef.current) {
-        if (f.url) {
+        if (isBlobAttachmentUrl(f.url)) {
           URL.revokeObjectURL(f.url);
         }
       }
@@ -752,7 +753,7 @@ export const PromptInput = ({
     (id: string) =>
       setItems((prev) => {
         const found = prev.find((file) => file.id === id);
-        if (found?.url) {
+        if (found && isBlobAttachmentUrl(found.url)) {
           URL.revokeObjectURL(found.url);
         }
         return prev.filter((file) => file.id !== id);
@@ -810,7 +811,7 @@ export const PromptInput = ({
         ? controller?.attachments.clear()
         : setItems((prev) => {
             for (const file of prev) {
-              if (file.url) {
+              if (isBlobAttachmentUrl(file.url)) {
                 URL.revokeObjectURL(file.url);
               }
             }
@@ -897,7 +898,11 @@ export const PromptInput = ({
       }
     };
     const onDrop = (event: globalThis.DragEvent) => {
-      handlePromptInputDrop(event, { add, onNativeFileDrop, onWorkspacePathDrop });
+      handlePromptInputDrop(event, {
+        add,
+        onNativeFileDrop,
+        onWorkspacePathDrop,
+      });
     };
     document.addEventListener("dragover", onDragOver);
     document.addEventListener("drop", onDrop);
@@ -911,7 +916,7 @@ export const PromptInput = ({
     () => () => {
       if (!usingProvider) {
         for (const f of filesRef.current) {
-          if (f.url) {
+          if (isBlobAttachmentUrl(f.url)) {
             URL.revokeObjectURL(f.url);
           }
         }

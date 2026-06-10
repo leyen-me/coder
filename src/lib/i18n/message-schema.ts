@@ -50,6 +50,7 @@ export type Messages = {
     attachmentErrorMultimodalUnsupported: string;
     attachmentErrorMaxSize: string;
     attachmentErrorMaxFiles: string;
+    externalDropImageLoadFailed: string;
     externalDropPathUnresolved: string;
     externalDropInvalidPath: string;
     externalDropUnsupportedRuntime: string;
