@@ -17,10 +17,12 @@ import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { SkillCard } from "../components/skill-card";
+import { SkillDetailDialog } from "../components/skill-detail-dialog";
 import { SkillGrid } from "../components/skill-grid";
 import { SkillSection } from "../components/skill-section";
 import { UserSkillDialog } from "../components/user-skill-dialog";
 import { useSkills } from "../hooks/use-skills";
+import type { SkillCardViewModel } from "../types";
 import type { EditableUserSkill } from "../types-editable";
 
 export function SkillsPage() {
@@ -37,6 +39,7 @@ export function SkillsPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSkill, setEditingSkill] = useState<EditableUserSkill | null>(null);
+  const [viewingSkill, setViewingSkill] = useState<SkillCardViewModel | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<EditableUserSkill | null>(null);
 
   const openCreateDialog = () => {
@@ -58,6 +61,15 @@ export function SkillsPage() {
       content: skill.content,
     });
     setDialogOpen(true);
+  };
+
+  const openViewDialog = (skillId: string) => {
+    const skill = systemSkills.find((item) => item.id === skillId);
+    if (!skill) {
+      return;
+    }
+
+    setViewingSkill(skill);
   };
 
   const handleConfirmDelete = async () => {
@@ -97,6 +109,7 @@ export function SkillsPage() {
                       onToggleEnabled={(enabled) =>
                         void setSystemEnabled(skill.id, enabled)
                       }
+                      onView={() => openViewDialog(skill.id)}
                       skill={skill}
                     />
                   ))}
@@ -155,6 +168,16 @@ export function SkillsPage() {
         onOpenChange={setDialogOpen}
         open={dialogOpen}
         skill={editingSkill}
+      />
+
+      <SkillDetailDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewingSkill(null);
+          }
+        }}
+        open={Boolean(viewingSkill)}
+        skill={viewingSkill}
       />
 
       <AlertDialog

@@ -1,8 +1,8 @@
-import { PencilIcon, Trash2Icon } from "lucide-react";
+import { EyeIcon, PencilIcon, Trash2Icon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,7 @@ import { SkillEnableToggle } from "./skill-enable-toggle";
 type SkillCardProps = {
   skill: SkillCardViewModel;
   onToggleEnabled: (enabled: boolean) => void;
+  onView?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
 };
@@ -19,21 +20,21 @@ type SkillCardProps = {
 export function SkillCard({
   skill,
   onToggleEnabled,
+  onView,
   onEdit,
   onDelete,
 }: SkillCardProps) {
   const { t } = useTranslation();
   const isUser = skill.source === "user";
+  const handleContentActivate = onView ?? (isUser && onEdit ? onEdit : undefined);
+  const isContentClickable = Boolean(handleContentActivate);
 
   return (
     <Card
-      className={cn(
-        "relative gap-3 py-4 [--card-spacing:--spacing(4)]",
-        !skill.enabled && "opacity-70"
-      )}
+      className={cn("relative", !skill.enabled && "opacity-70")}
       size="sm"
     >
-      <div className="absolute top-3 right-3">
+      <div className="absolute top-(--card-spacing) right-(--card-spacing)">
         <SkillEnableToggle
           enabled={skill.enabled}
           label={
@@ -45,21 +46,21 @@ export function SkillCard({
         />
       </div>
 
-      <div
-        className={cn("space-y-2 pr-10", isUser && onEdit && "cursor-pointer")}
-        onClick={isUser && onEdit ? onEdit : undefined}
+      <CardContent
+        className={cn("space-y-2 pr-10", isContentClickable && "cursor-pointer")}
+        onClick={handleContentActivate}
         onKeyDown={
-          isUser && onEdit
+          handleContentActivate
             ? (event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
-                  onEdit();
+                  handleContentActivate();
                 }
               }
             : undefined
         }
-        role={isUser && onEdit ? "button" : undefined}
-        tabIndex={isUser && onEdit ? 0 : undefined}
+        role={isContentClickable ? "button" : undefined}
+        tabIndex={isContentClickable ? 0 : undefined}
       >
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-medium leading-tight">{skill.name}</h3>
@@ -75,10 +76,24 @@ export function SkillCard({
         <p className="font-mono text-xs text-muted-foreground">
           {isUser ? `/${skill.slug}` : t("skills.estimatedTokens", { count: skill.estimatedTokens })}
         </p>
-      </div>
+      </CardContent>
+
+      {onView ? (
+        <CardFooter className="gap-2 border-t pt-(--card-spacing)">
+          <Button
+            className="h-8 px-2 text-muted-foreground"
+            onClick={onView}
+            type="button"
+            variant="ghost"
+          >
+            <EyeIcon className="size-3.5" />
+            {t("skills.viewDetails")}
+          </Button>
+        </CardFooter>
+      ) : null}
 
       {isUser && (onEdit || onDelete) ? (
-        <div className="flex items-center gap-2 px-(--card-spacing)">
+        <CardFooter className="gap-2 border-t pt-(--card-spacing)">
           {onEdit ? (
             <Button
               className="h-8 px-2 text-muted-foreground"
@@ -101,7 +116,7 @@ export function SkillCard({
               {t("skills.delete")}
             </Button>
           ) : null}
-        </div>
+        </CardFooter>
       ) : null}
     </Card>
   );

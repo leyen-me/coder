@@ -263,6 +263,9 @@ export type Messages = {
     createSkill: string;
     createFirstSkill: string;
     editSkill: string;
+    viewDetails: string;
+    close: string;
+    systemSkillReadOnlyHint: string;
     edit: string;
     delete: string;
     save: string;
