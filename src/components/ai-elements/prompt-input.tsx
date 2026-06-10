@@ -56,9 +56,11 @@ import type {
   ChangeEventHandler,
   ClipboardEventHandler,
   ComponentProps,
+  CompositionEvent,
   FormEvent,
   FormEventHandler,
   HTMLAttributes,
+  KeyboardEvent,
   KeyboardEventHandler,
   PropsWithChildren,
   ReactNode,
@@ -78,6 +80,23 @@ import {
 // ============================================================================
 // Helpers
 // ============================================================================
+
+/** W3C VK_PROCESS — Safari/WKWebView IME (e.g. 微信输入法) uses this for Enter confirm. */
+const IME_PROCESSING_KEY_CODE = 229;
+
+function isImeProcessingEnter(
+  event: KeyboardEvent<HTMLTextAreaElement>,
+  isComposing: boolean
+): boolean {
+  const native = "nativeEvent" in event ? event.nativeEvent : event;
+
+  return (
+    isComposing ||
+    native.isComposing ||
+    native.keyCode === IME_PROCESSING_KEY_CODE ||
+    native.key === "Process"
+  );
+}
 
 const convertBlobUrlToDataUrl = async (url: string): Promise<string | null> => {
   try {
@@ -982,12 +1001,45 @@ export const PromptInputTextarea = ({
   const controller = useOptionalPromptInputController();
   const attachments = usePromptInputAttachments();
   const isComposingRef = useRef(false);
-  // Set in keydown when e.nativeEvent.isComposing suppresses the Enter
-  // (Chrome). Consumed by handleCompositionEnd so it knows the composition
-  // was already handled and can safely clear isComposingRef.
+  // Chrome: keydown(Enter, isComposing) fires before compositionend.
   const keydownSuppressedRef = useRef(false);
 
-  const handleKeyDown: KeyboardEventHandler<HTMLTextareaElement> = useCallback(
+  const handleCompositionEnd = useCallback(
+    (event: CompositionEvent<HTMLTextAreaElement>) => {
+      isComposingRef.current = false;
+
+      if (keydownSuppressedRef.current) {
+        keydownSuppressedRef.current = false;
+      } else {
+        // Safari/WKWebView: compositionend can fire in an earlier macrotask than
+        // the keydown(Enter) that confirms IME text. Register a one-shot capture
+        // listener instead of keeping isComposingRef set (which breaks space confirm
+        // or gets cleared too early by setTimeout).
+        const target = event.currentTarget;
+
+        const suppressImeEnter = (keydownEvent: globalThis.KeyboardEvent) => {
+          if (keydownEvent.key !== "Enter" || keydownEvent.shiftKey) {
+            return;
+          }
+
+          keydownEvent.preventDefault();
+          keydownEvent.stopPropagation();
+          target.removeEventListener("keydown", suppressImeEnter, true);
+        };
+
+        target.addEventListener("keydown", suppressImeEnter, true);
+        window.setTimeout(() => {
+          target.removeEventListener("keydown", suppressImeEnter, true);
+        }, 0);
+      }
+    },
+    []
+  );
+  const handleCompositionStart = useCallback(() => {
+    isComposingRef.current = true;
+  }, []);
+
+  const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
     (e) => {
       // Call the external onKeyDown handler first
       onKeyDown?.(e);
@@ -998,20 +1050,9 @@ export const PromptInputTextarea = ({
       }
 
       if (e.key === "Enter") {
-        // Chrome fires keydown BEFORE compositionend. At this point
-        // e.nativeEvent.isComposing is true, so we can suppress the Enter
-        // and mark that keydown handled it — compositionend will see this
-        // flag and clear the ref.
-        if (e.nativeEvent.isComposing) {
+        // WebKit + 微信输入法: isComposing is false but keyCode is 229 (VK_PROCESS).
+        if (isImeProcessingEnter(e, isComposingRef.current)) {
           keydownSuppressedRef.current = true;
-          e.preventDefault();
-          return;
-        }
-        // Safari/Firefox fire compositionend BEFORE keydown, so
-        // e.nativeEvent.isComposing is already false. The compositionend
-        // handler keeps isComposingRef true so we can catch this Enter
-        // here. Suppress it and reset the ref for the next keydown.
-        if (isComposingRef.current) {
           isComposingRef.current = false;
           e.preventDefault();
           return;
@@ -1075,24 +1116,6 @@ export const PromptInputTextarea = ({
     },
     [attachments]
   );
-
-  const handleCompositionEnd = useCallback(() => {
-    // Chrome: keydown(Enter, isComposing=true) fires before this.
-    // keydown already suppressed the Enter and set keydownSuppressedRef.
-    // We clear both refs here — isComposingRef for the next keydown,
-    // and keydownSuppressedRef for the next composition cycle.
-    // Safari/Firefox: compositionend fires BEFORE keydown(Enter).
-    // We keep isComposingRef = true so the subsequent keydown handler
-    // can catch the IME confirmation Enter and suppress it.
-    // (It will reset isComposingRef itself.)
-    if (keydownSuppressedRef.current) {
-      keydownSuppressedRef.current = false;
-      isComposingRef.current = false;
-    }
-  }, []);
-  const handleCompositionStart = useCallback(() => {
-    isComposingRef.current = true;
-  }, []);
 
   const controlledProps = controller
     ? {
