@@ -15,6 +15,15 @@ pub fn preload_shell_environment() {
     log::info!("loaded {} variable(s) from login shell environment", env.len());
 }
 
+/// Build the environment used for spawned commands and PTY shells.
+///
+/// Start with the current process environment, then overlay variables resolved
+/// from the user's login shell so GUI-launched apps inherit the same PATH and
+/// exported variables as a regular terminal session.
+pub fn command_environment() -> HashMap<String, String> {
+    merge_environments(std::env::vars().collect(), shell_environment())
+}
+
 /// Read an environment variable from the process environment, falling back to the
 /// user's login shell profile (`.zshrc`, `.zprofile`, etc.).
 pub fn get_env_var(key: &str) -> Option<String> {
@@ -34,6 +43,19 @@ pub fn get_env_var(key: &str) -> Option<String> {
 
 fn shell_environment() -> &'static HashMap<String, String> {
     SHELL_ENV.get_or_init(load_shell_environment)
+}
+
+fn merge_environments(
+    mut base: HashMap<String, String>,
+    overlay: &HashMap<String, String>,
+) -> HashMap<String, String> {
+    for (key, value) in overlay {
+        if !value.is_empty() {
+            base.insert(key.clone(), value.clone());
+        }
+    }
+
+    base
 }
 
 fn load_shell_environment() -> HashMap<String, String> {
@@ -171,5 +193,28 @@ mod tests {
             shell_invocation("/bin/zsh"),
             ("-ilc", "env -0 2>/dev/null || env")
         );
+    }
+
+    #[test]
+    fn merges_shell_environment_over_process_environment() {
+        let base = HashMap::from([
+            ("PATH".to_string(), "/usr/bin:/bin".to_string()),
+            ("TERM".to_string(), "xterm-256color".to_string()),
+        ]);
+        let overlay = HashMap::from([
+            ("PATH".to_string(), "/usr/local/bin:/usr/bin:/bin".to_string()),
+            ("NODE_ENV".to_string(), "development".to_string()),
+            ("EMPTY".to_string(), String::new()),
+        ]);
+
+        let merged = merge_environments(base, &overlay);
+
+        assert_eq!(
+            merged.get("PATH"),
+            Some(&"/usr/local/bin:/usr/bin:/bin".to_string())
+        );
+        assert_eq!(merged.get("TERM"), Some(&"xterm-256color".to_string()));
+        assert_eq!(merged.get("NODE_ENV"), Some(&"development".to_string()));
+        assert!(!merged.contains_key("EMPTY"));
     }
 }

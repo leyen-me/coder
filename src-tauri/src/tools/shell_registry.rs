@@ -307,9 +307,11 @@ impl ShellRegistry {
         let started_at = Instant::now();
         let shell = resolve_command_shell();
         let (program, args) = shell_command_builder(&shell, &command);
+        let environment = crate::shell_env::command_environment();
 
         let mut cmd = Command::new(&program);
         cmd.args(args).current_dir(&cwd);
+        cmd.envs(environment);
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());
         cmd.kill_on_drop(true);
