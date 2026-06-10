@@ -1,4 +1,5 @@
 mod agent;
+mod shell_env;
 mod tools;
 mod window_chrome;
 
@@ -55,6 +56,7 @@ pub fn run() {
         .manage(ShellState(Arc::new(Mutex::new(ShellRegistry::new()))))
         .manage(PtyState(Arc::new(Mutex::new(PtyRegistry::new()))))
         .setup(|app| {
+            shell_env::preload_shell_environment();
             configure_main_window(app);
             Ok(())
         })

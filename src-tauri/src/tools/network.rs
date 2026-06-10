@@ -165,7 +165,7 @@ pub fn resolve_api_key(
     env_var: &str,
 ) -> Result<String, NetworkToolError> {
     match source {
-        "env" => std::env::var(env_var.trim()).map_err(|_| {
+        "env" => crate::shell_env::get_env_var(env_var).ok_or_else(|| {
             NetworkToolError::new(
                 "missing_api_key",
                 format!("Environment variable not set: {}", env_var.trim()),

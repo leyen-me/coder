@@ -287,8 +287,8 @@ fn resolve_api_key(
     env_var: &str,
 ) -> Result<String, String> {
     match source {
-        "env" => std::env::var(env_var.trim())
-            .map_err(|_| format!("Environment variable not set: {env_var}")),
+        "env" => crate::shell_env::get_env_var(env_var)
+            .ok_or_else(|| format!("Environment variable not set: {env_var}")),
         _ => manual_key
             .map(str::trim)
             .filter(|value| !value.is_empty())
