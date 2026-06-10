@@ -10,7 +10,7 @@ type BrowsePageArgs = {
   explanation?: string;
 };
 
-export const browsePageHandler: ToolHandler = async (rawArgs, _context) => {
+export const browsePageHandler: ToolHandler = async (rawArgs, context) => {
   if (!isTauri()) {
     return toolFailure(
       BROWSE_PAGE_TOOL_NAME,
@@ -27,6 +27,9 @@ export const browsePageHandler: ToolHandler = async (rawArgs, _context) => {
   try {
     const data = await invoke<BrowsePageData>("tool_browse_page", {
       url: args.value.url,
+      allowPrivateNetwork:
+        context.allowPrivateNetworkAccess ??
+        true,
     });
     return toolSuccess(BROWSE_PAGE_TOOL_NAME, data);
   } catch (error) {

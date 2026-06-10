@@ -29,5 +29,9 @@ export function parseWebToolsSettings(raw: unknown): WebToolsSettings {
       record.tavilyApiKeyEnvVar.trim().length > 0
         ? record.tavilyApiKeyEnvVar.trim()
         : DEFAULT_TAVILY_API_KEY_ENV_VAR,
+    allowPrivateNetworkAccess:
+      typeof record.allowPrivateNetworkAccess === "boolean"
+        ? record.allowPrivateNetworkAccess
+        : DEFAULT_WEB_TOOLS_SETTINGS.allowPrivateNetworkAccess,
   };
 }

@@ -16,6 +16,7 @@ type ToolExecutionContextInput = {
   taskId: string;
   signal?: AbortSignal;
   tavilyConfig?: TavilyConfig | null;
+  allowPrivateNetworkAccess?: boolean;
 };
 
 export async function runAgentWithTools(
@@ -210,6 +211,7 @@ async function appendToolResults(
         taskId: context.taskId,
         signal: context.signal,
         tavilyConfig: context.tavilyConfig,
+        allowPrivateNetworkAccess: context.allowPrivateNetworkAccess,
       });
     } catch (error) {
       if (isAgentCancellationError(error)) {

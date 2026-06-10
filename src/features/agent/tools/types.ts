@@ -223,6 +223,7 @@ export type ToolExecutionContext = {
   taskId?: string;
   signal?: AbortSignal;
   tavilyConfig?: TavilyConfig | null;
+  allowPrivateNetworkAccess?: boolean;
 };
 
 export type ToolHandler = (

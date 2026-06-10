@@ -52,6 +52,27 @@ describe("browsePageHandler", () => {
     );
     expect(invoke).toHaveBeenCalledWith("tool_browse_page", {
       url: "https://example.com",
+      allowPrivateNetwork: true,
+    });
+  });
+
+  it("passes allowPrivateNetwork=false from context", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce({
+      url: "https://example.com",
+      finalUrl: "https://example.com/",
+      content: "ok",
+      truncated: false,
+      statusCode: 200,
+    });
+
+    await browsePageHandler(
+      { url: "https://example.com" },
+      { workspaceDir: null, allowPrivateNetworkAccess: false }
+    );
+
+    expect(invoke).toHaveBeenCalledWith("tool_browse_page", {
+      url: "https://example.com",
+      allowPrivateNetwork: false,
     });
   });
 

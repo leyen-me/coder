@@ -4,6 +4,7 @@ export type WebToolsSettings = {
   tavilyApiKeySource: ApiKeySource;
   tavilyApiKey: string;
   tavilyApiKeyEnvVar: string;
+  allowPrivateNetworkAccess: boolean;
 };
 
 export type ResolvedTavilyConfig = {

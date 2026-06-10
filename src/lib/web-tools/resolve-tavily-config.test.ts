@@ -9,6 +9,7 @@ describe("resolveTavilyConfig", () => {
         tavilyApiKeySource: "manual",
         tavilyApiKey: "  ",
         tavilyApiKeyEnvVar: "TAVILY_API_KEY",
+        allowPrivateNetworkAccess: true,
       })
     ).toBeNull();
   });
@@ -19,6 +20,7 @@ describe("resolveTavilyConfig", () => {
         tavilyApiKeySource: "manual",
         tavilyApiKey: "tvly-test",
         tavilyApiKeyEnvVar: "TAVILY_API_KEY",
+        allowPrivateNetworkAccess: true,
       })
     ).toEqual({
       apiKeySource: "manual",
@@ -33,6 +35,7 @@ describe("resolveTavilyConfig", () => {
         tavilyApiKeySource: "env",
         tavilyApiKey: "",
         tavilyApiKeyEnvVar: "CUSTOM_TAVILY_KEY",
+        allowPrivateNetworkAccess: true,
       })
     ).toEqual({
       apiKeySource: "env",

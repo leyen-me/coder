@@ -20,14 +20,18 @@ pub struct BrowsePageResult {
 pub type BrowsePageToolError = NetworkToolError;
 
 #[tauri::command]
-pub async fn tool_browse_page(url: String) -> Result<BrowsePageResult, BrowsePageToolError> {
+pub async fn tool_browse_page(
+    url: String,
+    allow_private_network: Option<bool>,
+) -> Result<BrowsePageResult, BrowsePageToolError> {
     let trimmed = url.trim();
     if trimmed.is_empty() {
         return Err(NetworkToolError::new("invalid_arguments", "url is required"));
     }
 
+    let allow_private_network = allow_private_network.unwrap_or(true);
     let client = build_http_client()?;
-    let fetched = fetch_public_url(&client, trimmed).await?;
+    let fetched = fetch_public_url(&client, trimmed, allow_private_network).await?;
     let title = extract_title(&fetched.body);
     let content = convert_body_to_text(&fetched);
 

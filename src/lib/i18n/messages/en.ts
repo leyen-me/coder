@@ -190,6 +190,10 @@ export const enMessages = {
         "Read the Tavily API key from this variable at runtime",
       tavilyApiKeyEnvVarPlaceholder: "TAVILY_API_KEY",
       tavilyApiKeyEnvVarAriaLabel: "Tavily API key environment variable",
+      allowPrivateNetworkAccessLabel: "Allow private network access",
+      allowPrivateNetworkAccessDescription:
+        "Let browse_page fetch URLs on localhost and private networks (e.g. internal Swagger). Cloud metadata endpoints remain blocked.",
+      allowPrivateNetworkAccessAriaLabel: "Allow private network access",
     },
     data: {
       clearChatHistoryLabel: "Clear chat history",

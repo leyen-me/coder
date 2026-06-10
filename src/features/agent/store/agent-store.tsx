@@ -114,7 +114,7 @@ function resolveThinkingEnabledForRequest(
 
 export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const { resolved } = useModelProvider();
-  const { tavilyConfig } = useWebTools();
+  const { tavilyConfig, settings: webToolsSettings } = useWebTools();
   const resolvedRef = useRef(resolved);
   resolvedRef.current = resolved;
   const tasksRef = useRef(new Map<string, ActiveTaskState>());
@@ -552,6 +552,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           taskId,
           signal: abortController.signal,
           tavilyConfig,
+          allowPrivateNetworkAccess: webToolsSettings.allowPrivateNetworkAccess,
         },
         (event) => {
           dispatchAgentEvent(taskId, assistantMessage.id, event);
@@ -587,7 +588,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         taskId,
       };
     },
-    [dispatchAgentEvent, emit, resolved, tavilyConfig]
+    [dispatchAgentEvent, emit, resolved, tavilyConfig, webToolsSettings.allowPrivateNetworkAccess]
   );
 
   const regenerateMessage = useCallback(
@@ -711,6 +712,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           taskId,
           signal: abortController.signal,
           tavilyConfig,
+          allowPrivateNetworkAccess: webToolsSettings.allowPrivateNetworkAccess,
         },
         (event) => {
           dispatchAgentEvent(taskId, newAssistantMessage.id, event);
@@ -746,7 +748,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         taskId,
       };
     },
-    [dispatchAgentEvent, emit, resolved, tavilyConfig]
+    [dispatchAgentEvent, emit, resolved, tavilyConfig, webToolsSettings.allowPrivateNetworkAccess]
   );
 
   const cancelTask = useCallback(

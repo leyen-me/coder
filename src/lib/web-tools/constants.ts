@@ -8,4 +8,5 @@ export const DEFAULT_WEB_TOOLS_SETTINGS: WebToolsSettings = {
   tavilyApiKeySource: "manual",
   tavilyApiKey: "",
   tavilyApiKeyEnvVar: DEFAULT_TAVILY_API_KEY_ENV_VAR,
+  allowPrivateNetworkAccess: true,
 };

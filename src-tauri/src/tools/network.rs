@@ -44,7 +44,10 @@ pub fn build_http_client() -> Result<Client, NetworkToolError> {
         .map_err(|error| NetworkToolError::new("client_error", error.to_string()))
 }
 
-pub fn validate_public_url(url_str: &str) -> Result<Url, NetworkToolError> {
+pub fn validate_public_url(
+    url_str: &str,
+    allow_private_network: bool,
+) -> Result<Url, NetworkToolError> {
     let trimmed = url_str.trim();
     if trimmed.is_empty() {
         return Err(NetworkToolError::new("invalid_url", "URL is required"));
@@ -65,7 +68,14 @@ pub fn validate_public_url(url_str: &str) -> Result<Url, NetworkToolError> {
         .host_str()
         .ok_or_else(|| NetworkToolError::new("invalid_url", "URL must include a host"))?;
 
-    if is_blocked_hostname(host) {
+    if is_always_blocked_hostname(host) {
+        return Err(NetworkToolError::new(
+            "blocked_url",
+            format!("Access to host is not allowed: {host}"),
+        ));
+    }
+
+    if !allow_private_network && is_local_hostname(host) {
         return Err(NetworkToolError::new(
             "blocked_url",
             format!("Access to host is not allowed: {host}"),
@@ -73,7 +83,13 @@ pub fn validate_public_url(url_str: &str) -> Result<Url, NetworkToolError> {
     }
 
     if let Some(ip) = parse_literal_ip(host) {
-        if is_private_or_local_ip(ip) {
+        if is_always_blocked_ip(ip) {
+            return Err(NetworkToolError::new(
+                "blocked_url",
+                format!("Access to host is not allowed: {host}"),
+            ));
+        }
+        if !allow_private_network && is_private_or_local_ip(ip) {
             return Err(NetworkToolError::new(
                 "blocked_url",
                 format!("Access to private or local addresses is not allowed: {host}"),
@@ -83,13 +99,17 @@ pub fn validate_public_url(url_str: &str) -> Result<Url, NetworkToolError> {
     }
 
     let port = parsed.port().unwrap_or_else(|| default_port_for_scheme(scheme));
-    validate_resolved_host(host, port)?;
+    validate_resolved_host(host, port, allow_private_network)?;
 
     Ok(parsed)
 }
 
-pub async fn fetch_public_url(client: &Client, url_str: &str) -> Result<FetchedResponse, NetworkToolError> {
-    let validated = validate_public_url(url_str)?;
+pub async fn fetch_public_url(
+    client: &Client,
+    url_str: &str,
+    allow_private_network: bool,
+) -> Result<FetchedResponse, NetworkToolError> {
+    let validated = validate_public_url(url_str, allow_private_network)?;
     let response = client
         .get(validated.clone())
         .send()
@@ -101,7 +121,7 @@ pub async fn fetch_public_url(client: &Client, url_str: &str) -> Result<FetchedR
         .url()
         .as_str()
         .to_string();
-    validate_public_url(&final_url)?;
+    validate_public_url(&final_url, allow_private_network)?;
 
     let content_type = response
         .headers()
@@ -180,7 +200,11 @@ fn format_lookup_target(host: &str, port: u16) -> String {
     }
 }
 
-fn validate_resolved_host(host: &str, port: u16) -> Result<(), NetworkToolError> {
+fn validate_resolved_host(
+    host: &str,
+    port: u16,
+    allow_private_network: bool,
+) -> Result<(), NetworkToolError> {
     let lookup_target = format_lookup_target(host, port);
     let addresses: Vec<_> = lookup_target
         .to_socket_addrs()
@@ -201,7 +225,13 @@ fn validate_resolved_host(host: &str, port: u16) -> Result<(), NetworkToolError>
     }
 
     for ip in addresses {
-        if is_private_or_local_ip(ip) {
+        if is_always_blocked_ip(ip) {
+            return Err(NetworkToolError::new(
+                "blocked_url",
+                format!("Resolved address for {host} is not allowed: {ip}"),
+            ));
+        }
+        if !allow_private_network && is_private_or_local_ip(ip) {
             return Err(NetworkToolError::new(
                 "blocked_url",
                 format!("Resolved address for {host} is not allowed: {ip}"),
@@ -212,18 +242,20 @@ fn validate_resolved_host(host: &str, port: u16) -> Result<(), NetworkToolError>
     Ok(())
 }
 
-fn is_blocked_hostname(host: &str) -> bool {
+fn is_always_blocked_hostname(host: &str) -> bool {
     let normalized = host.trim_end_matches('.').to_ascii_lowercase();
 
-    if normalized == "localhost" || normalized.ends_with(".localhost") {
-        return true;
-    }
+    normalized == "metadata.google.internal" || normalized == "169.254.169.254"
+}
 
-    if normalized == "metadata.google.internal" {
-        return true;
-    }
+fn is_local_hostname(host: &str) -> bool {
+    let normalized = host.trim_end_matches('.').to_ascii_lowercase();
 
-    normalized == "169.254.169.254"
+    normalized == "localhost" || normalized.ends_with(".localhost")
+}
+
+fn is_always_blocked_ip(ip: IpAddr) -> bool {
+    matches!(ip, IpAddr::V4(v4) if v4.octets() == [169, 254, 169, 254])
 }
 
 fn parse_literal_ip(host: &str) -> Option<IpAddr> {
@@ -263,32 +295,50 @@ mod tests {
     use super::*;
 
     #[test]
-    fn rejects_localhost_urls() {
-        let error = validate_public_url("http://localhost/test").unwrap_err();
+    fn rejects_localhost_urls_when_private_network_disabled() {
+        let error = validate_public_url("http://localhost/test", false).unwrap_err();
         assert_eq!(error.code, "blocked_url");
     }
 
     #[test]
-    fn rejects_private_ipv4_urls() {
-        let error = validate_public_url("http://192.168.1.1/test").unwrap_err();
+    fn accepts_localhost_urls_when_private_network_enabled() {
+        let url = validate_public_url("http://localhost/test", true).expect("valid url");
+        assert_eq!(url.host_str(), Some("localhost"));
+    }
+
+    #[test]
+    fn rejects_private_ipv4_urls_when_private_network_disabled() {
+        let error = validate_public_url("http://192.168.1.1/test", false).unwrap_err();
         assert_eq!(error.code, "blocked_url");
     }
 
     #[test]
-    fn rejects_loopback_ipv4_urls() {
-        let error = validate_public_url("http://127.0.0.1/test").unwrap_err();
+    fn accepts_private_ipv4_urls_when_private_network_enabled() {
+        let url = validate_public_url("http://192.168.1.1/test", true).expect("valid url");
+        assert_eq!(url.host_str(), Some("192.168.1.1"));
+    }
+
+    #[test]
+    fn rejects_loopback_ipv4_urls_when_private_network_disabled() {
+        let error = validate_public_url("http://127.0.0.1/test", false).unwrap_err();
+        assert_eq!(error.code, "blocked_url");
+    }
+
+    #[test]
+    fn rejects_cloud_metadata_even_when_private_network_enabled() {
+        let error = validate_public_url("http://169.254.169.254/latest/meta-data", true).unwrap_err();
         assert_eq!(error.code, "blocked_url");
     }
 
     #[test]
     fn rejects_file_scheme() {
-        let error = validate_public_url("file:///etc/passwd").unwrap_err();
+        let error = validate_public_url("file:///etc/passwd", false).unwrap_err();
         assert_eq!(error.code, "blocked_url");
     }
 
     #[test]
     fn accepts_public_https_urls() {
-        let url = validate_public_url("https://93.184.216.34/docs").expect("valid url");
+        let url = validate_public_url("https://93.184.216.34/docs", false).expect("valid url");
         assert_eq!(url.host_str(), Some("93.184.216.34"));
     }
 

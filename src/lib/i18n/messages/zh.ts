@@ -187,6 +187,10 @@ export const zhMessages = {
       tavilyApiKeyEnvVarDescription: "运行时从此环境变量读取 Tavily API Key",
       tavilyApiKeyEnvVarPlaceholder: "TAVILY_API_KEY",
       tavilyApiKeyEnvVarAriaLabel: "Tavily API Key 环境变量名",
+      allowPrivateNetworkAccessLabel: "允许访问内网地址",
+      allowPrivateNetworkAccessDescription:
+        "允许 browse_page 访问 localhost 和私有网络地址（如内网 Swagger）。云元数据等高危地址仍会被拦截。",
+      allowPrivateNetworkAccessAriaLabel: "允许访问内网地址",
     },
     data: {
       clearChatHistoryLabel: "清除聊天记录",

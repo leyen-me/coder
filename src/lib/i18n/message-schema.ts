@@ -183,6 +183,9 @@ export type Messages = {
       tavilyApiKeyEnvVarDescription: string;
       tavilyApiKeyEnvVarPlaceholder: string;
       tavilyApiKeyEnvVarAriaLabel: string;
+      allowPrivateNetworkAccessLabel: string;
+      allowPrivateNetworkAccessDescription: string;
+      allowPrivateNetworkAccessAriaLabel: string;
     };
     data: {
       clearChatHistoryLabel: string;
