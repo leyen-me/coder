@@ -94,6 +94,12 @@ export const enMessages = {
     forkSessionTitle: "Fork · {title}",
     regenerateMessage: "Regenerate",
     chatRetrying: "Retrying (attempt {attempt} of {maxAttempts})…",
+    handoffGenerating:
+      "Context budget is nearly full. Generating a handoff document…",
+    handoffCreatingSession:
+      "Handoff document is ready. Creating a continuation session…",
+    handoffStartingNewSession:
+      "Continuation session created. Starting the next unattended run…",
     noModel: "No model configured",
     thinkingToggle: "Toggle deep thinking",
     thinkingToggleLabel: "Think",

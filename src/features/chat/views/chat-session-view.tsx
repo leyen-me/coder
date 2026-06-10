@@ -1,5 +1,6 @@
 import type { FileUIPart } from "ai";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { LoaderCircleIcon } from "lucide-react";
 
 import { storedImagesToFileUIParts } from "@/features/agent/message-content";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
@@ -34,6 +35,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     regenerateMessage,
     cancelTask,
     getSessionTask,
+    getSessionHandoffState,
     isSessionRunning,
   } = useAgentStore();
   const { session, messages, isLoading } = useSessionData(chatId);
@@ -63,6 +65,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   );
 
   const activeTask = getSessionTask(chatId);
+  const handoffState = getSessionHandoffState(chatId);
   const isRunning = isSessionRunning(chatId) || isSubmitting;
 
   useEffect(() => {
@@ -156,6 +159,31 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const workspaceName = workspaceBinding.workspaceDir
     ? getWorkspaceDisplayName(workspaceBinding.workspaceDir)
     : null;
+  const handoffStatus = useMemo(() => {
+    if (!handoffState) {
+      return null;
+    }
+
+    switch (handoffState.phase) {
+      case "generating_handoff":
+        return {
+          label: t("chat.handoffGenerating"),
+          step: 1,
+        };
+      case "creating_session":
+        return {
+          label: t("chat.handoffCreatingSession"),
+          step: 2,
+        };
+      case "starting_new_session":
+        return {
+          label: t("chat.handoffStartingNewSession"),
+          step: 3,
+        };
+      default:
+        return null;
+    }
+  }, [handoffState, t]);
 
   const contextUsage = useMemo(
     () =>
@@ -199,6 +227,34 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
       <div className="shrink-0 px-4 pb-4 pt-3">
         <div className="mx-auto w-full max-w-3xl">
+          {handoffStatus ? (
+            <div className="mb-2 overflow-hidden rounded-2xl border bg-muted/40 px-3 py-2.5 dark:bg-muted/20">
+              <div className="flex items-center gap-2">
+                <LoaderCircleIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
+                <p className="min-w-0 flex-1 text-foreground text-sm">
+                  {handoffStatus.label}
+                </p>
+              </div>
+              <div className="mt-2 flex gap-1.5">
+                {[1, 2, 3].map((step) => (
+                  <div
+                    key={step}
+                    className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"
+                  >
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        step < handoffStatus.step
+                          ? "w-full bg-foreground/70"
+                          : step === handoffStatus.step
+                            ? "w-2/3 animate-pulse bg-foreground/85"
+                            : "w-0 bg-foreground/30"
+                      }`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <PromptComposer
             composerKey={editingMessageId ?? "new"}
             initialFiles={editInitialFiles}
@@ -208,7 +264,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             onSend={(payload) => {
               void handleSend(payload);
             }}
-            onStop={handleStop}
+            onStop={activeTask ? handleStop : undefined}
             model={model}
             models={resolved.models}
             onModelChange={setModel}

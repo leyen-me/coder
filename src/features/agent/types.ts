@@ -93,6 +93,16 @@ export type AgentHandoffRequest = {
   contextUsage: AgentContextUsageSnapshot;
 };
 
+export type SessionHandoffPhase =
+  | "generating_handoff"
+  | "creating_session"
+  | "starting_new_session";
+
+export type SessionHandoffState = {
+  sessionId: string;
+  phase: SessionHandoffPhase;
+};
+
 export type ActiveTaskState = {
   taskId: string;
   sessionId: string;

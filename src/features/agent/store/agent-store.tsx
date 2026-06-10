@@ -61,6 +61,8 @@ import type {
   AgentEvent,
   AgentContextUsageSnapshot,
   AgentStatus,
+  SessionHandoffPhase,
+  SessionHandoffState,
 } from "../types";
 import {
   AGENT_HANDOFF_SYSTEM_PROMPT,
@@ -82,6 +84,7 @@ type AgentStoreValue = {
   activeTasks: ReadonlyMap<string, ActiveTaskState>;
   isSessionRunning: (sessionId: string) => boolean;
   getSessionTask: (sessionId: string) => ActiveTaskState | null;
+  getSessionHandoffState: (sessionId: string) => SessionHandoffState | null;
   sendMessage: (input: {
     sessionId: string;
     content: string;
@@ -179,6 +182,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const streamingListenersRef = useRef(new Set<() => void>());
   const eventChainsRef = useRef(new Map<string, Promise<void>>());
   const taskAbortControllersRef = useRef(new Map<string, AbortController>());
+  const handoffStatusesRef = useRef(new Map<string, SessionHandoffState>());
   const terminalOverlayTimersRef = useRef(
     new Map<string, ReturnType<typeof setTimeout>>()
   );
@@ -268,6 +272,25 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       }
 
       tasksRef.current.set(taskId, { ...task, chatRetry: null });
+      emit();
+    },
+    [emit]
+  );
+
+  const setSessionHandoffState = useCallback(
+    (sessionId: string, phase: SessionHandoffPhase) => {
+      handoffStatusesRef.current.set(sessionId, { sessionId, phase });
+      emit();
+    },
+    [emit]
+  );
+
+  const clearSessionHandoffState = useCallback(
+    (sessionId: string) => {
+      if (!handoffStatusesRef.current.has(sessionId)) {
+        return;
+      }
+      handoffStatusesRef.current.delete(sessionId);
       emit();
     },
     [emit]
@@ -484,6 +507,12 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
                   taskAbortControllersRef.current.delete(event.taskId);
                   tasksRef.current.delete(event.taskId);
+                  if (pendingHandoff) {
+                    setSessionHandoffState(
+                      pendingHandoff.sessionId,
+                      "generating_handoff"
+                    );
+                  }
                   emit();
 
                   setTimeout(() => {
@@ -509,7 +538,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         }
       }
     },
-    [clearTaskChatRetry, emit]
+    [clearTaskChatRetry, emit, setSessionHandoffState]
   );
 
   const dispatchAgentEvent = useCallback(
@@ -753,6 +782,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const continueTaskFromHandoff = useCallback(
     async (input: PendingSessionHandoff) => {
       try {
+        setSessionHandoffState(input.sessionId, "generating_handoff");
         const sourceSession = await getSession(input.sessionId);
         if (!sourceSession) {
           throw new Error(`Session not found: ${input.sessionId}`);
@@ -765,6 +795,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           contextUsage: input.contextUsage,
         });
 
+        setSessionHandoffState(input.sessionId, "creating_session");
         const nextSession = await createSession({
           title: deriveSessionTitle(
             deriveContinuationSessionTitle(sourceSession.title)
@@ -829,6 +860,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           environment
         );
 
+        setSessionHandoffState(input.sessionId, "starting_new_session");
         await startAgentTask({
           sessionId: nextSession.id,
           model: input.model,
@@ -840,8 +872,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           thinkingEnabled: input.thinkingEnabled,
         });
 
+        clearSessionHandoffState(input.sessionId);
         navigateToSession(nextSession.id);
       } catch (error) {
+        clearSessionHandoffState(input.sessionId);
         const message = error instanceof Error ? error.message : String(error);
         await createMessage({
           id: crypto.randomUUID(),
@@ -857,7 +891,12 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         });
       }
     },
-    [generateHandoffDocument, startAgentTask]
+    [
+      clearSessionHandoffState,
+      generateHandoffDocument,
+      setSessionHandoffState,
+      startAgentTask,
+    ]
   );
 
   continueTaskFromHandoffRef.current = continueTaskFromHandoff;
@@ -1099,6 +1138,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
   const isSessionRunning = useCallback(
     (sessionId: string) => {
+      if (handoffStatusesRef.current.has(sessionId)) {
+        return true;
+      }
       for (const task of activeTasks.values()) {
         if (task.sessionId === sessionId && isActiveAgentTask(task.status)) {
           return true;
@@ -1108,6 +1150,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     },
     [activeTasks]
   );
+
+  const getSessionHandoffState = useCallback((sessionId: string) => {
+    return handoffStatusesRef.current.get(sessionId) ?? null;
+  }, []);
 
   const getSessionTask = useCallback(
     (sessionId: string) => {
@@ -1126,6 +1172,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       activeTasks,
       isSessionRunning,
       getSessionTask,
+      getSessionHandoffState,
       sendMessage,
       regenerateMessage,
       cancelTask,
@@ -1133,6 +1180,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     [
       activeTasks,
       cancelTask,
+      getSessionHandoffState,
       getSessionTask,
       isSessionRunning,
       regenerateMessage,
@@ -1165,17 +1213,17 @@ export function useStreamingMessageOverlays(): ReadonlyMap<
 }
 
 export function useRunningSessionIds(): ReadonlySet<string> {
-  const { activeTasks } = useAgentStore();
+  const { activeTasks, isSessionRunning } = useAgentStore();
 
   return useMemo(() => {
     const ids = new Set<string>();
     for (const task of activeTasks.values()) {
-      if (isActiveAgentTask(task.status)) {
+      if (isSessionRunning(task.sessionId)) {
         ids.add(task.sessionId);
       }
     }
     return ids;
-  }, [activeTasks]);
+  }, [activeTasks, isSessionRunning]);
 }
 
 export function useActiveStreamingMessageIds(): ReadonlySet<string> {
