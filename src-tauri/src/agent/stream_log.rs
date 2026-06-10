@@ -36,8 +36,11 @@ fn write_log(message: &str) {
     }
 }
 
+/// Agent stream file logging is opt-in. Set to `true` when debugging stream events.
+const AGENT_STREAM_LOG_ENABLED: bool = false;
+
 pub fn agent_stream_log(message: impl AsRef<str>) {
-    if cfg!(debug_assertions) {
+    if AGENT_STREAM_LOG_ENABLED {
         write_log(message.as_ref());
     }
 }
