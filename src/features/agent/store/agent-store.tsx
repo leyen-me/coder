@@ -404,6 +404,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           return;
         }
         case "error": {
+          streamingBufferRef.current.failPendingToolInvocations(
+            assistantMessageId,
+            event.message
+          );
           const terminalOverlayTimer = terminalOverlayTimersRef.current.get(
             assistantMessageId
           );

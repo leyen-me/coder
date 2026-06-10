@@ -15,6 +15,11 @@ describe("isRetriableChatError", () => {
     expect(isRetriableChatError(new Error("Stream read failed: broken pipe"))).toBe(
       true
     );
+    expect(
+      isRetriableChatError(
+        new Error("Stream read timed out: exceeded 1800s total stream limit")
+      )
+    ).toBe(true);
     expect(isRetriableChatError(new Error("API error (429): rate limited"))).toBe(
       true
     );

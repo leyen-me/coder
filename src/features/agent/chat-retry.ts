@@ -45,7 +45,8 @@ export function isRetriableChatError(error: unknown): boolean {
 
   if (
     message.startsWith("Request failed:") ||
-    message.startsWith("Stream read failed:")
+    message.startsWith("Stream read failed:") ||
+    message.startsWith("Stream read timed out:")
   ) {
     return true;
   }

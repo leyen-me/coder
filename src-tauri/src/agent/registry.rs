@@ -10,7 +10,7 @@ use super::openai::{
     build_http_client, chat_completions_url, complete_chat_completion, stream_chat_completion,
     SESSION_TITLE_SYSTEM_PROMPT,
 };
-use super::stream_log::agent_stream_log;
+use super::stream_log::{agent_diagnostic_log, agent_stream_log};
 use super::types::{
     AgentEvent, AgentStartParams, AgentStatus, AgentStatusResponse, ChatMessage,
     GenerateSessionTitleParams,
@@ -266,6 +266,9 @@ impl AgentRegistry {
             };
 
             if let Err(message) = result {
+                agent_diagnostic_log(format!(
+                    "task_failed task_id={task_id} model={model} message={message:?}"
+                ));
                 let error_event = AgentEvent::Error {
                     task_id: task_id.clone(),
                     message,

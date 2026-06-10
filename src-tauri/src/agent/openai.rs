@@ -5,12 +5,42 @@ use futures::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use tokio::time::{timeout, Duration as TokioDuration};
 use tokio_util::sync::CancellationToken;
 
-use super::stream_log::agent_stream_log;
+use super::stream_log::{
+    agent_diagnostic_log, agent_stream_log, format_error_chain, preview_for_log,
+    sanitize_url_for_log,
+};
 use super::types::{AgentEvent, AgentStatus, AgentToolDefinition, ChatMessage, ToolCall};
 
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
+const NON_STREAM_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
+/// Hard cap for an entire SSE stream (slow local models can run for many minutes).
+const STREAM_TOTAL_TIMEOUT: Duration = Duration::from_secs(1800);
+/// Fail only when the upstream stops sending chunks for this long.
+const STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
+
+fn format_stream_read_error(error: Option<&reqwest::Error>, idle_timed_out: bool) -> String {
+    if idle_timed_out {
+        return format!(
+            "Stream read timed out: no data received for {}s",
+            STREAM_IDLE_TIMEOUT.as_secs()
+        );
+    }
+
+    let Some(error) = error else {
+        return "Stream read failed: unknown error".to_string();
+    };
+
+    if error.is_timeout() {
+        return format!(
+            "Stream read timed out: exceeded {}s total stream limit ({error})",
+            STREAM_TOTAL_TIMEOUT.as_secs()
+        );
+    }
+
+    format!("Stream read failed: {error}")
+}
 
 fn preview_text(value: &str, limit: usize) -> String {
     let mut chars = value.chars();
@@ -177,6 +207,13 @@ pub async fn stream_chat_completion(
         tools.map(|value| value.len()).unwrap_or(0),
         request_extensions.is_some()
     ));
+    agent_diagnostic_log(format!(
+        "stream_start task_id={task_id} model={model} url={} messages={} tools={} request_extensions={}",
+        sanitize_url_for_log(&url),
+        messages.len(),
+        tools.map(|value| value.len()).unwrap_or(0),
+        request_extensions.is_some()
+    ));
 
     let request_body = ChatCompletionRequest {
         model,
@@ -204,29 +241,60 @@ pub async fn stream_chat_completion(
         .bearer_auth(api_key)
         .header("Accept", "text/event-stream")
         .json(&request_json)
-        .timeout(REQUEST_TIMEOUT)
+        .timeout(STREAM_TOTAL_TIMEOUT)
         .send()
         .await
-        .map_err(|error| format!("Request failed: {error}"))?;
+        .map_err(|error| {
+            let message = if error.is_timeout() {
+                format!(
+                    "Request failed: stream exceeded {}s total limit ({error})",
+                    STREAM_TOTAL_TIMEOUT.as_secs()
+                )
+            } else {
+                format!("Request failed: {error}")
+            };
+            agent_diagnostic_log(format!(
+                "request_failed task_id={task_id} model={model} url={} error={error} error_chain={}",
+                sanitize_url_for_log(&url),
+                format_error_chain(&error)
+            ));
+            message
+        })?;
 
-    if !response.status().is_success() {
-        let status = response.status();
+    let status = response.status();
+    let content_type = header_value_for_log(response.headers().get("content-type"));
+    let content_encoding = header_value_for_log(response.headers().get("content-encoding"));
+    let transfer_encoding = header_value_for_log(response.headers().get("transfer-encoding"));
+
+    if !status.is_success() {
         let body = response
             .text()
             .await
             .unwrap_or_else(|_| "<unable to read body>".to_string());
+        agent_diagnostic_log(format!(
+            "api_error task_id={task_id} model={model} url={} status={status} content_type={content_type} content_encoding={content_encoding} transfer_encoding={transfer_encoding} body_preview={:?}",
+            sanitize_url_for_log(&url),
+            preview_for_log(&body, 800)
+        ));
         return Err(format!("API error ({status}): {body}"));
     }
 
+    agent_diagnostic_log(format!(
+        "stream_response task_id={task_id} model={model} url={} status={status} content_type={content_type} content_encoding={content_encoding} transfer_encoding={transfer_encoding}",
+        sanitize_url_for_log(&url)
+    ));
+
     let mut stream = response.bytes_stream();
     let mut line_buffer = String::new();
+    let mut bytes_received: usize = 0;
+    let mut chunk_count: usize = 0;
     let mut tool_calls = ToolCallAccumulator {
         calls: BTreeMap::new(),
         announced_ids: std::collections::HashSet::new(),
     };
     let mut finish_reason: Option<String> = None;
 
-    while let Some(chunk_result) = stream.next().await {
+    loop {
         if cancel.is_cancelled() {
             agent_stream_log(format!(
                 "cancelled task_id={} while reading stream",
@@ -239,7 +307,49 @@ pub async fn stream_chat_completion(
             return Ok(());
         }
 
-        let chunk = chunk_result.map_err(|error| format!("Stream read failed: {error}"))?;
+        let chunk_result = match timeout(
+            TokioDuration::from(STREAM_IDLE_TIMEOUT),
+            stream.next(),
+        )
+        .await
+        {
+            Ok(Some(result)) => result,
+            Ok(None) => break,
+            Err(_) => {
+                let message = format_stream_read_error(None, true);
+                agent_diagnostic_log(format!(
+                    "stream_read_failed task_id={task_id} model={model} url={} bytes_received={bytes_received} chunk_count={chunk_count} line_buffer_len={} line_buffer_preview={:?} finish_reason={finish_reason:?} tool_call_count={} idle_timed_out=true idle_timeout_secs={}",
+                    sanitize_url_for_log(&url),
+                    line_buffer.len(),
+                    preview_for_log(&line_buffer, 800),
+                    tool_calls.calls.len(),
+                    STREAM_IDLE_TIMEOUT.as_secs()
+                ));
+                return Err(message);
+            }
+        };
+
+        let chunk = match chunk_result {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                let message = format_stream_read_error(Some(&error), false);
+                agent_diagnostic_log(format!(
+                    "stream_read_failed task_id={task_id} model={model} url={} bytes_received={bytes_received} chunk_count={chunk_count} line_buffer_len={} line_buffer_preview={:?} finish_reason={finish_reason:?} tool_call_count={} idle_timed_out=false error={error} error_chain={} is_timeout={} is_connect={} is_decode={} is_request={}",
+                    sanitize_url_for_log(&url),
+                    line_buffer.len(),
+                    preview_for_log(&line_buffer, 800),
+                    tool_calls.calls.len(),
+                    format_error_chain(&error),
+                    error.is_timeout(),
+                    error.is_connect(),
+                    error.is_decode(),
+                    error.is_request()
+                ));
+                return Err(message);
+            }
+        };
+        bytes_received += chunk.len();
+        chunk_count += 1;
         line_buffer.push_str(&String::from_utf8_lossy(&chunk));
 
         while let Some(newline_index) = line_buffer.find('\n') {
@@ -269,9 +379,27 @@ pub async fn stream_chat_completion(
         ) {
             return finalize_stream(task_id, tool_calls, finish_reason, emit);
         }
+        agent_diagnostic_log(format!(
+            "stream_ended_with_buffer task_id={task_id} model={model} url={} bytes_received={bytes_received} chunk_count={chunk_count} line_buffer_len={} line_buffer_preview={:?} finish_reason={finish_reason:?}",
+            sanitize_url_for_log(&url),
+            line_buffer.len(),
+            preview_for_log(&line_buffer, 800)
+        ));
+    } else {
+        agent_diagnostic_log(format!(
+            "stream_ended task_id={task_id} model={model} url={} bytes_received={bytes_received} chunk_count={chunk_count} finish_reason={finish_reason:?}",
+            sanitize_url_for_log(&url)
+        ));
     }
 
     finalize_stream(task_id, tool_calls, finish_reason, emit)
+}
+
+fn header_value_for_log(value: Option<&reqwest::header::HeaderValue>) -> String {
+    value
+        .and_then(|header| header.to_str().ok())
+        .unwrap_or("<missing>")
+        .to_string()
 }
 
 fn finalize_stream(
@@ -408,7 +536,7 @@ pub async fn complete_chat_completion(
         .post(&url)
         .bearer_auth(api_key)
         .json(&request_body)
-        .timeout(REQUEST_TIMEOUT)
+        .timeout(NON_STREAM_REQUEST_TIMEOUT)
         .send()
         .await
         .map_err(|error| format!("Request failed: {error}"))?;
@@ -438,7 +566,7 @@ pub async fn complete_chat_completion(
 
 pub fn build_http_client() -> Result<Client, String> {
     Client::builder()
-        .timeout(REQUEST_TIMEOUT)
+        .timeout(NON_STREAM_REQUEST_TIMEOUT)
         .build()
         .map_err(|error| format!("Failed to build HTTP client: {error}"))
 }

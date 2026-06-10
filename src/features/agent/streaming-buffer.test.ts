@@ -191,6 +191,31 @@ describe("createStreamingBufferManager", () => {
     ]);
   });
 
+  it("marks pending tool invocations as failed when the stream errors", () => {
+    const manager = createStreamingBufferManager({
+      onFlush: vi.fn().mockResolvedValue(undefined),
+      onChange: () => {},
+    });
+
+    manager.upsertToolInvocation("msg-1", {
+      id: "call_1",
+      name: "read_file",
+      input: {},
+      state: "input-streaming",
+    });
+    manager.failPendingToolInvocations("msg-1", "Stream read timed out");
+
+    expect(manager.get("msg-1")?.toolInvocations).toEqual([
+      {
+        id: "call_1",
+        name: "read_file",
+        input: {},
+        state: "output-error",
+        errorText: "Stream read timed out",
+      },
+    ]);
+  });
+
   it("updates tool invocations in the live snapshot", () => {
     const manager = createStreamingBufferManager({
       onFlush: vi.fn().mockResolvedValue(undefined),

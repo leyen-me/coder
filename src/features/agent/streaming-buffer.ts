@@ -61,6 +61,7 @@ export type StreamingBufferManager = {
     messageId: string,
     invocation: MessageToolInvocation
   ) => void;
+  failPendingToolInvocations: (messageId: string, errorText: string) => void;
   flush: (messageId: string) => Promise<void>;
   finalize: (messageId: string) => void;
   clear: (messageId: string) => void;
@@ -197,6 +198,35 @@ export function createStreamingBufferManager(options: {
     scheduleFlush(messageId);
   };
 
+  const failPendingToolInvocations = (messageId: string, errorText: string) => {
+    const buffer = buffers.get(messageId);
+    if (!buffer) {
+      return;
+    }
+
+    let changed = false;
+    buffer.toolInvocations = buffer.toolInvocations.map((invocation) => {
+      if (invocation.state !== "input-streaming") {
+        return invocation;
+      }
+
+      changed = true;
+      return {
+        ...invocation,
+        state: "output-error" as const,
+        errorText,
+      };
+    });
+
+    if (!changed) {
+      return;
+    }
+
+    buffer.cached = null;
+    scheduleEmitChange();
+    scheduleFlush(messageId);
+  };
+
   const scheduleFlush = (messageId: string) => {
     if (timers.has(messageId)) {
       return;
@@ -273,6 +303,7 @@ export function createStreamingBufferManager(options: {
     pushToolStep,
     setToolInvocations,
     upsertToolInvocation,
+    failPendingToolInvocations,
     get: (messageId) => {
       const buffer = buffers.get(messageId);
       return buffer ? toStreamingFields(buffer) : null;
