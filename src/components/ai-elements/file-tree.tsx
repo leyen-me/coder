@@ -6,13 +6,14 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { shouldSuppressFileTreeClick } from "@/lib/dnd/workspace-path-pointer";
 import {
   ChevronRightIcon,
   FileIcon,
   FolderIcon,
   FolderOpenIcon,
 } from "lucide-react";
-import type { HTMLAttributes, ReactNode } from "react";
+import type { HTMLAttributes, PointerEventHandler, ReactNode } from "react";
 import {
   createContext,
   useCallback,
@@ -130,9 +131,13 @@ const FileTreeFolderContext = createContext<FileTreeFolderContextType>({
   path: "",
 });
 
-export type FileTreeFolderProps = HTMLAttributes<HTMLDivElement> & {
+export type FileTreeFolderProps = Omit<
+  HTMLAttributes<HTMLDivElement>,
+  "onPointerDown"
+> & {
   path: string;
   name: string;
+  onPointerDown?: PointerEventHandler<HTMLElement>;
 };
 
 export const FileTreeFolder = ({
@@ -140,6 +145,7 @@ export const FileTreeFolder = ({
   name,
   className,
   children,
+  onPointerDown,
   ...props
 }: FileTreeFolderProps) => {
   const { expandedPaths, togglePath, selectedPath, onSelect } =
@@ -189,8 +195,11 @@ export const FileTreeFolder = ({
               </button>
             </CollapsibleTrigger>
             <button
-              className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 border-none bg-transparent p-0 text-left"
+              className="flex min-w-0 flex-1 cursor-grab items-center gap-1 border-none bg-transparent p-0 text-left active:cursor-grabbing"
               onClick={handleSelect}
+              onPointerDown={
+                onPointerDown as PointerEventHandler<HTMLButtonElement> | undefined
+              }
               type="button"
             >
               <FileTreeIcon>
@@ -240,12 +249,20 @@ export const FileTreeFile = ({
   const isSelected = selectedPath === path;
 
   const handleClick = useCallback(() => {
+    if (shouldSuppressFileTreeClick()) {
+      return;
+    }
+
     onSelect?.(path);
   }, [onSelect, path]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " ") {
+        if (shouldSuppressFileTreeClick()) {
+          return;
+        }
+
         onSelect?.(path);
       }
     },

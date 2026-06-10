@@ -6,7 +6,8 @@ import {
   GitBranchIcon,
   XIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import {
   PromptInput,
@@ -40,6 +41,9 @@ import {
 } from "@/lib/model-provider/model-definition";
 import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { cn } from "@/lib/utils";
+
+import { insertFileMentionIntoComposer } from "../lib/composer-insert-store";
+import { useWorkspacePathDropTarget } from "../hooks/use-workspace-path-drop-target";
 
 import { ComposerContextUsage } from "./composer-context-usage";
 import { ComposerEditTag } from "./composer-edit-tag";
@@ -351,6 +355,17 @@ export function PromptComposer({
     [supportsMultimodal, t]
   );
 
+  const handleWorkspacePathDrop = useCallback(
+    (path: string) => {
+      insertFileMentionIntoComposer(path);
+      toast.success(t("rightPanel.toastAddedToChat"));
+    },
+    [t]
+  );
+
+  const dropTargetRef = useRef<HTMLDivElement>(null);
+  useWorkspacePathDropTarget(dropTargetRef, handleWorkspacePathDrop);
+
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
       if (isRunning) {
@@ -398,6 +413,7 @@ export function PromptComposer({
       multiple
       onError={handleAttachmentError}
       onSubmit={handleSubmit}
+      onWorkspacePathDrop={handleWorkspacePathDrop}
     >
       <ComposerMultimodalGuard enabled={supportsMultimodal} />
       <PromptComposerAttachmentsHeader />
@@ -499,8 +515,12 @@ export function PromptComposer({
       ) : null}
 
       <div
+        ref={dropTargetRef}
         className={cn(
-          "overflow-hidden rounded-3xl border border-border shadow-none",
+          "overflow-hidden rounded-3xl border border-border shadow-none transition-[border-color,box-shadow,background-color] duration-200",
+          "data-[workspace-path-drop-hover=true]:border-primary/50",
+          "data-[workspace-path-drop-hover=true]:bg-primary/5",
+          "data-[workspace-path-drop-hover=true]:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-primary)_16%,transparent)]",
           !showWorkspaceControls && "bg-card text-card-foreground",
           isCompact && "shadow-sm"
         )}

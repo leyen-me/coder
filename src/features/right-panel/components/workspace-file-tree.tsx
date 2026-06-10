@@ -7,6 +7,7 @@ import {
 } from "@/components/ai-elements/file-tree";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ListDirEntry } from "@/features/agent/tools/types";
+import { createFileTreePointerDragProps } from "@/lib/dnd/workspace-path-pointer";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import { forwardRef, useCallback, useImperativeHandle } from "react";
@@ -69,6 +70,8 @@ function renderTreeEntries({
   onRefresh,
 }: RenderTreeEntriesOptions) {
   return entries.map((entry) => {
+    const pointerDragProps = createFileTreePointerDragProps(entry.path);
+
     if (entry.isDir) {
       const children = entriesByPath.get(entry.path) ?? [];
 
@@ -81,7 +84,7 @@ function renderTreeEntries({
           onRefresh={onRefresh}
           onToggleExpanded={() => toggleExpanded(entry.path)}
         >
-          <FileTreeFolder name={entry.name} path={entry.path}>
+          <FileTreeFolder name={entry.name} path={entry.path} {...pointerDragProps}>
             {children.length > 0
               ? renderTreeEntries({
                   entries: children,
@@ -105,7 +108,12 @@ function renderTreeEntries({
         isExpanded={false}
         onToggleExpanded={() => {}}
       >
-        <FileTreeFile name={entry.name} path={entry.path} />
+        <FileTreeFile
+          className="cursor-grab active:cursor-grabbing"
+          name={entry.name}
+          path={entry.path}
+          {...pointerDragProps}
+        />
       </FileTreeEntryContextMenu>
     );
   });

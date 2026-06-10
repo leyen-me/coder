@@ -40,6 +40,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import {
+  endWorkspacePathDrag,
+  getWorkspacePathFromDrag,
+  isWorkspacePathDragActive,
+} from "@/lib/dnd/workspace-path";
 import { composerFooterControlClassName } from "@/components/ai-elements/composer-footer-control";
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";
 import {
@@ -57,6 +62,7 @@ import type {
   ClipboardEventHandler,
   ComponentProps,
   CompositionEvent,
+  DragEvent as ReactDragEvent,
   FormEvent,
   FormEventHandler,
   HTMLAttributes,
@@ -530,6 +536,7 @@ export type PromptInputProps = Omit<
     message: PromptInputMessage,
     event: FormEvent<HTMLFormElement>
   ) => void | Promise<void>;
+  onWorkspacePathDrop?: (path: string) => void;
 };
 
 function mapInitialPromptFiles(
@@ -548,6 +555,52 @@ function mapInitialPromptFiles(
   }));
 }
 
+function acceptsPromptInputDrop(
+  dataTransfer: DataTransfer | null,
+  allowWorkspacePath: boolean
+): boolean {
+  if (!dataTransfer) {
+    return false;
+  }
+
+  if (dataTransfer.types.includes("Files")) {
+    return true;
+  }
+
+  return allowWorkspacePath && isWorkspacePathDragActive(dataTransfer);
+}
+
+function handlePromptInputDrop(
+  event: globalThis.DragEvent,
+  options: {
+    add: (files: File[] | FileList) => void;
+    onWorkspacePathDrop?: (path: string) => void;
+  }
+): void {
+  const { add, onWorkspacePathDrop } = options;
+  const dataTransfer = event.dataTransfer;
+
+  if (!acceptsPromptInputDrop(dataTransfer, Boolean(onWorkspacePathDrop))) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  if (onWorkspacePathDrop && dataTransfer && isWorkspacePathDragActive(dataTransfer)) {
+    const path = getWorkspacePathFromDrag(dataTransfer);
+    if (path) {
+      onWorkspacePathDrop(path);
+      endWorkspacePathDrag();
+    }
+    return;
+  }
+
+  if (dataTransfer?.files && dataTransfer.files.length > 0) {
+    add(dataTransfer.files);
+  }
+}
+
 export const PromptInput = ({
   className,
   accept,
@@ -559,6 +612,7 @@ export const PromptInput = ({
   maxFileSize,
   onError,
   onSubmit,
+  onWorkspacePathDrop,
   children,
   ...props
 }: PromptInputProps) => {
@@ -768,54 +822,42 @@ export const PromptInput = ({
   }, [files, syncHiddenInput]);
 
   // Attach drop handlers on nearest form and document (opt-in)
-  useEffect(() => {
-    const form = formRef.current;
-    if (!form) {
-      return;
-    }
-    if (globalDrop) {
-      // when global drop is on, let the document-level handler own drops
-      return;
-    }
+  const handleDragOverCapture = useCallback(
+    (event: ReactDragEvent<HTMLFormElement>) => {
+      if (
+        acceptsPromptInputDrop(event.dataTransfer, Boolean(onWorkspacePathDrop))
+      ) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+      }
+    },
+    [onWorkspacePathDrop]
+  );
 
-    const onDragOver = (e: DragEvent) => {
-      if (e.dataTransfer?.types?.includes("Files")) {
-        e.preventDefault();
-      }
-    };
-    const onDrop = (e: DragEvent) => {
-      if (e.dataTransfer?.types?.includes("Files")) {
-        e.preventDefault();
-      }
-      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-        add(e.dataTransfer.files);
-      }
-    };
-    form.addEventListener("dragover", onDragOver);
-    form.addEventListener("drop", onDrop);
-    return () => {
-      form.removeEventListener("dragover", onDragOver);
-      form.removeEventListener("drop", onDrop);
-    };
-  }, [add, globalDrop]);
+  const handleDropCapture = useCallback(
+    (event: ReactDragEvent<HTMLFormElement>) => {
+      handlePromptInputDrop(event.nativeEvent, { add, onWorkspacePathDrop });
+    },
+    [add, onWorkspacePathDrop]
+  );
 
   useEffect(() => {
     if (!globalDrop) {
       return;
     }
 
-    const onDragOver = (e: DragEvent) => {
-      if (e.dataTransfer?.types?.includes("Files")) {
-        e.preventDefault();
+    const onDragOver = (event: globalThis.DragEvent) => {
+      if (
+        acceptsPromptInputDrop(event.dataTransfer, Boolean(onWorkspacePathDrop))
+      ) {
+        event.preventDefault();
+        if (event.dataTransfer) {
+          event.dataTransfer.dropEffect = "copy";
+        }
       }
     };
-    const onDrop = (e: DragEvent) => {
-      if (e.dataTransfer?.types?.includes("Files")) {
-        e.preventDefault();
-      }
-      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-        add(e.dataTransfer.files);
-      }
+    const onDrop = (event: globalThis.DragEvent) => {
+      handlePromptInputDrop(event, { add, onWorkspacePathDrop });
     };
     document.addEventListener("dragover", onDragOver);
     document.addEventListener("drop", onDrop);
@@ -823,7 +865,7 @@ export const PromptInput = ({
       document.removeEventListener("dragover", onDragOver);
       document.removeEventListener("drop", onDrop);
     };
-  }, [add, globalDrop]);
+  }, [add, globalDrop, onWorkspacePathDrop]);
 
   useEffect(
     () => () => {
@@ -955,6 +997,8 @@ export const PromptInput = ({
       />
       <form
         className={cn("w-full", className)}
+        onDragOverCapture={globalDrop ? undefined : handleDragOverCapture}
+        onDropCapture={globalDrop ? undefined : handleDropCapture}
         onSubmit={handleSubmit}
         ref={formRef}
         {...props}
