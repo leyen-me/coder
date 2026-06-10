@@ -7,7 +7,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { AWAIT_TOOL_NAME, SHELL_TOOL_NAME } from "@/features/agent/tools/definitions";
+import {
+  AWAIT_TOOL_NAME,
+  BROWSE_PAGE_TOOL_NAME,
+  SHELL_TOOL_NAME,
+} from "@/features/agent/tools/definitions";
+import { getBrowsePageChipLabel } from "@/features/agent/tools/browse-page-display";
 import { getShellChipLabel } from "@/features/agent/tools/shell-display";
 import type { MessageToolInvocation } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
@@ -21,6 +26,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { BrowsePageToolOutput } from "./browse-page-tool-output";
 import { ShellToolOutput } from "./shell-tool-output";
 
 type ToolInvocationChipProps = {
@@ -36,9 +42,15 @@ export function ToolInvocationChip({
   const [open, setOpen] = useState(false);
   const chipLabel =
     getShellChipLabel(invocation.name, invocation.input, invocation.output) ??
+    getBrowsePageChipLabel(
+      invocation.name,
+      invocation.input,
+      invocation.output
+    ) ??
     invocation.name;
   const isShellTool =
     invocation.name === SHELL_TOOL_NAME || invocation.name === AWAIT_TOOL_NAME;
+  const isBrowsePageTool = invocation.name === BROWSE_PAGE_TOOL_NAME;
 
   return (
     <>
@@ -66,9 +78,14 @@ export function ToolInvocationChip({
             {isShellTool && invocation.output ? (
               <ShellToolOutput output={invocation.output} />
             ) : null}
+            {isBrowsePageTool && invocation.output ? (
+              <BrowsePageToolOutput output={invocation.output} />
+            ) : null}
             <ToolOutput
               errorText={invocation.errorText}
-              output={isShellTool ? undefined : invocation.output}
+              output={
+                isShellTool || isBrowsePageTool ? undefined : invocation.output
+              }
             />
           </div>
         </SheetContent>

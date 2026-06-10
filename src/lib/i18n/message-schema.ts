@@ -72,6 +72,11 @@ export type Messages = {
     thoughtForSeconds: string;
     answer: string;
     toolDetailTitle: string;
+    toolOutputMetadata: string;
+    toolOutputPageContent: string;
+    toolOutputEmptyContent: string;
+    toolOutputContentTruncated: string;
+    toolOutputFetchTruncated: string;
     copyMessage: string;
     editMessage: string;
     editingMessage: string;

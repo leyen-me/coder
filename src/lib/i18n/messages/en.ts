@@ -75,6 +75,13 @@ export const enMessages = {
     thoughtForSeconds: "Thought for {duration} seconds",
     answer: "Answer",
     toolDetailTitle: "Tool · {name}",
+    toolOutputMetadata: "Metadata",
+    toolOutputPageContent: "Page content",
+    toolOutputEmptyContent: "(empty page)",
+    toolOutputContentTruncated:
+      "Showing {shown} of {total} characters. Copy still includes the full tool result.",
+    toolOutputFetchTruncated:
+      "The fetched response was truncated at 512 KB on the server.",
     copyMessage: "Copy",
     editMessage: "Edit",
     editingMessage: "Editing message",

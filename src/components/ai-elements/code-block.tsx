@@ -112,6 +112,7 @@ type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
   code: string;
   language: BundledLanguage;
   showLineNumbers?: boolean;
+  truncatedHint?: string;
 };
 
 interface TokenizedCode {
@@ -134,6 +135,36 @@ const highlighterCache = new Map<
   string,
   Promise<HighlighterGeneric<BundledLanguage, BundledTheme>>
 >();
+
+/** Shiki tokenization blocks the main thread on large payloads. */
+const MAX_SHIKI_CHARS = 24_000;
+/** Hard cap for rendered code preview length. */
+const MAX_DISPLAY_CHARS = 80_000;
+
+export type PreparedDisplayCode = {
+  displayCode: string;
+  truncated: boolean;
+  totalLength: number;
+  shouldHighlight: boolean;
+};
+
+export function prepareDisplayCode(code: string): PreparedDisplayCode {
+  const totalLength = code.length;
+  let displayCode = code;
+  let truncated = false;
+
+  if (displayCode.length > MAX_DISPLAY_CHARS) {
+    displayCode = `${displayCode.slice(0, MAX_DISPLAY_CHARS)}\n\n…`;
+    truncated = true;
+  }
+
+  return {
+    displayCode,
+    truncated,
+    totalLength,
+    shouldHighlight: displayCode.length <= MAX_SHIKI_CHARS,
+  };
+}
 
 // Token cache
 const tokensCache = new Map<string, TokenizedCode>();
@@ -375,37 +406,53 @@ export const CodeBlockContent = ({
   code,
   language,
   showLineNumbers = false,
+  truncatedHint,
 }: {
   code: string;
   language: BundledLanguage;
   showLineNumbers?: boolean;
+  truncatedHint?: string;
 }) => {
+  const prepared = useMemo(() => prepareDisplayCode(code), [code]);
+  const { displayCode, truncated, totalLength, shouldHighlight } = prepared;
+
   // Memoized raw tokens for immediate display
-  const rawTokens = useMemo(() => createRawTokens(code), [code]);
+  const rawTokens = useMemo(
+    () => createRawTokens(displayCode),
+    [displayCode]
+  );
 
   // Synchronous cache lookup — avoids setState in effect for cached results
   const syncTokens = useMemo(
-    () => highlightCode(code, language) ?? rawTokens,
-    [code, language, rawTokens]
+    () =>
+      shouldHighlight
+        ? highlightCode(displayCode, language) ?? rawTokens
+        : rawTokens,
+    [displayCode, language, rawTokens, shouldHighlight]
   );
 
   // Async highlighting result (populated after shiki loads)
   const [asyncTokens, setAsyncTokens] = useState<TokenizedCode | null>(null);
-  const asyncKeyRef = useRef({ code, language });
+  const asyncKeyRef = useRef({ code: displayCode, language, shouldHighlight });
 
   // Invalidate stale async tokens synchronously during render
   if (
-    asyncKeyRef.current.code !== code ||
-    asyncKeyRef.current.language !== language
+    asyncKeyRef.current.code !== displayCode ||
+    asyncKeyRef.current.language !== language ||
+    asyncKeyRef.current.shouldHighlight !== shouldHighlight
   ) {
-    asyncKeyRef.current = { code, language };
+    asyncKeyRef.current = { code: displayCode, language, shouldHighlight };
     setAsyncTokens(null);
   }
 
   useEffect(() => {
+    if (!shouldHighlight) {
+      return;
+    }
+
     let cancelled = false;
 
-    highlightCode(code, language, (result) => {
+    highlightCode(displayCode, language, (result) => {
       if (!cancelled) {
         setAsyncTokens(result);
       }
@@ -414,13 +461,21 @@ export const CodeBlockContent = ({
     return () => {
       cancelled = true;
     };
-  }, [code, language]);
+  }, [displayCode, language, shouldHighlight]);
 
-  const tokenized = asyncTokens ?? syncTokens;
+  const tokenized = shouldHighlight ? asyncTokens ?? syncTokens : rawTokens;
+  const hint =
+    truncatedHint ??
+    (truncated
+      ? `Preview truncated (${totalLength.toLocaleString()} characters total).`
+      : undefined);
 
   return (
     <div className="relative overflow-auto">
       <CodeBlockBody showLineNumbers={showLineNumbers} tokenized={tokenized} />
+      {hint ? (
+        <p className="border-t px-3 py-2 text-muted-foreground text-xs">{hint}</p>
+      ) : null}
     </div>
   );
 };
@@ -429,6 +484,7 @@ export const CodeBlock = ({
   code,
   language,
   showLineNumbers = false,
+  truncatedHint,
   className,
   children,
   ...props
@@ -443,6 +499,7 @@ export const CodeBlock = ({
           code={code}
           language={language}
           showLineNumbers={showLineNumbers}
+          truncatedHint={truncatedHint}
         />
       </CodeBlockContainer>
     </CodeBlockContext.Provider>

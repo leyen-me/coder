@@ -74,6 +74,12 @@ export const zhMessages = {
     thoughtForSeconds: "思考了 {duration} 秒",
     answer: "回答",
     toolDetailTitle: "工具 · {name}",
+    toolOutputMetadata: "元数据",
+    toolOutputPageContent: "页面内容",
+    toolOutputEmptyContent: "（空页面）",
+    toolOutputContentTruncated:
+      "已显示 {shown} / {total} 个字符。复制仍会包含完整工具结果。",
+    toolOutputFetchTruncated: "服务端抓取时在 512 KB 处截断了响应。",
     copyMessage: "复制",
     editMessage: "编辑",
     editingMessage: "正在编辑消息",

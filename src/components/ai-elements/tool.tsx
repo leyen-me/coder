@@ -140,6 +140,49 @@ function serializeToolOutput(
   return parts.join("\n\n");
 }
 
+const TOOL_OUTPUT_STRING_PREVIEW_CHARS = 8_000;
+
+function truncateDeepStrings(value: unknown, maxLen: number): unknown {
+  if (typeof value === "string") {
+    if (value.length <= maxLen) {
+      return value;
+    }
+
+    return `${value.slice(0, maxLen)}\n\n… [${value.length.toLocaleString()} chars total, truncated for preview]`;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => truncateDeepStrings(item, maxLen));
+  }
+
+  if (typeof value === "object" && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        truncateDeepStrings(item, maxLen),
+      ])
+    );
+  }
+
+  return value;
+}
+
+function formatOutputForDisplay(output: ToolPart["output"]): string {
+  if (typeof output === "string") {
+    return truncateDeepStrings(output, TOOL_OUTPUT_STRING_PREVIEW_CHARS) as string;
+  }
+
+  if (typeof output === "object" && output !== null && !isValidElement(output)) {
+    return JSON.stringify(
+      truncateDeepStrings(output, TOOL_OUTPUT_STRING_PREVIEW_CHARS),
+      null,
+      2
+    );
+  }
+
+  return "";
+}
+
 function CopyButton({ text }: { text: string }) {
   const [isCopied, setIsCopied] = useState(false);
   const timeoutRef = useRef<number>(0);
@@ -231,10 +274,15 @@ export const ToolOutput = ({
 
   if (typeof output === "object" && output !== null && !isValidElement(output)) {
     content = (
-      <CodeBlock code={JSON.stringify(output, null, 2)} language="json" />
+      <CodeBlock
+        code={formatOutputForDisplay(output)}
+        language="json"
+      />
     );
   } else if (typeof output === "string") {
-    content = <CodeBlock code={output} language="json" />;
+    content = (
+      <CodeBlock code={formatOutputForDisplay(output)} language="json" />
+    );
   } else if (output) {
     content = <div className="p-4 text-xs">{output as ReactNode}</div>;
   } else {
