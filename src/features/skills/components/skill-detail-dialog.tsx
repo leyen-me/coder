@@ -7,7 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import type { SkillCardViewModel } from "../types";
@@ -33,7 +32,7 @@ export function SkillDetailDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="flex max-h-[min(85vh,720px)] max-w-lg flex-col gap-4">
+      <DialogContent className="max-w-lg gap-4">
         <DialogHeader className="gap-2 text-left">
           <div className="flex flex-wrap items-center gap-2 pr-8">
             <DialogTitle>{skill.name}</DialogTitle>
@@ -54,11 +53,11 @@ export function SkillDetailDialog({
           ) : null}
         </DialogHeader>
 
-        <ScrollArea className="min-h-0 flex-1 rounded-xl border bg-muted/30">
+        <div className="max-h-[50vh] overflow-y-auto rounded-xl border bg-muted/30">
           <pre className="whitespace-pre-wrap p-4 font-mono text-xs leading-relaxed">
             {skill.content}
           </pre>
-        </ScrollArea>
+        </div>
 
         <DialogFooter>
           <Button onClick={() => onOpenChange(false)} type="button">

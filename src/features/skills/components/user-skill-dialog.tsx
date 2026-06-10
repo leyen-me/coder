@@ -116,14 +116,14 @@ export function UserSkillDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg gap-4">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? t("skills.editSkill") : t("skills.createSkill")}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
           <div className="space-y-2">
             <Label htmlFor="skill-slug">{t("skills.fieldSlug")}</Label>
             <Input
@@ -150,6 +150,7 @@ export function UserSkillDialog({
           <div className="space-y-2">
             <Label htmlFor="skill-description">{t("skills.fieldDescription")}</Label>
             <Textarea
+              className="field-sizing-fixed"
               id="skill-description"
               onChange={(event) =>
                 setForm((current) => ({
@@ -165,7 +166,7 @@ export function UserSkillDialog({
           <div className="space-y-2">
             <Label htmlFor="skill-content">{t("skills.fieldContent")}</Label>
             <Textarea
-              className="min-h-40 font-mono text-xs"
+              className="field-sizing-fixed max-h-[35vh] min-h-40 overflow-y-auto font-mono text-xs"
               id="skill-content"
               onChange={(event) =>
                 setForm((current) => ({
