@@ -25,7 +25,9 @@ export function insertFileMentionIntoComposer(
 }
 
 export function getLatestComposerInsert(): ComposerInsertPayload | null {
-  return latestInsert;
+  const payload = latestInsert;
+  latestInsert = null;
+  return payload;
 }
 
 function subscribe(listener: () => void): () => void {
