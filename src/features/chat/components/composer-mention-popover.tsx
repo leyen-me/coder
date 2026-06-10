@@ -1,4 +1,5 @@
 import { FileIcon, FolderIcon } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 import {
   Command,
@@ -16,7 +17,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
-import { parentPathForMatch } from "../lib/composer-mention-state";
 import type { WorkspacePathMatch } from "../lib/search-workspace-paths";
 
 type ComposerMentionPopoverProps = {
@@ -41,6 +41,18 @@ export function ComposerMentionPopover({
   onSelectedIndexChange,
 }: ComposerMentionPopoverProps) {
   const { t } = useTranslation();
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open || loading || results.length === 0) {
+      return;
+    }
+
+    const selected = listRef.current?.querySelector(
+      `[data-mention-index="${selectedIndex}"]`
+    );
+    selected?.scrollIntoView({ block: "nearest" });
+  }, [loading, open, results.length, selectedIndex]);
 
   return (
     <Popover modal={false} open={open}>
@@ -59,7 +71,7 @@ export function ComposerMentionPopover({
         style={anchorWidth ? { width: anchorWidth } : undefined}
       >
         <Command shouldFilter={false} value="">
-          <CommandList className="max-h-60">
+          <CommandList className="max-h-60" ref={listRef}>
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground text-sm">
                 <Spinner className="size-4" />
@@ -79,11 +91,12 @@ export function ComposerMentionPopover({
               <CommandGroup>
                 {results.map((item, index) => {
                   const Icon = item.isDir ? FolderIcon : FileIcon;
-                  const parentPath = parentPathForMatch(item.path);
+                  const showFullPath = item.path !== item.name;
 
                   return (
                     <CommandItem
                       key={`${item.path}:${item.isDir ? "dir" : "file"}`}
+                      data-mention-index={index}
                       className={cn(
                         "gap-2 rounded-xl px-3 py-2",
                         index === selectedIndex && "bg-muted"
@@ -103,9 +116,12 @@ export function ComposerMentionPopover({
                       <span className="min-w-0 truncate font-medium">
                         {item.name}
                       </span>
-                      {parentPath ? (
-                        <span className="min-w-0 truncate text-muted-foreground text-xs">
-                          {parentPath}
+                      {showFullPath ? (
+                        <span
+                          className="min-w-0 truncate text-muted-foreground text-xs"
+                          title={item.path}
+                        >
+                          {item.path}
                         </span>
                       ) : null}
                     </CommandItem>
