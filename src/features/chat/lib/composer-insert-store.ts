@@ -48,10 +48,6 @@ export function useComposerInsertVersion(): number {
 export function appendFileMention(current: string, path: string): string {
   const mention = `@${path}`;
 
-  if (current.split(/\s+/).includes(mention)) {
-    return current;
-  }
-
   if (!current.trim()) {
     return `${mention} `;
   }

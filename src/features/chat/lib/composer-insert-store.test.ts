@@ -19,9 +19,9 @@ describe("appendFileMention", () => {
     );
   });
 
-  it("does not duplicate an existing mention", () => {
+  it("allows repeating the same mention", () => {
     expect(appendFileMention("see @src/App.tsx ", "src/App.tsx")).toBe(
-      "see @src/App.tsx "
+      "see @src/App.tsx @src/App.tsx "
     );
   });
 
