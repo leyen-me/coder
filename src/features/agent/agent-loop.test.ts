@@ -230,4 +230,92 @@ describe("runAgentWithTools", () => {
       errorText: "Cancelled",
     });
   });
+
+  it("does not cap tool rounds when each round makes progress", async () => {
+    executeToolCallMock.mockResolvedValue({
+      ok: true,
+      tool: "read_file",
+      data: { path: "a.ts", content: "ok" },
+    });
+
+    const toolRoundCount = 35;
+    startAgentMock.mockImplementation(async (_input, onEvent) => {
+      const callCount = startAgentMock.mock.calls.length;
+      if (callCount <= toolRoundCount) {
+        onEvent({
+          type: "turn_complete",
+          taskId: "task-1",
+          toolCalls: [
+            {
+              id: `call_${callCount}`,
+              name: "read_file",
+              arguments: `{"path":"file-${callCount}.ts"}`,
+            },
+          ],
+        });
+        onEvent({ type: "status", taskId: "task-1", status: "completed" });
+        return;
+      }
+
+      onEvent({ type: "status", taskId: "task-1", status: "completed" });
+    });
+
+    await runAgentWithTools(
+      {
+        taskId: "task-1",
+        baseUrl: "https://api.example.com",
+        apiKey: "test-key",
+        apiKeySource: "manual",
+        apiKeyEnvVar: "TEST_API_KEY",
+        model: "deepseek-v4-pro",
+        messages: [{ role: "user", content: "检查很多文件" }],
+      },
+      { workspaceDir: null, taskId: "task-1" },
+      () => {}
+    );
+
+    expect(startAgentMock).toHaveBeenCalledTimes(toolRoundCount + 1);
+    expect(executeToolCallMock).toHaveBeenCalledTimes(toolRoundCount);
+  });
+
+  it("fails when the agent repeats the same tool batch", async () => {
+    executeToolCallMock.mockResolvedValue({
+      ok: true,
+      tool: "read_file",
+      data: { path: "a.ts", content: "ok" },
+    });
+
+    startAgentMock.mockImplementation(async (_input, onEvent) => {
+      onEvent({
+        type: "turn_complete",
+        taskId: "task-1",
+        toolCalls: [
+          {
+            id: `call_${startAgentMock.mock.calls.length}`,
+            name: "read_file",
+            arguments: '{"path":"a.ts"}',
+          },
+        ],
+      });
+      onEvent({ type: "status", taskId: "task-1", status: "completed" });
+    });
+
+    await expect(
+      runAgentWithTools(
+        {
+          taskId: "task-1",
+          baseUrl: "https://api.example.com",
+          apiKey: "test-key",
+          apiKeySource: "manual",
+          apiKeyEnvVar: "TEST_API_KEY",
+          model: "deepseek-v4-pro",
+          messages: [{ role: "user", content: "读 a.ts" }],
+        },
+        { workspaceDir: null, taskId: "task-1" },
+        () => {}
+      )
+    ).rejects.toThrow("Agent appears stuck repeating the same tool calls");
+
+    expect(startAgentMock).toHaveBeenCalledTimes(3);
+  });
 });

@@ -9,7 +9,10 @@ import { toApiToolCalls } from "./tools/api-tool-call";
 import type { AgentToolCall, TavilyConfig } from "./tools/types";
 import { startAgent } from "./runner";
 import type { AgentChatMessage, AgentEvent, AgentEventHandler, AgentStartInput } from "./types";
-import { MAX_AGENT_TOOL_ITERATIONS } from "./types";
+import {
+  ToolCallStallDetector,
+  agentToolCallStallError,
+} from "./tool-call-stall";
 
 type ToolExecutionContextInput = {
   workspaceDir: string | null;
@@ -26,8 +29,9 @@ export async function runAgentWithTools(
 ): Promise<void> {
   let messages = [...input.messages];
   const tools = input.tools ?? getAgentToolDefinitions();
+  const stallDetector = new ToolCallStallDetector();
 
-  for (let iteration = 0; iteration < MAX_AGENT_TOOL_ITERATIONS; iteration += 1) {
+  while (true) {
     throwIfAborted(context.signal, input.taskId);
 
     const turn = await runSingleAgentTurn(
@@ -52,8 +56,8 @@ export async function runAgentWithTools(
       return;
     }
 
-    if (iteration === MAX_AGENT_TOOL_ITERATIONS - 1) {
-      throw new Error("Maximum tool iterations exceeded");
+    if (stallDetector.record(turn.toolCalls)) {
+      throw agentToolCallStallError();
     }
 
     messages = await appendToolResults(messages, turn, context, onEvent);

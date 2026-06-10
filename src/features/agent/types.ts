@@ -76,4 +76,3 @@ export type AgentRunner = {
   cancel: (taskId: string) => Promise<void>;
 };
 
-export const MAX_AGENT_TOOL_ITERATIONS = 30;
