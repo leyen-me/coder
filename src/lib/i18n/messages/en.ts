@@ -42,10 +42,13 @@ export const enMessages = {
   chat: {
     headline: "What do you want to build in {project}?",
     composerPlaceholder:
-      "Describe a task, @ mention files, / run commands, ? browse skills",
+      "Describe a task, @ mention files, / commands and skills",
     addAttachment: "Add image",
     removeAttachment: "Remove image",
     removeReference: "Remove file reference",
+    mentionSearching: "Searching files…",
+    mentionNoWorkspace: "Select a workspace to search files",
+    mentionNoResults: "No matching files or folders",
     attachmentErrorAccept: "Only image files are supported",
     attachmentErrorMultimodalUnsupported: "The selected model does not support image input",
     attachmentErrorMaxSize: "Each image must be {size} or smaller",

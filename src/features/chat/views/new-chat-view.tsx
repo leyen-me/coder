@@ -89,6 +89,7 @@ export function NewChatView() {
           thinkingEnabled={thinkingEnabled}
           onThinkingEnabledChange={onThinkingEnabledChange}
           showWorkspaceControls
+          workspaceDir={workspaceDir}
           workspaceName={gitControls.workspaceName ?? workspaceName}
           onPickWorkspace={() => {
             void pickWorkspace();

@@ -74,6 +74,7 @@ type PromptComposerProps = {
   thinkingEnabled?: boolean;
   onThinkingEnabledChange?: (enabled: boolean) => void;
   showWorkspaceControls?: boolean;
+  workspaceDir?: string | null;
   workspaceName?: string | null;
   onPickWorkspace?: () => void;
   onClearWorkspace?: () => void;
@@ -296,6 +297,7 @@ export function PromptComposer({
   thinkingEnabled = false,
   onThinkingEnabledChange,
   showWorkspaceControls = true,
+  workspaceDir,
   workspaceName,
   onPickWorkspace,
   onClearWorkspace,
@@ -424,6 +426,7 @@ export function PromptComposer({
           onChange={onChange}
           placeholder={t("chat.composerPlaceholder")}
           value={value}
+          workspaceDir={workspaceDir}
           className={cn(
             "px-4 py-4 text-base text-foreground",
             "[&_.ProseMirror]:min-h-[inherit] [&_.ProseMirror]:outline-none",

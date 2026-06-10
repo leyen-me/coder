@@ -198,6 +198,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             thinkingEnabled={thinkingEnabled}
             onThinkingEnabledChange={onThinkingEnabledChange}
             showWorkspaceControls={canEditWorkspace}
+            workspaceDir={workspaceBinding.workspaceDir}
             workspaceName={workspaceName}
             onPickWorkspace={() => {
               void workspaceBinding.handlePickWorkspace();

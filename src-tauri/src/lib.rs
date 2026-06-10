@@ -16,7 +16,7 @@ use tools::{
     tool_await, tool_browse_page, tool_copy_path, tool_create_dir, tool_delete_path,
     tool_edit_file, tool_glob, tool_grep, tool_list_dir, tool_move_path, tool_read_file,
     tool_rename_path, tool_replace_file, tool_resolve_absolute_path, tool_shell,
-    tool_web_search, tool_write_file,
+    tool_search_workspace_paths, tool_web_search, tool_write_file,
     PtyRegistry, PtyState, ShellRegistry,
     ShellState,
 };
@@ -78,6 +78,7 @@ pub fn run() {
             tool_resolve_absolute_path,
             tool_glob,
             tool_grep,
+            tool_search_workspace_paths,
             tool_web_search,
             tool_browse_page,
             tool_shell,

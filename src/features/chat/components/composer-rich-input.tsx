@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
   type ClipboardEvent,
   type CompositionEvent,
 } from "react";
@@ -15,14 +16,22 @@ import { isImeProcessingEnter, registerImeEnterSuppression } from "@/lib/ime-ent
 import { cn } from "@/lib/utils";
 
 import { useComposerInsert } from "../hooks/use-composer-insert";
+import { useWorkspacePathSearch } from "../hooks/use-workspace-path-search";
 import type { ComposerInsertPayload } from "../lib/composer-insert-store";
+import {
+  getActiveComposerMention,
+  type ActiveComposerMention,
+} from "../lib/composer-mention-state";
 import {
   deserializeAgentTextToDoc,
   editorHasWorkspaceReferences,
   resolveWorkspaceReferenceAttrs,
   serializeEditorToAgentText,
 } from "../lib/composer-serialize";
+import type { WorkspacePathMatch } from "../lib/search-workspace-paths";
 import { WorkspaceReferenceExtension } from "../lib/workspace-reference-extension";
+
+import { ComposerMentionPopover } from "./composer-mention-popover";
 
 export type ComposerRichInputProps = {
   value: string;
@@ -31,6 +40,7 @@ export type ComposerRichInputProps = {
   className?: string;
   disabled?: boolean;
   onCancelEdit?: () => void;
+  workspaceDir?: string | null;
 };
 
 export function ComposerRichInput({
@@ -40,11 +50,73 @@ export function ComposerRichInput({
   className,
   disabled = false,
   onCancelEdit,
+  workspaceDir,
 }: ComposerRichInputProps) {
   const attachments = usePromptInputAttachments();
   const isComposingRef = useRef(false);
   const keydownSuppressedRef = useRef(false);
   const editorRef = useRef<Editor | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mentionRef = useRef<ActiveComposerMention | null>(null);
+  const selectedIndexRef = useRef(0);
+  const resultsRef = useRef<WorkspacePathMatch[]>([]);
+  const [mention, setMention] = useState<ActiveComposerMention | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [anchorWidth, setAnchorWidth] = useState<number | undefined>();
+
+  const trimmedWorkspaceDir = workspaceDir?.trim() ?? "";
+  const hasWorkspace = trimmedWorkspaceDir.length > 0;
+  const { results, loading } = useWorkspacePathSearch(
+    trimmedWorkspaceDir,
+    mention?.query ?? "",
+    Boolean(mention)
+  );
+
+  const updateSelectedIndex = useCallback((nextIndex: number) => {
+    selectedIndexRef.current = nextIndex;
+    setSelectedIndex(nextIndex);
+  }, []);
+
+  const syncMentionState = useCallback(
+    (editor: Editor) => {
+      const nextMention = getActiveComposerMention(editor.state);
+      mentionRef.current = nextMention;
+      setMention(nextMention);
+      updateSelectedIndex(0);
+    },
+    [updateSelectedIndex]
+  );
+
+  const handleSelectMention = useCallback(
+    (item: WorkspacePathMatch) => {
+      const editor = editorRef.current;
+      const activeMention = mentionRef.current;
+      if (!editor || !activeMention) {
+        return;
+      }
+
+      const attrs = resolveWorkspaceReferenceAttrs(item.path, {
+        isDir: item.isDir,
+        name: item.name,
+      });
+
+      editor
+        .chain()
+        .focus()
+        .deleteRange({
+          from: activeMention.range.from,
+          to: activeMention.range.to,
+        })
+        .insertWorkspaceReference(attrs)
+        .insertContent(" ")
+        .run();
+
+      mentionRef.current = null;
+      setMention(null);
+      updateSelectedIndex(0);
+    },
+    [updateSelectedIndex]
+  );
 
   const handleUpdate = useCallback(
     (nextValue: string) => {
@@ -79,6 +151,44 @@ export function ComposerRichInput({
         "data-slot": "input-group-control",
       },
       handleKeyDown: (view, event) => {
+        const activeMention = mentionRef.current;
+
+        if (activeMention) {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            mentionRef.current = null;
+            setMention(null);
+            updateSelectedIndex(0);
+            return true;
+          }
+
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            const nextResults = resultsRef.current;
+            const nextIndex =
+              nextResults.length === 0
+                ? 0
+                : Math.min(selectedIndexRef.current + 1, nextResults.length - 1);
+            updateSelectedIndex(nextIndex);
+            return true;
+          }
+
+          if (event.key === "ArrowUp") {
+            event.preventDefault();
+            updateSelectedIndex(Math.max(selectedIndexRef.current - 1, 0));
+            return true;
+          }
+
+          if (event.key === "Enter" || event.key === "Tab") {
+            const selected = resultsRef.current[selectedIndexRef.current];
+            if (selected) {
+              event.preventDefault();
+              handleSelectMention(selected);
+              return true;
+            }
+          }
+        }
+
         if (event.key === "Escape" && onCancelEdit) {
           event.preventDefault();
           onCancelEdit();
@@ -161,7 +271,11 @@ export function ComposerRichInput({
         return false;
       },
     },
+    onSelectionUpdate: ({ editor: currentEditor }) => {
+      syncMentionState(currentEditor);
+    },
     onUpdate: ({ editor: currentEditor }) => {
+      syncMentionState(currentEditor);
       handleUpdate(serializeEditorToAgentText(currentEditor));
     },
   });
@@ -234,7 +348,45 @@ export function ComposerRichInput({
     editor.commands.setContent(deserializeAgentTextToDoc(value), {
       emitUpdate: false,
     });
-  }, [editor, value]);
+    syncMentionState(editor);
+  }, [editor, syncMentionState, value]);
+
+  useEffect(() => {
+    resultsRef.current = results;
+  }, [results]);
+
+  useEffect(() => {
+    if (!mention) {
+      return;
+    }
+
+    if (results.length === 0) {
+      updateSelectedIndex(0);
+      return;
+    }
+
+    updateSelectedIndex(Math.min(selectedIndexRef.current, results.length - 1));
+  }, [mention, results.length, updateSelectedIndex]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const updateWidth = () => {
+      setAnchorWidth(container.offsetWidth);
+    };
+
+    updateWidth();
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   const handleCompositionStart = useCallback(() => {
     isComposingRef.current = true;
@@ -282,21 +434,33 @@ export function ComposerRichInput({
   return (
     <>
       <input name="message" type="hidden" value={value} readOnly />
-      <EditorContent
-        className={cn(
-          "field-sizing-content w-full",
-          "[&_.ProseMirror_p.is-empty::before]:pointer-events-none",
-          "[&_.ProseMirror_p.is-empty::before]:float-left",
-          "[&_.ProseMirror_p.is-empty::before]:h-0",
-          "[&_.ProseMirror_p.is-empty::before]:text-muted-foreground",
-          "[&_.ProseMirror_p.is-empty::before]:content-[attr(data-placeholder)]",
-          className
-        )}
-        editor={editor}
-        onCompositionEnd={handleCompositionEnd}
-        onCompositionStart={handleCompositionStart}
-        onPaste={handleClipboardPaste}
-      />
+      <div className="relative w-full" ref={containerRef}>
+        <ComposerMentionPopover
+          anchorWidth={anchorWidth}
+          hasWorkspace={hasWorkspace}
+          loading={loading}
+          onSelect={handleSelectMention}
+          onSelectedIndexChange={updateSelectedIndex}
+          open={Boolean(mention)}
+          results={results}
+          selectedIndex={selectedIndex}
+        />
+        <EditorContent
+          className={cn(
+            "field-sizing-content w-full",
+            "[&_.ProseMirror_p.is-empty::before]:pointer-events-none",
+            "[&_.ProseMirror_p.is-empty::before]:float-left",
+            "[&_.ProseMirror_p.is-empty::before]:h-0",
+            "[&_.ProseMirror_p.is-empty::before]:text-muted-foreground",
+            "[&_.ProseMirror_p.is-empty::before]:content-[attr(data-placeholder)]",
+            className
+          )}
+          editor={editor}
+          onCompositionEnd={handleCompositionEnd}
+          onCompositionStart={handleCompositionStart}
+          onPaste={handleClipboardPaste}
+        />
+      </div>
     </>
   );
 }

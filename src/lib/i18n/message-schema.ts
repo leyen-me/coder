@@ -43,6 +43,9 @@ export type Messages = {
     addAttachment: string;
     removeAttachment: string;
     removeReference: string;
+    mentionSearching: string;
+    mentionNoWorkspace: string;
+    mentionNoResults: string;
     attachmentErrorAccept: string;
     attachmentErrorMultimodalUnsupported: string;
     attachmentErrorMaxSize: string;
