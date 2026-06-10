@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   buildSystemPrompt,
@@ -7,6 +7,13 @@ import {
 
 export function useSystemPrompt(workspaceDir: string | null | undefined) {
   const [systemPrompt, setSystemPrompt] = useState<string | null>(null);
+
+  const refreshSystemPrompt = useCallback(async () => {
+    const environment = await resolveAgentEnvironment(
+      workspaceDir?.trim() || null
+    );
+    setSystemPrompt(buildSystemPrompt(environment));
+  }, [workspaceDir]);
 
   useEffect(() => {
     let active = true;
@@ -26,5 +33,5 @@ export function useSystemPrompt(workspaceDir: string | null | undefined) {
     };
   }, [workspaceDir]);
 
-  return systemPrompt;
+  return { systemPrompt, refreshSystemPrompt };
 }

@@ -55,7 +55,9 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     workspaceDir: workspaceBinding.workspaceDir,
     enabled: canEditWorkspace,
   });
-  const systemPrompt = useSystemPrompt(workspaceBinding.workspaceDir);
+  const { systemPrompt, refreshSystemPrompt } = useSystemPrompt(
+    workspaceBinding.workspaceDir
+  );
 
   const activeTask = getSessionTask(chatId);
   const isRunning = isSessionRunning(chatId) || isSubmitting;
@@ -176,6 +178,9 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         messages={messages}
         onEditUserMessage={handleEditUserMessage}
         onRegenerateAssistantMessage={handleRegenerateAssistantMessage}
+        onSystemPromptExpand={() => {
+          void refreshSystemPrompt();
+        }}
         sessionTitle={session?.title}
         systemPrompt={systemPrompt}
       />

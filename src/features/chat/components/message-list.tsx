@@ -11,6 +11,7 @@ type MessageListProps = {
   messages: MessageRecord[];
   sessionTitle?: string;
   systemPrompt?: string | null;
+  onSystemPromptExpand?: () => void;
   editingMessageId?: string | null;
   onEditUserMessage?: (message: MessageRecord) => void;
   onRegenerateAssistantMessage?: (message: MessageRecord) => void;
@@ -46,6 +47,7 @@ export function MessageList({
   messages,
   sessionTitle,
   systemPrompt,
+  onSystemPromptExpand,
   editingMessageId,
   onEditUserMessage,
   onRegenerateAssistantMessage,
@@ -137,7 +139,10 @@ export function MessageList({
       <ScrollArea className="h-full px-4 py-6">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
           {systemPrompt ? (
-            <SystemPromptBlock content={systemPrompt} />
+            <SystemPromptBlock
+              content={systemPrompt}
+              onExpand={onSystemPromptExpand}
+            />
           ) : null}
           {messages.map((message) => (
             <MessageItem

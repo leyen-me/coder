@@ -12,11 +12,21 @@ import { ChevronDownIcon, ScrollTextIcon } from "lucide-react";
 
 type SystemPromptBlockProps = {
   content: string;
+  onExpand?: () => void;
 };
 
-export function SystemPromptBlock({ content }: SystemPromptBlockProps) {
+export function SystemPromptBlock({ content, onExpand }: SystemPromptBlockProps) {
   return (
-    <Reasoning className="mb-0 w-full" defaultOpen={false} isStreaming={false}>
+    <Reasoning
+      className="mb-0 w-full"
+      defaultOpen={false}
+      isStreaming={false}
+      onOpenChange={(open) => {
+        if (open) {
+          onExpand?.();
+        }
+      }}
+    >
       <SystemPromptTrigger />
       <CollapsibleContent
         className={cn(
