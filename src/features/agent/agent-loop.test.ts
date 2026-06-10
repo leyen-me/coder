@@ -435,6 +435,129 @@ describe("runAgentWithTools", () => {
     });
   });
 
+  it("recovers from stream idle timeout when a tool call was still streaming", async () => {
+    const events: Parameters<AgentEventHandler>[0][] = [];
+
+    startAgentMock
+      .mockImplementationOnce(async (_input, onEvent) => {
+        onEvent({
+          type: "tool_call_pending",
+          taskId: "task-1",
+          toolCallId: "call_1",
+          name: "write_file",
+        });
+        onEvent({
+          type: "error",
+          taskId: "task-1",
+          message: "Stream read timed out: no data received for 120s",
+        });
+        onEvent({ type: "status", taskId: "task-1", status: "failed" });
+      })
+      .mockImplementationOnce(async (input, onEvent) => {
+        expect(input.messages.at(-1)).toEqual({
+          role: "user",
+          content:
+            "（连接超时：模型在调用 write_file 时停止输出。请从上次停下的地方接着完成该工具调用，不要重复已经完成的内容。）",
+        });
+        onEvent({ type: "status", taskId: "task-1", status: "completed" });
+      });
+
+    await runAgentWithTools(
+      {
+        taskId: "task-1",
+        baseUrl: "https://api.example.com",
+        apiKey: "test-key",
+        apiKeySource: "manual",
+        apiKeyEnvVar: "TEST_API_KEY",
+        model: "deepseek-v4-pro",
+        messages: [{ role: "user", content: "写个文件" }],
+      },
+      { workspaceDir: null, taskId: "task-1" },
+      (event) => {
+        events.push(event);
+      }
+    );
+
+    expect(startAgentMock).toHaveBeenCalledTimes(2);
+    expect(events).not.toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        message: "Stream read timed out: no data received for 120s",
+      })
+    );
+  });
+
+  it("recovers from stream idle timeout by injecting a user nudge message", async () => {
+    const events: Parameters<AgentEventHandler>[0][] = [];
+
+    startAgentMock
+      .mockImplementationOnce(async (_input, onEvent) => {
+        onEvent({
+          type: "content_delta",
+          taskId: "task-1",
+          delta: "已完成第一步。",
+        });
+        onEvent({
+          type: "error",
+          taskId: "task-1",
+          message: "Stream read timed out: no data received for 120s",
+        });
+        onEvent({ type: "status", taskId: "task-1", status: "failed" });
+      })
+      .mockImplementationOnce(async (input, onEvent) => {
+        expect(input.messages).toEqual([
+          { role: "user", content: "继续任务" },
+          { role: "assistant", content: "已完成第一步。" },
+          {
+            role: "user",
+            content:
+              "（连接超时：模型超过一段时间没有继续输出。请从上次停下的地方接着完成，不要重复已经完成的内容。）",
+          },
+        ]);
+        onEvent({
+          type: "content_delta",
+          taskId: "task-1",
+          delta: "继续第二步。",
+        });
+        onEvent({ type: "status", taskId: "task-1", status: "completed" });
+      });
+
+    await runAgentWithTools(
+      {
+        taskId: "task-1",
+        baseUrl: "https://api.example.com",
+        apiKey: "test-key",
+        apiKeySource: "manual",
+        apiKeyEnvVar: "TEST_API_KEY",
+        model: "deepseek-v4-pro",
+        messages: [{ role: "user", content: "继续任务" }],
+      },
+      { workspaceDir: null, taskId: "task-1" },
+      (event) => {
+        events.push(event);
+      }
+    );
+
+    expect(startAgentMock).toHaveBeenCalledTimes(2);
+    expect(sleepMock).toHaveBeenCalledTimes(1);
+    expect(events).toContainEqual({
+      type: "chat_retry",
+      taskId: "task-1",
+      attempt: 2,
+      maxAttempts: 3,
+    });
+    expect(events).not.toContainEqual({
+      type: "error",
+      taskId: "task-1",
+      message: "Stream read timed out: no data received for 120s",
+    });
+    expect(events).toContainEqual({
+      type: "content_delta",
+      taskId: "task-1",
+      delta: "继续第二步。",
+    });
+  });
+
   it("does not retry after partial stream output was already emitted", async () => {
     startAgentMock.mockImplementationOnce(async (_input, onEvent) => {
       onEvent({

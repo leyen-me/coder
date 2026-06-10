@@ -1,19 +1,71 @@
 import { AgentCancellationError, isAgentCancellationError } from "./cancellation";
-import type { AgentEvent } from "./types";
+import type { AgentChatMessage, AgentEvent } from "./types";
 
 export const CHAT_RETRY_MAX_ATTEMPTS = 3;
 export const CHAT_RETRY_BASE_DELAY_MS = 1000;
 
+export const STREAM_IDLE_RECOVERY_USER_MESSAGE =
+  "（连接超时：模型超过一段时间没有继续输出。请从上次停下的地方接着完成，不要重复已经完成的内容。）";
+
 const RETRIABLE_HTTP_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
+
+export type AgentPartialTurn = {
+  content: string;
+  reasoningContent: string;
+  pendingToolName?: string;
+};
 
 export class AgentChatTurnError extends Error {
   readonly hadStreamOutput: boolean;
+  readonly partialTurn?: AgentPartialTurn;
 
-  constructor(message: string, hadStreamOutput: boolean) {
+  constructor(
+    message: string,
+    hadStreamOutput: boolean,
+    partialTurn?: AgentPartialTurn
+  ) {
     super(message);
     this.name = "AgentChatTurnError";
     this.hadStreamOutput = hadStreamOutput;
+    this.partialTurn = partialTurn;
   }
+}
+
+export function isStreamIdleTimeoutError(message: string): boolean {
+  return message.startsWith("Stream read timed out: no data received for");
+}
+
+export function buildStreamIdleRecoveryMessages(
+  messages: AgentChatMessage[],
+  partialTurn?: AgentPartialTurn
+): AgentChatMessage[] {
+  const next = [...messages];
+
+  if (partialTurn) {
+    const content = partialTurn.content.trim();
+    const reasoning = partialTurn.reasoningContent.trim();
+    if (content || reasoning) {
+      const assistant: AgentChatMessage = { role: "assistant" };
+      if (content) {
+        assistant.content = partialTurn.content;
+      }
+      if (reasoning) {
+        assistant.reasoning_content = partialTurn.reasoningContent;
+      }
+      next.push(assistant);
+    }
+  }
+
+  const recoveryMessage = partialTurn?.pendingToolName
+    ? `（连接超时：模型在调用 ${partialTurn.pendingToolName} 时停止输出。请从上次停下的地方接着完成该工具调用，不要重复已经完成的内容。）`
+    : STREAM_IDLE_RECOVERY_USER_MESSAGE;
+
+  next.push({
+    role: "user",
+    content: recoveryMessage,
+  });
+
+  return next;
 }
 
 /** Stream events that commit partial assistant output and prevent safe retry. */

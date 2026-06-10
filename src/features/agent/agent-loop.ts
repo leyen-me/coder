@@ -11,10 +11,12 @@ import { startAgent } from "./runner";
 import type { AgentChatMessage, AgentEvent, AgentEventHandler, AgentStartInput } from "./types";
 import {
   AgentChatTurnError,
+  buildStreamIdleRecoveryMessages,
   CHAT_RETRY_MAX_ATTEMPTS,
   chatRetryDelayMs,
   isCommittedStreamOutputEvent,
   isRetriableChatError,
+  isStreamIdleTimeoutError,
   sleep,
 } from "./chat-retry";
 import {
@@ -99,13 +101,18 @@ async function runSingleAgentTurn(
   signal: AbortSignal | undefined,
   onEvent: AgentEventHandler
 ): Promise<AgentTurnResult> {
+  let turnMessages = [...input.messages];
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= CHAT_RETRY_MAX_ATTEMPTS; attempt++) {
     throwIfAborted(signal, input.taskId);
 
     try {
-      return await runSingleAgentTurnAttempt(input, signal, onEvent);
+      return await runSingleAgentTurnAttempt(
+        { ...input, messages: turnMessages },
+        signal,
+        onEvent
+      );
     } catch (error) {
       if (!(error instanceof AgentChatTurnError)) {
         throw error;
@@ -113,22 +120,50 @@ async function runSingleAgentTurn(
 
       lastError = error;
 
-      if (
-        attempt >= CHAT_RETRY_MAX_ATTEMPTS ||
-        error.hadStreamOutput ||
-        !isRetriableChatError(error)
-      ) {
-        throw error;
+      const canRecoverFromIdleTimeout =
+        isStreamIdleTimeoutError(error.message) &&
+        attempt < CHAT_RETRY_MAX_ATTEMPTS;
+
+      if (canRecoverFromIdleTimeout) {
+        turnMessages = buildStreamIdleRecoveryMessages(
+          turnMessages,
+          error.partialTurn
+        );
+        onEvent({
+          type: "chat_retry",
+          taskId: input.taskId,
+          attempt: attempt + 1,
+          maxAttempts: CHAT_RETRY_MAX_ATTEMPTS,
+        });
+        await sleep(chatRetryDelayMs(attempt), signal);
+        continue;
       }
 
-      onEvent({
-        type: "chat_retry",
-        taskId: input.taskId,
-        attempt: attempt + 1,
-        maxAttempts: CHAT_RETRY_MAX_ATTEMPTS,
-      });
+      const canGenericRetry =
+        attempt < CHAT_RETRY_MAX_ATTEMPTS &&
+        !error.hadStreamOutput &&
+        isRetriableChatError(error);
 
-      await sleep(chatRetryDelayMs(attempt), signal);
+      if (canGenericRetry) {
+        onEvent({
+          type: "chat_retry",
+          taskId: input.taskId,
+          attempt: attempt + 1,
+          maxAttempts: CHAT_RETRY_MAX_ATTEMPTS,
+        });
+        await sleep(chatRetryDelayMs(attempt), signal);
+        continue;
+      }
+
+      if (error.hadStreamOutput) {
+        onEvent({
+          type: "error",
+          taskId: input.taskId,
+          message: error.message,
+        });
+      }
+
+      throw error;
     }
   }
 
@@ -144,6 +179,7 @@ async function runSingleAgentTurnAttempt(
     let toolCalls: AgentToolCall[] = [];
     let content = "";
     let reasoningContent = "";
+    let pendingToolName: string | undefined;
     let hadStreamOutput = false;
     let settled = false;
     let detachAbortListener = () => {};
@@ -158,7 +194,15 @@ async function runSingleAgentTurnAttempt(
     };
 
     const failTurn = (message: string) => {
-      finish(() => reject(new AgentChatTurnError(message, hadStreamOutput)));
+      finish(() =>
+        reject(
+          new AgentChatTurnError(message, hadStreamOutput, {
+            content,
+            reasoningContent,
+            pendingToolName,
+          })
+        )
+      );
     };
 
     const markStreamOutput = () => {
@@ -199,6 +243,12 @@ async function runSingleAgentTurnAttempt(
         return;
       }
 
+      if (event.type === "tool_call_pending") {
+        pendingToolName = event.name;
+        onEvent(event);
+        return;
+      }
+
       if (event.type === "turn_complete") {
         toolCalls = event.toolCalls;
         return;
@@ -221,9 +271,6 @@ async function runSingleAgentTurnAttempt(
       }
 
       if (event.type === "error") {
-        if (hadStreamOutput) {
-          onEvent(event);
-        }
         failTurn(event.message);
         return;
       }

@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { AgentCancellationError } from "./cancellation";
 import {
+  buildStreamIdleRecoveryMessages,
   chatRetryDelayMs,
   isCommittedStreamOutputEvent,
   isRetriableChatError,
+  isStreamIdleTimeoutError,
+  STREAM_IDLE_RECOVERY_USER_MESSAGE,
 } from "./chat-retry";
 
 describe("isRetriableChatError", () => {
@@ -79,6 +82,61 @@ describe("isCommittedStreamOutputEvent", () => {
         status: "running",
       })
     ).toBe(false);
+  });
+});
+
+describe("isStreamIdleTimeoutError", () => {
+  it("detects idle stream timeout messages", () => {
+    expect(
+      isStreamIdleTimeoutError("Stream read timed out: no data received for 120s")
+    ).toBe(true);
+    expect(
+      isStreamIdleTimeoutError("Stream read timed out: exceeded 1800s total stream limit")
+    ).toBe(false);
+  });
+});
+
+describe("buildStreamIdleRecoveryMessages", () => {
+  it("appends a recovery user message after partial assistant output", () => {
+    expect(
+      buildStreamIdleRecoveryMessages(
+        [{ role: "user", content: "继续任务" }],
+        { content: "已完成第一步。", reasoningContent: "先分析目录。" }
+      )
+    ).toEqual([
+      { role: "user", content: "继续任务" },
+      {
+        role: "assistant",
+        content: "已完成第一步。",
+        reasoning_content: "先分析目录。",
+      },
+      { role: "user", content: STREAM_IDLE_RECOVERY_USER_MESSAGE },
+    ]);
+  });
+
+  it("appends only the recovery user message when no partial text exists", () => {
+    expect(
+      buildStreamIdleRecoveryMessages([{ role: "user", content: "继续任务" }])
+    ).toEqual([
+      { role: "user", content: "继续任务" },
+      { role: "user", content: STREAM_IDLE_RECOVERY_USER_MESSAGE },
+    ]);
+  });
+
+  it("mentions the pending tool name when only a tool call was in progress", () => {
+    expect(
+      buildStreamIdleRecoveryMessages(
+        [{ role: "user", content: "继续任务" }],
+        { content: "", reasoningContent: "", pendingToolName: "write_file" }
+      )
+    ).toEqual([
+      { role: "user", content: "继续任务" },
+      {
+        role: "user",
+        content:
+          "（连接超时：模型在调用 write_file 时停止输出。请从上次停下的地方接着完成该工具调用，不要重复已经完成的内容。）",
+      },
+    ]);
   });
 });
 
