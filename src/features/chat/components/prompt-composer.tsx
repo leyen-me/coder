@@ -18,7 +18,6 @@ import {
   PromptInputSelectTrigger,
   PromptInputSelectValue,
   PromptInputSubmit,
-  PromptInputTextarea,
   usePromptInputAttachments,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
@@ -46,6 +45,7 @@ import { useWorkspacePathDropTarget } from "../hooks/use-workspace-path-drop-tar
 
 import { ComposerContextUsage } from "./composer-context-usage";
 import { ComposerEditTag } from "./composer-edit-tag";
+import { ComposerRichInput } from "./composer-rich-input";
 import {
   composerFooterControlActiveClassName,
   composerFooterControlClassName,
@@ -373,12 +373,13 @@ export function PromptComposer({
         return;
       }
 
+      onChange("");
       onSend?.({
         text: message.text.trim(),
         files: supportsMultimodal ? message.files : [],
       });
     },
-    [isRunning, onSend, supportsMultimodal]
+    [isRunning, onChange, onSend, supportsMultimodal]
   );
 
   const promptInputClassName = cn(
@@ -418,18 +419,14 @@ export function PromptComposer({
       />
 
       <PromptInputBody>
-        <PromptInputTextarea
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape" && onCancelEdit) {
-              event.preventDefault();
-              onCancelEdit();
-            }
-          }}
+        <ComposerRichInput
+          onCancelEdit={onCancelEdit}
+          onChange={onChange}
           placeholder={t("chat.composerPlaceholder")}
+          value={value}
           className={cn(
             "px-4 py-4 text-base text-foreground",
+            "[&_.ProseMirror]:min-h-[inherit] [&_.ProseMirror]:outline-none",
             isCompact ? "min-h-[72px]" : "min-h-[120px]"
           )}
         />

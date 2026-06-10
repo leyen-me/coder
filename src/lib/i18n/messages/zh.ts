@@ -44,6 +44,7 @@ export const zhMessages = {
     composerPlaceholder: "输入任务，@ 引用文件，/ 使用命令，? 查看技能",
     addAttachment: "添加图片",
     removeAttachment: "移除图片",
+    removeReference: "移除文件引用",
     attachmentErrorAccept: "仅支持图片文件",
     attachmentErrorMultimodalUnsupported: "当前模型不支持图片输入",
     attachmentErrorMaxSize: "单张图片不能超过 {size}",

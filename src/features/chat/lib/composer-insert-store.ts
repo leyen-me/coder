@@ -2,6 +2,8 @@ import { useSyncExternalStore } from "react";
 
 export type ComposerInsertPayload = {
   path: string;
+  name?: string;
+  isDir?: boolean;
   focus: boolean;
 };
 
@@ -17,9 +19,14 @@ function emit(): void {
 
 export function insertFileMentionIntoComposer(
   path: string,
-  options?: { focus?: boolean }
+  options?: { focus?: boolean; name?: string; isDir?: boolean }
 ): void {
-  latestInsert = { path, focus: options?.focus ?? true };
+  latestInsert = {
+    path,
+    focus: options?.focus ?? true,
+    isDir: options?.isDir,
+    name: options?.name,
+  };
   version += 1;
   emit();
 }
@@ -45,6 +52,7 @@ export function useComposerInsertVersion(): number {
   return useSyncExternalStore(subscribe, getVersion, getVersion);
 }
 
+/** @deprecated String append path; rich composer inserts inline nodes instead. */
 export function appendFileMention(current: string, path: string): string {
   const mention = `@${path}`;
 
@@ -56,17 +64,22 @@ export function appendFileMention(current: string, path: string): string {
   return `${current}${separator}${mention} `;
 }
 
-export const COMPOSER_TEXTAREA_SELECTOR = 'textarea[name="message"]';
+export const COMPOSER_EDITOR_SELECTOR =
+  '.ProseMirror[data-composer-input="true"]';
 
-export function focusComposerTextarea(): void {
-  const textarea = document.querySelector<HTMLTextAreaElement>(
-    COMPOSER_TEXTAREA_SELECTOR
-  );
-  if (!textarea) {
+/** @deprecated Use focusComposerEditor. */
+export const COMPOSER_TEXTAREA_SELECTOR = COMPOSER_EDITOR_SELECTOR;
+
+export function focusComposerEditor(): void {
+  const editor = document.querySelector<HTMLElement>(COMPOSER_EDITOR_SELECTOR);
+  if (!editor) {
     return;
   }
 
-  textarea.focus();
-  const end = textarea.value.length;
-  textarea.setSelectionRange(end, end);
+  editor.focus();
+}
+
+/** @deprecated Use focusComposerEditor. */
+export function focusComposerTextarea(): void {
+  focusComposerEditor();
 }

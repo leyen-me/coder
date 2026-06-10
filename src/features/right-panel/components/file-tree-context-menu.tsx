@@ -102,7 +102,10 @@ export function FileTreeEntryContextMenu({
           <ContextMenuSeparator />
           <ContextMenuItem
             onSelect={() => {
-              actions.handleAddToChat(entry.path);
+              actions.handleAddToChat(entry.path, {
+                isDir: entry.isDir,
+                name: entry.name,
+              });
             }}
           >
             <MessageSquarePlusIcon />
@@ -209,7 +212,10 @@ export function FileTreeEntryContextMenu({
         <ContextMenuSeparator />
         <ContextMenuItem
           onSelect={() => {
-            actions.handleAddToChat(entry.path);
+            actions.handleAddToChat(entry.path, {
+              isDir: entry.isDir,
+              name: entry.name,
+            });
           }}
         >
           <MessageSquarePlusIcon />

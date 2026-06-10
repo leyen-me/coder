@@ -42,6 +42,7 @@ export type Messages = {
     composerPlaceholder: string;
     addAttachment: string;
     removeAttachment: string;
+    removeReference: string;
     attachmentErrorAccept: string;
     attachmentErrorMultimodalUnsupported: string;
     attachmentErrorMaxSize: string;

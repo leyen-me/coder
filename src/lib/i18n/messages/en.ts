@@ -45,6 +45,7 @@ export const enMessages = {
       "Describe a task, @ mention files, / run commands, ? browse skills",
     addAttachment: "Add image",
     removeAttachment: "Remove image",
+    removeReference: "Remove file reference",
     attachmentErrorAccept: "Only image files are supported",
     attachmentErrorMultimodalUnsupported: "The selected model does not support image input",
     attachmentErrorMaxSize: "Each image must be {size} or smaller",

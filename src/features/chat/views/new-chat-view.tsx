@@ -7,7 +7,6 @@ import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { resolveInitialSessionWorkspaceDir } from "@/features/workspace/resolve-session-workspace";
-import { useComposerInsert } from "@/features/chat/hooks/use-composer-insert";
 import { createSession } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
@@ -26,7 +25,6 @@ export function NewChatView() {
   const { sendMessage } = useAgentStore();
   const { workspaceDir, pickWorkspace, clearWorkspace } = useNewChatWorkspace();
   const [prompt, setPrompt] = useState("");
-  useComposerInsert(setPrompt);
   const [model, setModel] = useState(() => resolveDefaultModel(resolved));
   const { thinkingEnabled, onThinkingEnabledChange } = useComposerThinking(
     model,

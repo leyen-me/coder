@@ -1,14 +1,14 @@
-import { useEffect, type Dispatch, type SetStateAction } from "react";
+import { useEffect } from "react";
 
 import {
-  appendFileMention,
-  focusComposerTextarea,
+  focusComposerEditor,
   getLatestComposerInsert,
   useComposerInsertVersion,
+  type ComposerInsertPayload,
 } from "../lib/composer-insert-store";
 
 export function useComposerInsert(
-  setPrompt: Dispatch<SetStateAction<string>>
+  onInsert: (payload: ComposerInsertPayload) => void
 ): void {
   const version = useComposerInsertVersion();
 
@@ -22,12 +22,12 @@ export function useComposerInsert(
       return;
     }
 
-    setPrompt((prev) => appendFileMention(prev, payload.path));
+    onInsert(payload);
 
     if (payload.focus) {
       requestAnimationFrame(() => {
-        focusComposerTextarea();
+        focusComposerEditor();
       });
     }
-  }, [version, setPrompt]);
+  }, [version, onInsert]);
 }
