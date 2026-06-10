@@ -7,7 +7,6 @@ import {
   XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 
 import {
   PromptInput,
@@ -355,13 +354,9 @@ export function PromptComposer({
     [supportsMultimodal, t]
   );
 
-  const handleWorkspacePathDrop = useCallback(
-    (path: string) => {
-      insertFileMentionIntoComposer(path);
-      toast.success(t("rightPanel.toastAddedToChat"));
-    },
-    [t]
-  );
+  const handleWorkspacePathDrop = useCallback((path: string) => {
+    insertFileMentionIntoComposer(path);
+  }, []);
 
   const dropTargetRef = useRef<HTMLDivElement>(null);
   useWorkspacePathDropTarget(dropTargetRef, handleWorkspacePathDrop);

@@ -184,13 +184,9 @@ export function useFileTreeActions({
     [handleError, t, workspaceDir]
   );
 
-  const handleAddToChat = useCallback(
-    (path: string) => {
-      insertFileMentionIntoComposer(path);
-      toast.success(t("rightPanel.toastAddedToChat"));
-    },
-    [t]
-  );
+  const handleAddToChat = useCallback((path: string) => {
+    insertFileMentionIntoComposer(path);
+  }, []);
 
   const handleReveal = useCallback(
     async (path: string) => {

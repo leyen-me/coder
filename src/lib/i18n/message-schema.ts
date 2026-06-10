@@ -276,7 +276,6 @@ export type Messages = {
     dialogConfirm: string;
     errorNameRequired: string;
     toastCopied: string;
-    toastAddedToChat: string;
     toastCopiedForPaste: string;
     toastCutForPaste: string;
     toastPasted: string;
