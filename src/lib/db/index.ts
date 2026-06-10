@@ -1,3 +1,4 @@
+export * from "./chat-search";
 export * from "./client";
 export * from "./clear-chat-data";
 export * from "./constants";

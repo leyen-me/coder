@@ -16,7 +16,6 @@ export type Messages = {
     newChat: string;
     search: string;
     skills: string;
-    plugins: string;
     automations: string;
     settings: string;
     allChats: string;
@@ -234,11 +233,14 @@ export type Messages = {
     title: string;
     placeholder: string;
     hint: string;
+    recent: string;
+    results: string;
+    empty: string;
+    loading: string;
   };
   pages: {
     history: { title: string };
     skills: { title: string };
-    plugins: { title: string };
     automations: { title: string };
     chatSession: { title: string };
     comingSoon: string;

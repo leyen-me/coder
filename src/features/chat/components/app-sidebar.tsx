@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Blocks,
   Plus,
   Search,
   Settings,
@@ -75,11 +74,6 @@ export function AppSidebar({ open }: AppSidebarProps) {
               icon={Sparkles}
               label={t("sidebar.skills")}
               to={paths.skills}
-            />
-            <SidebarNavItem
-              icon={Blocks}
-              label={t("sidebar.plugins")}
-              to={paths.plugins}
             />
             <SidebarNavItem
               icon={Workflow}

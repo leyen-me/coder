@@ -9,7 +9,7 @@ import { useRouteWorkspaceDir } from "@/features/terminal/use-route-workspace-di
 
 import type { ShellOutletContext } from "./shell-outlet-context";
 
-/** Sidebar + main content for chat, history, skills, plugins, and automations. */
+/** Sidebar + main content for chat, history, skills, and automations. */
 export function MainLayout() {
   const { sidebarOpen } = useOutletContext<ShellOutletContext>();
   const { pathname } = useLocation();
