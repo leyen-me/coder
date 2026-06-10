@@ -16,6 +16,7 @@ export const BROWSE_PAGE_TOOL_NAME = "browse_page";
 export const LIST_SKILLS_TOOL_NAME = "list_skills";
 export const READ_SKILL_TOOL_NAME = "read_skill";
 export const CREATE_SKILL_TOOL_NAME = "create_skill";
+export const UPDATE_SKILL_TOOL_NAME = "update_skill";
 
 export const LIST_DIR_TOOL: AgentToolDefinition = {
   type: "function",
@@ -546,6 +547,41 @@ export const CREATE_SKILL_TOOL: AgentToolDefinition = {
   },
 };
 
+export const UPDATE_SKILL_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: UPDATE_SKILL_TOOL_NAME,
+    description:
+      "Update an existing user skill by slug. Any combination of name, description, or content can be provided — only the supplied fields will be changed. Slug must be lowercase letters, numbers, and hyphens.",
+    parameters: {
+      type: "object",
+      properties: {
+        slug: {
+          type: "string",
+          description:
+            'Slug of the existing user skill to update, e.g. "code-review".',
+        },
+        name: {
+          type: "string",
+          description: "New short display name for the skill.",
+        },
+        description: {
+          type: "string",
+          description:
+            "New description — when to use this skill.",
+        },
+        content: {
+          type: "string",
+          description:
+            "New full skill instructions (markdown). Same format as a SKILL.md body.",
+        },
+      },
+      required: ["slug"],
+      additionalProperties: false,
+    },
+  },
+};
+
 export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   LIST_DIR_TOOL,
   READ_FILE_TOOL,
@@ -563,4 +599,5 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   LIST_SKILLS_TOOL,
   READ_SKILL_TOOL,
   CREATE_SKILL_TOOL,
+  UPDATE_SKILL_TOOL,
 ];

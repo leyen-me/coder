@@ -60,6 +60,7 @@ function buildUserSkillsSection(): string[] {
     "- Call list_skills to browse enabled skills (slug, name, description).",
     "- Call read_skill with a slug to load full instructions before following them.",
     "- Call create_skill to persist new custom skills when the user wants reusable instructions.",
+    "- Call update_skill to modify an existing user skill (name, description, or content).",
     "- New skills are disabled until the user enables them on the Skills page.",
     "- The user may also reference an enabled skill via /slug in their message.",
     "",

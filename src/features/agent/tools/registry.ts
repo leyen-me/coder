@@ -14,6 +14,7 @@ import {
   READ_SKILL_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
   SHELL_TOOL_NAME,
+  UPDATE_SKILL_TOOL_NAME,
   WEB_SEARCH_TOOL_NAME,
   WRITE_FILE_TOOL_NAME,
 } from "./definitions";
@@ -31,6 +32,7 @@ import { readFileHandler } from "./read-file";
 import { readSkillHandler } from "./read-skill";
 import { replaceFileHandler } from "./replace-file";
 import { shellHandler } from "./shell";
+import { updateSkillHandler } from "./update-skill";
 import { webSearchHandler } from "./web-search";
 import { writeFileHandler } from "./write-file";
 import type {
@@ -57,6 +59,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [LIST_SKILLS_TOOL_NAME]: listSkillsHandler,
   [READ_SKILL_TOOL_NAME]: readSkillHandler,
   [CREATE_SKILL_TOOL_NAME]: createSkillHandler,
+  [UPDATE_SKILL_TOOL_NAME]: updateSkillHandler,
 };
 
 export function getAgentToolDefinitions(): AgentToolDefinition[] {
