@@ -150,7 +150,7 @@ function ComposerSubmit({
   return (
     <PromptInputSubmit
       className="shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/90"
-      disabled={!canSend && !isRunning}
+      disabled={!canSend || isRunning}
       onStop={onStop}
       status={submitStatus}
     />
@@ -421,7 +421,6 @@ export function PromptComposer({
             "px-4 py-4 text-base text-foreground",
             isCompact ? "min-h-[72px]" : "min-h-[120px]"
           )}
-          readOnly={isRunning}
         />
       </PromptInputBody>
 
@@ -430,7 +429,7 @@ export function PromptComposer({
           <PromptInputSelect
             value={model}
             onValueChange={onModelChange}
-            disabled={isRunning || models.length === 0}
+            disabled={models.length === 0}
           >
             <PromptInputSelectTrigger
               size="sm"
