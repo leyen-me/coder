@@ -1,5 +1,22 @@
 import type { SystemSkillDefinition } from "../types";
 
+const TOOLS_CONTENT = `# Tools
+
+You can call tools when you need local filesystem, shell, or web information.
+Use glob to find files by name pattern and grep to search file contents.
+Use shell to run CLI commands (builds, tests, git). Commands run non-interactively.
+For long-running commands (dev servers, watch mode), use shell with block_until_ms=0, then await with the returned shell_id.
+Use web_search for real-time information outside training data, such as news, version numbers, or current events.
+Use browse_page to read the full content of a specific URL, especially after web_search returns promising links.
+browse_page does not render JavaScript-heavy pages. Prefer quoting tool output instead of inventing details.
+Use list_skills to browse user-enabled skills (slug, name, description).
+Use read_skill with a slug to load full skill instructions before following them.
+Use create_skill when the user asks you to save reusable instructions as a custom skill.
+Paths are resolved relative to workspaceDir unless noted otherwise.
+When a tool fails, read the error code and message, then adjust your approach.
+Prefer tools over guessing file, directory, or web page contents.
+`;
+
 const CODE_REVIEW_CONTENT = `# Code Review
 
 When reviewing code:
@@ -35,45 +52,17 @@ Types: feat, fix, refactor, docs, test, chore, perf, ci
 Keep the subject line under 72 characters.
 `;
 
-const I18N_GUIDE_CONTENT = `# i18n Guide (Coder)
-
-This project uses typed i18n in \`src/lib/i18n/\`:
-
-1. Add keys to \`message-schema.ts\` first
-2. Add English strings in \`messages/en.ts\`
-3. Add Chinese strings in \`messages/zh.ts\`
-4. Use \`useTranslation()\` or \`useLocale()\` in components
-5. Never hardcode user-facing strings in UI code
-
-Run typecheck after adding keys to catch missing translations.
-`;
-
-const TAURI_DEV_CONTENT = `# Tauri Development (Coder)
-
-Desktop commands live in \`src-tauri/\`:
-
-1. Add Rust command in \`src-tauri/src/\` and register in \`lib.rs\`
-2. Invoke from frontend via \`@tauri-apps/api/core\` \`invoke()\`
-3. Guard browser-only code with \`isTauri()\`
-4. Run \`pnpm tauri dev\` for local development
-
-Prefer existing tool patterns in \`src-tauri/src/tools/\` when adding agent capabilities.
-`;
-
-const SECURITY_REVIEW_CONTENT = `# Security Review
-
-Review changes for:
-
-1. **Secrets**: API keys, tokens, credentials in code or logs
-2. **Input validation**: user content, file paths, shell commands
-3. **XSS**: unsanitized HTML/markdown rendering
-4. **Path traversal**: workspace-relative path resolution
-5. **Command injection**: shell tool argument handling
-
-Flag issues with severity and a concrete remediation step.
-`;
-
 export const SYSTEM_SKILLS: SystemSkillDefinition[] = [
+  {
+    id: "tools",
+    slug: "tools",
+    name: "Tools",
+    description:
+      "How to use filesystem, shell, web, and skill tools available to the agent.",
+    content: TOOLS_CONTENT,
+    defaultEnabled: true,
+    category: "core",
+  },
   {
     id: "code-review",
     slug: "code-review",
@@ -92,36 +81,6 @@ export const SYSTEM_SKILLS: SystemSkillDefinition[] = [
       "Generate conventional commit messages by analyzing git diffs and staged changes.",
     content: COMMIT_HELPER_CONTENT,
     defaultEnabled: true,
-    category: "development",
-  },
-  {
-    id: "i18n-guide",
-    slug: "i18n-guide",
-    name: "i18n Guide",
-    description:
-      "Follow Coder i18n conventions when adding or updating user-facing strings.",
-    content: I18N_GUIDE_CONTENT,
-    defaultEnabled: false,
-    category: "project",
-  },
-  {
-    id: "tauri-dev",
-    slug: "tauri-dev",
-    name: "Tauri Development",
-    description:
-      "Guidance for adding Tauri commands and desktop-only features in Coder.",
-    content: TAURI_DEV_CONTENT,
-    defaultEnabled: false,
-    category: "project",
-  },
-  {
-    id: "security-review",
-    slug: "security-review",
-    name: "Security Review",
-    description:
-      "Review changes for secrets, injection, XSS, and path traversal risks.",
-    content: SECURITY_REVIEW_CONTENT,
-    defaultEnabled: false,
     category: "development",
   },
 ];

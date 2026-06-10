@@ -1,4 +1,3 @@
-import { buildGitCommitRules } from "./git-commit-rules";
 import type {
   AgentEnvironment,
   AgentEnvironmentInput,
@@ -27,25 +26,9 @@ export function buildSystemPrompt(environment: AgentEnvironment): string {
     `- gitRepository: ${gitLine}`,
     `- date: ${environment.today}`,
     "",
-    "## Tools",
-    "You can call tools when you need local filesystem, shell, or web information.",
-    "Use glob to find files by name pattern and grep to search file contents.",
-    "Use shell to run CLI commands (builds, tests, git). Commands run non-interactively.",
-    "For long-running commands (dev servers, watch mode), use shell with block_until_ms=0, then await with the returned shell_id.",
-    "Use web_search for real-time information outside training data, such as news, version numbers, or current events.",
-    "Use browse_page to read the full content of a specific URL, especially after web_search returns promising links.",
-    "browse_page does not render JavaScript-heavy pages. Prefer quoting tool output instead of inventing details.",
-    "Use list_skills to browse user-enabled skills (slug, name, description).",
-    "Use read_skill with a slug to load full skill instructions before following them.",
-    "Use create_skill when the user asks you to save reusable instructions as a custom skill.",
-    "Paths are resolved relative to workspaceDir unless noted otherwise.",
-    "When a tool fails, read the error code and message, then adjust your approach.",
-    "Prefer tools over guessing file, directory, or web page contents.",
-    "",
     ...buildActiveSystemSkillsSection(environment.enabledSystemSkills),
     ...buildUserSkillsSection(),
     ...buildProjectInstructionsSection(environment.agentsMd),
-    ...(environment.isGitRepository ? buildGitCommitRules(environment) : []),
   ].join("\n");
 }
 

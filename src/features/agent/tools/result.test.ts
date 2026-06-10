@@ -9,7 +9,7 @@ import {
 } from "@/features/agent/tools/result";
 
 describe("buildSystemPrompt", () => {
-  it("includes runtime metadata and tool guidance", () => {
+  it("includes runtime metadata without inline tool or git sections", () => {
     const prompt = buildSystemPrompt(
       normalizeEnvironment({
         workspaceDir: "/tmp/project",
@@ -23,26 +23,32 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("workspaceDir: /tmp/project");
     expect(prompt).toContain("shell: /bin/zsh");
     expect(prompt).toContain("gitRepository: no");
-    expect(prompt).toContain("## Tools");
+    expect(prompt).not.toContain("## Tools");
     expect(prompt).not.toContain("## Git");
   });
 
-  it("includes git commit rules in git repositories", () => {
+  it("includes enabled system skills such as tools guidance", () => {
     const prompt = buildSystemPrompt(
       normalizeEnvironment({
-        workspaceDir: "C:\\Users\\dev\\project",
-        os: "windows x86_64 (10.0)",
-        shell: "powershell",
+        workspaceDir: "/tmp/project",
+        os: "macos aarch64 (15.5)",
+        shell: "/bin/zsh",
         isGitRepository: true,
         today: "2026-06-09, Tuesday",
+        enabledSystemSkills: [
+          {
+            slug: "tools",
+            name: "Tools",
+            content: "Use glob to find files by name pattern.",
+          },
+        ],
       })
     );
 
-    expect(prompt).toContain("## Git");
-    expect(prompt).toContain("git status");
-    expect(prompt).toContain("wait for confirmation");
-    expect(prompt).toContain("### Windows shell");
-    expect(prompt).toContain("git commit -F");
+    expect(prompt).toContain("## Active skills (system)");
+    expect(prompt).toContain("[tools] Tools");
+    expect(prompt).toContain("Use glob to find files by name pattern.");
+    expect(prompt).not.toContain("## Git");
   });
 
   it("includes project instructions when agentsMd is present", () => {
