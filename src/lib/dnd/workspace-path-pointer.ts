@@ -1,4 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
+import { useSyncExternalStore } from "react";
 
 import {
   beginWorkspacePathDrag,
@@ -6,9 +7,21 @@ import {
 } from "./workspace-path";
 
 const DRAG_THRESHOLD_PX = 6;
+const DRAG_PREVIEW_OFFSET_X = 12;
+const DRAG_PREVIEW_OFFSET_Y = 10;
+
+export type WorkspacePathDragPreviewState = {
+  path: string;
+  name: string;
+  isDir: boolean;
+  x: number;
+  y: number;
+};
 
 type PointerSession = {
   path: string;
+  name: string;
+  isDir: boolean;
   startX: number;
   startY: number;
   dragging: boolean;
@@ -21,9 +34,57 @@ type DropTarget = {
 };
 
 let pointerSession: PointerSession | null = null;
+let dragPreview: WorkspacePathDragPreviewState | null = null;
 let suppressNextTreeClick = false;
 const dropTargets = new Map<symbol, DropTarget>();
+const previewListeners = new Set<() => void>();
 let listenersAttached = false;
+
+function emitPreviewChange(): void {
+  for (const listener of previewListeners) {
+    listener();
+  }
+}
+
+function setDragPreview(state: WorkspacePathDragPreviewState | null): void {
+  dragPreview = state;
+  emitPreviewChange();
+}
+
+function updateDragPreviewPosition(x: number, y: number): void {
+  if (!dragPreview) {
+    return;
+  }
+
+  dragPreview = { ...dragPreview, x, y };
+  emitPreviewChange();
+}
+
+function subscribeDragPreview(listener: () => void): () => void {
+  previewListeners.add(listener);
+  return () => {
+    previewListeners.delete(listener);
+  };
+}
+
+function getDragPreviewSnapshot(): WorkspacePathDragPreviewState | null {
+  return dragPreview;
+}
+
+export function useWorkspacePathDragPreview(): WorkspacePathDragPreviewState | null {
+  return useSyncExternalStore(
+    subscribeDragPreview,
+    getDragPreviewSnapshot,
+    getDragPreviewSnapshot
+  );
+}
+
+export function getWorkspacePathDragPreviewOffset(): {
+  x: number;
+  y: number;
+} {
+  return { x: DRAG_PREVIEW_OFFSET_X, y: DRAG_PREVIEW_OFFSET_Y };
+}
 
 function attachDocumentListeners(): void {
   if (listenersAttached) {
@@ -62,9 +123,19 @@ function handleDocumentPointerMove(event: PointerEvent): void {
     pointerSession.dragging = true;
     beginWorkspacePathDrag(pointerSession.path);
     document.body.dataset.workspacePathDrag = "true";
+    setDragPreview({
+      isDir: pointerSession.isDir,
+      name: pointerSession.name,
+      path: pointerSession.path,
+      x: event.clientX,
+      y: event.clientY,
+    });
   }
 
-  updateDropTargetHover(event.clientX, event.clientY);
+  if (pointerSession.dragging) {
+    updateDragPreviewPosition(event.clientX, event.clientY);
+    updateDropTargetHover(event.clientX, event.clientY);
+  }
 }
 
 function updateDropTargetHover(x: number, y: number): void {
@@ -121,6 +192,7 @@ function handleDocumentPointerUp(event: PointerEvent): void {
   const { path, dragging } = pointerSession;
   pointerSession = null;
   delete document.body.dataset.workspacePathDrag;
+  setDragPreview(null);
   clearDropTargetHover();
 
   if (!dragging) {
@@ -141,12 +213,16 @@ function handleDocumentPointerUp(event: PointerEvent): void {
 
 export function beginFileTreePointerDrag(
   path: string,
+  name: string,
+  isDir: boolean,
   clientX: number,
   clientY: number
 ): void {
   attachDocumentListeners();
   pointerSession = {
     dragging: false,
+    isDir,
+    name,
     path,
     startX: clientX,
     startY: clientY,
@@ -181,7 +257,11 @@ export function shouldSuppressFileTreeClick(): boolean {
   return true;
 }
 
-export function createFileTreePointerDragProps(path: string): {
+export function createFileTreePointerDragProps(entry: {
+  path: string;
+  name: string;
+  isDir: boolean;
+}): {
   onPointerDown: (event: ReactPointerEvent) => void;
 } {
   return {
@@ -190,7 +270,13 @@ export function createFileTreePointerDragProps(path: string): {
         return;
       }
 
-      beginFileTreePointerDrag(path, event.clientX, event.clientY);
+      beginFileTreePointerDrag(
+        entry.path,
+        entry.name,
+        entry.isDir,
+        event.clientX,
+        event.clientY
+      );
     },
   };
 }
@@ -198,11 +284,13 @@ export function createFileTreePointerDragProps(path: string): {
 /** @internal Resets module state between tests. */
 export function resetWorkspacePathPointerStateForTests(): void {
   pointerSession = null;
+  dragPreview = null;
   suppressNextTreeClick = false;
   dropTargets.clear();
   if (typeof document !== "undefined") {
     delete document.body.dataset.workspacePathDrag;
     clearDropTargetHover();
   }
+  emitPreviewChange();
   detachDocumentListenersIfIdle();
 }

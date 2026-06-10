@@ -9,6 +9,7 @@ import { PersistentBottomPanel } from "@/features/terminal/components/persistent
 import { ShellProcessesProvider } from "@/features/terminal/shell-processes-context";
 import { useRouteWorkspaceDir } from "@/features/terminal/use-route-workspace-dir";
 import { Toaster } from "@/components/ui/sonner";
+import { WorkspacePathDragPreview } from "@/components/dnd/workspace-path-drag-preview";
 import { useAppWindow } from "@/lib/tauri/use-app-window";
 import { useWindowMaximized } from "@/lib/tauri/use-window-maximized";
 import { cn } from "@/lib/utils";
@@ -63,6 +64,7 @@ export function AppShell() {
         </RightPanelProvider>
       </BottomPanelProvider>
       <Toaster richColors />
+      <WorkspacePathDragPreview />
     </div>
   );
 }

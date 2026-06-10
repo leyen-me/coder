@@ -70,7 +70,11 @@ function renderTreeEntries({
   onRefresh,
 }: RenderTreeEntriesOptions) {
   return entries.map((entry) => {
-    const pointerDragProps = createFileTreePointerDragProps(entry.path);
+    const pointerDragProps = createFileTreePointerDragProps({
+      isDir: entry.isDir,
+      name: entry.name,
+      path: entry.path,
+    });
 
     if (entry.isDir) {
       const children = entriesByPath.get(entry.path) ?? [];
