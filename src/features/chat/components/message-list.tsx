@@ -1,6 +1,9 @@
 import { useEffect, useRef } from "react";
 
-import { useActiveStreamingMessageIds } from "@/features/agent/store/agent-store";
+import {
+  useActiveStreamingMessageIds,
+  useChatRetryByMessageId,
+} from "@/features/agent/store/agent-store";
 import type { MessageRecord } from "@/lib/db";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -53,6 +56,7 @@ export function MessageList({
   onRegenerateAssistantMessage,
 }: MessageListProps) {
   const streamingMessageIds = useActiveStreamingMessageIds();
+  const chatRetryByMessageId = useChatRetryByMessageId();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const previousMessageCountRef = useRef(messages.length);
   const isPinnedToBottomRef = useRef(true);
@@ -146,6 +150,7 @@ export function MessageList({
           ) : null}
           {messages.map((message) => (
             <MessageItem
+              chatRetry={chatRetryByMessageId.get(message.id) ?? null}
               editingMessageId={editingMessageId}
               isStreaming={streamingMessageIds.has(message.id)}
               key={message.id}

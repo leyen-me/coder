@@ -23,6 +23,8 @@ import { CopyIcon, GitForkIcon, PencilIcon, RefreshCwIcon } from "lucide-react";
 import { memo, useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import type { ChatRetryState } from "@/features/agent/types";
+
 import {
   buildAssistantProcessSteps,
 } from "./assistant-process";
@@ -32,6 +34,7 @@ type MessageItemProps = {
   message: MessageRecord;
   sessionTitle?: string;
   isStreaming: boolean;
+  chatRetry?: ChatRetryState | null;
   editingMessageId?: string | null;
   onEditUserMessage?: (message: MessageRecord) => void;
   onRegenerateAssistantMessage?: (message: MessageRecord) => void;
@@ -46,6 +49,14 @@ function areMessageItemPropsEqual(
   }
 
   if (prev.isStreaming !== next.isStreaming) {
+    return false;
+  }
+
+  if (prev.chatRetry?.attempt !== next.chatRetry?.attempt) {
+    return false;
+  }
+
+  if (prev.chatRetry?.maxAttempts !== next.chatRetry?.maxAttempts) {
     return false;
   }
 
@@ -81,6 +92,7 @@ export const MessageItem = memo(function MessageItem({
   message,
   sessionTitle,
   isStreaming,
+  chatRetry = null,
   editingMessageId,
   onEditUserMessage,
   onRegenerateAssistantMessage,
@@ -328,7 +340,21 @@ export const MessageItem = memo(function MessageItem({
       {message.status === "failed" && message.error ? (
         <p className="text-sm text-destructive">{message.error}</p>
       ) : null}
-      {isStreaming && !answerText && !showReasoning && !hasTools ? (
+      {isStreaming && chatRetry && !answerText ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span
+            className={cn(
+              "size-1.5 animate-pulse rounded-full bg-muted-foreground"
+            )}
+          />
+          <span>
+            {t("chat.chatRetrying", {
+              attempt: chatRetry.attempt,
+              maxAttempts: chatRetry.maxAttempts,
+            })}
+          </span>
+        </div>
+      ) : isStreaming && !answerText && !showReasoning && !hasTools ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span
             className={cn(

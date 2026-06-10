@@ -84,6 +84,7 @@ export type Messages = {
     forkMessage: string;
     forkSessionTitle: string;
     regenerateMessage: string;
+    chatRetrying: string;
     noModel: string;
     thinkingToggle: string;
     thinkingToggleLabel: string;

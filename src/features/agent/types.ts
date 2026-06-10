@@ -46,7 +46,13 @@ export type AgentEvent =
       errorText?: string;
     }
   | { type: "done"; taskId: string }
-  | { type: "error"; taskId: string; message: string };
+  | { type: "error"; taskId: string; message: string }
+  | {
+      type: "chat_retry";
+      taskId: string;
+      attempt: number;
+      maxAttempts: number;
+    };
 
 export type AgentStartInput = {
   taskId: string;
@@ -63,12 +69,18 @@ export type AgentStartInput = {
   requestExtensions?: Record<string, unknown>;
 };
 
+export type ChatRetryState = {
+  attempt: number;
+  maxAttempts: number;
+};
+
 export type ActiveTaskState = {
   taskId: string;
   sessionId: string;
   assistantMessageId: string;
   status: AgentStatus;
   error: string | null;
+  chatRetry: ChatRetryState | null;
   /** First user turn in this session — triggers AI title after completion. */
   isFirstTurn: boolean;
   model: string;

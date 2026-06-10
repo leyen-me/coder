@@ -10,6 +10,14 @@ import type { AgentToolCall, TavilyConfig } from "./tools/types";
 import { startAgent } from "./runner";
 import type { AgentChatMessage, AgentEvent, AgentEventHandler, AgentStartInput } from "./types";
 import {
+  AgentChatTurnError,
+  CHAT_RETRY_MAX_ATTEMPTS,
+  chatRetryDelayMs,
+  isCommittedStreamOutputEvent,
+  isRetriableChatError,
+  sleep,
+} from "./chat-retry";
+import {
   ToolCallStallDetector,
   agentToolCallStallError,
 } from "./tool-call-stall";
@@ -64,23 +72,63 @@ export async function runAgentWithTools(
   }
 }
 
+type AgentTurnResult = {
+  toolCalls: AgentToolCall[];
+  content: string;
+  reasoningContent: string;
+};
+
 async function runSingleAgentTurn(
   input: AgentStartInput,
   signal: AbortSignal | undefined,
   onEvent: AgentEventHandler
-): Promise<{
-  toolCalls: AgentToolCall[];
-  content: string;
-  reasoningContent: string;
-}> {
-  return new Promise<{
-    toolCalls: AgentToolCall[];
-    content: string;
-    reasoningContent: string;
-  }>((resolve, reject) => {
+): Promise<AgentTurnResult> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= CHAT_RETRY_MAX_ATTEMPTS; attempt++) {
+    throwIfAborted(signal, input.taskId);
+
+    try {
+      return await runSingleAgentTurnAttempt(input, signal, onEvent);
+    } catch (error) {
+      if (!(error instanceof AgentChatTurnError)) {
+        throw error;
+      }
+
+      lastError = error;
+
+      if (
+        attempt >= CHAT_RETRY_MAX_ATTEMPTS ||
+        error.hadStreamOutput ||
+        !isRetriableChatError(error)
+      ) {
+        throw error;
+      }
+
+      onEvent({
+        type: "chat_retry",
+        taskId: input.taskId,
+        attempt: attempt + 1,
+        maxAttempts: CHAT_RETRY_MAX_ATTEMPTS,
+      });
+
+      await sleep(chatRetryDelayMs(attempt), signal);
+    }
+  }
+
+  throw lastError;
+}
+
+async function runSingleAgentTurnAttempt(
+  input: AgentStartInput,
+  signal: AbortSignal | undefined,
+  onEvent: AgentEventHandler
+): Promise<AgentTurnResult> {
+  return new Promise<AgentTurnResult>((resolve, reject) => {
     let toolCalls: AgentToolCall[] = [];
     let content = "";
     let reasoningContent = "";
+    let hadStreamOutput = false;
     let settled = false;
     let detachAbortListener = () => {};
 
@@ -91,6 +139,14 @@ async function runSingleAgentTurn(
       settled = true;
       detachAbortListener();
       handler();
+    };
+
+    const failTurn = (message: string) => {
+      finish(() => reject(new AgentChatTurnError(message, hadStreamOutput)));
+    };
+
+    const markStreamOutput = () => {
+      hadStreamOutput = true;
     };
 
     try {
@@ -111,6 +167,10 @@ async function runSingleAgentTurn(
     }
 
     void startAgent(input, (event) => {
+      if (isCommittedStreamOutputEvent(event)) {
+        markStreamOutput();
+      }
+
       if (event.type === "thinking_delta") {
         reasoningContent += event.delta;
         onEvent(event);
@@ -138,27 +198,24 @@ async function runSingleAgentTurn(
           return;
         }
 
-        if (
-          event.status === "failed" ||
-          event.status === "cancelled"
-        ) {
-          finish(() =>
-            reject(new Error(`Agent turn ended with status: ${event.status}`))
-          );
+        if (event.status === "failed" || event.status === "cancelled") {
+          failTurn(`Agent turn ended with status: ${event.status}`);
           return;
         }
       }
 
       if (event.type === "error") {
-        onEvent(event);
-        finish(() => reject(new Error(event.message)));
+        if (hadStreamOutput) {
+          onEvent(event);
+        }
+        failTurn(event.message);
         return;
       }
 
       onEvent(event);
     }).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
-      finish(() => reject(new Error(message)));
+      failTurn(message);
     });
   });
 }

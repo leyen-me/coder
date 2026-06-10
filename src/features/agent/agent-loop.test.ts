@@ -19,12 +19,23 @@ vi.mock("./tools", () => ({
   serializeToolResult: (result: unknown) => JSON.stringify(result),
 }));
 
+const sleepMock = vi.fn(() => Promise.resolve());
+
+vi.mock("./chat-retry", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./chat-retry")>();
+  return {
+    ...actual,
+    sleep: (...args: unknown[]) => sleepMock(...args),
+  };
+});
+
 import { runAgentWithTools } from "./agent-loop";
 
 describe("runAgentWithTools", () => {
   beforeEach(() => {
     startAgentMock.mockReset();
     executeToolCallMock.mockReset();
+    sleepMock.mockClear();
   });
 
   it("replays the full assistant tool-call turn into the next request", async () => {
@@ -317,5 +328,128 @@ describe("runAgentWithTools", () => {
     ).rejects.toThrow("Agent appears stuck repeating the same tool calls");
 
     expect(startAgentMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries a chat turn after a transient API failure with no streamed output", async () => {
+    const events: Parameters<AgentEventHandler>[0][] = [];
+
+    startAgentMock
+      .mockImplementationOnce(async (_input, onEvent) => {
+        onEvent({ type: "status", taskId: "task-1", status: "running" });
+        onEvent({
+          type: "error",
+          taskId: "task-1",
+          message: "API error (503): service unavailable",
+        });
+        onEvent({ type: "status", taskId: "task-1", status: "failed" });
+      })
+      .mockImplementationOnce(async (_input, onEvent) => {
+        onEvent({
+          type: "content_delta",
+          taskId: "task-1",
+          delta: "恢复成功。",
+        });
+        onEvent({ type: "status", taskId: "task-1", status: "completed" });
+      });
+
+    await runAgentWithTools(
+      {
+        taskId: "task-1",
+        baseUrl: "https://api.example.com",
+        apiKey: "test-key",
+        apiKeySource: "manual",
+        apiKeyEnvVar: "TEST_API_KEY",
+        model: "deepseek-v4-pro",
+        messages: [{ role: "user", content: "你好" }],
+      },
+      { workspaceDir: null, taskId: "task-1" },
+      (event) => {
+        events.push(event);
+      }
+    );
+
+    expect(startAgentMock).toHaveBeenCalledTimes(2);
+    expect(sleepMock).toHaveBeenCalledTimes(1);
+    expect(events).toContainEqual({
+      type: "chat_retry",
+      taskId: "task-1",
+      attempt: 2,
+      maxAttempts: 3,
+    });
+    expect(events).not.toContainEqual({
+      type: "error",
+      taskId: "task-1",
+      message: "API error (503): service unavailable",
+    });
+    expect(events).toContainEqual({
+      type: "content_delta",
+      taskId: "task-1",
+      delta: "恢复成功。",
+    });
+  });
+
+  it("does not retry after partial stream output was already emitted", async () => {
+    startAgentMock.mockImplementationOnce(async (_input, onEvent) => {
+      onEvent({
+        type: "content_delta",
+        taskId: "task-1",
+        delta: "部分内容",
+      });
+      onEvent({
+        type: "error",
+        taskId: "task-1",
+        message: "Stream read failed: connection reset",
+      });
+      onEvent({ type: "status", taskId: "task-1", status: "failed" });
+    });
+
+    await expect(
+      runAgentWithTools(
+        {
+          taskId: "task-1",
+          baseUrl: "https://api.example.com",
+          apiKey: "test-key",
+          apiKeySource: "manual",
+          apiKeyEnvVar: "TEST_API_KEY",
+          model: "deepseek-v4-pro",
+          messages: [{ role: "user", content: "你好" }],
+        },
+        { workspaceDir: null, taskId: "task-1" },
+        () => {}
+      )
+    ).rejects.toThrow("Stream read failed: connection reset");
+
+    expect(startAgentMock).toHaveBeenCalledTimes(1);
+    expect(sleepMock).not.toHaveBeenCalled();
+  });
+
+  it("does not retry non-retriable client errors", async () => {
+    startAgentMock.mockImplementationOnce(async (_input, onEvent) => {
+      onEvent({
+        type: "error",
+        taskId: "task-1",
+        message: "API error (401): unauthorized",
+      });
+      onEvent({ type: "status", taskId: "task-1", status: "failed" });
+    });
+
+    await expect(
+      runAgentWithTools(
+        {
+          taskId: "task-1",
+          baseUrl: "https://api.example.com",
+          apiKey: "test-key",
+          apiKeySource: "manual",
+          apiKeyEnvVar: "TEST_API_KEY",
+          model: "deepseek-v4-pro",
+          messages: [{ role: "user", content: "你好" }],
+        },
+        { workspaceDir: null, taskId: "task-1" },
+        () => {}
+      )
+    ).rejects.toThrow("API error (401): unauthorized");
+
+    expect(startAgentMock).toHaveBeenCalledTimes(1);
+    expect(sleepMock).not.toHaveBeenCalled();
   });
 });

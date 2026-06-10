@@ -204,10 +204,24 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     getStreamingSnapshot
   );
 
+  const clearTaskChatRetry = useCallback(
+    (taskId: string) => {
+      const task = tasksRef.current.get(taskId);
+      if (!task?.chatRetry) {
+        return;
+      }
+
+      tasksRef.current.set(taskId, { ...task, chatRetry: null });
+      emit();
+    },
+    [emit]
+  );
+
   const handleAgentEvent = useCallback(
     async (event: AgentEvent, assistantMessageId: string) => {
       switch (event.type) {
         case "thinking_delta":
+          clearTaskChatRetry(event.taskId);
           streamingBufferRef.current.append(
             assistantMessageId,
             "thinking",
@@ -215,12 +229,27 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           );
           return;
         case "content_delta":
+          clearTaskChatRetry(event.taskId);
           streamingBufferRef.current.append(
             assistantMessageId,
             "content",
             event.delta
           );
           return;
+        case "chat_retry": {
+          const task = tasksRef.current.get(event.taskId);
+          if (task) {
+            tasksRef.current.set(event.taskId, {
+              ...task,
+              chatRetry: {
+                attempt: event.attempt,
+                maxAttempts: event.maxAttempts,
+              },
+            });
+            emit();
+          }
+          return;
+        }
         case "tool_call_pending":
           streamingBufferRef.current.upsertToolInvocation(assistantMessageId, {
             id: event.toolCallId,
@@ -396,7 +425,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         }
       }
     },
-    [emit]
+    [clearTaskChatRetry, emit]
   );
 
   const dispatchAgentEvent = useCallback(
@@ -535,6 +564,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         assistantMessageId: assistantMessage.id,
         status: "running",
         error: null,
+        chatRetry: null,
         isFirstTurn,
         model: input.model,
         userContent:
@@ -695,6 +725,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         assistantMessageId: newAssistantMessage.id,
         status: "running",
         error: null,
+        chatRetry: null,
         isFirstTurn,
         model: input.model,
         userContent:
@@ -877,6 +908,23 @@ export function useActiveStreamingMessageIds(): ReadonlySet<string> {
       }
     }
     return ids;
+  }, [activeTasks]);
+}
+
+export function useChatRetryByMessageId(): ReadonlyMap<
+  string,
+  NonNullable<ActiveTaskState["chatRetry"]>
+> {
+  const { activeTasks } = useAgentStore();
+
+  return useMemo(() => {
+    const retries = new Map<string, NonNullable<ActiveTaskState["chatRetry"]>>();
+    for (const task of activeTasks.values()) {
+      if (isActiveAgentTask(task.status) && task.chatRetry) {
+        retries.set(task.assistantMessageId, task.chatRetry);
+      }
+    }
+    return retries;
   }, [activeTasks]);
 }
 

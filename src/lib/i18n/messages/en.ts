@@ -89,6 +89,7 @@ export const enMessages = {
     forkMessage: "Fork",
     forkSessionTitle: "Fork · {title}",
     regenerateMessage: "Regenerate",
+    chatRetrying: "Retrying (attempt {attempt} of {maxAttempts})…",
     noModel: "No model configured",
     thinkingToggle: "Toggle deep thinking",
     thinkingToggleLabel: "Think",

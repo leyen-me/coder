@@ -87,6 +87,7 @@ export const zhMessages = {
     forkMessage: "Fork",
     forkSessionTitle: "Fork · {title}",
     regenerateMessage: "重新生成",
+    chatRetrying: "正在重试（第 {attempt} 次，共 {maxAttempts} 次）…",
     noModel: "未配置模型",
     thinkingToggle: "切换深度思考",
     thinkingToggleLabel: "深度思考",
