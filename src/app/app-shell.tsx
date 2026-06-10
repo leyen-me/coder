@@ -42,7 +42,7 @@ export function AppShell() {
     <div
       className={cn(
         "relative flex h-svh flex-row overflow-hidden bg-background",
-        useRoundedShell && "rounded-[var(--window-radius)]",
+        useRoundedShell && "rounded-(--window-radius)",
       )}
     >
       <FloatingShellNav

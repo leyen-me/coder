@@ -444,7 +444,7 @@ export function PromptComposer({
           >
             <PromptInputSelectTrigger
               size="sm"
-              className="max-w-44 [&_[data-slot=select-value]]:truncate"
+              className="max-w-44 **:data-[slot=select-value]:truncate"
               title={selectedModel ? getModelDisplayName(selectedModel) : model || undefined}
             >
               <PromptInputSelectValue placeholder={t("chat.noModel")} />
@@ -521,7 +521,7 @@ export function PromptComposer({
         )}
       >
         {showWorkspaceControls ? (
-          <div className="relative z-[1] rounded-3xl bg-card text-card-foreground shadow-[0_6px_12px_-4px_rgb(0_0_0/0.08)] dark:shadow-[0_8px_16px_-4px_rgb(0_0_0/0.45)]">
+          <div className="relative z-1 rounded-3xl bg-card text-card-foreground shadow-[0_6px_12px_-4px_rgb(0_0_0/0.08)] dark:shadow-[0_8px_16px_-4px_rgb(0_0_0/0.45)]">
             <div className="overflow-hidden rounded-3xl">{composerInput}</div>
           </div>
         ) : (
