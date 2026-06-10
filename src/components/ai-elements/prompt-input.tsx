@@ -982,7 +982,6 @@ export const PromptInputTextarea = ({
   const controller = useOptionalPromptInputController();
   const attachments = usePromptInputAttachments();
   const isComposingRef = useRef(false);
-  const compositionEndedRef = useRef(false);
 
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
     (e) => {
@@ -995,15 +994,9 @@ export const PromptInputTextarea = ({
       }
 
       if (e.key === "Enter") {
-        // Consume the composition-ended flag (set by handleCompositionEnd
-        // in browsers where compositionend fires before keydown, e.g. Safari/Firefox).
-        const compositionJustEnded = compositionEndedRef.current;
-        compositionEndedRef.current = false;
-
         if (
           isComposingRef.current ||
-          e.nativeEvent.isComposing ||
-          compositionJustEnded
+          e.nativeEvent.isComposing
         ) {
           return;
         }
@@ -1068,10 +1061,16 @@ export const PromptInputTextarea = ({
   );
 
   const handleCompositionEnd = useCallback(() => {
-    isComposingRef.current = false;
     // Safari/Firefox fire keydown(Enter) AFTER compositionend when IME is confirmed.
-    // This flag suppresses the Enter that was meant to confirm the composition.
-    compositionEndedRef.current = true;
+    // We use a microtask delay so that the immediately following keydown event
+    // still sees isComposingRef as true, which correctly suppresses the Enter
+    // that was meant to confirm the composition candidate.
+    // The keydown handler will then return early. On the *next* keydown
+    // (or a non-Enter key), isComposingRef will already be false, so normal
+    // behavior is restored.
+    setTimeout(() => {
+      isComposingRef.current = false;
+    }, 0);
   }, []);
   const handleCompositionStart = useCallback(() => {
     isComposingRef.current = true;
