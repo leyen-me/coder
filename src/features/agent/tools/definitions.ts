@@ -134,10 +134,11 @@ export const REPLACE_FILE_TOOL: AgentToolDefinition = {
           type: "string",
           description: "SHA256 hash from read_file. Rejects the write if the file changed.",
         },
+        // Pre-write .history backup; off until rollback UX ships (see text_file::create_backup).
         create_backup: {
           type: "boolean",
           description: "Whether to save a backup copy under .history before writing.",
-          default: true,
+          default: false,
         },
         respect_gitignore: {
           type: "boolean",
@@ -181,10 +182,11 @@ export const EDIT_FILE_TOOL: AgentToolDefinition = {
           description: "Whether to replace every occurrence of old_string.",
           default: false,
         },
+        // Pre-write .history backup; off until rollback UX ships (see text_file::create_backup).
         create_backup: {
           type: "boolean",
           description: "Whether to save a backup copy under .history before writing.",
-          default: true,
+          default: false,
         },
         respect_gitignore: {
           type: "boolean",

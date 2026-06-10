@@ -494,6 +494,8 @@ pub fn apply_text_replacement(
     Ok(normalize_line_endings(&updated_lf, ending))
 }
 
+/// Copies the file into `.history/` before a write. Reserved for future rollback/undo;
+/// disabled by default in `edit_file` / `replace_file` until that UX ships.
 pub fn create_backup(
     workspace: &Path,
     source: &Path,

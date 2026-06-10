@@ -22,7 +22,8 @@ pub fn tool_replace_file(
         ));
     }
 
-    let create_backup = create_backup.unwrap_or(true);
+    // Rollback via .history is not wired up yet; keep backups off unless explicitly requested.
+    let create_backup = create_backup.unwrap_or(false);
     let respect_gitignore = respect_gitignore.unwrap_or(true);
 
     if content.len() > MAX_WRITE_BYTES {
@@ -158,7 +159,7 @@ mod tests {
     }
 
     #[test]
-    fn creates_backup_by_default() {
+    fn creates_backup_when_requested() {
         let temp = temp_workspace("backup");
         fs::write(temp.join("sample.txt"), "old\n").expect("seed");
 
@@ -167,7 +168,7 @@ mod tests {
             "sample.txt".to_string(),
             "new\n".to_string(),
             None,
-            None,
+            Some(true),
             Some(false),
         )
         .expect("replace");

@@ -25,7 +25,8 @@ pub fn tool_edit_file(
     }
 
     let replace_all = replace_all.unwrap_or(false);
-    let create_backup = create_backup.unwrap_or(true);
+    // Rollback via .history is not wired up yet; keep backups off unless explicitly requested.
+    let create_backup = create_backup.unwrap_or(false);
     let respect_gitignore = respect_gitignore.unwrap_or(true);
 
     let (target, relative_path, loaded) =

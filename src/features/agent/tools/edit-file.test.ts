@@ -86,7 +86,7 @@ describe("editFileHandler", () => {
       newString: "const a = 2;",
       expectedSha256: undefined,
       replaceAll: false,
-      createBackup: true,
+      createBackup: false,
       respectGitignore: true,
     });
   });

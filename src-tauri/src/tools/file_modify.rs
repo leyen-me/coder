@@ -163,6 +163,7 @@ pub fn commit_text_modification(
         });
     }
 
+    // When enabled, writes a pre-edit copy under workspace/.history/ (see create_backup).
     let backup_path = if create_backup {
         Some(text_file::create_backup(workspace, target, relative_path)?)
     } else {

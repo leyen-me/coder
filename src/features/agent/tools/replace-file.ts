@@ -40,7 +40,8 @@ export const replaceFileHandler: ToolHandler = async (rawArgs, context) => {
       path: args.value.path,
       content: args.value.content,
       expectedSha256: args.value.expected_sha256,
-      createBackup: args.value.create_backup ?? true,
+      // Default off: .history rollback is not implemented yet (see text_file::create_backup).
+      createBackup: args.value.create_backup ?? false,
       respectGitignore: args.value.respect_gitignore ?? true,
     });
     return toolSuccess(REPLACE_FILE_TOOL_NAME, data);
