@@ -3,12 +3,21 @@ import type { Editor, JSONContent } from "@tiptap/core";
 import { basenameTreePath } from "@/features/right-panel/lib/workspace-path-utils";
 
 const WORKSPACE_REFERENCE_NODE = "workspaceReference";
+const SKILL_REFERENCE_NODE = "skillReference";
 const MENTION_PATTERN = /@([^\s@]+)/g;
+const SKILL_SLUG_PATTERN = /\/([a-z0-9]+(?:-[a-z0-9]+)*)/g;
+const INLINE_TOKEN_PATTERN =
+  /@([^\s@]+)|\/([a-z0-9]+(?:-[a-z0-9]+)*)/g;
 
 export type WorkspaceReferenceAttrs = {
   path: string;
   name: string;
   isDir: boolean;
+};
+
+export type SkillReferenceAttrs = {
+  slug: string;
+  name: string;
 };
 
 export function resolveWorkspaceReferenceAttrs(
@@ -19,6 +28,16 @@ export function resolveWorkspaceReferenceAttrs(
     path,
     name: options?.name ?? basenameTreePath(path),
     isDir: options?.isDir ?? false,
+  };
+}
+
+export function resolveSkillReferenceAttrs(
+  slug: string,
+  options?: { name?: string }
+): SkillReferenceAttrs {
+  return {
+    slug,
+    name: options?.name ?? slug,
   };
 }
 
@@ -34,6 +53,14 @@ function serializeParagraphContent(node: JSONContent): string {
       const path = child.attrs?.path;
       if (typeof path === "string" && path.length > 0) {
         line += `@${path}`;
+      }
+      continue;
+    }
+
+    if (child.type === SKILL_REFERENCE_NODE) {
+      const slug = child.attrs?.slug;
+      if (typeof slug === "string" && slug.length > 0) {
+        line += `/${slug}`;
       }
       continue;
     }
@@ -67,6 +94,11 @@ export function serializeEditorToAgentText(editor: Editor): string {
         return;
       }
 
+      if (child.type.name === SKILL_REFERENCE_NODE) {
+        line += `/${child.attrs.slug as string}`;
+        return;
+      }
+
       if (child.type.name === "hardBreak") {
         line += "\n";
         return;
@@ -81,6 +113,22 @@ export function serializeEditorToAgentText(editor: Editor): string {
   });
 
   return lines.join("\n").trim();
+}
+
+export function editorHasInlineReferences(editor: Editor): boolean {
+  let found = false;
+
+  editor.state.doc.descendants((node) => {
+    if (
+      node.type.name === WORKSPACE_REFERENCE_NODE ||
+      node.type.name === SKILL_REFERENCE_NODE
+    ) {
+      found = true;
+      return false;
+    }
+  });
+
+  return found;
 }
 
 export function editorHasWorkspaceReferences(editor: Editor): boolean {
@@ -100,7 +148,7 @@ export function deserializeAgentTextToDoc(text: string): JSONContent {
   const paragraphContent: JSONContent[] = [];
   let lastIndex = 0;
 
-  for (const match of text.matchAll(MENTION_PATTERN)) {
+  for (const match of text.matchAll(INLINE_TOKEN_PATTERN)) {
     const index = match.index ?? 0;
 
     if (index > lastIndex) {
@@ -110,11 +158,18 @@ export function deserializeAgentTextToDoc(text: string): JSONContent {
       });
     }
 
-    const path = match[1];
-    paragraphContent.push({
-      type: WORKSPACE_REFERENCE_NODE,
-      attrs: resolveWorkspaceReferenceAttrs(path),
-    });
+    if (match[1]) {
+      paragraphContent.push({
+        type: WORKSPACE_REFERENCE_NODE,
+        attrs: resolveWorkspaceReferenceAttrs(match[1]),
+      });
+    } else if (match[2]) {
+      paragraphContent.push({
+        type: SKILL_REFERENCE_NODE,
+        attrs: resolveSkillReferenceAttrs(match[2]),
+      });
+    }
+
     lastIndex = index + match[0].length;
   }
 
@@ -147,3 +202,5 @@ export function serializeDocToAgentText(doc: JSONContent): string {
 
   return lines.join("\n").trim();
 }
+
+export { MENTION_PATTERN, SKILL_SLUG_PATTERN };

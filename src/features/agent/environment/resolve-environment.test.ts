@@ -5,6 +5,10 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
+vi.mock("@/features/skills/lib/resolve-skills", () => ({
+  getEnabledSystemSkills: vi.fn(async () => []),
+}));
+
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { resolveAgentEnvironment } from "./resolve-environment";

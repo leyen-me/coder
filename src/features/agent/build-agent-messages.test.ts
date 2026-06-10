@@ -12,8 +12,8 @@ const environment = normalizeEnvironment({
 });
 
 describe("buildAgentMessages", () => {
-  it("prepends a dynamic system message and drops empty history entries", () => {
-    const messages = buildAgentMessages(
+  it("prepends a dynamic system message and drops empty history entries", async () => {
+    const messages = await buildAgentMessages(
       [
         { role: "user", content: "你好" },
         { role: "assistant", content: "   " },
@@ -28,8 +28,8 @@ describe("buildAgentMessages", () => {
     expect(messages[1]).toEqual({ role: "user", content: "你好" });
   });
 
-  it("keeps user messages that only contain images", () => {
-    const messages = buildAgentMessages(
+  it("keeps user messages that only contain images", async () => {
+    const messages = await buildAgentMessages(
       [
         {
           role: "user",
@@ -49,8 +49,8 @@ describe("buildAgentMessages", () => {
     expect(Array.isArray(messages[1]?.content)).toBe(true);
   });
 
-  it("keeps assistant messages that only contain tool calls", () => {
-    const messages = buildAgentMessages(
+  it("keeps assistant messages that only contain tool calls", async () => {
+    const messages = await buildAgentMessages(
       [
         {
           role: "assistant",
@@ -80,8 +80,8 @@ describe("buildAgentMessages", () => {
     expect(messages[2]?.role).toBe("tool");
   });
 
-  it("keeps assistant messages that only contain reasoning content", () => {
-    const messages = buildAgentMessages(
+  it("keeps assistant messages that only contain reasoning content", async () => {
+    const messages = await buildAgentMessages(
       [
         {
           role: "assistant",
@@ -95,8 +95,8 @@ describe("buildAgentMessages", () => {
     expect(messages[1]?.reasoning_content).toBe("先分析一下问题");
   });
 
-  it("keeps tool messages required by assistant tool_calls", () => {
-    const messages = buildAgentMessages(
+  it("keeps tool messages required by assistant tool_calls", async () => {
+    const messages = await buildAgentMessages(
       [
         { role: "user", content: "帮我看看目录" },
         {

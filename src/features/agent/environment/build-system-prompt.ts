@@ -35,13 +35,49 @@ export function buildSystemPrompt(environment: AgentEnvironment): string {
     "Use web_search for real-time information outside training data, such as news, version numbers, or current events.",
     "Use browse_page to read the full content of a specific URL, especially after web_search returns promising links.",
     "browse_page does not render JavaScript-heavy pages. Prefer quoting tool output instead of inventing details.",
+    "Use list_skills to browse user-enabled skills (slug, name, description).",
+    "Use read_skill with a slug to load full skill instructions before following them.",
     "Paths are resolved relative to workspaceDir unless noted otherwise.",
     "When a tool fails, read the error code and message, then adjust your approach.",
     "Prefer tools over guessing file, directory, or web page contents.",
     "",
+    ...buildActiveSystemSkillsSection(environment.enabledSystemSkills),
+    ...buildUserSkillsSection(),
     ...buildProjectInstructionsSection(environment.agentsMd),
     ...(environment.isGitRepository ? buildGitCommitRules(environment) : []),
   ].join("\n");
+}
+
+function buildActiveSystemSkillsSection(
+  skills: AgentEnvironment["enabledSystemSkills"]
+): string[] {
+  if (!skills.length) {
+    return [];
+  }
+
+  const lines = [
+    "## Active skills (system)",
+    "Follow these enabled system skills when they do not conflict with the user's current message.",
+  ];
+
+  for (const skill of skills) {
+    lines.push("---", `[${skill.slug}] ${skill.name}`, skill.content.trim());
+  }
+
+  lines.push("");
+  return lines;
+}
+
+function buildUserSkillsSection(): string[] {
+  return [
+    "## User skills",
+    "User-defined skills must be enabled by the user before they become available.",
+    "They are NOT included in this prompt by default.",
+    "- Call list_skills to browse enabled skills (slug, name, description).",
+    "- Call read_skill with a slug to load full instructions before following them.",
+    "- The user may also reference an enabled skill via /slug in their message.",
+    "",
+  ];
 }
 
 function buildProjectInstructionsSection(
@@ -78,6 +114,7 @@ export function normalizeEnvironment(
     isGitRepository: input.isGitRepository,
     today: input.today ?? formatToday(new Date()),
     agentsMd: input.agentsMd ?? null,
+    enabledSystemSkills: input.enabledSystemSkills ?? [],
   };
 }
 

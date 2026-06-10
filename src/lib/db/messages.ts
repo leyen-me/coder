@@ -72,6 +72,7 @@ export async function updateMessage(
       | "taskId"
       | "toolInvocations"
       | "images"
+      | "referencedSkills"
     >
   >,
   options: UpdateMessageOptions = {}
@@ -86,6 +87,9 @@ export async function updateMessage(
   const next: MessageRecord = { ...existing, ...patch };
   if ("images" in patch && patch.images === undefined) {
     delete next.images;
+  }
+  if ("referencedSkills" in patch && patch.referencedSkills === undefined) {
+    delete next.referencedSkills;
   }
   await db.put(MESSAGES_STORE, next);
   if (touch) {

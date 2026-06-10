@@ -8,7 +8,9 @@ import {
   KILL_SHELL_TOOL_NAME,
   LIST_DIR_TOOL_NAME,
   LIST_SHELLS_TOOL_NAME,
+  LIST_SKILLS_TOOL_NAME,
   READ_FILE_TOOL_NAME,
+  READ_SKILL_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
   SHELL_TOOL_NAME,
   WEB_SEARCH_TOOL_NAME,
@@ -22,7 +24,9 @@ import { grepHandler } from "./grep";
 import { killShellHandler } from "./kill-shell";
 import { listDirHandler } from "./list-dir";
 import { listShellsHandler } from "./list-shells";
+import { listSkillsHandler } from "./list-skills";
 import { readFileHandler } from "./read-file";
+import { readSkillHandler } from "./read-skill";
 import { replaceFileHandler } from "./replace-file";
 import { shellHandler } from "./shell";
 import { webSearchHandler } from "./web-search";
@@ -48,6 +52,8 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [KILL_SHELL_TOOL_NAME]: killShellHandler,
   [WEB_SEARCH_TOOL_NAME]: webSearchHandler,
   [BROWSE_PAGE_TOOL_NAME]: browsePageHandler,
+  [LIST_SKILLS_TOOL_NAME]: listSkillsHandler,
+  [READ_SKILL_TOOL_NAME]: readSkillHandler,
 };
 
 export function getAgentToolDefinitions(): AgentToolDefinition[] {

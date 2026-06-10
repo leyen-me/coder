@@ -13,6 +13,8 @@ export const LIST_SHELLS_TOOL_NAME = "list_shells";
 export const KILL_SHELL_TOOL_NAME = "kill_shell";
 export const WEB_SEARCH_TOOL_NAME = "web_search";
 export const BROWSE_PAGE_TOOL_NAME = "browse_page";
+export const LIST_SKILLS_TOOL_NAME = "list_skills";
+export const READ_SKILL_TOOL_NAME = "read_skill";
 
 export const LIST_DIR_TOOL: AgentToolDefinition = {
   type: "function",
@@ -468,6 +470,46 @@ export const BROWSE_PAGE_TOOL: AgentToolDefinition = {
   },
 };
 
+export const LIST_SKILLS_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: LIST_SKILLS_TOOL_NAME,
+    description:
+      "List enabled skills (slug, name, description). User skills must be enabled by the user before they appear. Use before read_skill when you need specialized workflow instructions.",
+    parameters: {
+      type: "object",
+      properties: {
+        source: {
+          type: "string",
+          enum: ["all", "system", "user"],
+          description: "Filter by skill source. Defaults to all enabled skills.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+};
+
+export const READ_SKILL_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: READ_SKILL_TOOL_NAME,
+    description:
+      "Load the full instructions for an enabled skill by slug. Returns an error if the skill is missing or not enabled.",
+    parameters: {
+      type: "object",
+      properties: {
+        slug: {
+          type: "string",
+          description: "Skill slug from list_skills.",
+        },
+      },
+      required: ["slug"],
+      additionalProperties: false,
+    },
+  },
+};
+
 export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   LIST_DIR_TOOL,
   READ_FILE_TOOL,
@@ -482,4 +524,6 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   KILL_SHELL_TOOL,
   WEB_SEARCH_TOOL,
   BROWSE_PAGE_TOOL,
+  LIST_SKILLS_TOOL,
+  READ_SKILL_TOOL,
 ];

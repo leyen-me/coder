@@ -1,13 +1,20 @@
-import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import { deleteDB, openDB, type DBSchema, type IDBPDatabase } from "idb";
 
 import {
   DB_NAME,
   DB_VERSION,
   MESSAGES_STORE,
   SESSIONS_STORE,
+  SYSTEM_SKILL_PREFERENCES_STORE,
+  USER_SKILLS_STORE,
 } from "./constants";
 import { normalizeSessionRecord } from "./normalize-session";
-import type { MessageRecord, SessionRecord } from "./types";
+import type {
+  MessageRecord,
+  SessionRecord,
+  SystemSkillPreference,
+  UserSkillRecord,
+} from "./types";
 
 interface CoderDbSchema extends DBSchema {
   sessions: {
@@ -23,35 +30,91 @@ interface CoderDbSchema extends DBSchema {
       "by-sessionId-createdAt": [string, number];
     };
   };
+  userSkills: {
+    key: string;
+    value: UserSkillRecord;
+    indexes: { "by-slug": string };
+  };
+  systemSkillPreferences: {
+    key: string;
+    value: SystemSkillPreference;
+  };
 }
 
+const REQUIRED_STORES = [
+  SESSIONS_STORE,
+  MESSAGES_STORE,
+  USER_SKILLS_STORE,
+  SYSTEM_SKILL_PREFERENCES_STORE,
+] as const;
+
 let dbPromise: Promise<IDBPDatabase<CoderDbSchema>> | null = null;
+let cachedDbVersion: number | null = null;
+
+function hasRequiredStores(db: IDBPDatabase<CoderDbSchema>): boolean {
+  return REQUIRED_STORES.every((name) => db.objectStoreNames.contains(name));
+}
+
+async function openCoderDb(repairAttempted = false): Promise<IDBPDatabase<CoderDbSchema>> {
+  const db = await openDB<CoderDbSchema>(DB_NAME, DB_VERSION, {
+    async upgrade(database, oldVersion, _newVersion, transaction) {
+      if (!database.objectStoreNames.contains(SESSIONS_STORE)) {
+        const store = database.createObjectStore(SESSIONS_STORE, { keyPath: "id" });
+        store.createIndex("by-updatedAt", "updatedAt");
+      }
+
+      if (!database.objectStoreNames.contains(MESSAGES_STORE)) {
+        const store = database.createObjectStore(MESSAGES_STORE, { keyPath: "id" });
+        store.createIndex("by-sessionId", "sessionId");
+        store.createIndex("by-sessionId-createdAt", ["sessionId", "createdAt"]);
+      }
+
+      if (oldVersion > 0 && oldVersion < 2) {
+        const store = transaction.objectStore(SESSIONS_STORE);
+        const sessions = await store.getAll();
+        for (const session of sessions) {
+          await store.put(normalizeSessionRecord(session));
+        }
+      }
+
+      if (!database.objectStoreNames.contains(USER_SKILLS_STORE)) {
+        const store = database.createObjectStore(USER_SKILLS_STORE, {
+          keyPath: "id",
+        });
+        store.createIndex("by-slug", "slug", { unique: true });
+      }
+
+      if (!database.objectStoreNames.contains(SYSTEM_SKILL_PREFERENCES_STORE)) {
+        database.createObjectStore(SYSTEM_SKILL_PREFERENCES_STORE, {
+          keyPath: "skillId",
+        });
+      }
+    },
+  });
+
+  if (hasRequiredStores(db)) {
+    return db;
+  }
+
+  db.close();
+
+  if (repairAttempted) {
+    throw new Error("IndexedDB schema is missing required object stores");
+  }
+
+  await deleteDB(DB_NAME);
+  return openCoderDb(true);
+}
 
 export function getDb(): Promise<IDBPDatabase<CoderDbSchema>> {
-  if (!dbPromise) {
-    dbPromise = openDB<CoderDbSchema>(DB_NAME, DB_VERSION, {
-      async upgrade(db, oldVersion, _newVersion, transaction) {
-        if (!db.objectStoreNames.contains(SESSIONS_STORE)) {
-          const store = db.createObjectStore(SESSIONS_STORE, { keyPath: "id" });
-          store.createIndex("by-updatedAt", "updatedAt");
-        }
-
-        if (!db.objectStoreNames.contains(MESSAGES_STORE)) {
-          const store = db.createObjectStore(MESSAGES_STORE, { keyPath: "id" });
-          store.createIndex("by-sessionId", "sessionId");
-          store.createIndex("by-sessionId-createdAt", ["sessionId", "createdAt"]);
-        }
-
-        if (oldVersion > 0 && oldVersion < 2) {
-          const store = transaction.objectStore(SESSIONS_STORE);
-          const sessions = await store.getAll();
-          for (const session of sessions) {
-            await store.put(normalizeSessionRecord(session));
-          }
-        }
-      },
-    });
+  if (dbPromise && cachedDbVersion === DB_VERSION) {
+    return dbPromise;
   }
+
+  dbPromise = openCoderDb().then((db) => {
+    cachedDbVersion = DB_VERSION;
+    return db;
+  });
 
   return dbPromise;
 }
@@ -59,4 +122,5 @@ export function getDb(): Promise<IDBPDatabase<CoderDbSchema>> {
 /** Re-open after tests that need a fresh IndexedDB schema. */
 export function resetDbForTests(): void {
   dbPromise = null;
+  cachedDbVersion = null;
 }

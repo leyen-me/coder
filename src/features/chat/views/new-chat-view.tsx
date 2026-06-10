@@ -13,6 +13,7 @@ import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
 import { PromptComposer } from "../components/prompt-composer";
 import { StarterPromptList } from "../components/starter-prompt-list";
+import { notifySendMessageError } from "../lib/notify-send-message-error";
 import { useComposerThinking } from "../hooks/use-composer-thinking";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
 import { useNewChatWorkspace } from "../hooks/use-session-workspace-binding";
@@ -45,6 +46,7 @@ export function NewChatView() {
     }
 
     setIsSubmitting(true);
+    const previousPrompt = trimmed;
     try {
       const session = await createSession({
         title: t("session.newChat"),
@@ -60,6 +62,11 @@ export function NewChatView() {
         model,
         thinkingEnabled,
       });
+    } catch (error) {
+      notifySendMessageError(error, (key, params) =>
+        t(`chat.${key}`, params)
+      );
+      setPrompt(previousPrompt);
     } finally {
       setIsSubmitting(false);
     }

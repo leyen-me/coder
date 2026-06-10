@@ -1,6 +1,6 @@
 import { useMatch } from "react-router-dom";
 
-import { isChatRoute } from "@/app/paths";
+import { isChatRoute, paths } from "@/app/paths";
 import { useIsSessionTitleGenerating } from "@/features/agent/session-title-store";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
@@ -17,6 +17,15 @@ export function useSessionTitleBarSlots(pathname: string) {
       : null;
   const { session } = useSessionMessages(chatId ?? "");
   const isGeneratingTitle = useIsSessionTitleGenerating(chatId);
+
+  if (pathname === paths.skills) {
+    return {
+      leading: (
+        <h1 className="truncate text-sm font-medium">{t("pages.skills.title")}</h1>
+      ),
+      trailing: null,
+    };
+  }
 
   if (!isChatRoute(pathname)) {
     return null;

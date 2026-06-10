@@ -28,6 +28,9 @@ import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 import { runAgentWithTools } from "../agent-loop";
 import { buildAgentMessages } from "../build-agent-messages";
 import { isAgentCancellationError } from "../cancellation";
+import { SkillReferenceValidationError } from "@/features/skills/lib/skill-errors";
+import { validateSkillReferencesForSend } from "@/features/skills/lib/resolve-skills";
+import { extractSkillSlugsFromText } from "@/features/skills/lib/parse-skill-references";
 import { mergeProcessSteps } from "../process-steps";
 import { createStreamingBufferManager } from "../streaming-buffer";
 import { fileUIPartsToStoredImages } from "../message-content";
@@ -468,6 +471,15 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         throw new Error("Message content is required");
       }
 
+      const skillValidation = await validateSkillReferencesForSend(trimmed);
+      if (!skillValidation.ok) {
+        throw new SkillReferenceValidationError(
+          skillValidation.error,
+          skillValidation.slug
+        );
+      }
+      const referencedSkills = extractSkillSlugsFromText(trimmed);
+
       writeLastSelectedModel(input.model);
 
       for (const task of tasksRef.current.values()) {
@@ -511,6 +523,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         const updated = await updateMessage(input.editMessageId, {
           content: trimmed,
           images: storedImages.length > 0 ? storedImages : undefined,
+          referencedSkills:
+            referencedSkills.length > 0 ? referencedSkills : undefined,
         });
         if (!updated) {
           throw new Error(`Message not found: ${input.editMessageId}`);
@@ -525,6 +539,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           role: "user",
           content: trimmed,
           images: storedImages.length > 0 ? storedImages : undefined,
+          referencedSkills:
+            referencedSkills.length > 0 ? referencedSkills : undefined,
           thinking: "",
           processSteps: [],
           toolInvocations: [],
@@ -540,7 +556,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const workspaceDir = session.workspaceDir?.trim() || null;
       const historyMessages = await getMessagesBySession(input.sessionId);
       const environment = await resolveAgentEnvironment(workspaceDir);
-      const history = buildAgentMessages(
+      const history = await buildAgentMessages(
         historyMessages.flatMap(messageRecordToAgentMessages),
         environment
       );
@@ -700,7 +716,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const workspaceDir = session.workspaceDir?.trim() || null;
       const historyMessages = await getMessagesBySession(input.sessionId);
       const environment = await resolveAgentEnvironment(workspaceDir);
-      const history = buildAgentMessages(
+      const history = await buildAgentMessages(
         historyMessages.flatMap(messageRecordToAgentMessages),
         environment
       );

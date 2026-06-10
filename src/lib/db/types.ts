@@ -59,6 +59,8 @@ export type MessageRecord = {
   content: string;
   /** User-uploaded images only; empty for assistant messages. */
   images?: MessageImageAttachment[];
+  /** Skill slugs explicitly referenced via /slug in the user message. */
+  referencedSkills?: string[];
   thinking: string;
   processSteps?: MessageProcessStep[];
   toolInvocations: MessageToolInvocation[];
@@ -66,6 +68,23 @@ export type MessageRecord = {
   taskId: string | null;
   error: string | null;
   createdAt: number;
+};
+
+export type UserSkillRecord = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  content: string;
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type SystemSkillPreference = {
+  skillId: string;
+  enabled: boolean;
+  updatedAt: number;
 };
 
 export type ChatHistoryItem = {

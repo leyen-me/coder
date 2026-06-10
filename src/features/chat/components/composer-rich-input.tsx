@@ -24,14 +24,26 @@ import {
 } from "../lib/composer-mention-state";
 import {
   deserializeAgentTextToDoc,
-  editorHasWorkspaceReferences,
+  editorHasInlineReferences,
+  resolveSkillReferenceAttrs,
   resolveWorkspaceReferenceAttrs,
   serializeEditorToAgentText,
 } from "../lib/composer-serialize";
 import type { WorkspacePathMatch } from "../lib/search-workspace-paths";
+import { SkillReferenceExtension } from "../lib/skill-reference-extension";
 import { WorkspaceReferenceExtension } from "../lib/workspace-reference-extension";
+import {
+  getActiveComposerSkill,
+  type ActiveComposerSkill,
+} from "../lib/composer-skill-state";
+import {
+  filterEnabledSkills,
+  useEnabledSkills,
+} from "../hooks/use-enabled-skills";
+import type { SkillListItem } from "@/features/skills/types";
 
 import { ComposerMentionPopover } from "./composer-mention-popover";
+import { ComposerSkillPopover } from "./composer-skill-popover";
 
 export type ComposerRichInputProps = {
   value: string;
@@ -58,9 +70,12 @@ export function ComposerRichInput({
   const editorRef = useRef<Editor | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const mentionRef = useRef<ActiveComposerMention | null>(null);
+  const skillRef = useRef<ActiveComposerSkill | null>(null);
   const selectedIndexRef = useRef(0);
   const resultsRef = useRef<WorkspacePathMatch[]>([]);
+  const skillResultsRef = useRef<SkillListItem[]>([]);
   const [mention, setMention] = useState<ActiveComposerMention | null>(null);
+  const [skillMention, setSkillMention] = useState<ActiveComposerSkill | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [anchorWidth, setAnchorWidth] = useState<number | undefined>();
 
@@ -70,6 +85,13 @@ export function ComposerRichInput({
     trimmedWorkspaceDir,
     mention?.query ?? "",
     Boolean(mention)
+  );
+  const { skills: enabledSkills, loading: skillsLoading } = useEnabledSkills(
+    Boolean(skillMention)
+  );
+  const skillResults = filterEnabledSkills(
+    enabledSkills,
+    skillMention?.query ?? ""
   );
 
   const updateSelectedIndex = useCallback((nextIndex: number) => {
@@ -82,6 +104,44 @@ export function ComposerRichInput({
       const nextMention = getActiveComposerMention(editor.state);
       mentionRef.current = nextMention;
       setMention(nextMention);
+
+      if (nextMention) {
+        skillRef.current = null;
+        setSkillMention(null);
+      } else {
+        const nextSkill = getActiveComposerSkill(editor.state);
+        skillRef.current = nextSkill;
+        setSkillMention(nextSkill);
+      }
+
+      updateSelectedIndex(0);
+    },
+    [updateSelectedIndex]
+  );
+
+  const handleSelectSkill = useCallback(
+    (item: SkillListItem) => {
+      const editor = editorRef.current;
+      const activeSkill = skillRef.current;
+      if (!editor || !activeSkill) {
+        return;
+      }
+
+      const attrs = resolveSkillReferenceAttrs(item.slug, { name: item.name });
+
+      editor
+        .chain()
+        .focus()
+        .deleteRange({
+          from: activeSkill.range.from,
+          to: activeSkill.range.to,
+        })
+        .insertSkillReference(attrs)
+        .insertContent(" ")
+        .run();
+
+      skillRef.current = null;
+      setSkillMention(null);
       updateSelectedIndex(0);
     },
     [updateSelectedIndex]
@@ -139,6 +199,7 @@ export function ComposerRichInput({
         placeholder: placeholder ?? "",
       }),
       WorkspaceReferenceExtension,
+      SkillReferenceExtension,
     ],
     content: deserializeAgentTextToDoc(value),
     editorProps: {
@@ -152,6 +213,7 @@ export function ComposerRichInput({
       },
       handleKeyDown: (view, event) => {
         const activeMention = mentionRef.current;
+        const activeSkill = skillRef.current;
 
         if (activeMention) {
           if (event.key === "Escape") {
@@ -184,6 +246,42 @@ export function ComposerRichInput({
             if (selected) {
               event.preventDefault();
               handleSelectMention(selected);
+              return true;
+            }
+          }
+        }
+
+        if (activeSkill) {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            skillRef.current = null;
+            setSkillMention(null);
+            updateSelectedIndex(0);
+            return true;
+          }
+
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            const nextResults = skillResultsRef.current;
+            const nextIndex =
+              nextResults.length === 0
+                ? 0
+                : Math.min(selectedIndexRef.current + 1, nextResults.length - 1);
+            updateSelectedIndex(nextIndex);
+            return true;
+          }
+
+          if (event.key === "ArrowUp") {
+            event.preventDefault();
+            updateSelectedIndex(Math.max(selectedIndexRef.current - 1, 0));
+            return true;
+          }
+
+          if (event.key === "Enter" || event.key === "Tab") {
+            const selected = skillResultsRef.current[selectedIndexRef.current];
+            if (selected) {
+              event.preventDefault();
+              handleSelectSkill(selected);
               return true;
             }
           }
@@ -232,7 +330,7 @@ export function ComposerRichInput({
           const isEmpty =
             currentEditor.isEmpty ||
             (serialized.length === 0 &&
-              !editorHasWorkspaceReferences(currentEditor));
+              !editorHasInlineReferences(currentEditor));
 
           if (isEmpty && attachments.files.length > 0) {
             event.preventDefault();
@@ -352,6 +450,23 @@ export function ComposerRichInput({
   }, [editor, syncMentionState, value]);
 
   useEffect(() => {
+    skillResultsRef.current = skillResults;
+  }, [skillResults]);
+
+  useEffect(() => {
+    if (!skillMention) {
+      return;
+    }
+
+    if (skillResults.length === 0) {
+      updateSelectedIndex(0);
+      return;
+    }
+
+    updateSelectedIndex(Math.min(selectedIndexRef.current, skillResults.length - 1));
+  }, [skillMention, skillResults.length, updateSelectedIndex]);
+
+  useEffect(() => {
     resultsRef.current = results;
   }, [results]);
 
@@ -443,6 +558,15 @@ export function ComposerRichInput({
           onSelectedIndexChange={updateSelectedIndex}
           open={Boolean(mention)}
           results={results}
+          selectedIndex={selectedIndex}
+        />
+        <ComposerSkillPopover
+          anchorWidth={anchorWidth}
+          loading={skillsLoading}
+          onSelect={handleSelectSkill}
+          onSelectedIndexChange={updateSelectedIndex}
+          open={Boolean(skillMention)}
+          results={skillResults}
           selectedIndex={selectedIndex}
         />
         <EditorContent

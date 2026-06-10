@@ -19,13 +19,13 @@ vi.mock("./tools", () => ({
   serializeToolResult: (result: unknown) => JSON.stringify(result),
 }));
 
-const sleepMock = vi.fn(() => Promise.resolve());
+const sleepMock = vi.fn<(ms: number) => Promise<void>>(() => Promise.resolve());
 
 vi.mock("./chat-retry", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./chat-retry")>();
   return {
     ...actual,
-    sleep: (...args: unknown[]) => sleepMock(...args),
+    sleep: (ms: number) => sleepMock(ms),
   };
 });
 

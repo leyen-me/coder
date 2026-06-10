@@ -9,5 +9,6 @@ export * from "./format-relative-time";
 export * from "./message-tools";
 export * from "./messages";
 export * from "./sessions";
+export * from "./skills";
 export * from "./subscriptions";
 export * from "./types";

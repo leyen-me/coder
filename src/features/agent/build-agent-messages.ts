@@ -3,18 +3,68 @@ import type { AgentEnvironment } from "./environment/types";
 import { hasAgentMessageContent } from "./message-content";
 import { assertValidToolCallChain } from "./process-steps";
 import type { AgentChatMessage } from "./types";
+import {
+  extractSkillSlugsFromText,
+  injectReferencedSkillsIntoUserContent,
+} from "@/features/skills/lib/parse-skill-references";
+import { resolveEnabledSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
 
-export function buildAgentMessages(
+export async function buildAgentMessages(
   history: AgentChatMessage[],
   environment: AgentEnvironment
-): AgentChatMessage[] {
+): Promise<AgentChatMessage[]> {
   const conversation = history.filter((message) => hasMessagePayload(message));
   assertValidToolCallChain(conversation);
 
+  const withSkillInjection = await applyReferencedSkillsToConversation(conversation);
+
   return [
     { role: "system", content: buildSystemPrompt(environment) },
-    ...conversation,
+    ...withSkillInjection,
   ];
+}
+
+async function applyReferencedSkillsToConversation(
+  messages: AgentChatMessage[]
+): Promise<AgentChatMessage[]> {
+  const result: AgentChatMessage[] = [];
+
+  for (const message of messages) {
+    if (message.role !== "user") {
+      result.push(message);
+      continue;
+    }
+
+    const content =
+      typeof message.content === "string" ? message.content : "";
+    const slugs = extractSkillSlugsFromText(content);
+    if (slugs.length === 0) {
+      result.push(message);
+      continue;
+    }
+
+    const resolved = await resolveEnabledSkillsBySlugs(slugs);
+    if (!resolved.ok) {
+      result.push(message);
+      continue;
+    }
+
+    const userSkills = resolved.skills.filter((skill) => skill.source === "user");
+    if (userSkills.length === 0) {
+      result.push(message);
+      continue;
+    }
+
+    result.push({
+      ...message,
+      content: injectReferencedSkillsIntoUserContent(
+        content,
+        userSkills.map((skill) => ({ slug: skill.slug, content: skill.content }))
+      ),
+    });
+  }
+
+  return result;
 }
 
 function hasMessagePayload(message: AgentChatMessage): boolean {

@@ -11,6 +11,11 @@ export type AgentEnvironment = {
   isGitRepository: boolean;
   today: string;
   agentsMd: AgentProjectInstructions;
+  enabledSystemSkills: Array<{
+    slug: string;
+    name: string;
+    content: string;
+  }>;
 };
 
 export type AgentEnvironmentInput = {
@@ -20,4 +25,5 @@ export type AgentEnvironmentInput = {
   isGitRepository: boolean;
   today?: string;
   agentsMd?: AgentProjectInstructions;
+  enabledSystemSkills?: AgentEnvironment["enabledSystemSkills"];
 };

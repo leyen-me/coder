@@ -6,9 +6,11 @@ import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
+import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { ChatMessageList } from "../components/chat-message-list";
 import { PromptComposer } from "../components/prompt-composer";
+import { notifySendMessageError } from "../lib/notify-send-message-error";
 import { useComposerThinking } from "../hooks/use-composer-thinking";
 import { estimateSessionContextUsage } from "../lib/estimate-session-context-usage";
 import {
@@ -25,6 +27,7 @@ type ChatSessionViewProps = {
 };
 
 export function ChatSessionView({ chatId }: ChatSessionViewProps) {
+  const { t } = useTranslation();
   const { resolved } = useModelProvider();
   const {
     sendMessage,
@@ -117,6 +120,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     }
 
     setIsSubmitting(true);
+    const previousPrompt = trimmed;
     const editingId = editingMessageId;
     setPrompt("");
     setEditingMessageId(null);
@@ -130,6 +134,14 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         thinkingEnabled,
         editMessageId: editingId ?? undefined,
       });
+    } catch (error) {
+      notifySendMessageError(error, (key, params) =>
+        t(`chat.${key}`, params)
+      );
+      setPrompt(previousPrompt);
+      if (editingId) {
+        setEditingMessageId(editingId);
+      }
     } finally {
       setIsSubmitting(false);
     }
