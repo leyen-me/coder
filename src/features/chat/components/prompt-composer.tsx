@@ -6,7 +6,13 @@ import {
   GitBranchIcon,
   XIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 
 import {
   PromptInput,
@@ -19,6 +25,7 @@ import {
   PromptInputSelectValue,
   PromptInputSubmit,
   usePromptInputAttachments,
+  type NativeFileDropEvent,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 import { Button } from "@/components/ui/button";
@@ -40,7 +47,14 @@ import {
 import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { cn } from "@/lib/utils";
 
+import { collectNativeFileDropItems } from "@/lib/dnd/external-file-drop";
+
 import { insertFileMentionIntoComposer } from "../lib/composer-insert-store";
+import {
+  pathsToNativeFileDropItems,
+  processNativeFileDropItems,
+} from "../lib/process-native-file-drop-items";
+import { useTauriNativeFileDropTarget } from "../hooks/use-tauri-native-file-drop-target";
 import { useWorkspacePathDropTarget } from "../hooks/use-workspace-path-drop-target";
 
 import { ComposerContextUsage } from "./composer-context-usage";
@@ -159,6 +173,32 @@ function ComposerSubmit({
       status={submitStatus}
     />
   );
+}
+
+type ComposerTauriFileDropBridgeProps = {
+  dropTargetRef: RefObject<HTMLElement | null>;
+  onDropPaths: (
+    paths: string[],
+    addAttachments: (files: File[] | FileList) => void
+  ) => void;
+};
+
+function ComposerTauriFileDropBridge({
+  dropTargetRef,
+  onDropPaths,
+}: ComposerTauriFileDropBridgeProps) {
+  const attachments = usePromptInputAttachments();
+
+  const handleDrop = useCallback(
+    (paths: string[]) => {
+      onDropPaths(paths, attachments.add);
+    },
+    [attachments.add, onDropPaths]
+  );
+
+  useTauriNativeFileDropTarget(dropTargetRef, handleDrop);
+
+  return null;
 }
 
 function ComposerMultimodalGuard({ enabled }: { enabled: boolean }) {
@@ -360,6 +400,56 @@ export function PromptComposer({
     insertFileMentionIntoComposer(path);
   }, []);
 
+  const dropMessages = useCallback(
+    () => ({
+      attachmentErrorMultimodalUnsupported: t(
+        "chat.attachmentErrorMultimodalUnsupported"
+      ),
+      externalDropInvalidPath: t("chat.externalDropInvalidPath"),
+      externalDropOutsideWorkspace: t("chat.externalDropOutsideWorkspace"),
+      externalDropPathUnresolved: t("chat.externalDropPathUnresolved"),
+      externalDropUnsupportedRuntime: t("chat.externalDropUnsupportedRuntime"),
+      externalDropWorkspaceRequired: t("chat.externalDropWorkspaceRequired"),
+    }),
+    [t]
+  );
+
+  const runNativeFileDrop = useCallback(
+    (
+      items: ReturnType<typeof collectNativeFileDropItems>,
+      addAttachments: (files: File[] | FileList) => void
+    ) => {
+      if (items.length === 0) {
+        return;
+      }
+
+      setAttachmentError(null);
+      void processNativeFileDropItems({
+        items,
+        workspaceDir,
+        supportsMultimodal,
+        addAttachments,
+        onError: setAttachmentError,
+        messages: dropMessages(),
+      });
+    },
+    [dropMessages, supportsMultimodal, workspaceDir]
+  );
+
+  const handleNativeFileDrop = useCallback(
+    ({ dataTransfer, addAttachments }: NativeFileDropEvent) => {
+      runNativeFileDrop(collectNativeFileDropItems(dataTransfer), addAttachments);
+    },
+    [runNativeFileDrop]
+  );
+
+  const handleTauriNativeFileDrop = useCallback(
+    (paths: string[], addAttachments: (files: File[] | FileList) => void) => {
+      runNativeFileDrop(pathsToNativeFileDropItems(paths), addAttachments);
+    },
+    [runNativeFileDrop]
+  );
+
   const dropTargetRef = useRef<HTMLDivElement>(null);
   useWorkspacePathDropTarget(dropTargetRef, handleWorkspacePathDrop);
 
@@ -411,8 +501,13 @@ export function PromptComposer({
       multiple
       onError={handleAttachmentError}
       onSubmit={handleSubmit}
+      onNativeFileDrop={handleNativeFileDrop}
       onWorkspacePathDrop={handleWorkspacePathDrop}
     >
+      <ComposerTauriFileDropBridge
+        dropTargetRef={dropTargetRef}
+        onDropPaths={handleTauriNativeFileDrop}
+      />
       <ComposerMultimodalGuard enabled={supportsMultimodal} />
       <PromptComposerAttachmentsHeader />
       <ComposerAttachmentError

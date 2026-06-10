@@ -16,6 +16,14 @@ pub struct PathOperationResult {
     pub action: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NormalizedWorkspaceReference {
+    pub path: String,
+    pub name: String,
+    pub is_dir: bool,
+}
+
 fn parse_workspace(workspace_dir: &str) -> Result<PathBuf, TextFileToolError> {
     let workspace = PathBuf::from(workspace_dir.trim());
     if workspace.as_os_str().is_empty() {
@@ -333,10 +341,38 @@ pub fn tool_resolve_absolute_path(
     Ok(format_absolute_path(&absolute))
 }
 
+#[tauri::command]
+pub fn tool_normalize_external_path(
+    workspace_dir: String,
+    absolute_path: String,
+) -> Result<NormalizedWorkspaceReference, TextFileToolError> {
+    let workspace = parse_workspace(&workspace_dir)?;
+    let canonical_workspace = canonical_workspace(&workspace)?;
+    let target = resolve_workspace_path(&workspace, absolute_path.trim()).map_err(|error| {
+        if error.contains("within the workspace") {
+            TextFileToolError::new("outside_workspace", error)
+        } else {
+            TextFileToolError::new("invalid_path", error)
+        }
+    })?;
+
+    let name = target
+        .file_name()
+        .map(|value| value.to_string_lossy().to_string())
+        .unwrap_or_else(|| workspace_relative_path(&canonical_workspace, &target));
+
+    Ok(NormalizedWorkspaceReference {
+        path: workspace_relative_path(&canonical_workspace, &target),
+        name,
+        is_dir: target.is_dir(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        tool_copy_path, tool_create_dir, tool_delete_path, tool_move_path, tool_rename_path,
+        tool_copy_path, tool_create_dir, tool_delete_path, tool_move_path, tool_normalize_external_path,
+        tool_rename_path,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -426,6 +462,44 @@ mod tests {
             .expect_err("delete root");
 
         assert_eq!(error.code, "invalid_operation");
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn normalizes_external_absolute_path_to_workspace_relative() {
+        let temp = temp_workspace("normalize");
+        fs::create_dir_all(temp.join("src")).expect("create src");
+        fs::write(temp.join("src/App.tsx"), "export {}").expect("write file");
+
+        let absolute = temp.join("src/App.tsx").canonicalize().expect("canonical file");
+        let normalized = tool_normalize_external_path(
+            temp.to_string_lossy().into_owned(),
+            absolute.to_string_lossy().into_owned(),
+        )
+        .expect("normalize");
+
+        assert_eq!(normalized.path, "src/App.tsx");
+        assert_eq!(normalized.name, "App.tsx");
+        assert!(!normalized.is_dir);
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn rejects_external_path_outside_workspace() {
+        let temp = temp_workspace("outside");
+        let outside = std::env::temp_dir().canonicalize().expect("temp dir");
+        if outside.starts_with(&temp) {
+            let _ = fs::remove_dir_all(temp);
+            return;
+        }
+
+        let error = tool_normalize_external_path(
+            temp.to_string_lossy().into_owned(),
+            outside.to_string_lossy().into_owned(),
+        )
+        .expect_err("outside path");
+
+        assert_eq!(error.code, "outside_workspace");
         let _ = fs::remove_dir_all(temp);
     }
 }

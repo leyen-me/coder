@@ -97,3 +97,20 @@ export async function resolveWorkspaceAbsolutePath(
     path,
   });
 }
+
+export type NormalizedWorkspaceReference = {
+  path: string;
+  name: string;
+  isDir: boolean;
+};
+
+export async function normalizeExternalPathForWorkspace(
+  workspaceDir: string,
+  absolutePath: string
+): Promise<NormalizedWorkspaceReference> {
+  assertTauri();
+  return invoke<NormalizedWorkspaceReference>("tool_normalize_external_path", {
+    workspaceDir,
+    absolutePath,
+  });
+}
