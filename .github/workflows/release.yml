@@ -30,6 +30,9 @@ jobs:
 
   publish:
     needs: prepare-tag
+    env:
+      # Vite 打包 monaco/mermaid/shiki 等重型依赖时易触达 Node 默认 ~2GB 堆上限
+      NODE_OPTIONS: --max-old-space-size=4096
     strategy:
       fail-fast: false
       matrix:
