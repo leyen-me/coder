@@ -20,6 +20,16 @@ export type Messages = {
     settings: string;
     allChats: string;
     filterChats: string;
+    filterTime: string;
+    filterTimeAll: string;
+    filterTimeToday: string;
+    filterTimeWeek: string;
+    filterTimeMonth: string;
+    filterWorkspace: string;
+    filterWorkspaceAll: string;
+    filterWorkspaceNone: string;
+    clearChatFilters: string;
+    noMatchingChats: string;
     agentRunning: string;
   };
   session: {

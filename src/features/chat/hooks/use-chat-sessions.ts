@@ -17,6 +17,7 @@ function toHistoryItem(
     id: session.id,
     title: session.title,
     updatedAt: session.updatedAt,
+    workspaceDir: session.workspaceDir,
     relativeTime: formatRelativeTime(session.updatedAt, Date.now(), {
       justNow: t("time.justNow"),
       minutesAgo: (count) => t("time.minutesAgo", { count }),

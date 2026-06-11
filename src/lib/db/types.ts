@@ -136,6 +136,7 @@ export type ChatHistoryItem = {
   title: string;
   relativeTime: string;
   updatedAt: number;
+  workspaceDir: string | null;
 };
 
 export type AgentTodoStatus =
