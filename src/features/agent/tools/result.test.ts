@@ -23,7 +23,7 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("workspaceDir: /tmp/project");
     expect(prompt).toContain("shell: /bin/zsh");
     expect(prompt).toContain("gitRepository: no");
-    expect(prompt).not.toContain("## Tools");
+    expect(prompt).not.toContain("## Tools Rules");
     expect(prompt).not.toContain("## Git");
   });
 
@@ -38,14 +38,14 @@ describe("buildSystemPrompt", () => {
         enabledSystemSkills: [
           {
             slug: "tools",
-            name: "Tools",
+            name: "Tools Rules",
             content: "Use glob to find files by name pattern.",
           },
         ],
       })
     );
 
-    expect(prompt).toContain("## Tools");
+    expect(prompt).toContain("## Tools Rules");
     expect(prompt).not.toContain("## Active skills (system)");
     expect(prompt).toContain("Use glob to find files by name pattern.");
     expect(prompt).not.toContain("## Git");

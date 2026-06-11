@@ -1,6 +1,6 @@
 import type { SystemSkillDefinition } from "../types";
 
-const TOOLS_CONTENT = `# Tools
+const TOOLS_CONTENT = `# Tools Rules
 
 You can call tools when you need local filesystem, shell, or web information.
 Use glob to find files by name pattern and grep to search file contents.
@@ -33,7 +33,7 @@ Format feedback as:
 - **Nice to have**: Optional enhancement
 `;
 
-const COMMIT_HELPER_CONTENT = `# Commit Message Helper
+const COMMIT_HELPER_CONTENT = `# Commit Rules
 
 Generate commit messages from staged changes:
 
@@ -56,7 +56,7 @@ export const SYSTEM_SKILLS: SystemSkillDefinition[] = [
   {
     id: "tools",
     slug: "tools",
-    name: "Tools",
+    name: "Tools Rules",
     description:
       "How to use filesystem, shell, web, and skill tools available to the agent.",
     content: TOOLS_CONTENT,
@@ -76,7 +76,7 @@ export const SYSTEM_SKILLS: SystemSkillDefinition[] = [
   {
     id: "commit-helper",
     slug: "commit-helper",
-    name: "Commit Helper",
+    name: "Commit Rules",
     description:
       "Generate conventional commit messages by analyzing git diffs and staged changes.",
     content: COMMIT_HELPER_CONTENT,
