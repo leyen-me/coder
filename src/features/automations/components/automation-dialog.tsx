@@ -196,43 +196,41 @@ export function AutomationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(640px,85vh)] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="shrink-0 space-y-1 px-6 pt-6 pb-2">
           <DialogTitle>
             {isEditing ? t("automations.editAutomation") : t("automations.newAutomation")}
           </DialogTitle>
-          <DialogDescription>
-            {isEditing
-              ? t("automations.editAutomation")
-              : t("automations.description")}
-          </DialogDescription>
+          {!isEditing ? (
+            <DialogDescription>{t("automations.description")}</DialogDescription>
+          ) : null}
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          {/* Name */}
-          <div className="space-y-2">
-            <Label htmlFor="automation-name">{t("automations.fieldName")}</Label>
-            <Input
-              id="automation-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t("automations.fieldNamePlaceholder")}
-            />
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-1">
+          <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="automation-name">{t("automations.fieldName")}</Label>
+              <Input
+                id="automation-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("automations.fieldNamePlaceholder")}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="automation-description">{t("automations.fieldDescription")}</Label>
+              <Input
+                id="automation-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder={t("automations.fieldDescriptionPlaceholder")}
+              />
+            </div>
           </div>
 
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="automation-description">{t("automations.fieldDescription")}</Label>
-            <Input
-              id="automation-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={t("automations.fieldDescriptionPlaceholder")}
-            />
-          </div>
-
-          {/* Cron expression */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="automation-cron">{t("automations.fieldCron")}</Label>
             <div className="flex gap-2">
               <Input
@@ -316,15 +314,15 @@ export function AutomationDialog({
             disabled={saving}
           />
 
-          {/* Prompt */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="automation-prompt">{t("automations.fieldPrompt")}</Label>
             <Textarea
               id="automation-prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder={t("automations.fieldPromptPlaceholder")}
-              rows={5}
+              rows={3}
+              className="min-h-20 resize-y"
             />
             <p className="text-xs text-muted-foreground">
               {t("automations.fieldPromptHint")}
@@ -337,9 +335,10 @@ export function AutomationDialog({
               {error}
             </p>
           )}
+          </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 border-t border-border/60 px-6 py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("automations.cancel")}
           </Button>

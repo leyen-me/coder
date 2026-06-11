@@ -1,6 +1,7 @@
 import {
   BotIcon,
   BrainIcon,
+  ChevronDownIcon,
   FileQuestionIcon,
   FolderOpenIcon,
   XIcon,
@@ -10,15 +11,19 @@ import type { AgentMode } from "@/features/agent/types";
 import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { useWorkspace } from "@/features/workspace/workspace-provider";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  composerFooterControlActiveClassName,
+  composerFooterControlClassName,
+} from "@/components/ai-elements/composer-footer-control";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
 import { Toggle } from "@/components/ui/toggle";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import {
@@ -62,129 +67,151 @@ export function AutomationRunSettings({
     : null;
 
   return (
-    <div className="space-y-4 rounded-2xl border border-border/70 p-4">
-      <div>
-        <p className="text-sm font-medium">{t("automations.fieldRunSettings")}</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          {t("automations.fieldRunSettingsHint")}
-        </p>
-      </div>
+    <div className="space-y-2.5 rounded-xl border border-border/70 p-3">
+      <Label className="text-sm">{t("automations.fieldRunSettings")}</Label>
 
-      <div className="space-y-2">
-        <Label>{t("automations.fieldWorkspace")}</Label>
-        <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-8 min-w-0 flex-1 justify-start gap-1.5 rounded-xl px-2.5 text-sm font-medium"
+          disabled={disabled}
+          title={t("automations.fieldRunSettingsHint")}
+          onClick={() => {
+            void (async () => {
+              const selected = await pickWorkspace();
+              if (selected) {
+                onWorkspaceDirChange(selected);
+              }
+            })();
+          }}
+        >
+          <FolderOpenIcon className="size-4 shrink-0" />
+          <span className="truncate">
+            {workspaceName ?? t("chat.localWork")}
+          </span>
+        </Button>
+        {workspaceDir ? (
           <Button
             type="button"
-            variant="outline"
-            className="h-9 min-w-0 flex-1 justify-start gap-2 px-3"
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0 rounded-xl"
             disabled={disabled}
-            onClick={() => {
-              void (async () => {
-                const selected = await pickWorkspace();
-                if (selected) {
-                  onWorkspaceDirChange(selected);
-                }
-              })();
-            }}
+            aria-label={t("chat.clearWorkspace")}
+            onClick={() => onWorkspaceDirChange(null)}
           >
-            <FolderOpenIcon className="h-4 w-4 shrink-0" />
-            <span className="truncate">
-              {workspaceName ?? t("chat.localWork")}
-            </span>
+            <XIcon className="size-3.5" />
           </Button>
-          {workspaceDir ? (
-            <Button
+        ) : null}
+      </div>
+
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <button
               type="button"
-              variant="ghost"
-              size="icon"
-              className="shrink-0"
               disabled={disabled}
-              aria-label={t("chat.clearWorkspace")}
-              onClick={() => onWorkspaceDirChange(null)}
+              className={cn(
+                composerFooterControlClassName,
+                "inline-flex min-w-0 items-center gap-1.5",
+                "data-[state=open]:bg-accent data-[state=open]:text-foreground data-[state=open]:dark:bg-input/50"
+              )}
+              title={
+                agentMode === "agent"
+                  ? t("chat.modeAgentLabel")
+                  : t("chat.modeAskLabel")
+              }
             >
-              <XIcon className="h-4 w-4" />
-            </Button>
-          ) : null}
-        </div>
-      </div>
+              {agentMode === "agent" ? (
+                <BotIcon className="size-3.5 shrink-0" />
+              ) : (
+                <FileQuestionIcon className="size-3.5 shrink-0" />
+              )}
+              <span className="truncate">
+                {agentMode === "agent"
+                  ? t("chat.modeAgent")
+                  : t("chat.modeAsk")}
+              </span>
+              <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-32">
+            <DropdownMenuRadioGroup
+              value={agentMode}
+              onValueChange={(value) => onAgentModeChange(value as AgentMode)}
+            >
+              <DropdownMenuRadioItem value="agent">
+                <BotIcon className="mr-2 size-4" />
+                <span>{t("chat.modeAgent")}</span>
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="ask">
+                <FileQuestionIcon className="mr-2 size-4" />
+                <span>{t("chat.modeAsk")}</span>
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="automation-agent-mode">
-            {t("automations.fieldAgentMode")}
-          </Label>
-          <Select
-            value={agentMode}
-            onValueChange={(value) => onAgentModeChange(value as AgentMode)}
-            disabled={disabled}
-          >
-            <SelectTrigger id="automation-agent-mode" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="agent">
-                <span className="inline-flex items-center gap-2">
-                  <BotIcon className="h-4 w-4" />
-                  {t("chat.modeAgent")}
-                </span>
-              </SelectItem>
-              <SelectItem value="ask">
-                <span className="inline-flex items-center gap-2">
-                  <FileQuestionIcon className="h-4 w-4" />
-                  {t("chat.modeAsk")}
-                </span>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="automation-model">{t("automations.fieldModel")}</Label>
-          <Select
-            value={model}
-            onValueChange={onModelChange}
-            disabled={disabled || models.length === 0}
-          >
-            <SelectTrigger id="automation-model" className="w-full">
-              <SelectValue
-                placeholder={t("chat.noModel")}
-              />
-            </SelectTrigger>
-            <SelectContent>
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              disabled={disabled || models.length === 0}
+              className={cn(
+                composerFooterControlClassName,
+                "inline-flex max-w-44 min-w-0 items-center gap-1.5",
+                "data-[state=open]:bg-accent data-[state=open]:text-foreground data-[state=open]:dark:bg-input/50"
+              )}
+              title={
+                selectedModel
+                  ? getModelDisplayName(selectedModel)
+                  : model || undefined
+              }
+            >
+              <span className="truncate">
+                {selectedModel
+                  ? getModelDisplayName(selectedModel)
+                  : t("chat.noModel")}
+              </span>
+              <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-w-sm">
+            <DropdownMenuRadioGroup value={model} onValueChange={onModelChange}>
               {models.map((item) => (
-                <SelectItem key={item.id} value={item.id}>
+                <DropdownMenuRadioItem key={item.id} value={item.id}>
                   {getModelDisplayName(item)}
-                </SelectItem>
+                </DropdownMenuRadioItem>
               ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-      {showThinkingToggle ? (
-        <div className="space-y-2">
-          <Label>{t("automations.fieldThinking")}</Label>
+        {showThinkingToggle ? (
           <Toggle
             pressed={thinkingEnabled}
             onPressedChange={onThinkingEnabledChange}
-            variant="outline"
+            variant="composer"
             size="sm"
-            disabled={disabled}
             className={cn(
-              "h-9 w-full justify-start gap-2 px-3",
-              thinkingEnabled && "border-primary/40 bg-primary/5"
+              composerFooterControlClassName,
+              composerFooterControlActiveClassName,
+              "max-w-36"
             )}
+            disabled={disabled}
             aria-label={t("chat.thinkingToggle")}
-          >
-            <BrainIcon className="h-4 w-4 shrink-0" />
-            <span>
-              {thinkingEnabled
+            title={
+              thinkingEnabled
                 ? t("chat.thinkingEnabled")
-                : t("chat.thinkingDisabled")}
-            </span>
+                : t("chat.thinkingDisabled")
+            }
+          >
+            <BrainIcon className="size-4 shrink-0" />
+            <span className="truncate">{t("chat.thinkingToggleLabel")}</span>
           </Toggle>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }
