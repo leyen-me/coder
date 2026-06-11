@@ -19,17 +19,12 @@ import {
   stopAutomationScheduler,
 } from "@/features/automations/lib/scheduler";
 
-import { paths } from "./paths";
 import type { ShellOutletContext } from "./shell-outlet-context";
-
-function isSettingsRoute(pathname: string): boolean {
-  return pathname.startsWith(paths.settings);
-}
 
 export function AppShell() {
   const { isOpen: isSidebarOpen, toggle: toggleSidebar } = useSidebarOpen();
-  const { pathname } = useLocation();
   const navigate = useNavigate();
+  useLocation(); // Subscribe to route changes so canGoBack recalculates
   const appWindow = useAppWindow();
   const isMaximized = useWindowMaximized(appWindow);
   const useRoundedShell = appWindow !== null && !isMaximized;
@@ -37,11 +32,9 @@ export function AppShell() {
   const shellContext: ShellOutletContext = { sidebarOpen: isSidebarOpen };
   const workspaceDir = useRouteWorkspaceDir();
 
-  const handleBack = isSettingsRoute(pathname)
-    ? () => {
-        navigate(paths.chatNew);
-      }
-    : undefined;
+  const canGoBack = window.history.length > 1;
+  const handleBack = () => navigate(-1);
+  const handleForward = () => navigate(1);
 
   // Start the automation scheduler on mount; stop on unmount.
   useEffect(() => {
@@ -62,6 +55,8 @@ export function AppShell() {
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={toggleSidebar}
         onBack={handleBack}
+        onForward={handleForward}
+        canGoBack={canGoBack}
       />
 
       <BottomPanelProvider>

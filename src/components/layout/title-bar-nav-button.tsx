@@ -14,6 +14,7 @@ type TitleBarNavButtonProps = {
   icon: LucideIcon;
   onClick?: () => void;
   isActive?: boolean;
+  disabled?: boolean;
 };
 
 export function TitleBarNavButton({
@@ -21,6 +22,7 @@ export function TitleBarNavButton({
   icon: Icon,
   onClick,
   isActive,
+  disabled,
 }: TitleBarNavButtonProps) {
   return (
     <Tooltip>
@@ -32,6 +34,7 @@ export function TitleBarNavButton({
           className={TITLE_BAR_NAV_BUTTON_CLASS}
           aria-label={label}
           aria-pressed={isActive}
+          disabled={disabled}
           onClick={onClick}
         >
           <Icon className="size-4" />

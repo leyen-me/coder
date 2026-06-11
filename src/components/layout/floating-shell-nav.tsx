@@ -10,6 +10,8 @@ type FloatingShellNavProps = {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   onBack?: () => void;
+  onForward?: () => void;
+  canGoBack: boolean;
 };
 
 /** Window nav controls that float above the shell; unaffected by sidebar collapse. */
@@ -17,6 +19,8 @@ export function FloatingShellNav({
   isSidebarOpen,
   onToggleSidebar,
   onBack,
+  onForward,
+  canGoBack,
 }: FloatingShellNavProps) {
   const { t } = useTranslation();
 
@@ -42,9 +46,10 @@ export function FloatingShellNav({
         <TitleBarNavButton
           label={t("titleBar.back")}
           icon={ArrowLeft}
+          disabled={!canGoBack}
           onClick={onBack}
         />
-        <TitleBarNavButton label={t("titleBar.forward")} icon={ArrowRight} />
+        <TitleBarNavButton label={t("titleBar.forward")} icon={ArrowRight} onClick={onForward} />
       </nav>
     </header>
   );
