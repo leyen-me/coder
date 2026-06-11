@@ -14,6 +14,7 @@ type SidebarNavItemProps = {
   end?: boolean;
   isActive?: boolean;
   onClick?: () => void;
+  "aria-label"?: string;
 };
 
 export function SidebarNavItem({
@@ -23,6 +24,7 @@ export function SidebarNavItem({
   end = false,
   isActive: isActiveOverride,
   onClick,
+  "aria-label": ariaLabel,
 }: SidebarNavItemProps) {
   const content = (
     <>
@@ -36,6 +38,7 @@ export function SidebarNavItem({
       <NavLink
         to={to}
         end={end}
+        aria-label={ariaLabel}
         className={({ isActive }) =>
           cn(
             itemClassName,
@@ -54,6 +57,7 @@ export function SidebarNavItem({
       type="button"
       variant="ghost"
       onClick={onClick}
+      aria-label={ariaLabel}
       className={cn(
         itemClassName,
         isActiveOverride &&

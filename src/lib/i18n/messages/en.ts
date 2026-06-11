@@ -20,6 +20,8 @@ export const enMessages = {
     skills: "Skills",
     automations: "Automations",
     settings: "Settings",
+    theme: "Theme",
+    themeAriaLabel: "Theme: {theme}. Click to switch.",
     allChats: "All chats",
     filterChats: "Filter chats",
     filterTime: "Time",

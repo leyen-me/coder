@@ -20,6 +20,8 @@ export const zhMessages = {
     skills: "技能",
     automations: "自动化",
     settings: "设置",
+    theme: "主题",
+    themeAriaLabel: "主题：{theme}，点击切换",
     allChats: "所有聊天",
     filterChats: "筛选聊天",
     filterTime: "时间",

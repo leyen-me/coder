@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { ChatHistoryList } from "./chat-history-list";
 import { SearchDialog } from "./search-dialog";
 import { SidebarNavItem } from "./sidebar-nav-item";
+import { SidebarThemeToggle } from "./sidebar-theme-toggle";
 
 type AppSidebarProps = {
   open: boolean;
@@ -91,7 +92,8 @@ export function AppSidebar({ open }: AppSidebarProps) {
             runningSessionIds={runningSessionIds}
           />
 
-          <div className="shrink-0 border-t border-sidebar-border p-2">
+          <div className="flex shrink-0 flex-col gap-0.5 border-t border-sidebar-border p-2">
+            <SidebarThemeToggle />
             <SidebarNavItem
               icon={Settings}
               label={t("sidebar.settings")}

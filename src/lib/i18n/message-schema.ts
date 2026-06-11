@@ -18,6 +18,8 @@ export type Messages = {
     skills: string;
     automations: string;
     settings: string;
+    theme: string;
+    themeAriaLabel: string;
     allChats: string;
     filterChats: string;
     filterTime: string;
