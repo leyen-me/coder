@@ -113,6 +113,8 @@ export async function executeAutomation(
     );
 
     const abortController = new AbortController();
+    let assistantContent = "";
+    let assistantThinking = "";
 
     await runAgentWithTools(
       {
@@ -142,15 +144,17 @@ export async function executeAutomation(
       },
       (event: AgentEvent) => {
         if (event.type === "content_delta") {
+          assistantContent += event.delta;
           void updateMessage(
             assistantMessageId,
-            { content: event.delta },
+            { content: assistantContent },
             { silent: true, touch: false }
           );
         } else if (event.type === "thinking_delta") {
+          assistantThinking += event.delta;
           void updateMessage(
             assistantMessageId,
-            { thinking: event.delta },
+            { thinking: assistantThinking },
             { silent: true, touch: false }
           );
         }
@@ -161,17 +165,16 @@ export async function executeAutomation(
             event.status === "failed" ||
             event.status === "cancelled"
           ) {
-            void updateMessage(assistantMessageId, {
-              status: event.status,
-              error: event.status === "completed" ? null : event.status,
-            });
-
             void (async () => {
-              const assistant = await import("@/lib/db/messages").then((m) =>
-                m.getMessage(assistantMessageId)
-              );
-              const summary = assistant?.content
-                ? assistant.content.slice(0, 200).replace(/\n/g, " ")
+              await updateMessage(assistantMessageId, {
+                status: event.status,
+                content: assistantContent,
+                thinking: assistantThinking,
+                error: event.status === "completed" ? null : event.status,
+              });
+
+              const summary = assistantContent
+                ? assistantContent.slice(0, 200).replace(/\n/g, " ")
                 : `[${event.status}]`;
               const terminalStatus =
                 event.status as Extract<
@@ -189,17 +192,23 @@ export async function executeAutomation(
         }
 
         if (event.type === "error") {
-          void updateMessage(assistantMessageId, {
-            status: "failed",
-            error: event.message,
-          });
+          void (async () => {
+            await updateMessage(assistantMessageId, {
+              status: "failed",
+              content: assistantContent,
+              thinking: assistantThinking,
+              error: event.message,
+            });
 
-          void completeAutomationRun(
-            automation.id,
-            session.id,
-            `[error] ${event.message.slice(0, 200)}`,
-            "failed"
-          );
+            await completeAutomationRun(
+              automation.id,
+              session.id,
+              assistantContent
+                ? assistantContent.slice(0, 200).replace(/\n/g, " ")
+                : `[error] ${event.message.slice(0, 200)}`,
+              "failed"
+            );
+          })();
         }
       }
     );
