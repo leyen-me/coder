@@ -12,7 +12,25 @@ import type {
 
 export const MODEL_PROVIDER_STORAGE_KEY = "coder:model-provider-settings";
 
-export const PROVIDER_IDS = ["deepseek", "glm", "agnes", "custom"] as const satisfies readonly ProviderId[];
+export const PROVIDER_IDS = [
+  "deepseek",
+  "glm",
+  "agnes",
+  "nvidia",
+  "custom",
+] as const satisfies readonly ProviderId[];
+
+/** Preset providers whose model list is maintained by the user in settings. */
+export const USER_MANAGED_MODEL_PROVIDER_IDS = [
+  "nvidia",
+] as const satisfies readonly Exclude<ProviderId, "custom">[];
+
+export function usesUserManagedModels(provider: ProviderId): boolean {
+  return (
+    provider === "custom" ||
+    (USER_MANAGED_MODEL_PROVIDER_IDS as readonly string[]).includes(provider)
+  );
+}
 
 export const API_KEY_SOURCES = ["manual", "env"] as const;
 
@@ -93,6 +111,12 @@ export const PRESET_PROVIDERS = {
       }),
     ],
     defaultApiKeyEnvVar: "AGNES_API_KEY",
+  },
+  nvidia: {
+    id: "nvidia",
+    baseUrl: "https://integrate.api.nvidia.com/v1",
+    models: [],
+    defaultApiKeyEnvVar: "NVIDIA_API_KEY",
   },
 } as const satisfies Record<
   Exclude<ProviderId, "custom">,

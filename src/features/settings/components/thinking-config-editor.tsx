@@ -1,6 +1,6 @@
 import { Textarea } from "@/components/ui/textarea";
 import {
-  GLM_THINKING_CONFIG,
+  createDefaultThinkingConfigForProvider,
   formatThinkingConfigJson,
   parseThinkingConfigJson,
   type ModelThinkingConfig,
@@ -79,10 +79,8 @@ export function ThinkingConfigEditor({
   );
 }
 
-export function createDefaultThinkingConfig(): ModelThinkingConfig {
-  return {
-    enabled: { ...GLM_THINKING_CONFIG.enabled },
-    disabled: { ...GLM_THINKING_CONFIG.disabled },
-    defaultEnabled: GLM_THINKING_CONFIG.defaultEnabled,
-  };
+export function createDefaultThinkingConfig(
+  provider: "custom" | "nvidia" | string = "custom"
+): ModelThinkingConfig {
+  return createDefaultThinkingConfigForProvider(provider);
 }

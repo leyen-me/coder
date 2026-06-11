@@ -7,6 +7,7 @@ import {
   DEFAULT_MODEL_CONTEXT_WINDOW,
   type ModelDefinition,
 } from "@/lib/model-provider/model-definition";
+import type { ProviderId } from "@/lib/model-provider/types";
 import { useLocale } from "@/lib/i18n/locale-provider";
 
 import {
@@ -17,15 +18,22 @@ import {
 type CustomModelsEditorProps = {
   models: ModelDefinition[];
   onChange: (models: ModelDefinition[]) => void;
+  provider: ProviderId;
 };
 
 type CustomModelRowProps = {
   model: ModelDefinition;
+  provider: ProviderId;
   onChange: (model: ModelDefinition) => void;
   onRemove: () => void;
 };
 
-function CustomModelRow({ model, onChange, onRemove }: CustomModelRowProps) {
+function CustomModelRow({
+  model,
+  provider,
+  onChange,
+  onRemove,
+}: CustomModelRowProps) {
   const { t } = useLocale();
 
   return (
@@ -113,7 +121,8 @@ function CustomModelRow({ model, onChange, onRemove }: CustomModelRowProps) {
                 ...model,
                 supportsThinking,
                 thinkingConfig: supportsThinking
-                  ? (model.thinkingConfig ?? createDefaultThinkingConfig())
+                  ? (model.thinkingConfig ??
+                    createDefaultThinkingConfig(provider))
                   : undefined,
               });
             }}
@@ -162,7 +171,11 @@ function normalizeModels(models: ModelDefinition[]): ModelDefinition[] {
   return normalized;
 }
 
-export function CustomModelsEditor({ models, onChange }: CustomModelsEditorProps) {
+export function CustomModelsEditor({
+  models,
+  onChange,
+  provider,
+}: CustomModelsEditorProps) {
   const { t } = useLocale();
 
   const handleModelChange = (index: number, nextModel: ModelDefinition) => {
@@ -195,6 +208,7 @@ export function CustomModelsEditor({ models, onChange }: CustomModelsEditorProps
           <CustomModelRow
             key={`${model.id}-${index}`}
             model={model}
+            provider={provider}
             onChange={(nextModel) => handleModelChange(index, nextModel)}
             onRemove={() => handleRemove(index)}
           />

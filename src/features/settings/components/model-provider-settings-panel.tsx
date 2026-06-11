@@ -1,5 +1,9 @@
 import { Input } from "@/components/ui/input";
-import { PRESET_PROVIDERS, PROVIDER_IDS } from "@/lib/model-provider/constants";
+import {
+  PRESET_PROVIDERS,
+  PROVIDER_IDS,
+  usesUserManagedModels,
+} from "@/lib/model-provider/constants";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import type { ProviderId } from "@/lib/model-provider/types";
 import { useLocale } from "@/lib/i18n/locale-provider";
@@ -23,6 +27,7 @@ export function ModelProviderSettingsPanel() {
   const { settings, resolved, updateSettings } = useModelProvider();
 
   const isCustom = settings.provider === "custom";
+  const usesCustomModels = usesUserManagedModels(settings.provider);
 
   const providerOptions = PROVIDER_IDS.map((value) => ({
     value,
@@ -132,13 +137,14 @@ export function ModelProviderSettingsPanel() {
         </SettingField>
       )}
 
-      {isCustom ? (
+      {usesCustomModels ? (
         <SettingField
           label={t("settings.modelProvider.modelsLabel")}
           description={t("settings.modelProvider.modelsDescription")}
         >
           <CustomModelsEditor
             models={settings.customModels}
+            provider={settings.provider}
             onChange={(customModels) => updateSettings({ customModels })}
           />
         </SettingField>

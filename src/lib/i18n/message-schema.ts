@@ -167,6 +167,7 @@ export type Messages = {
         deepseek: string;
         glm: string;
         agnes: string;
+        nvidia: string;
         custom: string;
       };
       endpointLabel: string;

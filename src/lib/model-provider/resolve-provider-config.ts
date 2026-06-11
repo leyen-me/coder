@@ -1,4 +1,4 @@
-import { PRESET_PROVIDERS } from "./constants";
+import { PRESET_PROVIDERS, usesUserManagedModels } from "./constants";
 import type { ModelProviderSettings, ResolvedProviderConfig } from "./types";
 
 export function resolveProviderConfig(
@@ -23,6 +23,8 @@ export function resolveProviderConfig(
     apiKeySource: settings.apiKeySource,
     apiKey: settings.apiKey,
     apiKeyEnvVar: settings.apiKeyEnvVar.trim(),
-    models: preset.models,
+    models: usesUserManagedModels(settings.provider)
+      ? settings.customModels
+      : preset.models,
   };
 }

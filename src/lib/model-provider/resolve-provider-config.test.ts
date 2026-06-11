@@ -24,6 +24,35 @@ describe("resolveProviderConfig", () => {
     });
   });
 
+  it("resolves nvidia provider with user-managed models", () => {
+    const customModels = [
+      {
+        id: "meta/llama-3.1-8b-instruct",
+        contextWindow: 128_000,
+        supportsThinking: false,
+        supportsMultimodal: false,
+      },
+    ];
+
+    expect(
+      resolveProviderConfig({
+        provider: "nvidia",
+        apiKeySource: "env",
+        apiKey: "",
+        apiKeyEnvVar: "NVIDIA_API_KEY",
+        customBaseUrl: "",
+        customModels,
+      })
+    ).toEqual({
+      provider: "nvidia",
+      baseUrl: PRESET_PROVIDERS.nvidia.baseUrl,
+      apiKeySource: "env",
+      apiKey: "",
+      apiKeyEnvVar: "NVIDIA_API_KEY",
+      models: customModels,
+    });
+  });
+
   it("resolves custom provider configuration", () => {
     const customModels = [
       {

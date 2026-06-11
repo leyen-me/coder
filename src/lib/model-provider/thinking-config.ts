@@ -28,6 +28,34 @@ export const AGNES_THINKING_CONFIG: ModelThinkingConfig = {
   defaultEnabled: false,
 };
 
+export const NVIDIA_THINKING_CONFIG: ModelThinkingConfig = {
+  enabled: {
+    chat_template_kwargs: { enable_thinking: true },
+  },
+  disabled: {
+    chat_template_kwargs: { enable_thinking: false },
+  },
+  defaultEnabled: true,
+};
+
+export function createDefaultThinkingConfigForProvider(
+  provider: "custom" | "nvidia" | string
+): ModelThinkingConfig {
+  if (provider === "nvidia") {
+    return {
+      enabled: { ...NVIDIA_THINKING_CONFIG.enabled },
+      disabled: { ...NVIDIA_THINKING_CONFIG.disabled },
+      defaultEnabled: NVIDIA_THINKING_CONFIG.defaultEnabled,
+    };
+  }
+
+  return {
+    enabled: { ...GLM_THINKING_CONFIG.enabled },
+    disabled: { ...GLM_THINKING_CONFIG.disabled },
+    defaultEnabled: GLM_THINKING_CONFIG.defaultEnabled,
+  };
+}
+
 export function normalizeThinkingConfig(
   raw: unknown
 ): ModelThinkingConfig | undefined {

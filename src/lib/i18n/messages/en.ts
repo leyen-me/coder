@@ -175,6 +175,7 @@ export const enMessages = {
         deepseek: "DeepSeek",
         glm: "GLM",
         agnes: "Agnes AI",
+        nvidia: "NVIDIA",
         custom: "Custom",
       },
       endpointLabel: "API endpoint",

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createDefaultThinkingConfigForProvider,
   DEEPSEEK_THINKING_CONFIG,
   GLM_THINKING_CONFIG,
+  NVIDIA_THINKING_CONFIG,
   parseThinkingConfigJson,
   resolveThinkingRequestParams,
 } from "./thinking-config";
@@ -22,6 +24,22 @@ describe("resolveThinkingRequestParams", () => {
 
   it("returns undefined without config", () => {
     expect(resolveThinkingRequestParams(undefined, true)).toBeUndefined();
+  });
+});
+
+describe("createDefaultThinkingConfigForProvider", () => {
+  it("returns NVIDIA thinking params for the nvidia provider", () => {
+    expect(createDefaultThinkingConfigForProvider("nvidia")).toEqual(
+      NVIDIA_THINKING_CONFIG
+    );
+  });
+
+  it("returns GLM thinking params for custom providers", () => {
+    expect(createDefaultThinkingConfigForProvider("custom")).toEqual({
+      enabled: { ...GLM_THINKING_CONFIG.enabled },
+      disabled: { ...GLM_THINKING_CONFIG.disabled },
+      defaultEnabled: GLM_THINKING_CONFIG.defaultEnabled,
+    });
   });
 });
 
