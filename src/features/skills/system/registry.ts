@@ -50,6 +50,8 @@ Optional body explaining motivation and impact
 Types: feat, fix, refactor, docs, test, chore, perf, ci
 
 Keep the subject line under 72 characters.
+
+4. When the user says "commit": stage and commit, but do not push until the user explicitly says "push".
 `;
 
 export const SYSTEM_SKILLS: SystemSkillDefinition[] = [
