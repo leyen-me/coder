@@ -1,6 +1,6 @@
 "use client";
 
-import { ActivityIcon } from "lucide-react";
+import { CpuIcon } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,7 @@ export function AgentProcessesSheet() {
             type="button"
             variant="ghost"
           >
-            <ActivityIcon className="size-4" />
+            <CpuIcon className="size-4" />
             {runningCount > 0 ? (
               <span className="absolute -top-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
                 {runningCount > 9 ? "9+" : runningCount}

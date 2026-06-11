@@ -1,4 +1,4 @@
-import { PanelBottom, PanelRight } from "lucide-react";
+import { FolderTree, SquareTerminal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,14 +31,14 @@ export function SessionToolbar() {
               "text-muted-foreground",
               isOpen && "bg-muted text-foreground"
             )}
-            aria-label={t("session.bottomPanel")}
+            aria-label={t("session.terminal")}
             aria-pressed={isOpen}
             onClick={toggle}
           >
-            <PanelBottom className="size-4" />
+            <SquareTerminal className="size-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>{t("session.bottomPanel")}</TooltipContent>
+        <TooltipContent>{t("session.terminal")}</TooltipContent>
       </Tooltip>
 
       <Tooltip>
@@ -51,14 +51,14 @@ export function SessionToolbar() {
               "text-muted-foreground",
               isRightPanelOpen && "bg-muted text-foreground"
             )}
-            aria-label={t("session.rightPanel")}
+            aria-label={t("rightPanel.explorer")}
             aria-pressed={isRightPanelOpen}
             onClick={toggleRightPanel}
           >
-            <PanelRight className="size-4" />
+            <FolderTree className="size-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>{t("session.rightPanel")}</TooltipContent>
+        <TooltipContent>{t("rightPanel.explorer")}</TooltipContent>
       </Tooltip>
     </div>
   );

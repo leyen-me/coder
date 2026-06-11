@@ -30,9 +30,8 @@ export type Messages = {
     exportSession: string;
     shareLink: string;
     splitLayout: string;
-    rightPanel: string;
     workbench: string;
-    bottomPanel: string;
+    terminal: string;
     agentProcesses: string;
     agentProcessesRunning: string;
   };
