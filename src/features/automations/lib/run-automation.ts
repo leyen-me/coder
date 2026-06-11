@@ -165,27 +165,23 @@ export async function executeAutomation(
             event.status === "failed" ||
             event.status === "cancelled"
           ) {
+            const messageStatus = event.status;
             void (async () => {
               await updateMessage(assistantMessageId, {
-                status: event.status,
+                status: messageStatus,
                 content: assistantContent,
                 thinking: assistantThinking,
-                error: event.status === "completed" ? null : event.status,
+                error: messageStatus === "completed" ? null : messageStatus,
               });
 
               const summary = assistantContent
                 ? assistantContent.slice(0, 200).replace(/\n/g, " ")
-                : `[${event.status}]`;
-              const terminalStatus =
-                event.status as Extract<
-                  AutomationRunStatus,
-                  "completed" | "failed" | "cancelled"
-                >;
+                : `[${messageStatus}]`;
               await completeAutomationRun(
                 automation.id,
                 session.id,
                 summary,
-                terminalStatus
+                messageStatus
               );
             })();
           }

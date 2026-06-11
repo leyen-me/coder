@@ -68,7 +68,7 @@ impl PtyRegistry {
         let shell = super::runtime::resolve_shell_for_command();
         let mut command = CommandBuilder::new(&shell);
         command.cwd(&cwd);
-        for (key, value) in crate::shell_env::command_environment() {
+        for (key, value) in crate::shell_env::pty_environment() {
             command.env(&key, &value);
         }
 
