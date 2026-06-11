@@ -1,6 +1,7 @@
-import { ExternalLink, Play } from "lucide-react";
+import { BotIcon, ExternalLink, FileQuestionIcon, Play } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,7 +14,13 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { paths } from "@/app/paths";
 import { useTranslation } from "@/lib/i18n/locale-provider";
+import {
+  findModelDefinition,
+  getModelDisplayName,
+} from "@/lib/model-provider/model-definition";
+import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
+import { resolveAutomationRunConfig } from "../lib/run-config";
 import type { AutomationViewModel } from "../lib/types";
 import { getMinutesUntilNextRun } from "../lib/types";
 
@@ -32,6 +39,12 @@ export function AutomationCard({
 }: AutomationCardProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { resolved } = useModelProvider();
+  const runConfig = resolveAutomationRunConfig(item, resolved);
+  const modelDefinition = findModelDefinition(resolved.models, runConfig.model);
+  const workspaceName = runConfig.workspaceDir
+    ? getWorkspaceDisplayName(runConfig.workspaceDir)
+    : null;
   const nextRunMin = getMinutesUntilNextRun(item.cronExpression);
   const nextRunText = item.enabled && nextRunMin !== null
     ? nextRunMin < 60
@@ -73,6 +86,27 @@ export function AutomationCard({
               {item.cronExpression}
             </code>
             {item.enabled && nextRunText && <span className="text-xs">{nextRunText}</span>}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <span className="inline-flex items-center gap-1">
+              {runConfig.agentMode === "agent" ? (
+                <BotIcon className="h-3.5 w-3.5 shrink-0" />
+              ) : (
+                <FileQuestionIcon className="h-3.5 w-3.5 shrink-0" />
+              )}
+              {runConfig.agentMode === "agent"
+                ? t("chat.modeAgent")
+                : t("chat.modeAsk")}
+            </span>
+            <span>
+              {modelDefinition
+                ? getModelDisplayName(modelDefinition)
+                : runConfig.model}
+            </span>
+            {workspaceName ? <span>{workspaceName}</span> : null}
+            {runConfig.thinkingEnabled ? (
+              <span>{t("automations.thinkingEnabledBadge")}</span>
+            ) : null}
           </div>
           {item.lastRunAt && (
             <div className="flex items-center gap-2">

@@ -90,12 +90,20 @@ export type SystemSkillPreference = {
   updatedAt: number;
 };
 
+export type AutomationAgentMode = "agent" | "ask";
+
 export type AutomationRecord = {
   id: string;
   name: string;
   description: string;
   cronExpression: string;
   prompt: string;
+  /** Absolute workspace path used when the automation runs. */
+  workspaceDir: string | null;
+  /** Model id from the active provider configuration. */
+  model: string;
+  agentMode: AutomationAgentMode;
+  thinkingEnabled: boolean;
   enabled: boolean;
   lastRunAt: number | null;
   lastResultSummary: string | null;

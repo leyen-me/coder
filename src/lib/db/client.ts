@@ -104,6 +104,20 @@ async function openCoderDb(repairAttempted = false): Promise<IDBPDatabase<CoderD
         });
         store.createIndex("by-updatedAt", "updatedAt");
       }
+
+      if (oldVersion > 0 && oldVersion < 7) {
+        const store = transaction.objectStore(AUTOMATIONS_STORE);
+        const automations = await store.getAll();
+        for (const automation of automations) {
+          await store.put({
+            ...automation,
+            workspaceDir: automation.workspaceDir ?? null,
+            model: automation.model?.trim() ?? "",
+            agentMode: automation.agentMode === "ask" ? "ask" : "agent",
+            thinkingEnabled: automation.thinkingEnabled ?? false,
+          });
+        }
+      }
     },
   });
 

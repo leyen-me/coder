@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { AlertCircle, Check, ChevronsUpDown } from "lucide-react";
 
+import type { AgentMode } from "@/features/agent/types";
+import { resolveDefaultModel } from "@/features/agent/model-preference";
+import { resolveDefaultThinkingEnabled } from "@/features/agent/thinking-preference";
+import { resolveInitialSessionWorkspaceDir } from "@/features/workspace/resolve-session-workspace";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,9 +31,13 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { useTranslation } from "@/lib/i18n/locale-provider";
+import { findModelDefinition } from "@/lib/model-provider/model-definition";
+import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { cn } from "@/lib/utils";
 
 import type { AutomationRecord, CreateAutomationInput, UpdateAutomationInput } from "@/lib/db";
+import { AutomationRunSettings } from "./automation-run-settings";
+import { resolveAutomationRunConfig } from "../lib/run-config";
 import { CRON_PRESETS, isValidCronExpression } from "../lib/types";
 
 type AutomationDialogProps = {
@@ -49,32 +57,63 @@ export function AutomationDialog({
   onSave,
 }: AutomationDialogProps) {
   const { t } = useTranslation();
+  const { resolved } = useModelProvider();
   const isEditing = editItem !== null;
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [cronExpression, setCronExpression] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [workspaceDir, setWorkspaceDir] = useState<string | null>(null);
+  const [model, setModel] = useState(() => resolveDefaultModel(resolved));
+  const [agentMode, setAgentMode] = useState<AgentMode>("agent");
+  const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [presetOpen, setPresetOpen] = useState(false);
 
+  const handleModelChange = useCallback(
+    (nextModel: string) => {
+      setModel(nextModel);
+      setThinkingEnabled(
+        resolveDefaultThinkingEnabled(
+          findModelDefinition(resolved.models, nextModel)
+        )
+      );
+    },
+    [resolved.models]
+  );
+
   useEffect(() => {
     if (open) {
       if (editItem) {
+        const runConfig = resolveAutomationRunConfig(editItem, resolved);
         setName(editItem.name);
         setDescription(editItem.description);
         setCronExpression(editItem.cronExpression);
         setPrompt(editItem.prompt);
+        setWorkspaceDir(runConfig.workspaceDir);
+        setModel(runConfig.model);
+        setAgentMode(runConfig.agentMode);
+        setThinkingEnabled(runConfig.thinkingEnabled);
       } else {
+        const defaultModel = resolveDefaultModel(resolved);
         setName("");
         setDescription("");
         setCronExpression("0 * * * *");
         setPrompt("");
+        setWorkspaceDir(resolveInitialSessionWorkspaceDir());
+        setModel(defaultModel);
+        setAgentMode("agent");
+        setThinkingEnabled(
+          resolveDefaultThinkingEnabled(
+            findModelDefinition(resolved.models, defaultModel)
+          )
+        );
       }
       setError(null);
       setSaving(false);
     }
-  }, [open, editItem]);
+  }, [open, editItem, resolved]);
 
   const handleSave = useCallback(async () => {
     setError(null);
@@ -97,6 +136,19 @@ export function AutomationDialog({
       return;
     }
 
+    const trimmedModel = model.trim();
+    if (!trimmedModel || !findModelDefinition(resolved.models, trimmedModel)) {
+      setError(t("automations.formModelRequired"));
+      return;
+    }
+
+    const runSettings = {
+      workspaceDir: workspaceDir?.trim() || null,
+      model: trimmedModel,
+      agentMode,
+      thinkingEnabled,
+    };
+
     setSaving(true);
     try {
       if (isEditing) {
@@ -106,6 +158,7 @@ export function AutomationDialog({
           description: description.trim(),
           cronExpression: trimmedCron,
           prompt: trimmedPrompt,
+          ...runSettings,
         } as UpdateAutomationInput & { id: string });
       } else {
         await onSave({
@@ -113,6 +166,7 @@ export function AutomationDialog({
           description: description.trim(),
           cronExpression: trimmedCron,
           prompt: trimmedPrompt,
+          ...runSettings,
         } as CreateAutomationInput);
       }
       onOpenChange(false);
@@ -121,13 +175,28 @@ export function AutomationDialog({
     } finally {
       setSaving(false);
     }
-  }, [name, cronExpression, prompt, description, isEditing, editItem, onSave, onOpenChange, t]);
+  }, [
+    name,
+    cronExpression,
+    prompt,
+    description,
+    workspaceDir,
+    model,
+    agentMode,
+    thinkingEnabled,
+    resolved.models,
+    isEditing,
+    editItem,
+    onSave,
+    onOpenChange,
+    t,
+  ]);
 
   const cronValid = cronExpression.trim() === "" || isValidCronExpression(cronExpression.trim());
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? t("automations.editAutomation") : t("automations.newAutomation")}
@@ -233,6 +302,19 @@ export function AutomationDialog({
               </p>
             )}
           </div>
+
+          <AutomationRunSettings
+            workspaceDir={workspaceDir}
+            onWorkspaceDirChange={setWorkspaceDir}
+            agentMode={agentMode}
+            onAgentModeChange={setAgentMode}
+            model={model}
+            onModelChange={handleModelChange}
+            thinkingEnabled={thinkingEnabled}
+            onThinkingEnabledChange={setThinkingEnabled}
+            models={resolved.models}
+            disabled={saving}
+          />
 
           {/* Prompt */}
           <div className="space-y-2">

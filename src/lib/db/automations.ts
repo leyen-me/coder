@@ -1,12 +1,15 @@
 import { AUTOMATIONS_STORE } from "./constants";
 import { getDb } from "./client";
+import { normalizeAutomationRecord } from "./normalize-automation";
 import { notifyDbChange } from "./subscriptions";
-import type { AutomationRecord } from "./types";
+import type { AutomationAgentMode, AutomationRecord } from "./types";
 
 export async function listAutomations(): Promise<AutomationRecord[]> {
   const db = await getDb();
   const items = await db.getAll(AUTOMATIONS_STORE);
-  return items.sort((a, b) => b.updatedAt - a.updatedAt);
+  return items
+    .map(normalizeAutomationRecord)
+    .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 export async function listEnabledAutomations(): Promise<AutomationRecord[]> {
@@ -18,7 +21,8 @@ export async function getAutomation(
   id: string
 ): Promise<AutomationRecord | null> {
   const db = await getDb();
-  return (await db.get(AUTOMATIONS_STORE, id)) ?? null;
+  const record = await db.get(AUTOMATIONS_STORE, id);
+  return record ? normalizeAutomationRecord(record) : null;
 }
 
 export type CreateAutomationInput = {
@@ -26,6 +30,10 @@ export type CreateAutomationInput = {
   description: string;
   cronExpression: string;
   prompt: string;
+  workspaceDir: string | null;
+  model: string;
+  agentMode: AutomationAgentMode;
+  thinkingEnabled: boolean;
 };
 
 export async function createAutomation(
@@ -38,6 +46,10 @@ export async function createAutomation(
     description: input.description.trim(),
     cronExpression: input.cronExpression.trim(),
     prompt: input.prompt,
+    workspaceDir: input.workspaceDir?.trim() || null,
+    model: input.model.trim(),
+    agentMode: input.agentMode,
+    thinkingEnabled: input.thinkingEnabled,
     enabled: true,
     lastRunAt: null,
     lastResultSummary: null,
@@ -55,7 +67,15 @@ export async function createAutomation(
 export type UpdateAutomationInput = Partial<
   Pick<
     AutomationRecord,
-    "name" | "description" | "cronExpression" | "prompt" | "enabled"
+    | "name"
+    | "description"
+    | "cronExpression"
+    | "prompt"
+    | "workspaceDir"
+    | "model"
+    | "agentMode"
+    | "thinkingEnabled"
+    | "enabled"
   >
 >;
 
@@ -69,14 +89,19 @@ export async function updateAutomation(
     return null;
   }
 
-  const next: AutomationRecord = {
+  const next: AutomationRecord = normalizeAutomationRecord({
     ...existing,
     ...patch,
     name: patch.name?.trim() ?? existing.name,
     description: patch.description?.trim() ?? existing.description,
     cronExpression: patch.cronExpression?.trim() ?? existing.cronExpression,
+    workspaceDir:
+      patch.workspaceDir !== undefined
+        ? patch.workspaceDir?.trim() || null
+        : existing.workspaceDir,
+    model: patch.model?.trim() ?? existing.model,
     updatedAt: Date.now(),
-  };
+  });
 
   await db.put(AUTOMATIONS_STORE, next);
   notifyDbChange();

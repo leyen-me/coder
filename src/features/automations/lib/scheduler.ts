@@ -3,10 +3,16 @@ import { CronExpressionParser } from "cron-parser";
 import { runAgentWithTools } from "@/features/agent/agent-loop";
 import { buildAgentMessages } from "@/features/agent/build-agent-messages";
 import { resolveAgentEnvironment } from "@/features/agent/environment/resolve-environment";
-import { resolveDefaultModel, resolveApiKey, resolveApiKeyEnvVar } from "@/features/agent/model-preference";
+import { resolveApiKey, resolveApiKeyEnvVar } from "@/features/agent/model-preference";
 import { buildThinkingRequestExtensions } from "@/features/agent/thinking-preference";
+import {
+  DEFAULT_MODEL_CONTEXT_WINDOW,
+  findModelDefinition,
+} from "@/lib/model-provider/model-definition";
 import { resolveProviderConfig } from "@/lib/model-provider/resolve-provider-config";
 import { readModelProviderSettings } from "@/lib/model-provider/storage";
+import { readWebToolsSettings } from "@/lib/web-tools/storage";
+import { resolveTavilyConfig } from "@/lib/web-tools/resolve-tavily-config";
 import {
   createSession,
   createMessage,
@@ -19,6 +25,8 @@ import {
 
 import type { AutomationRecord } from "@/lib/db";
 import type { AgentChatMessage, AgentEvent } from "@/features/agent/types";
+
+import { resolveAutomationRunConfig } from "./run-config";
 
 /** How often the scheduler checks for due automations (ms). */
 export const SCHEDULER_INTERVAL_MS = 30_000;
@@ -95,22 +103,24 @@ async function executeAutomation(automation: AutomationRecord): Promise<void> {
   const userMessageId = createMessageId();
 
   try {
-    // 1. Resolve model and environment
+    // 1. Resolve run configuration, model, and environment
     const modelSettings = readModelProviderSettings();
     const resolved = resolveProviderConfig(modelSettings);
-    const modelId = resolveDefaultModel(resolved);
+    const runConfig = resolveAutomationRunConfig(automation, resolved);
     const apiKey = resolveApiKey(resolved);
     const apiKeySource = resolved.apiKeySource;
     const apiKeyEnvVar = resolveApiKeyEnvVar(resolved);
-    const environment = await resolveAgentEnvironment(null);
+    const webToolsSettings = readWebToolsSettings();
+    const tavilyConfig = resolveTavilyConfig(webToolsSettings);
+    const environment = await resolveAgentEnvironment(runConfig.workspaceDir);
 
     // 2. Create the session
     const title = deriveSessionTitle(automation.prompt);
     const session = await createSession({
       id: sessionId,
       title,
-      model: modelId,
-      workspaceDir: null,
+      model: runConfig.model,
+      workspaceDir: runConfig.workspaceDir,
     });
 
     // 3. Create the user message
@@ -144,7 +154,11 @@ async function executeAutomation(automation: AutomationRecord): Promise<void> {
       { role: "user", content: automation.prompt },
     ];
 
-    const messages = await buildAgentMessages(agentMessages, environment);
+    const messages = await buildAgentMessages(
+      agentMessages,
+      environment,
+      runConfig.agentMode
+    );
 
     const abortController = new AbortController();
 
@@ -156,20 +170,24 @@ async function executeAutomation(automation: AutomationRecord): Promise<void> {
         apiKey,
         apiKeySource,
         apiKeyEnvVar,
-        model: modelId,
+        model: runConfig.model,
         messages,
         requestExtensions: buildThinkingRequestExtensions({
           models: resolved.models,
-          modelId,
-          thinkingEnabled: false,
+          modelId: runConfig.model,
+          thinkingEnabled: runConfig.thinkingEnabled,
         }),
+        maxContextTokens:
+          findModelDefinition(resolved.models, runConfig.model)?.contextWindow ??
+          DEFAULT_MODEL_CONTEXT_WINDOW,
+        agentMode: runConfig.agentMode,
       },
       {
-        workspaceDir: null,
+        workspaceDir: runConfig.workspaceDir,
         taskId,
         signal: abortController.signal,
-        tavilyConfig: null,
-        allowPrivateNetworkAccess: false,
+        tavilyConfig,
+        allowPrivateNetworkAccess: webToolsSettings.allowPrivateNetworkAccess,
       },
       (event: AgentEvent) => {
         // Persist streaming content to IndexedDB silently.
