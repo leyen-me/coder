@@ -137,6 +137,7 @@ describe("buildSystemPrompt", () => {
 
     expect(prompt).toContain("mode: plan");
     expect(prompt).toContain("You are in Plan mode");
+    expect(prompt).toContain("ENTIRE assistant response must be ONLY the plan markdown");
     expect(prompt).toContain("Build with Agent");
   });
 });

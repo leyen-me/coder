@@ -12,6 +12,24 @@ describe("buildPlanExecutionPrompt", () => {
     expect(prompt).toContain("Do the thing");
   });
 
+  it("strips conversational wrapper before building", () => {
+    const raw = [
+      "好的！我先看看。",
+      "",
+      "## 古风贪吃蛇",
+      "Implement UI.",
+      "",
+      "你觉得怎么样？点击 Build with Agent 开始。",
+    ].join("\n");
+
+    const prompt = buildPlanExecutionPrompt(raw);
+
+    expect(prompt).not.toContain("好的");
+    expect(prompt).not.toContain("你觉得");
+    expect(prompt).toContain("## 古风贪吃蛇");
+    expect(prompt).toContain("Implement UI.");
+  });
+
   it("throws when plan content is empty", () => {
     expect(() => buildPlanExecutionPrompt("   ")).toThrow("Plan content is empty");
   });
