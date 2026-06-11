@@ -24,6 +24,20 @@ export function buildSystemPrompt(
       ? "ask (read-only: can read files, search code, browse the web, and list skills — cannot modify files or run shell commands)"
       : "agent (full tool access)";
 
+  const modeGuidance =
+    agentMode === "ask"
+      ? [
+          "",
+          "## Mode Guidance",
+          "You are in Ask mode — you can only read files, search, and browse.",
+          "When the user asks you to modify files, run commands, or perform any write operation:",
+          "  - Explain that the task requires write access.",
+          "  - Tell the user they can switch to Agent mode (click \"Agent\" next to the input) to give you full tool access.",
+          "Do NOT silently refuse or just say \"I can't do that.\" Always provide a clear path forward.",
+          "",
+        ]
+      : [];
+
   return [
     "You are Coder, a helpful desktop AI assistant.",
     "Reply in the same language the user uses. Be concise, accurate, and friendly.",
@@ -39,6 +53,7 @@ export function buildSystemPrompt(
     ...buildSystemPromptSections(environment.enabledSystemSkills),
     ...buildUserSkillsSection(),
     ...buildProjectInstructionsSection(environment.agentsMd),
+    ...modeGuidance,
   ].join("\n");
 }
 
