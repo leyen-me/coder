@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-import { CodeBlock } from "@/components/ai-elements/code-block";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { parseReadFileToolError } from "@/features/agent/tools/parse-read-file-tool-error";
 import type { ReadFileData } from "@/features/agent/tools/types";
 import { useTranslation } from "@/lib/i18n/locale-provider";
@@ -12,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 import { guessLanguageFromPath } from "../lib/guess-language-from-path";
 import { readWorkspaceFile } from "../lib/read-workspace-file";
+import { MonacoPreviewEditor } from "./monaco-preview-editor";
 
 type FilePreviewProps = {
   workspaceDir: string | null;
@@ -159,30 +158,28 @@ export function FilePreview({
   }
 
   return (
-    <ScrollArea className={cn("h-full min-h-0", className)}>
-      <div className="flex min-h-full flex-col gap-2 p-2">
-        {data.containsSecrets ? (
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-            {t("rightPanel.previewSecretsWarning")}
-          </div>
-        ) : null}
+    <div className={cn("flex h-full min-h-0 flex-col", className)}>
+      {data.containsSecrets ? (
+        <div className="shrink-0 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+          {t("rightPanel.previewSecretsWarning")}
+        </div>
+      ) : null}
 
-        <CodeBlock
-          className="min-h-0 border-none"
-          code={data.content}
+      <div className="min-h-0 flex-1">
+        <MonacoPreviewEditor
           language={guessLanguageFromPath(path)}
-          showLineNumbers
+          value={data.content}
         />
-
-        {data.truncated ? (
-          <p className="px-1 text-xs text-muted-foreground">
-            {t("rightPanel.previewTruncated", {
-              endLine: data.endLine,
-              totalLines: data.totalLines,
-            })}
-          </p>
-        ) : null}
       </div>
-    </ScrollArea>
+
+      {data.truncated ? (
+        <p className="shrink-0 border-t px-3 py-2 text-xs text-muted-foreground">
+          {t("rightPanel.previewTruncated", {
+            endLine: data.endLine,
+            totalLines: data.totalLines,
+          })}
+        </p>
+      ) : null}
+    </div>
   );
 }

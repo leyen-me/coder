@@ -1,7 +1,5 @@
-import type { BundledLanguage } from "shiki";
-
-const EXTENSION_LANGUAGE: Record<string, BundledLanguage> = {
-  bash: "bash",
+const EXTENSION_LANGUAGE: Record<string, string> = {
+  bash: "shell",
   c: "c",
   cpp: "cpp",
   css: "css",
@@ -9,7 +7,7 @@ const EXTENSION_LANGUAGE: Record<string, BundledLanguage> = {
   html: "html",
   java: "java",
   js: "javascript",
-  jsx: "jsx",
+  jsx: "javascript",
   json: "json",
   md: "markdown",
   mjs: "javascript",
@@ -18,26 +16,26 @@ const EXTENSION_LANGUAGE: Record<string, BundledLanguage> = {
   rb: "ruby",
   rs: "rust",
   scss: "scss",
-  sh: "bash",
+  sh: "shell",
   sql: "sql",
-  toml: "toml",
+  toml: "ini",
   ts: "typescript",
-  tsx: "tsx",
-  vue: "vue",
+  tsx: "typescript",
+  vue: "html",
   xml: "xml",
   yaml: "yaml",
   yml: "yaml",
-  zsh: "bash",
+  zsh: "shell",
 };
 
-export function guessLanguageFromPath(path: string): BundledLanguage {
+export function guessLanguageFromPath(path: string): string {
   const fileName = path.split("/").pop() ?? path;
   const dotIndex = fileName.lastIndexOf(".");
 
   if (dotIndex === -1) {
-    return "text" as BundledLanguage;
+    return "plaintext";
   }
 
   const extension = fileName.slice(dotIndex + 1).toLowerCase();
-  return EXTENSION_LANGUAGE[extension] ?? ("text" as BundledLanguage);
+  return EXTENSION_LANGUAGE[extension] ?? "plaintext";
 }
