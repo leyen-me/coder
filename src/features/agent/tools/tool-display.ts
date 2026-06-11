@@ -13,6 +13,21 @@ export function parseToolCallInput(rawArguments: string): unknown {
   }
 }
 
+/** Ensure tool call arguments are valid JSON before sending to chat completion APIs. */
+export function sanitizeToolCallArguments(rawArguments: string): string {
+  const trimmed = rawArguments.trim();
+  if (!trimmed) {
+    return "{}";
+  }
+
+  try {
+    JSON.parse(trimmed);
+    return trimmed;
+  } catch {
+    return JSON.stringify({ raw: rawArguments });
+  }
+}
+
 export function toolResultToInvocationPatch(result: ToolResultEnvelope): {
   state: "output-available" | "output-error";
   output: ToolResultEnvelope;

@@ -168,7 +168,7 @@ describe("messageRecordToAgentMessages", () => {
     ]);
   });
 
-  it("preserves raw tool input when argument parsing previously failed", () => {
+  it("wraps invalid tool input as valid JSON when rebuilding API messages", () => {
     const messages = messageRecordToAgentMessages({
       id: "assistant-3",
       sessionId: "session-1",
@@ -203,7 +203,7 @@ describe("messageRecordToAgentMessages", () => {
             type: "function",
             function: {
               name: "list_dir",
-              arguments: '{"path": }',
+              arguments: '{"raw":"{\\"path\\": }"}',
             },
           },
         ],

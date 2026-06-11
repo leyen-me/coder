@@ -1,3 +1,4 @@
+import { sanitizeToolCallArguments } from "./tool-display";
 import type { AgentToolCall } from "./types";
 
 /** OpenAI-compatible tool call shape required by chat completion APIs. */
@@ -16,7 +17,7 @@ export function toApiToolCall(call: AgentToolCall): ApiToolCall {
     type: "function",
     function: {
       name: call.name,
-      arguments: call.arguments,
+      arguments: sanitizeToolCallArguments(call.arguments),
     },
   };
 }

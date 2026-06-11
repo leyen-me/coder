@@ -235,17 +235,6 @@ export function toStoredToolCall(invocation: MessageToolInvocation): AgentToolCa
 }
 
 function serializeStoredToolInput(input: unknown): string {
-  if (
-    input &&
-    typeof input === "object" &&
-    !Array.isArray(input) &&
-    "raw" in input &&
-    typeof (input as { raw?: unknown }).raw === "string" &&
-    Object.keys(input).length === 1
-  ) {
-    return (input as { raw: string }).raw;
-  }
-
   return JSON.stringify(input ?? {});
 }
 

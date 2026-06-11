@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseToolCallInput,
+  sanitizeToolCallArguments,
   toolResultToInvocationPatch,
 } from "@/features/agent/tools/tool-display";
 import { toolFailure, toolSuccess } from "@/features/agent/tools/result";
@@ -11,6 +12,16 @@ describe("parseToolCallInput", () => {
     expect(parseToolCallInput("{\"path\":\".\"}")).toEqual({ path: "." });
     expect(parseToolCallInput("")).toEqual({});
     expect(parseToolCallInput("{bad")).toEqual({ raw: "{bad" });
+  });
+});
+
+describe("sanitizeToolCallArguments", () => {
+  it("keeps valid JSON and wraps malformed arguments", () => {
+    expect(sanitizeToolCallArguments("{\"path\":\".\"}")).toBe("{\"path\":\".\"}");
+    expect(sanitizeToolCallArguments("")).toBe("{}");
+    expect(sanitizeToolCallArguments("{\"create_parent_dirs\": false")).toBe(
+      "{\"raw\":\"{\\\"create_parent_dirs\\\": false\"}"
+    );
   });
 });
 
