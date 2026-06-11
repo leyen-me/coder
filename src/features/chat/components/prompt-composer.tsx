@@ -224,47 +224,38 @@ function ComposerContextBar({
 
   return (
     <div className="relative z-0 -mt-3 flex items-center gap-1 bg-muted/50 px-3 pb-2 pt-5 dark:bg-[#1c1c1f]">
-      <div className="flex min-w-0 max-w-44 shrink-0 items-center">
-        <Button
-          aria-label={
-            workspaceName
-              ? t("chat.workspaceSelected", { name: workspaceName })
-              : t("chat.selectWorkspace")
-          }
-          className={cn(
-            "h-8 min-w-0 flex-1 rounded-xl px-2.5",
-            showClearWorkspace && "rounded-r-none pr-2"
-          )}
-          disabled={isRunning || !onPickWorkspace}
-          onClick={onPickWorkspace}
-          title={
-            workspaceName
-              ? t("chat.workspaceSelected", { name: workspaceName })
-              : t("chat.selectWorkspace")
-          }
-          type="button"
-          variant="ghost"
-        >
-          <FolderOpenIcon className="size-4 shrink-0" />
-          <span className="truncate">
-            {workspaceName ?? t("chat.localWork")}
-          </span>
-        </Button>
-
+      <Button
+        aria-label={
+          workspaceName
+            ? t("chat.workspaceSelected", { name: workspaceName })
+            : t("chat.selectWorkspace")
+        }
+        className="group h-8 max-w-44 min-w-0 shrink-0 rounded-xl px-2.5"
+        disabled={isRunning || !onPickWorkspace}
+        onClick={onPickWorkspace}
+        title={
+          workspaceName
+            ? t("chat.workspaceSelected", { name: workspaceName })
+            : t("chat.selectWorkspace")
+        }
+        type="button"
+        variant="ghost"
+      >
+        <FolderOpenIcon className="size-4 shrink-0" />
+        <span className="truncate">
+          {workspaceName ?? t("chat.localWork")}
+        </span>
         {showClearWorkspace ? (
-          <Button
+          <XIcon
             aria-label={t("chat.clearWorkspace")}
-            className="h-8 shrink-0 rounded-l-none rounded-r-xl px-2"
-            disabled={isRunning}
-            onClick={onClearWorkspace}
-            title={t("chat.clearWorkspace")}
-            type="button"
-            variant="ghost"
-          >
-            <XIcon className="size-3.5 shrink-0 opacity-70" />
-          </Button>
+            className="ml-1 size-3.5 shrink-0 cursor-pointer rounded-sm opacity-60 transition-all duration-150 hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClearWorkspace?.();
+            }}
+          />
         ) : null}
-      </div>
+      </Button>
 
       {showBranch ? (
         <DropdownMenu>
