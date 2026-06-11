@@ -309,6 +309,16 @@ export const zhMessages = {
     deleteConfirmDescription: "确定要删除 <strong>{name}</strong> 吗？此操作不可撤销。",
     saving: "保存中…",
     saveFailed: "保存自动化失败",
+    presets: {
+      everyHour: "每小时",
+      every6Hours: "每 6 小时",
+      everyDayMidnight: "每天午夜",
+      everyDay9: "每天早上 9:00",
+      everyWeekday9: "每个工作日 9:00",
+      everyMonday9: "每周一 9:00",
+      everySunday9: "每周日 9:00",
+      everyFirstOfMonth9: "每月 1 号 9:00",
+    },
   },
   skills: {
     systemSectionTitle: "系统技能",

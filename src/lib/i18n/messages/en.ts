@@ -316,6 +316,16 @@ export const enMessages = {
     deleteConfirmDescription: 'Are you sure you want to delete <strong>{name}</strong>? This action cannot be undone.',
     saving: "Saving…",
     saveFailed: "Failed to save automation",
+    presets: {
+      everyHour: "Every hour",
+      every6Hours: "Every 6 hours",
+      everyDayMidnight: "Every day at midnight",
+      everyDay9: "Every day at 9:00",
+      everyWeekday9: "Every weekday at 9:00",
+      everyMonday9: "Every Monday at 9:00",
+      everySunday9: "Every Sunday at 9:00",
+      everyFirstOfMonth9: "Every 1st of month at 9:00",
+    },
   },
   skills: {
     systemSectionTitle: "System skills",

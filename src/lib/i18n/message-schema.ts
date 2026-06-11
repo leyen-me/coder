@@ -294,6 +294,16 @@ export type Messages = {
     deleteConfirmDescription: string;
     saving: string;
     saveFailed: string;
+    presets: {
+      everyHour: string;
+      every6Hours: string;
+      everyDayMidnight: string;
+      everyDay9: string;
+      everyWeekday9: string;
+      everyMonday9: string;
+      everySunday9: string;
+      everyFirstOfMonth9: string;
+    };
   };
   skills: {
     systemSectionTitle: string;
