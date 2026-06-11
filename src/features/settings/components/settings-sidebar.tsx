@@ -1,8 +1,12 @@
+import { ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
 import { APP_SIDEBAR_WIDTH_PX } from "@/components/layout/constants";
 import { TitleBarDragRegion } from "@/components/layout/title-bar-drag-region";
 import { SidebarNavItem } from "@/features/chat/components/sidebar-nav-item";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
+import { paths } from "@/app/paths";
 
 import { SETTINGS_CATEGORIES } from "../constants";
 import type { SettingsCategoryId } from "../types";
@@ -19,6 +23,7 @@ export function SettingsSidebar({
   onSelectCategory,
 }: SettingsSidebarProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   return (
     <div
@@ -38,11 +43,19 @@ export function SettingsSidebar({
       >
         <TitleBarDragRegion className="h-11 w-full shrink-0 flex-none" />
 
+        <div className="px-2 pb-2">
+          <SidebarNavItem
+            icon={ArrowLeft}
+            label={t("titleBar.back")}
+            onClick={() => navigate(paths.chatNew)}
+          />
+        </div>
+
         <div className="flex shrink-0 items-center px-4 pb-2">
           <h2 className="text-sm font-semibold">{t("settings.title")}</h2>
         </div>
 
-        <nav className="flex flex-col gap-0.5 px-2 py-2">
+        <nav className="flex flex-col gap-0.5 px-2 pb-2">
           {SETTINGS_CATEGORIES.map((category) => (
             <SidebarNavItem
               key={category.id}
