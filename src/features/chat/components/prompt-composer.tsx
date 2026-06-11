@@ -115,6 +115,7 @@ type ComposerSubmitProps = {
   onStop?: () => void;
   submitStatus: ChatStatus;
   supportsMultimodal: boolean;
+  queueActionLabel?: string;
 };
 
 type ComposerAttachmentErrorProps = {
@@ -151,7 +152,9 @@ function ComposerSubmit({
   onStop,
   submitStatus,
   supportsMultimodal,
+  queueActionLabel,
 }: ComposerSubmitProps) {
+  const { t } = useTranslation();
   const attachments = usePromptInputAttachments();
   const canSend =
     value.trim().length > 0 ||
@@ -160,12 +163,24 @@ function ComposerSubmit({
   const isStopMode = isRunning && Boolean(onStop);
 
   return (
-    <PromptInputSubmit
-      className="shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/90"
-      disabled={isStopMode ? false : !canSend}
-      onStop={onStop}
-      status={submitStatus}
-    />
+    <div className="flex shrink-0 items-center gap-1.5">
+      {isRunning ? (
+        <Button
+          className="h-9 rounded-full px-3"
+          disabled={!canSend}
+          type="submit"
+          variant="secondary"
+        >
+          {queueActionLabel ?? t("chat.queueAdd")}
+        </Button>
+      ) : null}
+      <PromptInputSubmit
+        className="shrink-0 rounded-full bg-foreground text-background hover:bg-foreground/90"
+        disabled={isStopMode ? false : !canSend}
+        onStop={onStop}
+        status={submitStatus}
+      />
+    </div>
   );
 }
 
@@ -351,6 +366,9 @@ export function PromptComposer({
   const showThinkingToggle =
     canToggleThinking(selectedModel) && Boolean(onThinkingEnabledChange);
   const attachmentAccept = supportsMultimodal ? COMPOSER_ATTACHMENT_ACCEPT : undefined;
+  const queueActionLabel = isEditing
+    ? t("chat.queueUpdate")
+    : t("chat.queueAdd");
 
   const clearAttachmentError = useCallback(() => {
     setAttachmentError(null);
@@ -435,10 +453,6 @@ export function PromptComposer({
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      if (isRunning) {
-        return;
-      }
-
       const hasText = message.text.trim().length > 0;
       const hasFiles = supportsMultimodal && message.files.length > 0;
       if (!hasText && !hasFiles) {
@@ -451,7 +465,7 @@ export function PromptComposer({
         files: supportsMultimodal ? message.files : [],
       });
     },
-    [isRunning, onChange, onSend, supportsMultimodal]
+    [onChange, onSend, supportsMultimodal]
   );
 
   const promptInputClassName = cn(
@@ -641,6 +655,7 @@ export function PromptComposer({
           <ComposerSubmit
             isRunning={isRunning}
             onStop={onStop}
+            queueActionLabel={queueActionLabel}
             submitStatus={submitStatus}
             supportsMultimodal={supportsMultimodal}
             value={value}

@@ -88,6 +88,17 @@ export type Messages = {
     forkMessage: string;
     forkSessionTitle: string;
     regenerateMessage: string;
+    queueTitle: string;
+    queueCount: string;
+    queueExpand: string;
+    queueCollapse: string;
+    queueAdd: string;
+    queueUpdate: string;
+    queueEdit: string;
+    queueDelete: string;
+    queueWaiting: string;
+    queueWaitingWithAttachments: string;
+    queueAttachmentOnly: string;
     chatRetrying: string;
     handoffGenerating: string;
     handoffCreatingSession: string;

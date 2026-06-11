@@ -1,8 +1,9 @@
 import type { AgentMode } from "@/features/agent/types";
 import type { FileUIPart } from "ai";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { LoaderCircleIcon } from "lucide-react";
+import { nanoid } from "nanoid";
 
 import { storedImagesToFileUIParts } from "@/features/agent/message-content";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
@@ -14,8 +15,15 @@ import { useTranslation } from "@/lib/i18n/locale-provider";
 import { AgentTodoList } from "../components/agent-todo-list";
 import { ChatMessageList } from "../components/chat-message-list";
 import { PromptComposer } from "../components/prompt-composer";
+import { QueuedMessageList } from "../components/queued-message-list";
 import { notifySendMessageError } from "../lib/notify-send-message-error";
 import { buildPlanExecutionPrompt } from "../lib/plan/build-plan-execution-prompt";
+import {
+  removeQueuedMessage,
+  takeNextQueuedMessage,
+  updateQueuedMessage,
+  type QueuedMessage,
+} from "../lib/message-queue";
 import {
   getLatestPlanMessage,
 } from "../lib/plan/get-latest-plan-message";
@@ -49,7 +57,12 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const displayMessages = useDisplayMessages(messages);
   const [prompt, setPrompt] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingQueuedMessageId, setEditingQueuedMessageId] = useState<string | null>(
+    null
+  );
   const [editInitialFiles, setEditInitialFiles] = useState<FileUIPart[]>([]);
+  const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
+  const queueDispatchingRef = useRef(false);
   const [model, setModel] = useState(() => resolveDefaultModel(resolved));
   const { thinkingEnabled, onThinkingEnabledChange } = useComposerThinking(
     model,
@@ -93,6 +106,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
   const handleCancelEdit = useCallback(() => {
     setEditingMessageId(null);
+    setEditingQueuedMessageId(null);
     setEditInitialFiles([]);
     setPrompt("");
   }, []);
@@ -104,11 +118,68 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         void cancelTask(task.taskId);
       }
 
+      setEditingQueuedMessageId(null);
       setEditingMessageId(message.id);
       setPrompt(message.content);
       setEditInitialFiles(storedImagesToFileUIParts(message.images ?? []));
     },
     [cancelTask, chatId, getSessionTask]
+  );
+
+  const sendPayload = useCallback(
+    async (
+      payload: { text: string; files: FileUIPart[] },
+      options?: {
+        editMessageId?: string;
+        restorePromptOnError?: boolean;
+        requeueOnError?: QueuedMessage | null;
+      }
+    ): Promise<boolean> => {
+      const trimmed = payload.text.trim();
+      const hasImages = payload.files.length > 0;
+      if (!trimmed && !hasImages) {
+        return false;
+      }
+
+      setIsSubmitting(true);
+      if (options?.restorePromptOnError) {
+        setPrompt("");
+      }
+      try {
+        await sendMessage({
+          sessionId: chatId,
+          content: trimmed,
+          images: payload.files,
+          model,
+          thinkingEnabled,
+          editMessageId: options?.editMessageId,
+          agentMode,
+        });
+        return true;
+      } catch (error) {
+        notifySendMessageError(error, (key, params) =>
+          t(`chat.${key}`, params)
+        );
+
+        if (options?.restorePromptOnError) {
+          setPrompt(trimmed);
+          if (options.editMessageId) {
+            setEditingMessageId(options.editMessageId);
+          }
+        }
+
+        if (options?.requeueOnError) {
+          setQueuedMessages((currentQueue) => [
+            options.requeueOnError as QueuedMessage,
+            ...currentQueue,
+          ]);
+        }
+        return false;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [agentMode, chatId, model, sendMessage, t, thinkingEnabled]
   );
 
   const handleRegenerateAssistantMessage = useCallback(
@@ -163,41 +234,107 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     [chatId, isRunning, model, sendMessage, t, thinkingEnabled]
   );
 
-  const handleSend = async (payload: { text: string; files: FileUIPart[] }) => {
-    const trimmed = payload.text.trim();
-    const hasImages = payload.files.length > 0;
-    if ((!trimmed && !hasImages) || (isRunning && !editingMessageId)) {
+  const handleSend = useCallback(
+    async (payload: { text: string; files: FileUIPart[] }) => {
+      const trimmed = payload.text.trim();
+      const hasImages = payload.files.length > 0;
+      if (!trimmed && !hasImages) {
+        return;
+      }
+
+      if (editingQueuedMessageId) {
+        setQueuedMessages((currentQueue) =>
+          updateQueuedMessage(currentQueue, editingQueuedMessageId, {
+            text: trimmed,
+            files: payload.files,
+          })
+        );
+        setEditingQueuedMessageId(null);
+        setEditInitialFiles([]);
+        setPrompt("");
+        return;
+      }
+
+      if (isRunning && !editingMessageId) {
+        setQueuedMessages((currentQueue) => [
+          ...currentQueue,
+          {
+            id: nanoid(),
+            text: trimmed,
+            files: payload.files,
+          },
+        ]);
+        setPrompt("");
+        setEditInitialFiles([]);
+        return;
+      }
+
+      const editingId = editingMessageId;
+      setEditingMessageId(null);
+      setEditInitialFiles([]);
+      await sendPayload(
+        {
+          text: trimmed,
+          files: payload.files,
+        },
+        {
+          editMessageId: editingId ?? undefined,
+          restorePromptOnError: true,
+        }
+      );
+    },
+    [editingMessageId, editingQueuedMessageId, isRunning, sendPayload]
+  );
+
+  const handleEditQueuedMessage = useCallback((message: QueuedMessage) => {
+    setEditingMessageId(null);
+    setEditingQueuedMessageId(message.id);
+    setPrompt(message.text);
+    setEditInitialFiles(message.files);
+  }, []);
+
+  const handleDeleteQueuedMessage = useCallback((messageId: string) => {
+    setQueuedMessages((currentQueue) => removeQueuedMessage(currentQueue, messageId));
+    if (editingQueuedMessageId === messageId) {
+      setEditingQueuedMessageId(null);
+      setEditInitialFiles([]);
+      setPrompt("");
+    }
+  }, [editingQueuedMessageId]);
+
+  useEffect(() => {
+    if (isRunning || editingQueuedMessageId || queueDispatchingRef.current) {
       return;
     }
 
-    setIsSubmitting(true);
-    const previousPrompt = trimmed;
-    const editingId = editingMessageId;
-    setPrompt("");
-    setEditingMessageId(null);
-    setEditInitialFiles([]);
-    try {
-      await sendMessage({
-        sessionId: chatId,
-        content: trimmed,
-        images: payload.files,
-        model,
-        thinkingEnabled,
-        editMessageId: editingId ?? undefined,
-        agentMode,
-      });
-    } catch (error) {
-      notifySendMessageError(error, (key, params) =>
-        t(`chat.${key}`, params)
-      );
-      setPrompt(previousPrompt);
-      if (editingId) {
-        setEditingMessageId(editingId);
-      }
-    } finally {
-      setIsSubmitting(false);
+    const nextItem = queuedMessages[0];
+    if (!nextItem) {
+      return;
     }
-  };
+
+    queueDispatchingRef.current = true;
+    setQueuedMessages((currentQueue) => takeNextQueuedMessage(currentQueue).remaining);
+
+    void sendPayload(
+      {
+        text: nextItem.text,
+        files: nextItem.files,
+      },
+      {
+        requeueOnError: nextItem,
+      }
+    )
+      .then((success) => {
+        if (!success) {
+          setEditingQueuedMessageId(nextItem.id);
+          setPrompt(nextItem.text);
+          setEditInitialFiles(nextItem.files);
+        }
+      })
+      .finally(() => {
+        queueDispatchingRef.current = false;
+      });
+  }, [editingQueuedMessageId, isRunning, queuedMessages, sendPayload]);
 
   const handleStop = () => {
     if (activeTask) {
@@ -282,6 +419,12 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       <div className="shrink-0 px-4 pb-4 pt-3">
         <div className="mx-auto w-full max-w-3xl">
           <AgentTodoList sessionId={chatId} isRunning={isRunning} />
+          <QueuedMessageList
+            editingMessageId={editingQueuedMessageId}
+            messages={queuedMessages}
+            onDelete={handleDeleteQueuedMessage}
+            onEdit={handleEditQueuedMessage}
+          />
           {handoffStatus ? (
             <div className="mb-2 overflow-hidden rounded-2xl border bg-muted/40 px-3 py-2.5 dark:bg-muted/20">
               <div className="flex items-center gap-2">
@@ -311,10 +454,12 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             </div>
           ) : null}
           <PromptComposer
-            composerKey={editingMessageId ?? "new"}
+            composerKey={editingMessageId ?? editingQueuedMessageId ?? "new"}
             initialFiles={editInitialFiles}
             value={prompt}
-            onCancelEdit={editingMessageId ? handleCancelEdit : undefined}
+            onCancelEdit={
+              editingMessageId || editingQueuedMessageId ? handleCancelEdit : undefined
+            }
             onChange={setPrompt}
             onSend={(payload) => {
               void handleSend(payload);
