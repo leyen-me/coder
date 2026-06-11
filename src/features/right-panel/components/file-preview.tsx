@@ -1,7 +1,7 @@
 "use client";
 
 import { LoaderCircleIcon, SaveIcon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { parseReadFileToolError } from "@/features/agent/tools/parse-read-file-tool-error";
@@ -12,12 +12,14 @@ import { cn } from "@/lib/utils";
 import { guessLanguageFromPath } from "../lib/guess-language-from-path";
 import { readWorkspaceFile } from "../lib/read-workspace-file";
 import { saveWorkspaceFile } from "../lib/save-workspace-file";
+import type { FileEditorSession } from "../hooks/use-file-editor-sessions";
 import { MonacoPreviewEditor } from "./monaco-preview-editor";
 
 type FilePreviewProps = {
   workspaceDir: string | null;
   path: string;
   className?: string;
+  onSessionChange?: (path: string, session: FileEditorSession | null) => void;
 };
 
 function formatPreviewError(code: string | undefined): MessageKey | null {
@@ -67,6 +69,7 @@ export function FilePreview({
   workspaceDir,
   path,
   className,
+  onSessionChange,
 }: FilePreviewProps) {
   const { t } = useTranslation();
   const [content, setContent] = useState("");
@@ -129,9 +132,13 @@ export function FilePreview({
     void loadFile();
   }, [loadFile]);
 
-  const handleSave = useCallback(async () => {
-    if (!workspaceDir || !isDirty || saving) {
-      return;
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (!workspaceDir) {
+      return false;
+    }
+
+    if (!isDirty || saving) {
+      return !isDirty;
     }
 
     setSaving(true);
@@ -147,6 +154,7 @@ export function FilePreview({
       );
       setSavedContent(content);
       setSha256(result.sha256);
+      return true;
     } catch (saveError) {
       const parsed = resolvePreviewError(saveError);
       const messageKey = formatPreviewError(parsed.code);
@@ -157,10 +165,34 @@ export function FilePreview({
         setSaveErrorKey(null);
         setSaveErrorMessage(parsed.message);
       }
+      return false;
     } finally {
       setSaving(false);
     }
   }, [content, isDirty, path, saving, sha256, workspaceDir]);
+
+  const contentRef = useRef(content);
+  const savedContentRef = useRef(savedContent);
+  const handleSaveRef = useRef(handleSave);
+  contentRef.current = content;
+  savedContentRef.current = savedContent;
+  handleSaveRef.current = handleSave;
+
+  useEffect(() => {
+    if (!onSessionChange || loading || errorKey || errorMessage) {
+      onSessionChange?.(path, null);
+      return;
+    }
+
+    onSessionChange(path, {
+      isDirty: () => contentRef.current !== savedContentRef.current,
+      save: () => handleSaveRef.current(),
+    });
+
+    return () => {
+      onSessionChange(path, null);
+    };
+  }, [errorKey, errorMessage, loading, onSessionChange, path]);
 
   if (loading) {
     return (

@@ -427,6 +427,10 @@ export const enMessages = {
     previewUnsaved: "Unsaved changes",
     previewFileChanged: "File changed on disk. Reload to continue editing.",
     previewReload: "Reload",
+    previewCloseUnsavedTitle: "Save changes?",
+    previewCloseUnsavedDescription:
+      'Do you want to save the changes you made to "{name}"?',
+    previewCloseDiscard: "Don't Save",
     previewTruncated: "Showing lines 1–{endLine} of {totalLines}",
     menuOpen: "Open",
     menuClosePreview: "Close preview",

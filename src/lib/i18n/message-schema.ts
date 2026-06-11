@@ -400,6 +400,9 @@ export type Messages = {
     previewUnsaved: string;
     previewFileChanged: string;
     previewReload: string;
+    previewCloseUnsavedTitle: string;
+    previewCloseUnsavedDescription: string;
+    previewCloseDiscard: string;
     previewTruncated: string;
     menuOpen: string;
     menuClosePreview: string;

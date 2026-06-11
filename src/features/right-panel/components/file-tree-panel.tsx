@@ -7,8 +7,10 @@ import { createFileTreePointerDragProps } from "@/lib/dnd/workspace-path-pointer
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
+import { useFileEditorSessions } from "../hooks/use-file-editor-sessions";
 import { useFilePreviewTabs } from "../hooks/use-file-preview-tabs";
 import { FilePreview } from "./file-preview";
+import { UnsavedFileCloseDialog } from "./unsaved-file-close-dialog";
 import { WorkspaceFileTree } from "./workspace-file-tree";
 import type { WorkspaceFileTreeHandle } from "./workspace-file-tree";
 
@@ -28,6 +30,20 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     showExplorer,
     activateFile,
   } = useFilePreviewTabs();
+  const {
+    confirmDiscard,
+    confirmSave,
+    createRequestClose,
+    dismissPendingClose,
+    isSaving,
+    pendingClose,
+    setSession,
+  } = useFileEditorSessions();
+
+  const requestCloseFile = useMemo(
+    () => createRequestClose(closeFile),
+    [closeFile, createRequestClose]
+  );
 
   const openPreviewPaths = useMemo(
     () => new Set(tabs.map((tab) => tab.path)),
@@ -97,7 +113,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
               <button
                 aria-label={t("rightPanel.closePreview")}
                 className="rounded-l-md px-1.5 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
-                onClick={() => closeFile(tab.path)}
+                onClick={() => requestCloseFile(tab.path, tab.name)}
                 type="button"
               >
                 <FileIcon className="size-3 group-hover:hidden" />
@@ -127,7 +143,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
         >
           <WorkspaceFileTree
             ref={fileTreeRef}
-            onFileClose={closeFile}
+            onFileClose={requestCloseFile}
             onFileOpen={openFile}
             onFileRename={renameFile}
             openPreviewPaths={openPreviewPaths}
@@ -145,10 +161,31 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
                 : "pointer-events-none z-0 opacity-0"
             )}
           >
-            <FilePreview path={tab.path} workspaceDir={workspaceDir} />
+            <FilePreview
+              onSessionChange={setSession}
+              path={tab.path}
+              workspaceDir={workspaceDir}
+            />
           </div>
         ))}
       </div>
+
+      <UnsavedFileCloseDialog
+        fileName={pendingClose?.fileName ?? null}
+        isSaving={isSaving}
+        onDiscard={() => {
+          confirmDiscard(closeFile);
+        }}
+        onOpenChange={(open) => {
+          if (!open) {
+            dismissPendingClose();
+          }
+        }}
+        onSave={() => {
+          void confirmSave(closeFile);
+        }}
+        open={pendingClose !== null}
+      />
     </div>
   );
 }
