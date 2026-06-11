@@ -101,6 +101,8 @@ export const enMessages = {
     handoffStartingNewSession:
       "Continuation session created. Starting the next unattended run…",
     todoListTitle: "Task progress",
+    todoExpand: "Expand todo list",
+    todoCollapse: "Collapse todo list",
     todoProgress: "{completed}/{total}",
     todoStatusPending: "Pending",
     todoStatusInProgress: "In progress",

@@ -96,6 +96,8 @@ export const zhMessages = {
     handoffCreatingSession: "交接文档已生成，正在创建新的续跑会话…",
     handoffStartingNewSession: "新会话已创建，正在启动自动续跑…",
     todoListTitle: "任务进度",
+    todoExpand: "展开待办列表",
+    todoCollapse: "收起待办列表",
     todoProgress: "{completed}/{total}",
     todoStatusPending: "待处理",
     todoStatusInProgress: "进行中",

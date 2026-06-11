@@ -93,6 +93,8 @@ export type Messages = {
     handoffCreatingSession: string;
     handoffStartingNewSession: string;
     todoListTitle: string;
+    todoExpand: string;
+    todoCollapse: string;
     todoProgress: string;
     todoStatusPending: string;
     todoStatusInProgress: string;
