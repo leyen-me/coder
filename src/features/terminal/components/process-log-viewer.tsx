@@ -11,33 +11,51 @@ type ProcessLogViewerProps = {
   className?: string;
 };
 
+const STICK_TO_BOTTOM_THRESHOLD_PX = 48;
+
 export function ProcessLogViewer({
   stdout,
   stderr,
   className,
 }: ProcessLogViewerProps) {
-  const containerRef = useRef<HTMLPreElement>(null);
-
-  useEffect(() => {
-    const element = containerRef.current;
-    if (!element) {
-      return;
-    }
-    element.scrollTop = element.scrollHeight;
-  }, [stdout, stderr]);
-
+  const containerRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
   const content = stripAnsi(mergeProcessLogContent(stdout, stderr));
 
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !stickToBottomRef.current) {
+      return;
+    }
+
+    container.scrollTop = container.scrollHeight;
+  }, [content]);
+
+  const handleScroll = () => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    stickToBottomRef.current =
+      distanceFromBottom <= STICK_TO_BOTTOM_THRESHOLD_PX;
+  };
+
   return (
-    <pre
+    <div
       ref={containerRef}
       className={cn(
-        "h-full overflow-auto rounded-md border bg-muted/30 p-3 font-mono text-xs leading-relaxed",
+        "h-full min-h-0 overflow-auto rounded-md border bg-background",
         className
       )}
+      onScroll={handleScroll}
     >
-      {content || " "}
-    </pre>
+      <pre className="p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap wrap-break-word text-foreground/90">
+        {content || " "}
+      </pre>
+    </div>
   );
 }
 

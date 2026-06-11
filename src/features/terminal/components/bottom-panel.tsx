@@ -1,8 +1,14 @@
 "use client";
 
-import { CpuIcon, SquareTerminal } from "lucide-react";
+import { CpuIcon, SquareTerminal, XIcon } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { useBottomPanel } from "../bottom-panel-context";
@@ -16,7 +22,7 @@ type BottomPanelProps = {
 
 export function BottomPanel({ workspaceDir }: BottomPanelProps) {
   const { t } = useTranslation();
-  const { activeTab, setActiveTab } = useBottomPanel();
+  const { activeTab, setActiveTab, setOpen } = useBottomPanel();
   const { processes, killProcess } = useShellProcesses();
 
   return (
@@ -30,7 +36,7 @@ export function BottomPanel({ workspaceDir }: BottomPanelProps) {
         }}
         value={activeTab}
       >
-        <div className="flex shrink-0 items-center border-b px-3 py-1.5">
+        <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5">
           <TabsList className="h-7" variant="line">
             <TabsTrigger className="h-7 gap-1.5 px-2.5 text-xs" value="terminal">
               <SquareTerminal className="size-3.5 shrink-0" />
@@ -41,6 +47,22 @@ export function BottomPanel({ workspaceDir }: BottomPanelProps) {
               {t("terminal.agentProcesses")}
             </TabsTrigger>
           </TabsList>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label={t("terminal.closePanel")}
+                className="ml-auto size-7 shrink-0 text-muted-foreground"
+                onClick={() => setOpen(false)}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <XIcon className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("terminal.closePanel")}</TooltipContent>
+          </Tooltip>
         </div>
 
         <TabsContent

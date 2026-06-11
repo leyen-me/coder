@@ -491,9 +491,17 @@ export const enMessages = {
     noProcesses: "No background processes",
     killProcess: "Kill",
     closeSession: "Close terminal",
+    closePanel: "Close panel",
     addSession: "New terminal",
     loading: "Opening terminal…",
     unavailable: "Terminal is unavailable in this environment",
+    processStatus: {
+      running: "Running",
+      completed: "Completed",
+      failed: "Failed",
+      timeout: "Timed out",
+      cancelled: "Cancelled",
+    },
   },
   mockChats: [
     {

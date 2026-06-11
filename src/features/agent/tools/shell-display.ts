@@ -221,6 +221,24 @@ export function canKillShellProcess(status: ShellStatus): boolean {
   return status === "running";
 }
 
+export function getShellStatusBadgeVariant(
+  status: ShellStatus
+): "default" | "secondary" | "destructive" | "outline" {
+  switch (status) {
+    case "running":
+      return "default";
+    case "completed":
+      return "secondary";
+    case "failed":
+      return "destructive";
+    case "timeout":
+    case "cancelled":
+      return "outline";
+    default:
+      return "secondary";
+  }
+}
+
 export function getShellStatusColor(status: ShellStatus): string {
   switch (status) {
     case "completed":

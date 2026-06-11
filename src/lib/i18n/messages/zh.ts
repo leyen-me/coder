@@ -478,9 +478,17 @@ export const zhMessages = {
     noProcesses: "暂无后台进程",
     killProcess: "终止",
     closeSession: "关闭终端",
+    closePanel: "关闭面板",
     addSession: "新建终端",
     loading: "正在打开终端…",
     unavailable: "当前环境无法打开终端",
+    processStatus: {
+      running: "运行中",
+      completed: "已完成",
+      failed: "失败",
+      timeout: "超时",
+      cancelled: "已取消",
+    },
   },
   mockChats: [
     { id: "1", title: "帮我构思一个合适的入门任务", relativeTime: "2 周前" },

@@ -2,12 +2,23 @@
 
 import {
   canKillShellProcess,
-  getShellStatusColor,
+  getShellStatusBadgeVariant,
 } from "@/features/agent/tools/shell-display";
+import type { ShellStatus } from "@/features/agent/tools/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "@/lib/i18n/locale-provider";
+import type { MessageKey } from "@/lib/i18n/message-schema";
 import { cn } from "@/lib/utils";
-import { SquareIcon } from "lucide-react";
+import { CpuIcon, SquareIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { ShellProcess } from "../use-shell-processes";
@@ -17,14 +28,16 @@ type ProcessesPanelProps = {
   processes: ShellProcess[];
   onKill: (shellId: string) => void;
   className?: string;
-  toolbarClassName?: string;
 };
+
+function getProcessStatusLabel(status: ShellStatus): MessageKey {
+  return `terminal.processStatus.${status}`;
+}
 
 export function ProcessesPanel({
   processes,
   onKill,
   className,
-  toolbarClassName,
 }: ProcessesPanelProps) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -52,80 +65,88 @@ export function ProcessesPanel({
 
   if (processes.length === 0) {
     return (
-      <div
-        className={cn(
-          "flex h-full items-center justify-center text-sm text-muted-foreground",
-          className
-        )}
-      >
-        {t("terminal.noProcesses")}
-      </div>
+      <Empty className={cn("h-full border-0", className)}>
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <CpuIcon />
+          </EmptyMedia>
+          <EmptyTitle>{t("terminal.noProcesses")}</EmptyTitle>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
   return (
-    <div className={cn("flex h-full min-h-0 gap-3 p-3", className)}>
-      <div className="flex w-52 shrink-0 flex-col gap-1 overflow-y-auto">
-        {processes.map((process) => (
-          <button
-            key={process.shellId}
-            className={cn(
-              "rounded-md border px-2 py-1.5 text-left font-mono text-xs transition-colors",
-              selected?.shellId === process.shellId
-                ? "border-primary/50 bg-muted"
-                : "border-transparent hover:bg-muted/50"
-            )}
-            onClick={() => setSelectedId(process.shellId)}
-            type="button"
-          >
-            <div className="truncate">
-              {process.description ?? (process.command || process.shellId)}
-            </div>
-            <div
-              className={cn(
-                "mt-0.5 truncate text-[10px]",
-                getShellStatusColor(process.status)
-              )}
-            >
-              {process.status}
-            </div>
-          </button>
-        ))}
-      </div>
+    <div className={cn("flex h-full min-h-0", className)}>
+      <ScrollArea className="h-full w-52 shrink-0 border-r bg-muted/10">
+        <div className="flex flex-col gap-1 p-2">
+          {processes.map((process) => {
+            const isSelected = selected?.shellId === process.shellId;
+            const title =
+              process.description ?? (process.command || process.shellId);
+            const badgeVariant = getShellStatusBadgeVariant(process.status);
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-        {selected ? (
-          <>
-            <div
-              className={cn(
-                "flex items-center justify-between gap-2",
-                toolbarClassName
-              )}
-            >
-              <p className="truncate font-mono text-xs text-muted-foreground">
-                $ {selected.command || selected.shellId}
-              </p>
-              {canKillShellProcess(selected.status) ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 shrink-0 gap-1 text-xs"
-                  onClick={() => onKill(selected.shellId)}
-                  type="button"
+            return (
+              <button
+                key={process.shellId}
+                className={cn(
+                  "flex w-full flex-col gap-1.5 rounded-md border px-2.5 py-2 text-left transition-colors",
+                  isSelected
+                    ? "border-border/40 bg-muted/30 text-foreground/80"
+                    : "border-transparent text-muted-foreground/70 hover:bg-muted/20"
+                )}
+                onClick={() => setSelectedId(process.shellId)}
+                type="button"
+              >
+                <span className="line-clamp-2 text-xs leading-snug">{title}</span>
+                <Badge
+                  className={cn(
+                    "h-4 w-fit px-1.5 text-[10px] font-normal",
+                    process.status === "timeout" &&
+                      "border-amber-500/40 text-amber-600 dark:text-amber-400"
+                  )}
+                  variant={badgeVariant}
                 >
-                  <SquareIcon className="size-3" />
-                  {t("terminal.killProcess")}
-                </Button>
-              ) : null}
-            </div>
+                  {t(getProcessStatusLabel(process.status))}
+                </Badge>
+              </button>
+            );
+          })}
+        </div>
+      </ScrollArea>
+
+      {selected ? (
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="flex shrink-0 items-center gap-2 px-3 py-2">
+            <p
+              className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground"
+              title={selected.command || selected.shellId}
+            >
+              $ {selected.command || selected.shellId}
+            </p>
+            {canKillShellProcess(selected.status) ? (
+              <Button
+                className="h-7 shrink-0 gap-1.5 text-xs"
+                onClick={() => onKill(selected.shellId)}
+                size="sm"
+                type="button"
+                variant="destructive"
+              >
+                <SquareIcon className="size-3" />
+                {t("terminal.killProcess")}
+              </Button>
+            ) : null}
+          </div>
+          <Separator />
+          <div className="min-h-0 flex-1 overflow-hidden p-2">
             <ProcessLogViewer
-              className="min-h-0 flex-1"
-              stdout={selected.stdout}
+              className="h-full"
               stderr={selected.stderr}
+              stdout={selected.stdout}
             />
-          </>
-        ) : null}
-      </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

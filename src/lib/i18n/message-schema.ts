@@ -462,9 +462,17 @@ export type Messages = {
     noProcesses: string;
     killProcess: string;
     closeSession: string;
+    closePanel: string;
     addSession: string;
     loading: string;
     unavailable: string;
+    processStatus: {
+      running: string;
+      completed: string;
+      failed: string;
+      timeout: string;
+      cancelled: string;
+    };
   };
 };
 
