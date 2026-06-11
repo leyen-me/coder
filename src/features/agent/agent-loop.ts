@@ -39,7 +39,7 @@ export async function runAgentWithTools(
   onEvent: AgentEventHandler
 ): Promise<void> {
   let messages = [...input.messages];
-  const tools = input.tools ?? getAgentToolDefinitions();
+  const tools = input.tools ?? getAgentToolDefinitions(input.agentMode);
   const stallDetector = new ToolCallStallDetector();
 
   while (true) {

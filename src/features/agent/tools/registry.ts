@@ -35,12 +35,14 @@ import { shellHandler } from "./shell";
 import { updateSkillHandler } from "./update-skill";
 import { webSearchHandler } from "./web-search";
 import { writeFileHandler } from "./write-file";
+import { ASK_MODE_TOOL_NAMES } from "./ask-tools";
 import type {
   AgentToolDefinition,
   ToolExecutionContext,
   ToolHandler,
 } from "./types";
 import type { ToolResultEnvelope } from "./result";
+import type { AgentMode } from "../types";
 
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [LIST_DIR_TOOL_NAME]: listDirHandler,
@@ -62,7 +64,22 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [UPDATE_SKILL_TOOL_NAME]: updateSkillHandler,
 };
 
-export function getAgentToolDefinitions(): AgentToolDefinition[] {
+const ASK_MODE_TOOL_NAMES_SET = new Set(ASK_MODE_TOOL_NAMES);
+
+/**
+ * Returns tool definitions for the given mode.
+ * - `"agent"`: all tools available (default).
+ * - `"ask"`: only read-only / information-gathering tools.
+ */
+export function getAgentToolDefinitions(
+  mode?: AgentMode
+): AgentToolDefinition[] {
+  if (mode === "ask") {
+    return AGENT_TOOL_DEFINITIONS.filter((tool) =>
+      ASK_MODE_TOOL_NAMES_SET.has(tool.function.name)
+    );
+  }
+
   return AGENT_TOOL_DEFINITIONS;
 }
 

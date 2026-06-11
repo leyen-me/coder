@@ -60,6 +60,7 @@ import type {
   ActiveTaskState,
   AgentEvent,
   AgentContextUsageSnapshot,
+  AgentMode,
   AgentStatus,
   SessionHandoffPhase,
   SessionHandoffState,
@@ -92,6 +93,7 @@ type AgentStoreValue = {
     thinkingEnabled?: boolean;
     images?: readonly FileUIPart[];
     editMessageId?: string;
+    agentMode?: AgentMode;
   }) => Promise<{ userMessageId: string; assistantMessageId: string; taskId: string }>;
   regenerateMessage: (input: {
     sessionId: string;
@@ -579,6 +581,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       userContent: string;
       isFirstTurn: boolean;
       thinkingEnabled: boolean;
+      agentMode?: AgentMode;
     }) => {
       const taskId = createTaskId();
       const assistantMessage = await createMessage({
@@ -627,6 +630,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             thinkingEnabled: input.thinkingEnabled,
           }),
           maxContextTokens: resolveContextWindowForModel(resolved, input.model),
+          agentMode: input.agentMode,
         },
         {
           workspaceDir: input.workspaceDir,
@@ -913,6 +917,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       thinkingEnabled?: boolean;
       images?: readonly FileUIPart[];
       editMessageId?: string;
+      agentMode?: AgentMode;
     }) => {
       const trimmed = input.content.trim();
       const storedImages = fileUIPartsToStoredImages(input.images ?? []);
@@ -1005,7 +1010,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const environment = await resolveAgentEnvironment(workspaceDir);
       const history = await buildAgentMessages(
         historyMessages.flatMap(messageRecordToAgentMessages),
-        environment
+        environment,
+        input.agentMode
       );
       const thinkingEnabled = resolveThinkingEnabledForRequest(
         resolved,
@@ -1023,6 +1029,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           "[image]",
         isFirstTurn,
         thinkingEnabled,
+        agentMode: input.agentMode,
       });
 
       return {

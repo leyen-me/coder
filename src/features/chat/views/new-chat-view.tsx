@@ -1,3 +1,4 @@
+import type { AgentMode } from "@/features/agent/types";
 import type { FileUIPart } from "ai";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -32,6 +33,7 @@ export function NewChatView() {
     resolved.models
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [agentMode, setAgentMode] = useState<AgentMode>("agent");
 
   const gitControls = useWorkspaceGitControls({
     workspaceDir,
@@ -53,7 +55,7 @@ export function NewChatView() {
         model,
         workspaceDir: resolveInitialSessionWorkspaceDir(),
       });
-      navigate(paths.chat(session.id));
+      navigate(paths.chat(session.id), { state: { agentMode } });
       setPrompt("");
       await sendMessage({
         sessionId: session.id,
@@ -61,6 +63,7 @@ export function NewChatView() {
         images: payload.files,
         model,
         thinkingEnabled,
+        agentMode,
       });
     } catch (error) {
       notifySendMessageError(error, (key, params) =>
@@ -111,6 +114,8 @@ export function NewChatView() {
           isGitLoading={gitControls.isGitLoading}
           variant="compact"
           isRunning={isSubmitting}
+          agentMode={agentMode}
+          onAgentModeChange={setAgentMode}
         />
 
         <StarterPromptList onSelect={setPrompt} />

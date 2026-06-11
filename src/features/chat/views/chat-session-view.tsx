@@ -1,5 +1,7 @@
+import type { AgentMode } from "@/features/agent/types";
 import type { FileUIPart } from "ai";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { LoaderCircleIcon } from "lucide-react";
 
 import { storedImagesToFileUIParts } from "@/features/agent/message-content";
@@ -49,6 +51,10 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     resolved.models
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const location = useLocation();
+  const initialAgentModeFromState =
+    (location.state as { agentMode?: AgentMode } | null)?.agentMode ?? "agent";
+  const [agentMode, setAgentMode] = useState<AgentMode>(initialAgentModeFromState);
 
   const canEditWorkspace = messages.length === 0;
   const workspaceBinding = useSessionWorkspaceBinding({
@@ -61,7 +67,8 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     enabled: canEditWorkspace,
   });
   const { systemPrompt, refreshSystemPrompt } = useSystemPrompt(
-    workspaceBinding.workspaceDir
+    workspaceBinding.workspaceDir,
+    agentMode
   );
 
   const activeTask = getSessionTask(chatId);
@@ -136,6 +143,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         model,
         thinkingEnabled,
         editMessageId: editingId ?? undefined,
+        agentMode,
       });
     } catch (error) {
       notifySendMessageError(error, (key, params) =>
@@ -291,6 +299,8 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             variant="compact"
             isRunning={isRunning}
             contextUsage={contextUsage}
+            agentMode={agentMode}
+            onAgentModeChange={setAgentMode}
           />
         </div>
       </div>

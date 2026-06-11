@@ -3,8 +3,12 @@ import type {
   AgentEnvironmentInput,
   AgentProjectInstructions,
 } from "./types";
+import type { AgentMode } from "@/features/agent/types";
 
-export function buildSystemPrompt(environment: AgentEnvironment): string {
+export function buildSystemPrompt(
+  environment: AgentEnvironment,
+  agentMode?: AgentMode
+): string {
   const workspaceLine = environment.workspaceDir
     ? environment.workspaceDir
     : "not selected";
@@ -14,6 +18,11 @@ export function buildSystemPrompt(environment: AgentEnvironment): string {
     : environment.workspaceDir
       ? "no"
       : "unknown";
+
+  const modeLine =
+    agentMode === "ask"
+      ? "ask (read-only: can read files, search code, browse the web, and list skills — cannot modify files or run shell commands)"
+      : "agent (full tool access)";
 
   return [
     "You are Coder, a helpful desktop AI assistant.",
@@ -25,6 +34,7 @@ export function buildSystemPrompt(environment: AgentEnvironment): string {
     `- shell: ${environment.shell}`,
     `- gitRepository: ${gitLine}`,
     `- date: ${environment.today}`,
+    `- mode: ${modeLine}`,
     "",
     ...buildSystemPromptSections(environment.enabledSystemSkills),
     ...buildUserSkillsSection(),

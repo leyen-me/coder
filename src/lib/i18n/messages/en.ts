@@ -110,6 +110,10 @@ export const enMessages = {
     contextUsageOutput: "Output",
     contextUsageReasoning: "Reasoning",
     contextUsageCache: "Cache",
+    modeAgent: "Agent",
+    modeAsk: "Ask",
+    modeAgentLabel: "Agent mode — full tool access",
+    modeAskLabel: "Ask mode — read-only tool access",
   },
   time: {
     justNow: "Just now",

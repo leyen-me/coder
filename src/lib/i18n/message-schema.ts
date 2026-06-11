@@ -102,6 +102,10 @@ export type Messages = {
     contextUsageOutput: string;
     contextUsageReasoning: string;
     contextUsageCache: string;
+    modeAgent: string;
+    modeAsk: string;
+    modeAgentLabel: string;
+    modeAskLabel: string;
   };
   time: {
     justNow: string;

@@ -1,11 +1,5 @@
 import type { ChatStatus, FileUIPart } from "ai";
-import {
-  BrainIcon,
-  ChevronDownIcon,
-  FolderOpenIcon,
-  GitBranchIcon,
-  XIcon,
-} from "lucide-react";
+import { BrainIcon, BotIcon, ChevronDownIcon, FileQuestionIcon, FolderOpenIcon, GitBranchIcon, XIcon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -46,6 +40,7 @@ import {
 } from "@/lib/model-provider/model-definition";
 import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { cn } from "@/lib/utils";
+import type { AgentMode } from "@/features/agent/types";
 
 import { collectNativeFileDropItems } from "@/lib/dnd/external-file-drop";
 
@@ -85,6 +80,8 @@ type PromptComposerProps = {
   model: string;
   models: readonly ModelDefinition[];
   onModelChange: (model: string) => void;
+  agentMode?: AgentMode;
+  onAgentModeChange?: (mode: AgentMode) => void;
   thinkingEnabled?: boolean;
   onThinkingEnabledChange?: (enabled: boolean) => void;
   showWorkspaceControls?: boolean;
@@ -343,6 +340,8 @@ export function PromptComposer({
   initialFiles,
   onCancelEdit,
   contextUsage,
+  agentMode = "agent",
+  onAgentModeChange,
 }: PromptComposerProps) {
   const { t } = useTranslation();
   const isCompact = variant === "compact";
@@ -516,6 +515,48 @@ export function PromptComposer({
 
       <PromptInputFooter className="bg-card px-3 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          {/* Agent / Ask mode toggle */}
+          <div
+            className="flex items-center rounded-lg border border-border/50 bg-muted/40 p-0.5"
+            role="group"
+            aria-label="Agent mode"
+          >
+            <button
+              type="button"
+              disabled={isRunning || !onAgentModeChange}
+              data-active={agentMode === "agent"}
+              onClick={() => onAgentModeChange?.("agent")}
+              title={t("chat.modeAgentLabel")}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
+                "disabled:pointer-events-none disabled:opacity-50",
+                agentMode === "agent"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <BotIcon className="size-3.5 shrink-0" />
+              <span>{t("chat.modeAgent")}</span>
+            </button>
+            <button
+              type="button"
+              disabled={isRunning || !onAgentModeChange}
+              data-active={agentMode === "ask"}
+              onClick={() => onAgentModeChange?.("ask")}
+              title={t("chat.modeAskLabel")}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
+                "disabled:pointer-events-none disabled:opacity-50",
+                agentMode === "ask"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <FileQuestionIcon className="size-3.5 shrink-0" />
+              <span>{t("chat.modeAsk")}</span>
+            </button>
+          </div>
+
           <PromptInputSelect
             value={model}
             onValueChange={onModelChange}

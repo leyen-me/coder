@@ -2,7 +2,7 @@ import { buildSystemPrompt } from "./environment/build-system-prompt";
 import type { AgentEnvironment } from "./environment/types";
 import { hasAgentMessageContent } from "./message-content";
 import { assertValidToolCallChain } from "./process-steps";
-import type { AgentChatMessage } from "./types";
+import type { AgentChatMessage, AgentMode } from "./types";
 import {
   extractSkillSlugsFromText,
   injectReferencedSkillsIntoUserContent,
@@ -11,7 +11,8 @@ import { resolveEnabledSkillsBySlugs } from "@/features/skills/lib/resolve-skill
 
 export async function buildAgentMessages(
   history: AgentChatMessage[],
-  environment: AgentEnvironment
+  environment: AgentEnvironment,
+  agentMode?: AgentMode
 ): Promise<AgentChatMessage[]> {
   const conversation = history.filter((message) => hasMessagePayload(message));
   assertValidToolCallChain(conversation);
@@ -19,7 +20,7 @@ export async function buildAgentMessages(
   const withSkillInjection = await applyReferencedSkillsToConversation(conversation);
 
   return [
-    { role: "system", content: buildSystemPrompt(environment) },
+    { role: "system", content: buildSystemPrompt(environment, agentMode) },
     ...withSkillInjection,
   ];
 }

@@ -74,6 +74,8 @@ export type AgentStartInput = {
   requestExtensions?: Record<string, unknown>;
   /** Estimated provider context window used for proactive rollover before overflow. */
   maxContextTokens?: number;
+  /** Agent mode — controls which tools are available. Defaults to "agent". */
+  agentMode?: AgentMode;
 };
 
 export type ChatRetryState = {
@@ -117,6 +119,9 @@ export type ActiveTaskState = {
   thinkingEnabled: boolean;
   handoff: AgentHandoffRequest | null;
 };
+
+/** Agent vs Ask mode — controls which tools are available to the model. */
+export type AgentMode = "agent" | "ask";
 
 export type AgentEventHandler = (event: AgentEvent) => void;
 

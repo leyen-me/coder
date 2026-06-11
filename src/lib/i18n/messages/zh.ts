@@ -105,6 +105,10 @@ export const zhMessages = {
     contextUsageOutput: "输出",
     contextUsageReasoning: "推理",
     contextUsageCache: "缓存",
+    modeAgent: "Agent",
+    modeAsk: "Ask",
+    modeAgentLabel: "代理模式 — 完整工具权限",
+    modeAskLabel: "询问模式 — 只读工具权限",
   },
   time: {
     justNow: "刚刚",
