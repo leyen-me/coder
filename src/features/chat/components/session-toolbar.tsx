@@ -7,19 +7,20 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useRightPanel } from "@/features/right-panel/right-panel-context";
-import { AgentProcessesSheet } from "@/features/terminal/components/agent-processes-sheet";
+import { AgentProcessesToolbarButton } from "@/features/terminal/components/agent-processes-toolbar-button";
 import { useBottomPanel } from "@/features/terminal/bottom-panel-context";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
 export function SessionToolbar() {
   const { t } = useTranslation();
-  const { isOpen, toggle } = useBottomPanel();
+  const { isOpen, activeTab, toggleTab } = useBottomPanel();
+  const isTerminalActive = isOpen && activeTab === "terminal";
   const { isOpen: isRightPanelOpen, toggle: toggleRightPanel } = useRightPanel();
 
   return (
     <div className="flex shrink-0 items-center gap-1">
-      <AgentProcessesSheet />
+      <AgentProcessesToolbarButton />
 
       <Tooltip>
         <TooltipTrigger asChild>
@@ -29,11 +30,11 @@ export function SessionToolbar() {
             size="icon-sm"
             className={cn(
               "text-muted-foreground",
-              isOpen && "bg-muted text-foreground"
+              isTerminalActive && "bg-muted text-foreground"
             )}
             aria-label={t("session.terminal")}
-            aria-pressed={isOpen}
-            onClick={toggle}
+            aria-pressed={isTerminalActive}
+            onClick={() => toggleTab("terminal")}
           >
             <SquareTerminal className="size-4" />
           </Button>

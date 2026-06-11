@@ -45,8 +45,8 @@ export const zhMessages = {
     shareLink: "分享链接",
     splitLayout: "分屏布局",
     terminal: "终端",
-    agentProcesses: "Agent 进程",
-    agentProcessesRunning: "Agent 进程（{count} 个运行中）",
+    agentProcesses: "进程",
+    agentProcessesRunning: "进程（{count} 个运行中）",
     workbench: "工作台",
   },
   chat: {
@@ -473,7 +473,7 @@ export const zhMessages = {
     toastDeleted: "删除成功",
   },
   terminal: {
-    agentProcesses: "Agent 进程",
+    agentProcesses: "进程",
     runningCount: "{count} 个运行中",
     noProcesses: "暂无后台进程",
     killProcess: "终止",

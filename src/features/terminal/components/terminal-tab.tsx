@@ -29,8 +29,10 @@ function createTerminalSession(cwd: string): TerminalSession {
 
 export function TerminalTab({ workspaceDir }: TerminalTabProps) {
   const { t } = useTranslation();
-  const { isOpen: isBottomPanelOpen, setOpen: setBottomPanelOpen } =
+  const { isOpen: isBottomPanelOpen, activeTab, setOpen: setBottomPanelOpen } =
     useBottomPanel();
+  const isTerminalTabActive =
+    isBottomPanelOpen && activeTab === "terminal";
   const [homeDirectory, setHomeDirectory] = useState<string | null>(null);
   const [defaultCwd, setDefaultCwd] = useState<string | null>(null);
   const [sessions, setSessions] = useState<TerminalSession[]>([]);
@@ -74,14 +76,14 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
   }, [t, workspaceDir]);
 
   useEffect(() => {
-    if (!isBottomPanelOpen || !defaultCwd || sessions.length > 0) {
+    if (!isTerminalTabActive || !defaultCwd || sessions.length > 0) {
       return;
     }
 
     const session = createTerminalSession(defaultCwd);
     setSessions([session]);
     setActiveId(session.id);
-  }, [defaultCwd, isBottomPanelOpen, sessions.length]);
+  }, [defaultCwd, isTerminalTabActive, sessions.length]);
 
   const handleNewTerminal = () => {
     if (!defaultCwd) {
@@ -189,7 +191,7 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
                 className="h-full w-full"
                 cwd={session.cwd}
                 isActive={
-                  isBottomPanelOpen && activeSession?.id === session.id
+                  isTerminalTabActive && activeSession?.id === session.id
                 }
               />
             </div>

@@ -45,8 +45,8 @@ export const enMessages = {
     shareLink: "Share link",
     splitLayout: "Split layout",
     terminal: "Terminal",
-    agentProcesses: "Agent processes",
-    agentProcessesRunning: "Agent processes ({count} running)",
+    agentProcesses: "Processes",
+    agentProcessesRunning: "Processes ({count} running)",
     workbench: "Workbench",
   },
   chat: {
@@ -486,7 +486,7 @@ export const enMessages = {
     toastDeleted: "Deleted successfully",
   },
   terminal: {
-    agentProcesses: "Agent processes",
+    agentProcesses: "Processes",
     runningCount: "{count} running",
     noProcesses: "No background processes",
     killProcess: "Kill",
