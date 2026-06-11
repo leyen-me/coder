@@ -253,8 +253,8 @@ export const zhMessages = {
     },
     {
       id: "starter-3",
-      label: "把常用应用连接到 Agent",
-      prompt: "把常用应用连接到 Agent",
+      label: "审查我最近的代码变更并给出改进建议",
+      prompt: "审查我最近的代码变更并给出改进建议",
     },
   ],
   search: {

@@ -260,8 +260,8 @@ export const enMessages = {
     },
     {
       id: "starter-3",
-      label: "Link your commonly used apps to the Agent",
-      prompt: "Link your commonly used apps to the Agent",
+      label: "Review my recent changes and suggest improvements",
+      prompt: "Review my recent changes and suggest improvements",
     },
   ],
   search: {
