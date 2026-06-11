@@ -35,17 +35,17 @@ Format feedback as:
 
 const SEARCH_FIRST_CONTENT = `# Search-First Code Navigation
 
-## The Trap
+### The Trap
 
 Tracing dependency chains from entry point → imports → each file is slow, fragile, and wastes context on irrelevant code.
 
-## The Rule
+### The Rule
 
 Search before you read. Always.
 
 Spend a few seconds thinking about what unique signal the target code would emit, then search for it directly (grep, glob). Only read a file after you have concrete evidence it contains the relevant code.
 
-## Signal cheat sheet
+### Signal cheat sheet
 
 | When looking for… | Search for | Example |
 |---|---|---|
@@ -58,12 +58,12 @@ Spend a few seconds thinking about what unique signal the target code would emit
 | A config value | The key name | \`database.url\`, \`logging.level\` |
 | An ORM entity | Table or model name | \`table: "users"\`, \`class User\` |
 
-## Before editing
+### Before editing
 
 - Copy \`old_string\` **verbatim** from the file. Do not re-type or reformat — silent match failures waste time.
 - For multiline blocks, preserve exact indentation and line breaks.
 
-## After changing
+### After changing
 
 1. Run the project's type-check / compile (\`npx tsc --noEmit\`, \`cargo check\`, \`mvn compile\`, etc.).
 2. Re-read the changed lines to visually confirm correctness.
