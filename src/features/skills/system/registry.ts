@@ -91,6 +91,59 @@ Keep the subject line under 72 characters.
 4. When the user says "commit": stage and commit, but do not push until the user explicitly says "push".
 `;
 
+const TASK_PLANNING_CONTENT = `# Task Planning
+
+The user can see a live task-progress panel in the chat UI. Use it to make multi-step work legible — not as a substitute for doing the work.
+
+### When to create a task list
+
+Create one when the work has **multiple meaningful steps** and progress would help the user follow along:
+
+- Implementing a feature that spans exploration, code changes, and verification
+- Refactoring or migrations across several files or layers
+- Debugging with multiple hypotheses to test in sequence
+- Finishing a user request that clearly has phases (design → implement → test → polish)
+- Long-running agent work where the user may look away and return later
+
+### When not to create a task list
+
+Skip it for work that is effectively one move:
+
+- Short answers, explanations, or opinions
+- A single-file tweak, one command, or one obvious fix
+- Pure exploration where the user only asked "how does X work?"
+- Trivial follow-ups that complete in one tool pass
+
+When unsure, prefer **no list** over a noisy list.
+
+### How to break work down
+
+Good steps are:
+
+- **Outcome-oriented** — "Add IndexedDB migration" not "Open client.ts"
+- **Coarse enough** — aim for roughly 3–7 steps, not micro-actions per tool call
+- **User-visible** — write labels the user would recognize in the progress panel
+- **Honest** — rename, add, or drop steps when scope changes mid-task
+
+Bad steps: "Read file", "Think", "Call tool", or duplicating the same step in different words.
+
+### How to work with the list
+
+Treat the list as the contract for the current task:
+
+1. **Plan first** on non-trivial requests — outline steps before diving into tools when that helps.
+2. **One focus at a time** — only one step should be actively in progress.
+3. **Close the loop** — mark a step done as soon as it is actually done, not at the end of the whole task.
+4. **Reflect reality** — if the user pivots, update the list instead of silently drifting.
+5. **Finish cleanly** — when everything is done, leave the list in a truthful end state (all completed, or cancelled items removed from the active plan).
+
+### What the user cares about
+
+The panel answers: *What are you doing? What's done? What's next?*
+
+Your job is to keep that story accurate. Do not narrate the list in prose when the panel already shows it — use the chat for decisions, findings, and results instead of re-listing every step.
+`;
+
 export const SYSTEM_SKILLS: SystemSkillDefinition[] = [
   {
     id: "tools",
@@ -131,6 +184,16 @@ export const SYSTEM_SKILLS: SystemSkillDefinition[] = [
     content: COMMIT_HELPER_CONTENT,
     defaultEnabled: true,
     category: "development",
+  },
+  {
+    id: "task-planning",
+    slug: "task-planning",
+    name: "Task Planning",
+    description:
+      "When and how to use the session task-progress list for multi-step work the user can follow.",
+    content: TASK_PLANNING_CONTENT,
+    defaultEnabled: true,
+    category: "core",
   },
 ];
 
