@@ -63,6 +63,11 @@ export function buildSystemPrompt(
     "## Environment",
     `- workspaceDir: ${workspaceLine}`,
     `- os: ${environment.os}`,
+    ...(environment.os.toLowerCase().startsWith("windows")
+      ? [
+          `- windows_unicode_filenames: When operating on files with non-ASCII characters (rename, delete, etc.), use PowerShell directly instead of CMD to avoid garbled characters caused by CMD code page issues.`,
+        ]
+      : []),
     `- shell: ${environment.shell}`,
     `- gitRepository: ${gitLine}`,
     `- date: ${environment.today}`,
