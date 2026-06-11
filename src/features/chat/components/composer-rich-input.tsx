@@ -7,7 +7,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type ClipboardEvent,
   type CompositionEvent,
 } from "react";
 
@@ -521,31 +520,6 @@ export function ComposerRichInput({
     []
   );
 
-  const handleClipboardPaste = useCallback(
-    (event: ClipboardEvent<HTMLDivElement>) => {
-      const items = event.clipboardData?.items;
-      if (!items) {
-        return;
-      }
-
-      const files: File[] = [];
-      for (const item of items) {
-        if (item.kind === "file") {
-          const file = item.getAsFile();
-          if (file) {
-            files.push(file);
-          }
-        }
-      }
-
-      if (files.length > 0) {
-        event.preventDefault();
-        attachments.add(files);
-      }
-    },
-    [attachments]
-  );
-
   return (
     <>
       <input name="message" type="hidden" value={value} readOnly />
@@ -582,7 +556,6 @@ export function ComposerRichInput({
           editor={editor}
           onCompositionEnd={handleCompositionEnd}
           onCompositionStart={handleCompositionStart}
-          onPaste={handleClipboardPaste}
         />
       </div>
     </>
