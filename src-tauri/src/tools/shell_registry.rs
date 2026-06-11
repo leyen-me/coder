@@ -3,6 +3,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
 use tauri::{AppHandle, Emitter, State};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
@@ -316,6 +319,9 @@ impl ShellRegistry {
         cmd.stderr(std::process::Stdio::piped());
         cmd.kill_on_drop(true);
 
+        #[cfg(target_os = "windows")]
+        cmd.as_std_mut().creation_flags(0x08000000);
+
         let mut child = cmd
             .spawn()
             .map_err(|error| format!("Failed to spawn command: {error}"))?;
@@ -449,6 +455,7 @@ fn kill_process_tree(pid: u32) {
     {
         let _ = std::process::Command::new("taskkill")
             .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .creation_flags(0x08000000)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .status();

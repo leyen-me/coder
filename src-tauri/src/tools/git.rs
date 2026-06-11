@@ -1,6 +1,9 @@
 use std::path::Path;
 use std::process::Command;
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -28,10 +31,13 @@ fn validate_git_workspace(workspace_dir: &str) -> Result<&Path, String> {
 }
 
 fn run_git(workspace: &Path, args: &[&str]) -> Result<std::process::Output, String> {
-    Command::new("git")
-        .current_dir(workspace)
-        .args(args)
-        .output()
+    let mut cmd = Command::new("git");
+    cmd.current_dir(workspace).args(args);
+
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(0x08000000);
+
+    cmd.output()
         .map_err(|error| format!("Failed to run git: {error}"))
 }
 
