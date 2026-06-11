@@ -8,6 +8,8 @@ type MonacoThemeColors = {
   mutedForeground: string;
   border: string;
   selectionBackground: string;
+  inactiveSelectionBackground: string;
+  selectionHighlightBackground: string;
 };
 
 const FALLBACK_COLORS: Record<ResolvedTheme, MonacoThemeColors> = {
@@ -16,14 +18,18 @@ const FALLBACK_COLORS: Record<ResolvedTheme, MonacoThemeColors> = {
     foreground: "#0a0a0a",
     mutedForeground: "#737373",
     border: "#e5e5e5",
-    selectionBackground: "rgba(0, 0, 0, 0.15)",
+    selectionBackground: "#ADD6FF",
+    inactiveSelectionBackground: "#E5EBF1",
+    selectionHighlightBackground: "#ADD6FF66",
   },
   dark: {
     background: "#0a0a0a",
     foreground: "#fafafa",
     mutedForeground: "#a3a3a3",
     border: "rgba(255, 255, 255, 0.1)",
-    selectionBackground: "rgba(255, 255, 255, 0.2)",
+    selectionBackground: "#264F78",
+    inactiveSelectionBackground: "#3A3D41",
+    selectionHighlightBackground: "#264F784D",
   },
 };
 
@@ -104,6 +110,8 @@ function readMonacoThemeColors(resolved: ResolvedTheme): MonacoThemeColors {
     ),
     border: toMonacoColor(readCssVariable("--border", "color"), fallback.border),
     selectionBackground: fallback.selectionBackground,
+    inactiveSelectionBackground: fallback.inactiveSelectionBackground,
+    selectionHighlightBackground: fallback.selectionHighlightBackground,
   };
 }
 
@@ -130,7 +138,8 @@ export function defineMonacoTheme(
       "editorLineNumber.activeForeground": colors.foreground,
       "editorCursor.foreground": colors.foreground,
       "editor.selectionBackground": colors.selectionBackground,
-      "editor.inactiveSelectionBackground": colors.selectionBackground,
+      "editor.inactiveSelectionBackground": colors.inactiveSelectionBackground,
+      "editor.selectionHighlightBackground": colors.selectionHighlightBackground,
       "editorWidget.background": colors.background,
       "editorWidget.border": colors.border,
       "editorOverviewRuler.border": colors.border,
