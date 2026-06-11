@@ -17,6 +17,7 @@ export const LIST_SKILLS_TOOL_NAME = "list_skills";
 export const READ_SKILL_TOOL_NAME = "read_skill";
 export const CREATE_SKILL_TOOL_NAME = "create_skill";
 export const UPDATE_SKILL_TOOL_NAME = "update_skill";
+export const TODO_WRITE_TOOL_NAME = "todo_write";
 
 export const LIST_DIR_TOOL: AgentToolDefinition = {
   type: "function",
@@ -541,6 +542,62 @@ export const CREATE_SKILL_TOOL: AgentToolDefinition = {
   },
 };
 
+export const TODO_WRITE_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: TODO_WRITE_TOOL_NAME,
+    description:
+      "Create and update a structured todo list for the current chat session. Use merge=false to replace the whole list (or pass an empty todos array to clear it). Use merge=true to update items by id, add new items, or remove items via remove_ids. A single-item update is supported. Only one todo may be in_progress at a time.",
+    parameters: {
+      type: "object",
+      properties: {
+        merge: {
+          type: "boolean",
+          description:
+            "Whether to merge with existing todos by id. Use true for partial updates or deletions; false to replace the entire list.",
+        },
+        todos: {
+          type: "array",
+          description:
+            "Todo items to create or update. On merge=true, content may be omitted to keep the existing text.",
+          items: {
+            type: "object",
+            properties: {
+              id: {
+                type: "string",
+                description: "Stable identifier for this todo item.",
+              },
+              content: {
+                type: "string",
+                description: "Short description of the task.",
+              },
+              status: {
+                type: "string",
+                description:
+                  "One of pending, in_progress, completed, or cancelled.",
+                enum: ["pending", "in_progress", "completed", "cancelled"],
+              },
+            },
+            required: ["id", "status"],
+            additionalProperties: false,
+          },
+        },
+        remove_ids: {
+          type: "array",
+          description:
+            "Todo ids to delete from the list. Only valid when merge=true.",
+          items: {
+            type: "string",
+            description: "Todo id to remove.",
+          },
+        },
+      },
+      required: ["merge", "todos"],
+      additionalProperties: false,
+    },
+  },
+};
+
 export const UPDATE_SKILL_TOOL: AgentToolDefinition = {
   type: "function",
   function: {
@@ -594,4 +651,5 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   READ_SKILL_TOOL,
   CREATE_SKILL_TOOL,
   UPDATE_SKILL_TOOL,
+  TODO_WRITE_TOOL,
 ];

@@ -634,6 +634,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         },
         {
           workspaceDir: input.workspaceDir,
+          sessionId: input.sessionId,
           taskId,
           signal: abortController.signal,
           tavilyConfig,

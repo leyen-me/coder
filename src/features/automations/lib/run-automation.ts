@@ -137,6 +137,7 @@ export async function executeAutomation(
       },
       {
         workspaceDir: runConfig.workspaceDir,
+        sessionId: session.id,
         taskId,
         signal: abortController.signal,
         tavilyConfig,

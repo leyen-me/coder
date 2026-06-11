@@ -100,6 +100,12 @@ export const enMessages = {
       "Handoff document is ready. Creating a continuation session…",
     handoffStartingNewSession:
       "Continuation session created. Starting the next unattended run…",
+    todoListTitle: "Task progress",
+    todoProgress: "{completed}/{total}",
+    todoStatusPending: "Pending",
+    todoStatusInProgress: "In progress",
+    todoStatusCompleted: "Completed",
+    todoStatusCancelled: "Cancelled",
     noModel: "No model configured",
     thinkingToggle: "Toggle deep thinking",
     thinkingToggleLabel: "Think",

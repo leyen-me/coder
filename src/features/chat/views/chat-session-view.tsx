@@ -11,6 +11,7 @@ import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
+import { AgentTodoList } from "../components/agent-todo-list";
 import { ChatMessageList } from "../components/chat-message-list";
 import { PromptComposer } from "../components/prompt-composer";
 import { notifySendMessageError } from "../lib/notify-send-message-error";
@@ -235,6 +236,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
       <div className="shrink-0 px-4 pb-4 pt-3">
         <div className="mx-auto w-full max-w-3xl">
+          <AgentTodoList sessionId={chatId} isRunning={isRunning} />
           {handoffStatus ? (
             <div className="mb-2 overflow-hidden rounded-2xl border bg-muted/40 px-3 py-2.5 dark:bg-muted/20">
               <div className="flex items-center gap-2">

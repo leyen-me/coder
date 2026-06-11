@@ -14,6 +14,7 @@ import {
   READ_SKILL_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
   SHELL_TOOL_NAME,
+  TODO_WRITE_TOOL_NAME,
   UPDATE_SKILL_TOOL_NAME,
   WEB_SEARCH_TOOL_NAME,
   WRITE_FILE_TOOL_NAME,
@@ -32,6 +33,7 @@ import { readFileHandler } from "./read-file";
 import { readSkillHandler } from "./read-skill";
 import { replaceFileHandler } from "./replace-file";
 import { shellHandler } from "./shell";
+import { todoWriteHandler } from "./todo-write";
 import { updateSkillHandler } from "./update-skill";
 import { webSearchHandler } from "./web-search";
 import { writeFileHandler } from "./write-file";
@@ -62,6 +64,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [READ_SKILL_TOOL_NAME]: readSkillHandler,
   [CREATE_SKILL_TOOL_NAME]: createSkillHandler,
   [UPDATE_SKILL_TOOL_NAME]: updateSkillHandler,
+  [TODO_WRITE_TOOL_NAME]: todoWriteHandler,
 };
 
 const ASK_MODE_TOOL_NAMES_SET = new Set(ASK_MODE_TOOL_NAMES);

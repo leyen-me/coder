@@ -114,7 +114,7 @@ describe("runAgentWithTools", () => {
         model: "deepseek-v4-pro",
         messages: [{ role: "user", content: "帮我看看项目结构" }],
       },
-      { workspaceDir: null, taskId: "task-1" },
+      { workspaceDir: null, sessionId: "session-1", taskId: "task-1" },
       () => {}
     );
 
@@ -124,9 +124,11 @@ describe("runAgentWithTools", () => {
       '{"path":"."}',
       {
         workspaceDir: null,
+        sessionId: "session-1",
         taskId: "task-1",
         signal: undefined,
         tavilyConfig: undefined,
+        allowPrivateNetworkAccess: undefined,
       }
     );
   });
@@ -173,7 +175,7 @@ describe("runAgentWithTools", () => {
         model: "deepseek-v4-pro",
         messages: [{ role: "user", content: "搜索 rust async" }],
       },
-      { workspaceDir: null, taskId: "task-1", tavilyConfig },
+      { workspaceDir: null, sessionId: "session-1", taskId: "task-1", tavilyConfig },
       () => {}
     );
 
@@ -182,9 +184,11 @@ describe("runAgentWithTools", () => {
       '{"search_term":"rust async"}',
       {
         workspaceDir: null,
+        sessionId: "session-1",
         taskId: "task-1",
         signal: undefined,
         tavilyConfig,
+        allowPrivateNetworkAccess: undefined,
       }
     );
   });
@@ -219,7 +223,7 @@ describe("runAgentWithTools", () => {
         model: "deepseek-v4-pro",
         messages: [{ role: "user", content: "帮我创建一个 vue 项目" }],
       },
-      { workspaceDir: null, taskId: "task-1", signal: undefined },
+      { workspaceDir: null, sessionId: "session-1", taskId: "task-1", signal: undefined },
       (event) => {
         events.push(event);
       }
@@ -281,7 +285,7 @@ describe("runAgentWithTools", () => {
         model: "deepseek-v4-pro",
         messages: [{ role: "user", content: "检查很多文件" }],
       },
-      { workspaceDir: null, taskId: "task-1" },
+      { workspaceDir: null, sessionId: "session-1", taskId: "task-1" },
       () => {}
     );
 
@@ -322,7 +326,7 @@ describe("runAgentWithTools", () => {
           model: "deepseek-v4-pro",
           messages: [{ role: "user", content: "读 a.ts" }],
         },
-        { workspaceDir: null, taskId: "task-1" },
+        { workspaceDir: null, sessionId: "session-1", taskId: "task-1" },
         () => {}
       )
     ).rejects.toThrow("Agent appears stuck repeating the same tool calls");
@@ -362,7 +366,7 @@ describe("runAgentWithTools", () => {
         model: "deepseek-v4-pro",
         messages: [{ role: "user", content: "你好" }],
       },
-      { workspaceDir: null, taskId: "task-1" },
+      { workspaceDir: null, sessionId: "session-1", taskId: "task-1" },
       (event) => {
         events.push(event);
       }
@@ -415,7 +419,7 @@ describe("runAgentWithTools", () => {
           },
         ],
       },
-      { workspaceDir: null, taskId: "task-1" },
+      { workspaceDir: null, sessionId: "session-1", taskId: "task-1" },
       (event) => {
         events.push(event);
       }
@@ -472,7 +476,7 @@ describe("runAgentWithTools", () => {
         model: "deepseek-v4-pro",
         messages: [{ role: "user", content: "写个文件" }],
       },
-      { workspaceDir: null, taskId: "task-1" },
+      { workspaceDir: null, sessionId: "session-1", taskId: "task-1" },
       (event) => {
         events.push(event);
       }
@@ -532,7 +536,7 @@ describe("runAgentWithTools", () => {
         model: "deepseek-v4-pro",
         messages: [{ role: "user", content: "继续任务" }],
       },
-      { workspaceDir: null, taskId: "task-1" },
+      { workspaceDir: null, sessionId: "session-1", taskId: "task-1" },
       (event) => {
         events.push(event);
       }
@@ -584,7 +588,7 @@ describe("runAgentWithTools", () => {
           model: "deepseek-v4-pro",
           messages: [{ role: "user", content: "你好" }],
         },
-        { workspaceDir: null, taskId: "task-1" },
+        { workspaceDir: null, sessionId: "session-1", taskId: "task-1" },
         () => {}
       )
     ).rejects.toThrow("Stream read failed: connection reset");
@@ -614,7 +618,7 @@ describe("runAgentWithTools", () => {
           model: "deepseek-v4-pro",
           messages: [{ role: "user", content: "你好" }],
         },
-        { workspaceDir: null, taskId: "task-1" },
+        { workspaceDir: null, sessionId: "session-1", taskId: "task-1" },
         () => {}
       )
     ).rejects.toThrow("API error (401): unauthorized");

@@ -92,6 +92,12 @@ export type Messages = {
     handoffGenerating: string;
     handoffCreatingSession: string;
     handoffStartingNewSession: string;
+    todoListTitle: string;
+    todoProgress: string;
+    todoStatusPending: string;
+    todoStatusInProgress: string;
+    todoStatusCompleted: string;
+    todoStatusCancelled: string;
     noModel: string;
     thinkingToggle: string;
     thinkingToggleLabel: string;

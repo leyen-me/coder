@@ -27,6 +27,7 @@ import { shouldTriggerContextHandoff } from "./context-monitor";
 
 type ToolExecutionContextInput = {
   workspaceDir: string | null;
+  sessionId: string;
   taskId: string;
   signal?: AbortSignal;
   tavilyConfig?: TavilyConfig | null;
@@ -332,6 +333,7 @@ async function appendToolResults(
     try {
       result = await executeToolCall(call.name, call.arguments, {
         workspaceDir: context.workspaceDir,
+        sessionId: context.sessionId,
         taskId: context.taskId,
         signal: context.signal,
         tavilyConfig: context.tavilyConfig,

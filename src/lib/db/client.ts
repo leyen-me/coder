@@ -1,6 +1,7 @@
 import { deleteDB, openDB, type DBSchema, type IDBPDatabase } from "idb";
 
 import {
+  AGENT_TODOS_STORE,
   AUTOMATIONS_STORE,
   DB_NAME,
   DB_VERSION,
@@ -12,6 +13,7 @@ import {
 import { normalizeAutomationRecord } from "./normalize-automation";
 import { normalizeSessionRecord } from "./normalize-session";
 import type {
+  AgentTodoRecord,
   AutomationRecord,
   MessageRecord,
   SessionRecord,
@@ -47,6 +49,14 @@ interface CoderDbSchema extends DBSchema {
     value: AutomationRecord;
     indexes: { "by-updatedAt": number };
   };
+  agentTodos: {
+    key: string;
+    value: AgentTodoRecord;
+    indexes: {
+      "by-sessionId": string;
+      "by-sessionId-order": [string, number];
+    };
+  };
 }
 
 const REQUIRED_STORES = [
@@ -55,6 +65,7 @@ const REQUIRED_STORES = [
   USER_SKILLS_STORE,
   SYSTEM_SKILL_PREFERENCES_STORE,
   AUTOMATIONS_STORE,
+  AGENT_TODOS_STORE,
 ] as const;
 
 let dbPromise: Promise<IDBPDatabase<CoderDbSchema>> | null = null;
@@ -126,6 +137,14 @@ async function openCoderDb(repairAttempted = false): Promise<IDBPDatabase<CoderD
         for (const automation of automations) {
           await store.put(normalizeAutomationRecord(automation));
         }
+      }
+
+      if (!database.objectStoreNames.contains(AGENT_TODOS_STORE)) {
+        const store = database.createObjectStore(AGENT_TODOS_STORE, {
+          keyPath: "id",
+        });
+        store.createIndex("by-sessionId", "sessionId");
+        store.createIndex("by-sessionId-order", ["sessionId", "order"]);
       }
     },
   });

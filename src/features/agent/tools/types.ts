@@ -8,10 +8,11 @@ export type JsonSchemaObject = {
 };
 
 export type JsonSchemaProperty = {
-  type: "string" | "number" | "boolean" | "integer";
+  type: "string" | "number" | "boolean" | "integer" | "array" | "object";
   description?: string;
   enum?: string[];
   default?: boolean | number | string;
+  items?: JsonSchemaObject | JsonSchemaProperty;
 };
 
 export type AgentToolDefinition = {
@@ -220,6 +221,7 @@ export type BrowsePageData = {
 
 export type ToolExecutionContext = {
   workspaceDir: string | null;
+  sessionId?: string;
   taskId?: string;
   signal?: AbortSignal;
   tavilyConfig?: TavilyConfig | null;

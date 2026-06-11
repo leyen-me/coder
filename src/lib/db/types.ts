@@ -132,3 +132,19 @@ export type ChatHistoryItem = {
   relativeTime: string;
   updatedAt: number;
 };
+
+export type AgentTodoStatus =
+  | "pending"
+  | "in_progress"
+  | "completed"
+  | "cancelled";
+
+export type AgentTodoRecord = {
+  id: string;
+  sessionId: string;
+  content: string;
+  status: AgentTodoStatus;
+  order: number;
+  createdAt: number;
+  updatedAt: number;
+};
