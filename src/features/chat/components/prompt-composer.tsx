@@ -515,47 +515,53 @@ export function PromptComposer({
 
       <PromptInputFooter className="bg-card px-3 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          {/* Agent / Ask mode toggle */}
-          <div
-            className="flex items-center rounded-lg border border-border/50 bg-muted/40 p-0.5"
-            role="group"
-            aria-label="Agent mode"
-          >
-            <button
-              type="button"
-              disabled={isRunning || !onAgentModeChange}
-              data-active={agentMode === "agent"}
-              onClick={() => onAgentModeChange?.("agent")}
-              title={t("chat.modeAgentLabel")}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
-                "disabled:pointer-events-none disabled:opacity-50",
-                agentMode === "agent"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <BotIcon className="size-3.5 shrink-0" />
-              <span>{t("chat.modeAgent")}</span>
-            </button>
-            <button
-              type="button"
-              disabled={isRunning || !onAgentModeChange}
-              data-active={agentMode === "ask"}
-              onClick={() => onAgentModeChange?.("ask")}
-              title={t("chat.modeAskLabel")}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
-                "disabled:pointer-events-none disabled:opacity-50",
-                agentMode === "ask"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <FileQuestionIcon className="size-3.5 shrink-0" />
-              <span>{t("chat.modeAsk")}</span>
-            </button>
-          </div>
+          {/* Agent / Ask / Plan mode selector */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                disabled={isRunning || !onAgentModeChange}
+                className={cn(
+                  composerFooterControlClassName,
+                  "inline-flex items-center gap-1.5 text-xs"
+                )}
+                title={
+                  agentMode === "agent"
+                    ? t("chat.modeAgentLabel")
+                    : t("chat.modeAskLabel")
+                }
+              >
+                {agentMode === "agent" ? (
+                  <BotIcon className="size-3.5 shrink-0" />
+                ) : (
+                  <FileQuestionIcon className="size-3.5 shrink-0" />
+                )}
+                <span>
+                  {agentMode === "agent"
+                    ? t("chat.modeAgent")
+                    : t("chat.modeAsk")}
+                </span>
+                <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-32">
+              <DropdownMenuRadioGroup
+                value={agentMode}
+                onValueChange={(value) => {
+                  onAgentModeChange?.(value as AgentMode);
+                }}
+              >
+                <DropdownMenuRadioItem value="agent">
+                  <BotIcon className="mr-2 size-4" />
+                  <span>{t("chat.modeAgent")}</span>
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="ask">
+                  <FileQuestionIcon className="mr-2 size-4" />
+                  <span>{t("chat.modeAsk")}</span>
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <PromptInputSelect
             value={model}
