@@ -12,11 +12,6 @@ import {
   PromptInput,
   PromptInputBody,
   PromptInputFooter,
-  PromptInputSelect,
-  PromptInputSelectContent,
-  PromptInputSelectItem,
-  PromptInputSelectTrigger,
-  PromptInputSelectValue,
   PromptInputSubmit,
   usePromptInputAttachments,
   type NativeFileDropEvent,
@@ -523,7 +518,8 @@ export function PromptComposer({
                 disabled={isRunning || !onAgentModeChange}
                 className={cn(
                   composerFooterControlClassName,
-                  "inline-flex items-center gap-1.5 text-xs"
+                  "inline-flex items-center gap-1.5",
+                  "data-[state=open]:bg-accent data-[state=open]:text-foreground data-[state=open]:dark:bg-input/50"
                 )}
                 title={
                   agentMode === "agent"
@@ -536,7 +532,7 @@ export function PromptComposer({
                 ) : (
                   <FileQuestionIcon className="size-3.5 shrink-0" />
                 )}
-                <span>
+                <span className="truncate">
                   {agentMode === "agent"
                     ? t("chat.modeAgent")
                     : t("chat.modeAsk")}
@@ -563,26 +559,40 @@ export function PromptComposer({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <PromptInputSelect
-            value={model}
-            onValueChange={onModelChange}
-            disabled={models.length === 0}
-          >
-            <PromptInputSelectTrigger
-              size="sm"
-              className="max-w-44 **:data-[slot=select-value]:truncate"
-              title={selectedModel ? getModelDisplayName(selectedModel) : model || undefined}
-            >
-              <PromptInputSelectValue placeholder={t("chat.noModel")} />
-            </PromptInputSelectTrigger>
-            <PromptInputSelectContent align="start" className="max-w-sm">
-              {models.map((item) => (
-                <PromptInputSelectItem key={item.id} value={item.id}>
-                  {getModelDisplayName(item)}
-                </PromptInputSelectItem>
-              ))}
-            </PromptInputSelectContent>
-          </PromptInputSelect>
+          {/* Model selector */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                disabled={models.length === 0}
+                className={cn(
+                  composerFooterControlClassName,
+                  "inline-flex max-w-44 items-center gap-1.5",
+                  "data-[state=open]:bg-accent data-[state=open]:text-foreground data-[state=open]:dark:bg-input/50"
+                )}
+                title={selectedModel ? getModelDisplayName(selectedModel) : model || undefined}
+              >
+                <span className="truncate">
+                  {selectedModel
+                    ? getModelDisplayName(selectedModel)
+                    : t("chat.noModel")}
+                </span>
+                <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-w-sm">
+              <DropdownMenuRadioGroup
+                value={model}
+                onValueChange={onModelChange}
+              >
+                {models.map((item) => (
+                  <DropdownMenuRadioItem key={item.id} value={item.id}>
+                    {getModelDisplayName(item)}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {showThinkingToggle ? (
             <Toggle
