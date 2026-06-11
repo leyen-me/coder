@@ -453,7 +453,10 @@ export function PromptComposer({
 
   const handleSubmit = useCallback(
     (message: PromptInputMessage) => {
-      const hasText = message.text.trim().length > 0;
+      // Prefer controlled `value` over FormData: the hidden input can lag one
+      // React commit behind the TipTap editor when the user submits quickly.
+      const text = value.trim() || message.text.trim();
+      const hasText = text.length > 0;
       const hasFiles = supportsMultimodal && message.files.length > 0;
       if (!hasText && !hasFiles) {
         return;
@@ -461,11 +464,11 @@ export function PromptComposer({
 
       onChange("");
       onSend?.({
-        text: message.text.trim(),
+        text,
         files: supportsMultimodal ? message.files : [],
       });
     },
-    [onChange, onSend, supportsMultimodal]
+    [onChange, onSend, supportsMultimodal, value]
   );
 
   const promptInputClassName = cn(

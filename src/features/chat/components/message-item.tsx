@@ -29,6 +29,7 @@ import {
   buildAssistantProcessSteps,
   getAssistantTimelineSteps,
   shouldRenderStandaloneAssistantAnswer,
+  shouldShowAssistantProcessTimeline,
 } from "./assistant-process";
 import { PlanPreviewCard } from "./plan-preview-card";
 import { StreamingMessageContent } from "./streaming-message-content";
@@ -185,9 +186,10 @@ export const MessageItem = memo(function MessageItem({
     () => getAssistantTimelineSteps({ steps: processSteps, isPlanMessage }),
     [isPlanMessage, processSteps]
   );
-  const showProcessTimeline = timelineSteps.some(
-    (step) => step.kind === "reasoning" || step.kind === "tool"
-  );
+  const showProcessTimeline = shouldShowAssistantProcessTimeline({
+    steps: processSteps,
+    isPlanMessage,
+  });
   const showStandaloneAnswer = shouldRenderStandaloneAssistantAnswer({
     steps: processSteps,
     isPlanMessage,
@@ -297,7 +299,9 @@ export const MessageItem = memo(function MessageItem({
               ))}
             </Attachments>
           ) : null}
-          {message.content ? <span>{message.content}</span> : null}
+          {message.content.trim() ? (
+            <span className="whitespace-pre-wrap break-words">{message.content}</span>
+          ) : null}
         </MessageContent>
         {hasCopyContent ? (
           <MessageActions

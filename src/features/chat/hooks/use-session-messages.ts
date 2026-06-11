@@ -29,6 +29,10 @@ function applyStreamingOverlays(
 
   let didChange = false;
   const nextMessages = messages.map((message) => {
+    if (message.role !== "assistant") {
+      return message;
+    }
+
     const overlay = overlays.get(message.id);
     if (!overlay) {
       return message;

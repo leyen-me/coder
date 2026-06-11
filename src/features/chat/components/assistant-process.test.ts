@@ -5,6 +5,7 @@ import {
   getAssistantTimelineSteps,
   getLatestAssistantAnswerText,
   shouldRenderStandaloneAssistantAnswer,
+  shouldShowAssistantProcessTimeline,
 } from "./assistant-process";
 
 describe("buildAssistantProcessSteps", () => {
@@ -277,6 +278,53 @@ describe("buildAssistantProcessSteps", () => {
     expect(
       shouldRenderStandaloneAssistantAnswer({ steps, isPlanMessage: true })
     ).toBe(true);
+    expect(
+      shouldShowAssistantProcessTimeline({ steps, isPlanMessage: true })
+    ).toBe(true);
+  });
+
+  it("shows answer-only non-plan turns in the process timeline", () => {
+    const steps = buildAssistantProcessSteps({
+      processSteps: [],
+      answerText: "你好！",
+      thinkingText: "",
+      isThinkingStreaming: false,
+      showReasoning: false,
+      toolInvocations: [],
+      isAnswerStreaming: false,
+      isMessageStreaming: false,
+    });
+
+    expect(steps.map((step) => step.kind)).toEqual(["answer"]);
+    expect(
+      shouldShowAssistantProcessTimeline({ steps, isPlanMessage: false })
+    ).toBe(true);
+    expect(
+      shouldRenderStandaloneAssistantAnswer({ steps, isPlanMessage: false })
+    ).toBe(false);
+  });
+
+  it("shows answer-only non-plan turns when reasoning is hidden", () => {
+    const steps = buildAssistantProcessSteps({
+      processSteps: [
+        { id: "reasoning:0", kind: "reasoning", text: "先想一下。" },
+      ],
+      answerText: "你好！",
+      thinkingText: "先想一下。",
+      isThinkingStreaming: false,
+      showReasoning: false,
+      toolInvocations: [],
+      isAnswerStreaming: false,
+      isMessageStreaming: false,
+    });
+
+    expect(steps.map((step) => step.kind)).toEqual(["answer"]);
+    expect(
+      shouldShowAssistantProcessTimeline({ steps, isPlanMessage: false })
+    ).toBe(true);
+    expect(
+      shouldRenderStandaloneAssistantAnswer({ steps, isPlanMessage: false })
+    ).toBe(false);
   });
 
   it("appends a fallback answer when persisted steps only contain reasoning", () => {
