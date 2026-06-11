@@ -27,6 +27,8 @@ import type { ChatRetryState } from "@/features/agent/types";
 
 import {
   buildAssistantProcessSteps,
+  getAssistantTimelineSteps,
+  shouldRenderStandaloneAssistantAnswer,
 } from "./assistant-process";
 import { PlanPreviewCard } from "./plan-preview-card";
 import { StreamingMessageContent } from "./streaming-message-content";
@@ -180,15 +182,16 @@ export const MessageItem = memo(function MessageItem({
   );
   const isPlanMessage = message.messageKind === "plan";
   const timelineSteps = useMemo(
-    () =>
-      isPlanMessage
-        ? processSteps.filter((step) => step.kind !== "answer")
-        : processSteps,
+    () => getAssistantTimelineSteps({ steps: processSteps, isPlanMessage }),
     [isPlanMessage, processSteps]
   );
-  const showProcessTimeline = isPlanMessage
-    ? timelineSteps.some((step) => step.kind === "reasoning" || step.kind === "tool")
-    : showReasoning || hasTools;
+  const showProcessTimeline = timelineSteps.some(
+    (step) => step.kind === "reasoning" || step.kind === "tool"
+  );
+  const showStandaloneAnswer = shouldRenderStandaloneAssistantAnswer({
+    steps: processSteps,
+    isPlanMessage,
+  });
   const showActions =
     !isStreaming &&
     (Boolean(answerText) ||
@@ -342,7 +345,7 @@ export const MessageItem = memo(function MessageItem({
           isBuildPending={isBuildPending}
           onBuild={handleBuildFromPlan}
         />
-      ) : answerText ? (
+      ) : answerText && showStandaloneAnswer ? (
         <StreamingMessageContent isStreaming={isStreaming} text={answerText} />
       ) : null}
       {showActions ? (

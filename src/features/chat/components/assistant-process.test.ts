@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAssistantProcessSteps,
+  getAssistantTimelineSteps,
   getLatestAssistantAnswerText,
+  shouldRenderStandaloneAssistantAnswer,
 } from "./assistant-process";
 
 describe("buildAssistantProcessSteps", () => {
@@ -225,6 +227,56 @@ describe("buildAssistantProcessSteps", () => {
         },
       ])
     ).toBe("");
+  });
+
+  it("keeps answer steps in the timeline for non-plan messages", () => {
+    const steps = buildAssistantProcessSteps({
+      processSteps: [
+        { id: "reasoning:0", kind: "reasoning", text: "先打招呼。" },
+        { id: "answer:1", kind: "answer", text: "你好！" },
+      ],
+      answerText: "你好！",
+      thinkingText: "先打招呼。",
+      isThinkingStreaming: false,
+      showReasoning: true,
+      toolInvocations: [],
+      isAnswerStreaming: false,
+      isMessageStreaming: false,
+    });
+
+    expect(
+      getAssistantTimelineSteps({ steps, isPlanMessage: false }).map(
+        (step) => step.kind
+      )
+    ).toEqual(["reasoning", "answer"]);
+    expect(
+      shouldRenderStandaloneAssistantAnswer({ steps, isPlanMessage: false })
+    ).toBe(false);
+  });
+
+  it("filters answer steps from the timeline for plan messages", () => {
+    const steps = buildAssistantProcessSteps({
+      processSteps: [
+        { id: "reasoning:0", kind: "reasoning", text: "先分析需求。" },
+        { id: "answer:1", kind: "answer", text: "这是计划。" },
+      ],
+      answerText: "这是计划。",
+      thinkingText: "先分析需求。",
+      isThinkingStreaming: false,
+      showReasoning: true,
+      toolInvocations: [],
+      isAnswerStreaming: false,
+      isMessageStreaming: false,
+    });
+
+    expect(
+      getAssistantTimelineSteps({ steps, isPlanMessage: true }).map(
+        (step) => step.kind
+      )
+    ).toEqual(["reasoning"]);
+    expect(
+      shouldRenderStandaloneAssistantAnswer({ steps, isPlanMessage: true })
+    ).toBe(true);
   });
 
   it("appends a fallback answer when persisted steps only contain reasoning", () => {
