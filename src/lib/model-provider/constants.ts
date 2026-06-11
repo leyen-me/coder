@@ -1,5 +1,6 @@
 import { createModelDefinition } from "./model-definition";
 import {
+  AGNES_THINKING_CONFIG,
   DEEPSEEK_THINKING_CONFIG,
   GLM_THINKING_CONFIG,
 } from "./thinking-config";
@@ -11,7 +12,7 @@ import type {
 
 export const MODEL_PROVIDER_STORAGE_KEY = "coder:model-provider-settings";
 
-export const PROVIDER_IDS = ["deepseek", "glm", "custom"] as const satisfies readonly ProviderId[];
+export const PROVIDER_IDS = ["deepseek", "glm", "agnes", "custom"] as const satisfies readonly ProviderId[];
 
 export const API_KEY_SOURCES = ["manual", "env"] as const;
 
@@ -71,6 +72,27 @@ export const PRESET_PROVIDERS = {
       }),
     ],
     defaultApiKeyEnvVar: "GLM_API_KEY",
+  },
+  agnes: {
+    id: "agnes",
+    baseUrl: "https://apihub.agnes-ai.com/v1",
+    models: [
+      createModelDefinition("agnes-2.0-flash", {
+        label: "Agnes 2.0 Flash",
+        contextWindow: 256_000,
+        supportsThinking: true,
+        supportsMultimodal: false,
+        thinkingConfig: AGNES_THINKING_CONFIG,
+      }),
+      createModelDefinition("agnes-1.5-flash", {
+        label: "Agnes 1.5 Flash",
+        contextWindow: 256_000,
+        supportsThinking: true,
+        supportsMultimodal: false,
+        thinkingConfig: AGNES_THINKING_CONFIG,
+      }),
+    ],
+    defaultApiKeyEnvVar: "AGNES_API_KEY",
   },
 } as const satisfies Record<
   Exclude<ProviderId, "custom">,

@@ -140,6 +140,7 @@ export const zhMessages = {
       providers: {
         deepseek: "DeepSeek",
         glm: "GLM",
+        agnes: "Agnes AI",
         custom: "自定义",
       },
       endpointLabel: "API 端点",

@@ -145,6 +145,7 @@ export const enMessages = {
       providers: {
         deepseek: "DeepSeek",
         glm: "GLM",
+        agnes: "Agnes AI",
         custom: "Custom",
       },
       endpointLabel: "API endpoint",

@@ -137,6 +137,7 @@ export type Messages = {
       providers: {
         deepseek: string;
         glm: string;
+        agnes: string;
         custom: string;
       };
       endpointLabel: string;

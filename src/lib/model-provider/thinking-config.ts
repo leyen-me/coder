@@ -20,6 +20,14 @@ export const DEEPSEEK_THINKING_CONFIG: ModelThinkingConfig = {
   defaultEnabled: true,
 };
 
+export const AGNES_THINKING_CONFIG: ModelThinkingConfig = {
+  enabled: {
+    chat_template_kwargs: { enable_thinking: true },
+  },
+  disabled: {},
+  defaultEnabled: false,
+};
+
 export function normalizeThinkingConfig(
   raw: unknown
 ): ModelThinkingConfig | undefined {
