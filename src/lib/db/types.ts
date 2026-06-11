@@ -90,6 +90,20 @@ export type SystemSkillPreference = {
   updatedAt: number;
 };
 
+export type AutomationRecord = {
+  id: string;
+  name: string;
+  description: string;
+  cronExpression: string;
+  prompt: string;
+  enabled: boolean;
+  lastRunAt: number | null;
+  lastResultSummary: string | null;
+  lastSessionId: string | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type ChatHistoryItem = {
   id: string;
   title: string;

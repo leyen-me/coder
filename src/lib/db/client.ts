@@ -1,6 +1,7 @@
 import { deleteDB, openDB, type DBSchema, type IDBPDatabase } from "idb";
 
 import {
+  AUTOMATIONS_STORE,
   DB_NAME,
   DB_VERSION,
   MESSAGES_STORE,
@@ -10,6 +11,7 @@ import {
 } from "./constants";
 import { normalizeSessionRecord } from "./normalize-session";
 import type {
+  AutomationRecord,
   MessageRecord,
   SessionRecord,
   SystemSkillPreference,
@@ -39,6 +41,11 @@ interface CoderDbSchema extends DBSchema {
     key: string;
     value: SystemSkillPreference;
   };
+  automations: {
+    key: string;
+    value: AutomationRecord;
+    indexes: { "by-updatedAt": number };
+  };
 }
 
 const REQUIRED_STORES = [
@@ -46,6 +53,7 @@ const REQUIRED_STORES = [
   MESSAGES_STORE,
   USER_SKILLS_STORE,
   SYSTEM_SKILL_PREFERENCES_STORE,
+  AUTOMATIONS_STORE,
 ] as const;
 
 let dbPromise: Promise<IDBPDatabase<CoderDbSchema>> | null = null;
@@ -88,6 +96,13 @@ async function openCoderDb(repairAttempted = false): Promise<IDBPDatabase<CoderD
         database.createObjectStore(SYSTEM_SKILL_PREFERENCES_STORE, {
           keyPath: "skillId",
         });
+      }
+
+      if (!database.objectStoreNames.contains(AUTOMATIONS_STORE)) {
+        const store = database.createObjectStore(AUTOMATIONS_STORE, {
+          keyPath: "id",
+        });
+        store.createIndex("by-updatedAt", "updatedAt");
       }
     },
   });

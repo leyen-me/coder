@@ -1,4 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 
 import { FloatingShellNav } from "@/components/layout/floating-shell-nav";
 import { useSidebarOpen } from "@/features/chat/hooks/use-sidebar-open";
@@ -13,6 +14,10 @@ import { WorkspacePathDragPreview } from "@/components/dnd/workspace-path-drag-p
 import { useAppWindow } from "@/lib/tauri/use-app-window";
 import { useWindowMaximized } from "@/lib/tauri/use-window-maximized";
 import { cn } from "@/lib/utils";
+import {
+  startAutomationScheduler,
+  stopAutomationScheduler,
+} from "@/features/automations/lib/scheduler";
 
 import { paths } from "./paths";
 import type { ShellOutletContext } from "./shell-outlet-context";
@@ -37,6 +42,14 @@ export function AppShell() {
         navigate(paths.chatNew);
       }
     : undefined;
+
+  // Start the automation scheduler on mount; stop on unmount.
+  useEffect(() => {
+    startAutomationScheduler();
+    return () => {
+      stopAutomationScheduler();
+    };
+  }, []);
 
   return (
     <div
