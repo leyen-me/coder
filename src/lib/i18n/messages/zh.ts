@@ -401,12 +401,9 @@ export const zhMessages = {
     loadFailedHint: "请尝试刷新页面。若问题仍在，可在设置中清除应用数据。",
   },
   rightPanel: {
-    fileTree: "文件",
-    browser: "浏览器",
     explorer: "资源管理器",
     noWorkspace: "请先选择工作区以浏览文件",
     loading: "正在加载文件…",
-    browserPlaceholder: "浏览器即将推出",
     closePreview: "关闭预览",
     previewLoading: "正在加载预览…",
     previewBinary: "无法预览二进制文件",

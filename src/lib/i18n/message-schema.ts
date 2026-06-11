@@ -386,12 +386,9 @@ export type Messages = {
     loadFailedHint: string;
   };
   rightPanel: {
-    fileTree: string;
-    browser: string;
     explorer: string;
     noWorkspace: string;
     loading: string;
-    browserPlaceholder: string;
     closePreview: string;
     previewLoading: string;
     previewBinary: string;

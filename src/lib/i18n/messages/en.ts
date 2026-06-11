@@ -413,12 +413,9 @@ export const enMessages = {
       "Try refreshing the page. If the problem persists, clear app data in Settings.",
   },
   rightPanel: {
-    fileTree: "Files",
-    browser: "Browser",
     explorer: "Explorer",
     noWorkspace: "Select a workspace to browse files",
     loading: "Loading files…",
-    browserPlaceholder: "Browser coming soon",
     closePreview: "Close preview",
     previewLoading: "Loading preview…",
     previewBinary: "Binary files cannot be previewed",
