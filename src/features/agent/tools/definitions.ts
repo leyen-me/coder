@@ -477,16 +477,10 @@ export const LIST_SKILLS_TOOL: AgentToolDefinition = {
   function: {
     name: LIST_SKILLS_TOOL_NAME,
     description:
-      "List enabled skills (slug, name, description). User skills must be enabled by the user before they appear. Use before read_skill when you need specialized workflow instructions.",
+      "List enabled user skills (slug, name, description). User skills must be enabled by the user before they appear. Use before read_skill when you need specialized workflow instructions.",
     parameters: {
       type: "object",
-      properties: {
-        source: {
-          type: "string",
-          enum: ["all", "system", "user"],
-          description: "Filter by skill source. Defaults to all enabled skills.",
-        },
-      },
+      properties: {},
       additionalProperties: false,
     },
   },

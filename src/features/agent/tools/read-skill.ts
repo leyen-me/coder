@@ -25,7 +25,6 @@ export const readSkillHandler: ToolHandler = async (rawArgs) => {
     description: result.description,
     content: result.content,
     source: result.source,
-    alreadyInPrompt: result.alreadyInPrompt ?? false,
   });
 };
 

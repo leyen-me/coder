@@ -45,8 +45,8 @@ describe("buildSystemPrompt", () => {
       })
     );
 
-    expect(prompt).toContain("## Active skills (system)");
-    expect(prompt).toContain("[tools] Tools");
+    expect(prompt).toContain("## Tools");
+    expect(prompt).not.toContain("## Active skills (system)");
     expect(prompt).toContain("Use glob to find files by name pattern.");
     expect(prompt).not.toContain("## Git");
   });

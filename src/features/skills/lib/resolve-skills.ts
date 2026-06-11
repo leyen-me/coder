@@ -20,7 +20,6 @@ import type {
   ResolvedSkill,
   SkillCardViewModel,
   SkillListItem,
-  SkillSource,
 } from "../types";
 
 async function resolveSystemSkillEnabled(
@@ -93,79 +92,26 @@ export async function getEnabledUserSkills(): Promise<ResolvedSkill[]> {
     }));
 }
 
-export async function listEnabledSkillsForTools(
-  source: "all" | SkillSource = "all"
-): Promise<SkillListItem[]> {
-  const items: SkillListItem[] = [];
+export async function listEnabledSkillsForTools(): Promise<SkillListItem[]> {
+  const userSkills = await listUserSkills();
 
-  if (source === "all" || source === "system") {
-    const preferences = await listSystemSkillPreferences();
-    const preferenceMap = new Map(
-      preferences.map((preference) => [preference.skillId, preference.enabled])
-    );
-
-    for (const skill of SYSTEM_SKILLS) {
-      const enabled = preferenceMap.get(skill.id) ?? skill.defaultEnabled;
-      if (!enabled) {
-        continue;
-      }
-
-      items.push({
-        slug: skill.slug,
-        name: skill.name,
-        description: skill.description,
-        source: "system",
-      });
-    }
-  }
-
-  if (source === "all" || source === "user") {
-    const userSkills = await listUserSkills();
-    for (const skill of userSkills) {
-      if (!skill.enabled) {
-        continue;
-      }
-
-      items.push({
-        slug: skill.slug,
-        name: skill.name,
-        description: skill.description,
-        source: "user",
-      });
-    }
-  }
-
-  return items.sort((a, b) => a.slug.localeCompare(b.slug));
+  return userSkills
+    .filter((skill) => skill.enabled)
+    .map((skill) => ({
+      slug: skill.slug,
+      name: skill.name,
+      description: skill.description,
+      source: "user" as const,
+    }))
+    .sort((a, b) => a.slug.localeCompare(b.slug));
 }
 
 export async function readEnabledSkillBySlug(slug: string): Promise<
-  | (ResolvedSkill & { alreadyInPrompt?: boolean })
+  | ResolvedSkill
   | { error: "not_found" | "not_enabled" }
 > {
-  const systemSkill = getSystemSkillBySlug(slug);
-  if (systemSkill) {
-    const enabled = await resolveSystemSkillEnabled(
-      systemSkill.id,
-      systemSkill.defaultEnabled
-    );
-    if (!enabled) {
-      return { error: "not_enabled" };
-    }
-
-    const enabledSystemSkills = await getEnabledSystemSkills();
-    const alreadyInPrompt = enabledSystemSkills.some(
-      (skill) => skill.slug === slug
-    );
-
-    return {
-      id: systemSkill.id,
-      slug: systemSkill.slug,
-      name: systemSkill.name,
-      description: systemSkill.description,
-      content: systemSkill.content,
-      source: "system",
-      alreadyInPrompt,
-    };
+  if (getSystemSkillBySlug(slug)) {
+    return { error: "not_found" };
   }
 
   const userSkill = await getUserSkillBySlug(slug);

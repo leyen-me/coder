@@ -26,43 +26,43 @@ export function buildSystemPrompt(environment: AgentEnvironment): string {
     `- gitRepository: ${gitLine}`,
     `- date: ${environment.today}`,
     "",
-    ...buildActiveSystemSkillsSection(environment.enabledSystemSkills),
+    ...buildSystemPromptSections(environment.enabledSystemSkills),
     ...buildUserSkillsSection(),
     ...buildProjectInstructionsSection(environment.agentsMd),
   ].join("\n");
 }
 
-function buildActiveSystemSkillsSection(
+function buildSystemPromptSections(
   skills: AgentEnvironment["enabledSystemSkills"]
 ): string[] {
   if (!skills.length) {
     return [];
   }
 
-  const lines = [
-    "## Active skills (system)",
-    "Follow these enabled system skills when they do not conflict with the user's current message.",
-  ];
+  const lines: string[] = [];
 
   for (const skill of skills) {
-    lines.push("---", `[${skill.slug}] ${skill.name}`, skill.content.trim());
+    lines.push(`## ${skill.name}`, stripLeadingMarkdownH1(skill.content), "");
   }
 
-  lines.push("");
   return lines;
+}
+
+function stripLeadingMarkdownH1(content: string): string {
+  return content.replace(/^#\s+[^\n]+\n+/, "").trim();
 }
 
 function buildUserSkillsSection(): string[] {
   return [
     "## User skills",
-    "User-defined skills must be enabled by the user before they become available.",
+    "Custom user skills must be enabled by the user before they become available.",
     "They are NOT included in this prompt by default.",
-    "- Call list_skills to browse enabled skills (slug, name, description).",
+    "- Call list_skills to browse enabled user skills (slug, name, description).",
     "- Call read_skill with a slug to load full instructions before following them.",
     "- Call create_skill to persist new custom skills when the user wants reusable instructions.",
     "- Call update_skill to modify an existing user skill (name, description, or content).",
     "- New skills are disabled until the user enables them on the Skills page.",
-    "- The user may also reference an enabled skill via /slug in their message.",
+    "- The user may also reference an enabled user skill via /slug in their message.",
     "",
   ];
 }

@@ -11,7 +11,7 @@ export function useEnabledSkills(open: boolean) {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      setSkills(await listEnabledSkillsForTools("all"));
+      setSkills(await listEnabledSkillsForTools());
     } finally {
       setLoading(false);
     }
