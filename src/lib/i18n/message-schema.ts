@@ -395,6 +395,11 @@ export type Messages = {
     previewTooLarge: string;
     previewGitignored: string;
     previewSecretsWarning: string;
+    previewSave: string;
+    previewSaving: string;
+    previewUnsaved: string;
+    previewFileChanged: string;
+    previewReload: string;
     previewTruncated: string;
     menuOpen: string;
     menuClosePreview: string;
