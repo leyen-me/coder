@@ -173,22 +173,33 @@ export function AutomationDialog({
                 placeholder="0 9 * * 1-5"
                 className={cn(!cronValid && "border-destructive")}
               />
-              <Popover open={presetOpen} onOpenChange={setPresetOpen}>
+              <Popover modal={false} open={presetOpen} onOpenChange={setPresetOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="icon" className="shrink-0" aria-label={t("automations.fieldCronPresets")}>
                     <ChevronsUpDown className="h-4 w-4" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-72 p-0" align="end">
+                <PopoverContent
+                  className="w-72 p-0"
+                  align="end"
+                  onOpenAutoFocus={(event) => {
+                    event.preventDefault();
+                  }}
+                  onWheel={(event) => {
+                    event.stopPropagation();
+                  }}
+                >
                   <Command>
                     <CommandInput placeholder={t("automations.fieldCronPresets")} />
-                    <CommandList>
+                    <CommandList className="overscroll-contain">
                       <CommandEmpty>{t("automations.fieldCronPresets")}</CommandEmpty>
                       <CommandGroup heading={t("automations.fieldCronPresets")}>
-                        {CRON_PRESETS.map((preset) => (
+                        {CRON_PRESETS.map((preset) => {
+                          const presetLabel = t(preset.labelKey);
+                          return (
                           <CommandItem
                             key={preset.expression}
-                            value={`${preset.label} ${preset.expression}`}
+                            value={`${presetLabel} ${preset.expression}`}
                             onSelect={() => {
                               setCronExpression(preset.expression);
                               setPresetOpen(false);
@@ -202,12 +213,13 @@ export function AutomationDialog({
                                   : "opacity-0"
                               )}
                             />
-                            <span className="flex-1">{preset.label}</span>
+                            <span className="flex-1">{presetLabel}</span>
                             <code className="text-xs text-muted-foreground ml-2">
                               {preset.expression}
                             </code>
                           </CommandItem>
-                        ))}
+                          );
+                        })}
                       </CommandGroup>
                     </CommandList>
                   </Command>

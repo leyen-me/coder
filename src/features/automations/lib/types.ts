@@ -1,5 +1,6 @@
 import { CronExpressionParser } from "cron-parser";
 import type { AutomationRecord } from "@/lib/db";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /** View model for the automations list UI. */
 export type AutomationViewModel = AutomationRecord & {
@@ -11,20 +12,20 @@ export type AutomationViewModel = AutomationRecord & {
 
 /** Human-readable cron presets for the create/edit dialog. */
 export type CronPreset = {
-  label: string;
+  labelKey: MessageKey;
   expression: string;
 };
 
-export const CRON_PRESETS: CronPreset[] = [
-  { label: "Every hour", expression: "0 * * * *" },
-  { label: "Every 6 hours", expression: "0 */6 * * *" },
-  { label: "Every day at midnight", expression: "0 0 * * *" },
-  { label: "Every day at 9:00", expression: "0 9 * * *" },
-  { label: "Every weekday at 9:00", expression: "0 9 * * 1-5" },
-  { label: "Every Monday at 9:00", expression: "0 9 * * 1" },
-  { label: "Every Sunday at 9:00", expression: "0 9 * * 0" },
-  { label: "Every 1st of month at 9:00", expression: "0 9 1 * *" },
-];
+export const CRON_PRESETS = [
+  { labelKey: "automations.presets.everyHour", expression: "0 * * * *" },
+  { labelKey: "automations.presets.every6Hours", expression: "0 */6 * * *" },
+  { labelKey: "automations.presets.everyDayMidnight", expression: "0 0 * * *" },
+  { labelKey: "automations.presets.everyDay9", expression: "0 9 * * *" },
+  { labelKey: "automations.presets.everyWeekday9", expression: "0 9 * * 1-5" },
+  { labelKey: "automations.presets.everyMonday9", expression: "0 9 * * 1" },
+  { labelKey: "automations.presets.everySunday9", expression: "0 9 * * 0" },
+  { labelKey: "automations.presets.everyFirstOfMonth9", expression: "0 9 1 * *" },
+] as const satisfies readonly CronPreset[];
 
 /** Validate a cron expression string. */
 export function isValidCronExpression(expression: string): boolean {
