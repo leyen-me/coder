@@ -3,6 +3,7 @@
 import { FileIcon, FilesIcon, RefreshCwIcon, XIcon } from "lucide-react";
 import { useMemo, useRef } from "react";
 
+import { createFileTreePointerDragProps } from "@/lib/dnd/workspace-path-pointer";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -76,16 +77,22 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
 
         {tabs.map((tab) => {
           const isActive = activeTabPath === tab.path;
+          const pointerDragProps = createFileTreePointerDragProps({
+            isDir: false,
+            name: tab.name,
+            path: tab.path,
+          });
 
           return (
             <div
               key={tab.path}
               className={cn(
-                "group inline-flex h-7 shrink-0 items-center rounded-md border text-xs",
+                "group inline-flex h-7 shrink-0 cursor-grab items-center rounded-md border text-xs active:cursor-grabbing",
                 isActive
                   ? "border-border/40 bg-muted/30 text-foreground/80"
                   : "border-transparent text-muted-foreground/70 hover:bg-muted/20"
               )}
+              {...pointerDragProps}
             >
               <button
                 aria-label={t("rightPanel.closePreview")}
