@@ -205,7 +205,7 @@ export function ComposerRichInput({
       attributes: {
         class: cn(
           "outline-none",
-          "max-h-48 min-h-16 w-full flex-1 resize-none rounded-none border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0"
+          "max-h-48 min-h-16 w-full flex-1 resize-none overflow-y-auto rounded-none border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0"
         ),
         "data-composer-input": "true",
         "data-slot": "input-group-control",
