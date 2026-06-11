@@ -92,6 +92,21 @@ export type SystemSkillPreference = {
 
 export type AutomationAgentMode = "agent" | "ask";
 
+export type AutomationRunStatus =
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type AutomationRunRecord = {
+  id: string;
+  sessionId: string;
+  startedAt: number;
+  completedAt: number | null;
+  summary: string;
+  status: AutomationRunStatus;
+};
+
 export type AutomationRecord = {
   id: string;
   name: string;
@@ -105,9 +120,8 @@ export type AutomationRecord = {
   agentMode: AutomationAgentMode;
   thinkingEnabled: boolean;
   enabled: boolean;
-  lastRunAt: number | null;
-  lastResultSummary: string | null;
-  lastSessionId: string | null;
+  /** Newest first. */
+  runs: AutomationRunRecord[];
   createdAt: number;
   updatedAt: number;
 };

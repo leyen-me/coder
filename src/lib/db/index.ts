@@ -13,3 +13,4 @@ export * from "./skills";
 export * from "./subscriptions";
 export * from "./types";
 export * from "./automations";
+export * from "./automation-runs";

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   listAutomations,
@@ -13,13 +13,18 @@ import type {
   UpdateAutomationInput,
 } from "@/lib/db";
 
+import { subscribeAutomationRuns } from "../lib/automation-run-lock";
+import { runAutomationById } from "../lib/run-automation";
 import type { AutomationViewModel } from "../lib/types";
 
-function toViewModel(item: AutomationRecord): AutomationViewModel {
+function toViewModel(
+  item: AutomationRecord,
+  runningIds: ReadonlySet<string>
+): AutomationViewModel {
   return {
     ...item,
     relativeTime: formatRelativeTime(item.updatedAt),
-    running: false,
+    running: runningIds.has(item.id),
   };
 }
 
@@ -38,19 +43,31 @@ function formatRelativeTime(timestamp: number): string {
 }
 
 export function useAutomations() {
-  const [items, setItems] = useState<AutomationViewModel[]>([]);
+  const [records, setRecords] = useState<AutomationRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [runningIds, setRunningIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
+
+  const items = useMemo(
+    () => records.map((record) => toViewModel(record, runningIds)),
+    [records, runningIds]
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const records = await listAutomations();
-      setItems(records.map(toViewModel));
+      const nextRecords = await listAutomations();
+      setRecords(nextRecords);
     } catch {
       // Silently handle.
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    return subscribeAutomationRuns(setRunningIds);
   }, []);
 
   useEffect(() => {
@@ -102,5 +119,9 @@ export function useAutomations() {
     [load]
   );
 
-  return { items, loading, create, update, remove, toggle } as const;
+  const runNow = useCallback(async (id: string) => {
+    return runAutomationById(id);
+  }, []);
+
+  return { items, loading, create, update, remove, toggle, runNow } as const;
 }

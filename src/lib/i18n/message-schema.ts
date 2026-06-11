@@ -272,6 +272,16 @@ export type Messages = {
     cancel: string;
     enable: string;
     disable: string;
+    runNow: string;
+    running: string;
+    runHistory: string;
+    runHistoryEmpty: string;
+    runStatus: {
+      running: string;
+      completed: string;
+      failed: string;
+      cancelled: string;
+    };
     viewSession: string;
     lastRun: string;
     nextRunInMinutes: string;

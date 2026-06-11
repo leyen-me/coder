@@ -1,8 +1,12 @@
-import { BotIcon, ExternalLink, FileQuestionIcon, Play } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { BotIcon, FileQuestionIcon, Loader2, Play } from "lucide-react";
 
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Card,
   CardContent,
@@ -12,7 +16,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { paths } from "@/app/paths";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import {
   findModelDefinition,
@@ -20,6 +23,7 @@ import {
 } from "@/lib/model-provider/model-definition";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
+import { AutomationRunHistorySheet } from "./automation-run-history-sheet";
 import { resolveAutomationRunConfig } from "../lib/run-config";
 import type { AutomationViewModel } from "../lib/types";
 import { getMinutesUntilNextRun } from "../lib/types";
@@ -27,6 +31,7 @@ import { getMinutesUntilNextRun } from "../lib/types";
 type AutomationCardProps = {
   item: AutomationViewModel;
   onToggle: (id: string, enabled: boolean) => void;
+  onRun: (id: string) => void;
   onEdit: (item: AutomationViewModel) => void;
   onDelete: (id: string) => void;
 };
@@ -34,11 +39,11 @@ type AutomationCardProps = {
 export function AutomationCard({
   item,
   onToggle,
+  onRun,
   onEdit,
   onDelete,
 }: AutomationCardProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { resolved } = useModelProvider();
   const runConfig = resolveAutomationRunConfig(item, resolved);
   const modelDefinition = findModelDefinition(resolved.models, runConfig.model);
@@ -108,50 +113,57 @@ export function AutomationCard({
               <span>{t("automations.thinkingEnabledBadge")}</span>
             ) : null}
           </div>
-          {item.lastRunAt && (
-            <div className="flex items-center gap-2">
-              <span className="text-xs">
-                {t("automations.lastRun", {
-                  time: new Date(item.lastRunAt).toLocaleString(),
-                })}
-              </span>
-            </div>
-          )}
-          {item.lastResultSummary && (
-            <p className="text-xs line-clamp-2 mt-1 border-l-2 border-muted-foreground/30 pl-3">
-              {item.lastResultSummary}
-            </p>
-          )}
-          {item.lastSessionId && (
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto p-0 text-xs"
-              onClick={() => navigate(paths.chat(item.lastSessionId!))}
-            >
-              <ExternalLink className="h-3 w-3 mr-1" />
-              {t("automations.viewSession")}
-            </Button>
-          )}
         </div>
       </CardContent>
 
-      <CardFooter className="gap-2 pt-0">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onEdit(item)}
-        >
-          {t("automations.edit")}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-destructive hover:text-destructive"
-          onClick={() => onDelete(item.id)}
-        >
-          {t("automations.delete")}
-        </Button>
+      <CardFooter className="flex-wrap justify-between gap-2 pt-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="default"
+                size="icon-sm"
+                disabled={item.running}
+                aria-label={
+                  item.running
+                    ? t("automations.running")
+                    : t("automations.runNow")
+                }
+                onClick={() => onRun(item.id)}
+              >
+                {item.running ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Play className="size-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {item.running ? t("automations.running") : t("automations.runNow")}
+            </TooltipContent>
+          </Tooltip>
+          <AutomationRunHistorySheet
+            automationName={item.name}
+            runs={item.runs}
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onEdit(item)}
+          >
+            {t("automations.edit")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-destructive hover:text-destructive"
+            onClick={() => onDelete(item.id)}
+          >
+            {t("automations.delete")}
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );

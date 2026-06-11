@@ -1,8 +1,14 @@
+import { inferAutomationRunStatus, trimAutomationRuns } from "./automation-runs";
 import { AUTOMATIONS_STORE } from "./constants";
 import { getDb } from "./client";
 import { normalizeAutomationRecord } from "./normalize-automation";
 import { notifyDbChange } from "./subscriptions";
-import type { AutomationAgentMode, AutomationRecord } from "./types";
+import type {
+  AutomationAgentMode,
+  AutomationRecord,
+  AutomationRunRecord,
+  AutomationRunStatus,
+} from "./types";
 
 export async function listAutomations(): Promise<AutomationRecord[]> {
   const db = await getDb();
@@ -51,9 +57,7 @@ export async function createAutomation(
     agentMode: input.agentMode,
     thinkingEnabled: input.thinkingEnabled,
     enabled: true,
-    lastRunAt: null,
-    lastResultSummary: null,
-    lastSessionId: null,
+    runs: [],
     createdAt: now,
     updatedAt: now,
   };
@@ -120,10 +124,9 @@ export async function deleteAutomation(id: string): Promise<boolean> {
   return true;
 }
 
-export async function markAutomationRun(
+export async function startAutomationRun(
   id: string,
-  sessionId: string,
-  resultSummary: string
+  sessionId: string
 ): Promise<AutomationRecord | null> {
   const db = await getDb();
   const existing = await db.get(AUTOMATIONS_STORE, id);
@@ -131,15 +134,92 @@ export async function markAutomationRun(
     return null;
   }
 
+  const normalized = normalizeAutomationRecord(existing);
+  const run: AutomationRunRecord = {
+    id: sessionId,
+    sessionId,
+    startedAt: Date.now(),
+    completedAt: null,
+    summary: "",
+    status: "running",
+  };
+
   const next: AutomationRecord = {
-    ...existing,
-    lastRunAt: Date.now(),
-    lastSessionId: sessionId,
-    lastResultSummary: resultSummary,
+    ...normalized,
+    runs: trimAutomationRuns([run, ...normalized.runs]),
     updatedAt: Date.now(),
   };
 
   await db.put(AUTOMATIONS_STORE, next);
   notifyDbChange();
   return next;
+}
+
+export async function finishAutomationRun(
+  id: string,
+  sessionId: string,
+  input: {
+    summary: string;
+    status: AutomationRunStatus;
+  }
+): Promise<AutomationRecord | null> {
+  const db = await getDb();
+  const existing = await db.get(AUTOMATIONS_STORE, id);
+  if (!existing) {
+    return null;
+  }
+
+  const normalized = normalizeAutomationRecord(existing);
+  const now = Date.now();
+  let found = false;
+
+  const runs = normalized.runs.map((run) => {
+    if (run.sessionId !== sessionId) {
+      return run;
+    }
+
+    found = true;
+    return {
+      ...run,
+      completedAt: now,
+      summary: input.summary,
+      status: input.status,
+    };
+  });
+
+  const nextRuns = found
+    ? runs
+    : trimAutomationRuns([
+        {
+          id: sessionId,
+          sessionId,
+          startedAt: now,
+          completedAt: now,
+          summary: input.summary,
+          status: input.status,
+        },
+        ...normalized.runs,
+      ]);
+
+  const next: AutomationRecord = {
+    ...normalized,
+    runs: nextRuns,
+    updatedAt: now,
+  };
+
+  await db.put(AUTOMATIONS_STORE, next);
+  notifyDbChange();
+  return next;
+}
+
+/** @deprecated Use startAutomationRun + finishAutomationRun */
+export async function markAutomationRun(
+  id: string,
+  sessionId: string,
+  resultSummary: string
+): Promise<AutomationRecord | null> {
+  return finishAutomationRun(id, sessionId, {
+    summary: resultSummary,
+    status: inferAutomationRunStatus(resultSummary),
+  });
 }

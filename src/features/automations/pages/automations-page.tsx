@@ -15,7 +15,8 @@ import type { AutomationViewModel } from "../lib/types";
 
 export function AutomationsPage() {
   const { t } = useTranslation();
-  const { items, loading, create, update, remove, toggle } = useAutomations();
+  const { items, loading, create, update, remove, toggle, runNow } =
+    useAutomations();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<AutomationRecord | null>(null);
@@ -62,6 +63,13 @@ export function AutomationsPage() {
     [toggle]
   );
 
+  const handleRun = useCallback(
+    (id: string) => {
+      void runNow(id);
+    },
+    [runNow]
+  );
+
   if (loading) {
     return <PagePlaceholder title={t("pages.automations.title")} />;
   }
@@ -103,6 +111,7 @@ export function AutomationsPage() {
                 key={item.id}
                 item={item}
                 onToggle={handleToggle}
+                onRun={handleRun}
                 onEdit={handleEdit}
                 onDelete={(id) => {
                   const target = items.find((i) => i.id === id) ?? null;

@@ -9,6 +9,7 @@ import {
   SYSTEM_SKILL_PREFERENCES_STORE,
   USER_SKILLS_STORE,
 } from "./constants";
+import { normalizeAutomationRecord } from "./normalize-automation";
 import { normalizeSessionRecord } from "./normalize-session";
 import type {
   AutomationRecord,
@@ -116,6 +117,14 @@ async function openCoderDb(repairAttempted = false): Promise<IDBPDatabase<CoderD
             agentMode: automation.agentMode === "ask" ? "ask" : "agent",
             thinkingEnabled: automation.thinkingEnabled ?? false,
           });
+        }
+      }
+
+      if (oldVersion > 0 && oldVersion < 8) {
+        const store = transaction.objectStore(AUTOMATIONS_STORE);
+        const automations = await store.getAll();
+        for (const automation of automations) {
+          await store.put(normalizeAutomationRecord(automation));
         }
       }
     },
