@@ -1,5 +1,8 @@
 export type MessageRole = "user" | "assistant";
 
+/** Distinguishes plan artifact messages from regular assistant replies. */
+export type MessageKind = "plan";
+
 export type MessageStatus =
   | "pending"
   | "streaming"
@@ -59,6 +62,8 @@ export type MessageRecord = {
   id: string;
   sessionId: string;
   role: MessageRole;
+  /** When set, the message is a structured plan artifact (plan.md). */
+  messageKind?: MessageKind;
   content: string;
   /** User-uploaded images only; empty for assistant messages. */
   images?: MessageImageAttachment[];

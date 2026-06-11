@@ -118,10 +118,11 @@ export type ActiveTaskState = {
   userContent: string;
   thinkingEnabled: boolean;
   handoff: AgentHandoffRequest | null;
+  agentMode: AgentMode;
 };
 
-/** Agent vs Ask mode — controls which tools are available to the model. */
-export type AgentMode = "agent" | "ask";
+/** Agent vs Ask vs Plan mode — controls which tools are available to the model. */
+export type AgentMode = "agent" | "ask" | "plan";
 
 export type AgentEventHandler = (event: AgentEvent) => void;
 

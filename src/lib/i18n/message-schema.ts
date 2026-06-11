@@ -112,8 +112,14 @@ export type Messages = {
     contextUsageCache: string;
     modeAgent: string;
     modeAsk: string;
+    modePlan: string;
     modeAgentLabel: string;
     modeAskLabel: string;
+    modePlanLabel: string;
+    composerPlanPlaceholder: string;
+    planFileName: string;
+    planGenerating: string;
+    buildWithAgent: string;
   };
   time: {
     justNow: string;

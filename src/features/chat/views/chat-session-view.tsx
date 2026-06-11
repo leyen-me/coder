@@ -15,6 +15,10 @@ import { AgentTodoList } from "../components/agent-todo-list";
 import { ChatMessageList } from "../components/chat-message-list";
 import { PromptComposer } from "../components/prompt-composer";
 import { notifySendMessageError } from "../lib/notify-send-message-error";
+import { buildPlanExecutionPrompt } from "../lib/plan/build-plan-execution-prompt";
+import {
+  getLatestPlanMessage,
+} from "../lib/plan/get-latest-plan-message";
 import { useComposerThinking } from "../hooks/use-composer-thinking";
 import { estimateSessionContextUsage } from "../lib/estimate-session-context-usage";
 import {
@@ -52,6 +56,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     resolved.models
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isBuildPending, setIsBuildPending] = useState(false);
   const location = useLocation();
   const initialAgentModeFromState =
     (location.state as { agentMode?: AgentMode } | null)?.agentMode ?? "agent";
@@ -74,7 +79,11 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
   const activeTask = getSessionTask(chatId);
   const handoffState = getSessionHandoffState(chatId);
-  const isRunning = isSessionRunning(chatId) || isSubmitting;
+  const isRunning = isSessionRunning(chatId) || isSubmitting || isBuildPending;
+  const latestPlanMessage = useMemo(
+    () => getLatestPlanMessage(displayMessages),
+    [displayMessages]
+  );
 
   useEffect(() => {
     if (session?.model) {
@@ -118,9 +127,40 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         assistantMessageId: message.id,
         model,
         thinkingEnabled,
+        agentMode:
+          message.messageKind === "plan"
+            ? "plan"
+            : agentMode,
       });
     },
-    [cancelTask, chatId, getSessionTask, isRunning, model, regenerateMessage, thinkingEnabled]
+    [agentMode, cancelTask, chatId, getSessionTask, isRunning, model, regenerateMessage, thinkingEnabled]
+  );
+
+  const handleBuildFromPlan = useCallback(
+    async (planContent: string) => {
+      if (isRunning) {
+        return;
+      }
+
+      setIsBuildPending(true);
+      setAgentMode("agent");
+      try {
+        await sendMessage({
+          sessionId: chatId,
+          content: buildPlanExecutionPrompt(planContent),
+          model,
+          thinkingEnabled,
+          agentMode: "agent",
+        });
+      } catch (error) {
+        notifySendMessageError(error, (key, params) =>
+          t(`chat.${key}`, params)
+        );
+      } finally {
+        setIsBuildPending(false);
+      }
+    },
+    [chatId, isRunning, model, sendMessage, t, thinkingEnabled]
   );
 
   const handleSend = async (payload: { text: string; files: FileUIPart[] }) => {
@@ -224,7 +264,12 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <ChatMessageList
         editingMessageId={editingMessageId}
+        isBuildPending={isBuildPending}
+        latestPlanMessageId={latestPlanMessage?.id ?? null}
         messages={messages}
+        onBuildFromPlan={(planContent) => {
+          void handleBuildFromPlan(planContent);
+        }}
         onEditUserMessage={handleEditUserMessage}
         onRegenerateAssistantMessage={handleRegenerateAssistantMessage}
         onSystemPromptExpand={() => {

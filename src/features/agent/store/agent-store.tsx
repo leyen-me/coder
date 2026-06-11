@@ -100,6 +100,7 @@ type AgentStoreValue = {
     assistantMessageId: string;
     model: string;
     thinkingEnabled?: boolean;
+    agentMode?: AgentMode;
   }) => Promise<{ userMessageId: string; assistantMessageId: string; taskId: string }>;
   cancelTask: (taskId: string) => Promise<void>;
 };
@@ -588,6 +589,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         id: crypto.randomUUID(),
         sessionId: input.sessionId,
         role: "assistant",
+        messageKind: input.agentMode === "plan" ? "plan" : undefined,
         content: "",
         thinking: "",
         processSteps: [],
@@ -609,6 +611,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         userContent: input.userContent,
         thinkingEnabled: input.thinkingEnabled,
         handoff: null,
+        agentMode: input.agentMode ?? "agent",
       };
       tasksRef.current.set(taskId, activeTask);
       const abortController = new AbortController();
@@ -1048,6 +1051,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       assistantMessageId: string;
       model: string;
       thinkingEnabled?: boolean;
+      agentMode?: AgentMode;
     }) => {
       writeLastSelectedModel(input.model);
 
@@ -1089,6 +1093,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
       const userMessage = sessionMessages[userMessageIndex];
       const isFirstTurn = userMessageIndex === 0;
+      const resolvedAgentMode =
+        input.agentMode ??
+        (assistantMessage.messageKind === "plan" ? "plan" : "agent");
       const deletedMessageIds = await deleteMessagesAfter(
         input.sessionId,
         userMessage.id
@@ -1103,7 +1110,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const environment = await resolveAgentEnvironment(workspaceDir);
       const history = await buildAgentMessages(
         historyMessages.flatMap(messageRecordToAgentMessages),
-        environment
+        environment,
+        resolvedAgentMode
       );
       const storedImages = userMessage.images ?? [];
       const thinkingEnabled = resolveThinkingEnabledForRequest(
@@ -1122,6 +1130,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           "[image]",
         isFirstTurn,
         thinkingEnabled,
+        agentMode: resolvedAgentMode,
       });
 
       return {

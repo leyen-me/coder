@@ -9,8 +9,11 @@ type ChatMessageListProps = {
   systemPrompt?: string | null;
   onSystemPromptExpand?: () => void;
   editingMessageId?: string | null;
+  latestPlanMessageId?: string | null;
+  isBuildPending?: boolean;
   onEditUserMessage?: (message: MessageRecord) => void;
   onRegenerateAssistantMessage?: (message: MessageRecord) => void;
+  onBuildFromPlan?: (planContent: string) => void;
 };
 
 export function ChatMessageList({
@@ -19,15 +22,21 @@ export function ChatMessageList({
   systemPrompt,
   onSystemPromptExpand,
   editingMessageId,
+  latestPlanMessageId,
+  isBuildPending = false,
   onEditUserMessage,
   onRegenerateAssistantMessage,
+  onBuildFromPlan,
 }: ChatMessageListProps) {
   const displayMessages = useDisplayMessages(messages);
 
   return (
     <MessageList
       editingMessageId={editingMessageId}
+      isBuildPending={isBuildPending}
+      latestPlanMessageId={latestPlanMessageId}
       messages={displayMessages}
+      onBuildFromPlan={onBuildFromPlan}
       onEditUserMessage={onEditUserMessage}
       onRegenerateAssistantMessage={onRegenerateAssistantMessage}
       onSystemPromptExpand={onSystemPromptExpand}

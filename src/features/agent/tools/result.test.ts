@@ -106,6 +106,39 @@ describe("buildSystemPrompt", () => {
 
     expect(prompt).not.toContain("## Project instructions (AGENTS.md)");
   });
+
+  it("includes ask mode guidance when agentMode is ask", () => {
+    const prompt = buildSystemPrompt(
+      normalizeEnvironment({
+        workspaceDir: "/tmp/project",
+        os: "macos aarch64 (15.5)",
+        shell: "/bin/zsh",
+        isGitRepository: false,
+        today: "2026-06-02, Monday",
+      }),
+      "ask"
+    );
+
+    expect(prompt).toContain("mode: ask");
+    expect(prompt).toContain("You are in Ask mode");
+  });
+
+  it("includes plan mode guidance when agentMode is plan", () => {
+    const prompt = buildSystemPrompt(
+      normalizeEnvironment({
+        workspaceDir: "/tmp/project",
+        os: "macos aarch64 (15.5)",
+        shell: "/bin/zsh",
+        isGitRepository: false,
+        today: "2026-06-02, Monday",
+      }),
+      "plan"
+    );
+
+    expect(prompt).toContain("mode: plan");
+    expect(prompt).toContain("You are in Plan mode");
+    expect(prompt).toContain("Build with Agent");
+  });
 });
 
 describe("tool result envelope", () => {

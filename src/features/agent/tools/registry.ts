@@ -38,6 +38,7 @@ import { updateSkillHandler } from "./update-skill";
 import { webSearchHandler } from "./web-search";
 import { writeFileHandler } from "./write-file";
 import { ASK_MODE_TOOL_NAMES } from "./ask-tools";
+import { PLAN_MODE_TOOL_NAMES } from "./plan-tools";
 import type {
   AgentToolDefinition,
   ToolExecutionContext,
@@ -68,11 +69,13 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
 };
 
 const ASK_MODE_TOOL_NAMES_SET = new Set(ASK_MODE_TOOL_NAMES);
+const PLAN_MODE_TOOL_NAMES_SET = new Set(PLAN_MODE_TOOL_NAMES);
 
 /**
  * Returns tool definitions for the given mode.
  * - `"agent"`: all tools available (default).
  * - `"ask"`: only read-only / information-gathering tools.
+ * - `"plan"`: read-only tools plus todo_write for structured planning.
  */
 export function getAgentToolDefinitions(
   mode?: AgentMode
@@ -80,6 +83,12 @@ export function getAgentToolDefinitions(
   if (mode === "ask") {
     return AGENT_TOOL_DEFINITIONS.filter((tool) =>
       ASK_MODE_TOOL_NAMES_SET.has(tool.function.name)
+    );
+  }
+
+  if (mode === "plan") {
+    return AGENT_TOOL_DEFINITIONS.filter((tool) =>
+      PLAN_MODE_TOOL_NAMES_SET.has(tool.function.name)
     );
   }
 

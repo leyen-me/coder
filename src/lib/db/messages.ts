@@ -73,6 +73,7 @@ export async function updateMessage(
       | "toolInvocations"
       | "images"
       | "referencedSkills"
+      | "messageKind"
     >
   >,
   options: UpdateMessageOptions = {}
@@ -90,6 +91,9 @@ export async function updateMessage(
   }
   if ("referencedSkills" in patch && patch.referencedSkills === undefined) {
     delete next.referencedSkills;
+  }
+  if ("messageKind" in patch && patch.messageKind === undefined) {
+    delete next.messageKind;
   }
   await db.put(MESSAGES_STORE, next);
   if (touch) {

@@ -22,7 +22,9 @@ export function buildSystemPrompt(
   const modeLine =
     agentMode === "ask"
       ? "ask (read-only: can read files, search code, browse the web, and list skills — cannot modify files or run shell commands)"
-      : "agent (full tool access)";
+      : agentMode === "plan"
+        ? "plan (read-only planning: can read files, search, browse, and maintain todos — cannot modify files, run shell commands, or implement changes)"
+        : "agent (full tool access)";
 
   const modeGuidance =
     agentMode === "ask"
@@ -36,7 +38,20 @@ export function buildSystemPrompt(
           "Do NOT silently refuse or just say \"I can't do that.\" Always provide a clear path forward.",
           "",
         ]
-      : [];
+      : agentMode === "plan"
+        ? [
+            "",
+            "## Mode Guidance",
+            "You are in Plan mode — research, analyze, and produce a structured Markdown plan (plan.md).",
+            "Your primary output must be a complete, actionable Markdown plan the user can review and edit.",
+            "When a plan already exists in the conversation, update that plan instead of starting an unrelated new one.",
+            "You may read files, search code, browse the web, and use todo_write to track planning steps.",
+            "Do NOT modify files, run shell commands, or implement changes in this mode.",
+            "When the user asks you to implement, tell them to click \"Build with Agent\" to execute the plan.",
+            "Do NOT silently attempt implementation. Always keep the user in the planning loop until they explicitly build.",
+            "",
+          ]
+        : [];
 
   return [
     "You are Coder, a helpful desktop AI assistant.",

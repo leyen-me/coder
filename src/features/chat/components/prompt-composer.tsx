@@ -1,5 +1,5 @@
 import type { ChatStatus, FileUIPart } from "ai";
-import { BrainIcon, BotIcon, ChevronDownIcon, FileQuestionIcon, FolderOpenIcon, GitBranchIcon, XIcon } from "lucide-react";
+import { BrainIcon, BotIcon, ChevronDownIcon, ClipboardListIcon, FileQuestionIcon, FolderOpenIcon, GitBranchIcon, XIcon } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -498,7 +498,11 @@ export function PromptComposer({
         <ComposerRichInput
           onCancelEdit={onCancelEdit}
           onChange={onChange}
-          placeholder={t("chat.composerPlaceholder")}
+          placeholder={
+            agentMode === "plan"
+              ? t("chat.composerPlanPlaceholder")
+              : t("chat.composerPlaceholder")
+          }
           value={value}
           workspaceDir={workspaceDir}
           className={cn(
@@ -525,18 +529,24 @@ export function PromptComposer({
                 title={
                   agentMode === "agent"
                     ? t("chat.modeAgentLabel")
-                    : t("chat.modeAskLabel")
+                    : agentMode === "plan"
+                      ? t("chat.modePlanLabel")
+                      : t("chat.modeAskLabel")
                 }
               >
                 {agentMode === "agent" ? (
                   <BotIcon className="size-3.5 shrink-0" />
+                ) : agentMode === "plan" ? (
+                  <ClipboardListIcon className="size-3.5 shrink-0" />
                 ) : (
                   <FileQuestionIcon className="size-3.5 shrink-0" />
                 )}
                 <span className="truncate">
                   {agentMode === "agent"
                     ? t("chat.modeAgent")
-                    : t("chat.modeAsk")}
+                    : agentMode === "plan"
+                      ? t("chat.modePlan")
+                      : t("chat.modeAsk")}
                 </span>
                 <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
               </button>
@@ -555,6 +565,10 @@ export function PromptComposer({
                 <DropdownMenuRadioItem value="ask">
                   <FileQuestionIcon className="mr-2 size-4" />
                   <span>{t("chat.modeAsk")}</span>
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="plan">
+                  <ClipboardListIcon className="mr-2 size-4" />
+                  <span>{t("chat.modePlan")}</span>
                 </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>

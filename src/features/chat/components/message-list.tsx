@@ -16,8 +16,11 @@ type MessageListProps = {
   systemPrompt?: string | null;
   onSystemPromptExpand?: () => void;
   editingMessageId?: string | null;
+  latestPlanMessageId?: string | null;
+  isBuildPending?: boolean;
   onEditUserMessage?: (message: MessageRecord) => void;
   onRegenerateAssistantMessage?: (message: MessageRecord) => void;
+  onBuildFromPlan?: (planContent: string) => void;
 };
 
 const NEAR_BOTTOM_THRESHOLD_PX = 80;
@@ -52,8 +55,11 @@ export function MessageList({
   systemPrompt,
   onSystemPromptExpand,
   editingMessageId,
+  latestPlanMessageId,
+  isBuildPending = false,
   onEditUserMessage,
   onRegenerateAssistantMessage,
+  onBuildFromPlan,
 }: MessageListProps) {
   const streamingMessageIds = useActiveStreamingMessageIds();
   const chatRetryByMessageId = useChatRetryByMessageId();
@@ -152,9 +158,12 @@ export function MessageList({
             <MessageItem
               chatRetry={chatRetryByMessageId.get(message.id) ?? null}
               editingMessageId={editingMessageId}
+              isBuildPending={isBuildPending}
+              isLatestPlan={message.id === latestPlanMessageId}
               isStreaming={streamingMessageIds.has(message.id)}
               key={message.id}
               message={message}
+              onBuildFromPlan={onBuildFromPlan}
               onEditUserMessage={onEditUserMessage}
               onRegenerateAssistantMessage={onRegenerateAssistantMessage}
               sessionTitle={sessionTitle}
