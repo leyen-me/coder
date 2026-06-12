@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::process::Command;
+use std::collections::HashSet;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -64,14 +65,6 @@ pub struct GitCommitEntry {
     pub author_email: String,
     pub message: String,
     pub timestamp: i64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GitStashEntry {
-    pub index: i32,
-    pub message: String,
-    pub hash: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -142,6 +135,58 @@ fn has_uncommitted_changes(workspace: &Path) -> bool {
     };
     let stdout = String::from_utf8_lossy(&output.stdout);
     !stdout.trim().is_empty()
+}
+
+fn has_head_commit(workspace: &Path) -> bool {
+    let Ok(output) = run_git(workspace, &["rev-parse", "--verify", "HEAD"]) else {
+        return false;
+    };
+    output.status.success()
+}
+
+fn dedupe_paths(paths: Vec<String>) -> Vec<String> {
+    let mut seen = HashSet::new();
+    let mut deduped = Vec::new();
+    for path in paths {
+        let trimmed = path.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if seen.insert(trimmed.to_string()) {
+            deduped.push(trimmed.to_string());
+        }
+    }
+    deduped
+}
+
+fn discard_paths(
+    workspace: &Path,
+    tracked_paths: &[String],
+    untracked_paths: &[String],
+) -> Result<(), String> {
+    if !tracked_paths.is_empty() {
+        let mut args = if has_head_commit(workspace) {
+            vec!["restore", "--source=HEAD", "--staged", "--worktree", "--"]
+        } else {
+            vec!["rm", "-f", "--"]
+        };
+        for path in tracked_paths {
+            args.push(path.as_str());
+        }
+        let output = run_git(workspace, &args)?;
+        git_success(output, "discard files")?;
+    }
+
+    if !untracked_paths.is_empty() {
+        let mut args = vec!["clean", "-fd", "--"];
+        for path in untracked_paths {
+            args.push(path.as_str());
+        }
+        let output = run_git(workspace, &args)?;
+        git_success(output, "discard untracked files")?;
+    }
+
+    Ok(())
 }
 
 /// Parse a single line from `git status --porcelain`.
@@ -341,6 +386,54 @@ pub fn git_unstage_all(workspace_dir: String) -> Result<(), String> {
     let output = run_git(workspace, &["reset"])?;
     git_success(output, "unstage all")?;
     Ok(())
+}
+
+/// Discard specific file changes and restore them from git.
+#[tauri::command]
+pub fn git_discard_files(
+    workspace_dir: String,
+    paths: Vec<String>,
+    untracked_paths: Vec<String>,
+) -> Result<(), String> {
+    let workspace = validate_git_workspace(&workspace_dir)?;
+    let untracked_paths = dedupe_paths(untracked_paths);
+    let untracked_set: HashSet<&str> = untracked_paths.iter().map(String::as_str).collect();
+    let tracked_paths = dedupe_paths(paths)
+        .into_iter()
+        .filter(|path| !untracked_set.contains(path.as_str()))
+        .collect::<Vec<_>>();
+
+    if tracked_paths.is_empty() && untracked_paths.is_empty() {
+        return Err("No files specified to discard".to_string());
+    }
+
+    discard_paths(workspace, &tracked_paths, &untracked_paths)
+}
+
+/// Discard all working tree and index changes, including untracked files.
+#[tauri::command]
+pub fn git_discard_all(workspace_dir: String) -> Result<(), String> {
+    let workspace = validate_git_workspace(&workspace_dir)?;
+    let status = git_status(workspace_dir.clone())?;
+
+    let untracked_paths = dedupe_paths(
+        status
+            .entries
+            .iter()
+            .filter(|entry| entry.status == GitFileStatus::Untracked)
+            .map(|entry| entry.path.clone())
+            .collect(),
+    );
+    let tracked_paths = dedupe_paths(
+        status
+            .entries
+            .iter()
+            .filter(|entry| entry.status != GitFileStatus::Untracked)
+            .map(|entry| entry.path.clone())
+            .collect(),
+    );
+
+    discard_paths(workspace, &tracked_paths, &untracked_paths)
 }
 
 /// Create a commit with the given message.
@@ -627,128 +720,6 @@ pub fn git_get_remote_url(
 }
 
 // ---------------------------------------------------------------------------
-// Stash operations
-// ---------------------------------------------------------------------------
-
-/// List all stashes.
-#[tauri::command]
-pub fn git_stash_list(workspace_dir: String) -> Result<Vec<GitStashEntry>, String> {
-    let workspace = validate_git_workspace(&workspace_dir)?;
-
-    let output = run_git(
-        workspace,
-        &["stash", "list", "--format=%H%n%gd%n%s%n---"],
-    )?;
-    let stdout = git_success(output, "stash list")?;
-
-    // Remove trailing separator
-    let stdout = stdout.trim_end_matches("---").trim();
-    if stdout.is_empty() {
-        return Ok(vec![]);
-    }
-
-    let mut entries: Vec<GitStashEntry> = Vec::new();
-    for block in stdout.split("\n---\n") {
-        let block = block.trim();
-        if block.is_empty() {
-            continue;
-        }
-        let lines: Vec<&str> = block.splitn(3, '\n').collect();
-        if lines.len() < 3 {
-            continue;
-        }
-
-        let hash = lines[0].trim().to_string();
-        let ref_str = lines[1].trim();
-        // Parse index from ref like "stash@{0}"
-        let index = ref_str
-            .strip_prefix("stash@{")
-            .and_then(|s| s.strip_suffix('}'))
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(0);
-        let message = lines[2].trim().to_string();
-
-        entries.push(GitStashEntry {
-            index,
-            message,
-            hash,
-        });
-    }
-
-    Ok(entries)
-}
-
-/// Push working changes onto the stash.
-/// `message` is optional.
-#[tauri::command]
-pub fn git_stash_push(
-    workspace_dir: String,
-    message: Option<String>,
-) -> Result<(), String> {
-    let workspace = validate_git_workspace(&workspace_dir)?;
-
-    let output = if let Some(msg) = message {
-        let trimmed = msg.trim();
-        if trimmed.is_empty() {
-            run_git(workspace, &["stash", "push"])?
-        } else {
-            run_git(workspace, &["stash", "push", "-m", trimmed])?
-        }
-    } else {
-        run_git(workspace, &["stash", "push"])?
-    };
-
-    git_success(output, "stash push")?;
-    Ok(())
-}
-
-/// Pop (apply and drop) the latest stash.
-/// If `index` is provided, pop that specific stash.
-#[tauri::command]
-pub fn git_stash_pop(workspace_dir: String, index: Option<i32>) -> Result<(), String> {
-    let workspace = validate_git_workspace(&workspace_dir)?;
-
-    let output = if let Some(idx) = index {
-        run_git(workspace, &["stash", "pop", &format!("stash@{{{idx}}}")])?
-    } else {
-        run_git(workspace, &["stash", "pop"])?
-    };
-
-    git_success(output, "stash pop")?;
-    Ok(())
-}
-
-/// Drop a stash by index (or latest if not specified).
-#[tauri::command]
-pub fn git_stash_drop(workspace_dir: String, index: Option<i32>) -> Result<(), String> {
-    let workspace = validate_git_workspace(&workspace_dir)?;
-
-    let output = if let Some(idx) = index {
-        run_git(workspace, &["stash", "drop", &format!("stash@{{{idx}}}")])?
-    } else {
-        run_git(workspace, &["stash", "drop"])?
-    };
-
-    git_success(output, "stash drop")?;
-    Ok(())
-}
-
-/// Apply stash without dropping.
-#[tauri::command]
-pub fn git_stash_apply(workspace_dir: String, index: Option<i32>) -> Result<(), String> {
-    let workspace = validate_git_workspace(&workspace_dir)?;
-
-    let output = if let Some(idx) = index {
-        run_git(workspace, &["stash", "apply", &format!("stash@{{{idx}}}")])?
-    } else {
-        run_git(workspace, &["stash", "apply"])?
-    };
-
-    git_success(output, "stash apply")?;
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -966,6 +937,73 @@ mod tests {
     }
 
     #[test]
+    fn discard_files_restores_tracked_and_untracked_changes() {
+        let dir = temp_git_dir();
+        let dir_str = dir.to_string_lossy().to_string();
+
+        fs::write(dir.join("tracked.txt"), "hello").expect("write");
+        Command::new("git")
+            .args(["add", "-A"])
+            .current_dir(&dir)
+            .status()
+            .expect("git add");
+        Command::new("git")
+            .args(["commit", "-m", "initial"])
+            .current_dir(&dir)
+            .status()
+            .expect("git commit");
+
+        fs::write(dir.join("tracked.txt"), "staged change").expect("write tracked staged");
+        Command::new("git")
+            .args(["add", "tracked.txt"])
+            .current_dir(&dir)
+            .status()
+            .expect("git add tracked");
+        fs::write(dir.join("tracked.txt"), "unstaged change").expect("write tracked unstaged");
+        fs::write(dir.join("scratch.txt"), "temp").expect("write scratch");
+
+        git_discard_files(
+            dir_str.clone(),
+            vec!["tracked.txt".to_string(), "scratch.txt".to_string()],
+            vec!["scratch.txt".to_string()],
+        )
+        .expect("discard files");
+
+        let response = git_status(dir_str).expect("status");
+        assert!(response.entries.is_empty());
+        assert_eq!(
+            fs::read_to_string(dir.join("tracked.txt")).expect("read tracked"),
+            "hello"
+        );
+        assert!(!dir.join("scratch.txt").exists());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn discard_all_works_before_first_commit() {
+        let dir = temp_git_dir();
+        let dir_str = dir.to_string_lossy().to_string();
+
+        fs::write(dir.join("staged.txt"), "staged").expect("write staged");
+        Command::new("git")
+            .args(["add", "staged.txt"])
+            .current_dir(&dir)
+            .status()
+            .expect("git add staged");
+        fs::write(dir.join("scratch.txt"), "temp").expect("write scratch");
+
+        git_discard_all(dir_str.clone()).expect("discard all");
+
+        let response = git_status(dir_str).expect("status");
+        assert!(response.entries.is_empty());
+        assert!(!dir.join("staged.txt").exists());
+        assert!(!dir.join("scratch.txt").exists());
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn stage_and_unstage_files() {
         let dir = temp_git_dir();
         let dir_str = dir.to_string_lossy().to_string();
@@ -1085,45 +1123,4 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
-    #[test]
-    fn stash_operations() {
-        let dir = temp_git_dir();
-        let dir_str = dir.to_string_lossy().to_string();
-
-        fs::write(dir.join("file.txt"), "content").expect("write");
-        Command::new("git")
-            .args(["add", "-A"])
-            .current_dir(&dir)
-            .status()
-            .expect("git add");
-        Command::new("git")
-            .args(["commit", "-m", "initial"])
-            .current_dir(&dir)
-            .status()
-            .expect("git commit");
-
-        // Modify file
-        fs::write(dir.join("file.txt"), "stashed change").expect("write");
-
-        // Stash
-        git_stash_push(dir_str.clone(), Some("my stash".to_string())).expect("stash push");
-
-        // Verify working tree is clean
-        let response = git_status(dir_str.clone()).expect("status");
-        assert!(response.entries.is_empty());
-
-        // List stash — message includes "On <branch>:" prefix
-        let stashes = git_stash_list(dir_str.clone()).expect("stash list");
-        assert!(!stashes.is_empty());
-        assert_eq!(stashes[0].message, "On main: my stash");
-
-        // Pop stash
-        git_stash_pop(dir_str.clone(), None).expect("stash pop");
-
-        // Verify changes are back
-        let response = git_status(dir_str).expect("status");
-        assert!(!response.entries.is_empty());
-
-        let _ = fs::remove_dir_all(&dir);
-    }
 }

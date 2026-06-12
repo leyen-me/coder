@@ -12,7 +12,6 @@ import { useGit } from "../git-provider";
 import { ChangesView } from "./changes-view";
 import { HistoryView } from "./history-view";
 import { RemoteActions } from "./remote-actions";
-import { StashView } from "./stash-view";
 
 type SourceControlPanelProps = {
   workspaceDir: string | null;
@@ -86,7 +85,7 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
       <Tabs
         className="flex min-h-0 min-w-0 flex-1 flex-col gap-0"
         onValueChange={(value) => {
-          if (value === "changes" || value === "history" || value === "stash") {
+          if (value === "changes" || value === "history") {
             setActiveTab(value);
           }
         }}
@@ -101,10 +100,6 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
             <TabsTrigger className="h-7 gap-1.5 px-2.5 text-xs" value="history">
               <HistoryIcon className="size-3.5 shrink-0" />
               {t("git.history")}
-            </TabsTrigger>
-            <TabsTrigger className="h-7 gap-1.5 px-2.5 text-xs" value="stash">
-              <InboxIcon className="size-3.5 shrink-0" />
-              {t("git.stash")}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -121,13 +116,6 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
           value="history"
         >
           <HistoryView workspaceDir={workspaceDir} />
-        </TabsContent>
-
-        <TabsContent
-          className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col data-[state=inactive]:hidden"
-          value="stash"
-        >
-          <StashView />
         </TabsContent>
       </Tabs>
     </div>

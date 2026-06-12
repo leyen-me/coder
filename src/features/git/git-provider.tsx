@@ -13,7 +13,6 @@ import {
 
 import type {
   GitCommitEntry,
-  GitStashEntry,
   GitStatusEntry,
   SourceControlTab,
 } from "./types";
@@ -32,8 +31,6 @@ export type GitContextValue = {
   hasMoreRecentCommits: boolean;
   /** Whether additional history entries are loading. */
   isLoadingMoreRecentCommits: boolean;
-  /** Stash entries. */
-  stashList: GitStashEntry[];
   /** Whether the workspace is a valid git repository. */
   isGitRepo: boolean;
   /** Whether any git data is loading. */
@@ -55,6 +52,10 @@ export type GitContextValue = {
   stageAll: () => Promise<void>;
   /** Unstage all changes. */
   unstageAll: () => Promise<void>;
+  /** Discard specific file changes and restore them from git. */
+  discardFiles: (entries: GitStatusEntry[]) => Promise<void>;
+  /** Discard all working tree and index changes. */
+  discardAll: () => Promise<void>;
   /** Create a commit. */
   commit: (message: string) => Promise<void>;
   /** Switch branch. */
@@ -69,14 +70,6 @@ export type GitContextValue = {
   pull: (remote?: string, branch?: string) => Promise<string>;
   /** Fetch from remote. */
   fetch: (remote?: string) => Promise<string>;
-  /** Stash changes. */
-  stashPush: (message?: string) => Promise<void>;
-  /** Pop a stash. */
-  stashPop: (index?: number) => Promise<void>;
-  /** Drop a stash. */
-  stashDrop: (index?: number) => Promise<void>;
-  /** Apply a stash without dropping. */
-  stashApply: (index?: number) => Promise<void>;
   /** Get remote URL. */
   remoteUrl: string | null;
   /** Initialize a git repository in the workspace. */
@@ -101,7 +94,6 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
   const [recentCommits, setRecentCommits] = useState<GitCommitEntry[]>([]);
   const [hasMoreRecentCommits, setHasMoreRecentCommits] = useState(false);
   const [isLoadingMoreRecentCommits, setIsLoadingMoreRecentCommits] = useState(false);
-  const [stashList, setStashList] = useState<GitStashEntry[]>([]);
   const [remoteUrl, setRemoteUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -131,10 +123,9 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
     const statusPromise = gitService.fetchGitStatus(workspaceDir);
     const branchesPromise = gitService.fetchGitBranches(workspaceDir);
     const logPromise = gitService.fetchGitLog(workspaceDir, HISTORY_PAGE_SIZE);
-    const stashPromise = gitService.fetchStashList(workspaceDir);
     const urlPromise = gitService.getRemoteUrl(workspaceDir);
 
-    const [statusRes, branchRes, log, stashes, url] = await Promise.all([
+    const [statusRes, branchRes, log, url] = await Promise.all([
       statusPromise.catch((err: unknown) => {
         const msg = typeof err === "string" ? err : String(err);
         if (msg.toLowerCase().includes("not a git repository")) {
@@ -146,7 +137,6 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       }),
       branchesPromise.catch(() => null),
       logPromise.catch(() => [] as GitCommitEntry[]),
-      stashPromise.catch(() => [] as GitStashEntry[]),
       urlPromise.catch(() => null),
     ]);
 
@@ -161,7 +151,6 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
     setRecentCommits(log);
     setHasMoreRecentCommits(log.length === HISTORY_PAGE_SIZE);
     setIsLoadingMoreRecentCommits(false);
-    setStashList(stashes);
     setRemoteUrl(url);
     setIsLoading(false);
   }, [workspaceDir]);
@@ -207,7 +196,6 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       setRecentCommits([]);
       setHasMoreRecentCommits(false);
       setIsLoadingMoreRecentCommits(false);
-      setStashList([]);
       setRemoteUrl(null);
       setIsGitRepo(true);
       setError(null);
@@ -261,6 +249,41 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unstage all failed");
+    }
+  }, [workspaceDir, refresh]);
+
+  const discardFiles = useCallback(
+    async (entries: GitStatusEntry[]) => {
+      if (!workspaceDir || entries.length === 0) return;
+      setError(null);
+      try {
+        const paths = Array.from(new Set(entries.map((entry) => entry.path)));
+        const untrackedPaths = Array.from(
+          new Set(
+            entries
+              .filter((entry) => entry.status === "untracked")
+              .map((entry) => entry.path),
+          ),
+        );
+        await gitService.discardFiles(workspaceDir, paths, untrackedPaths);
+        await refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Discard failed");
+        throw err;
+      }
+    },
+    [workspaceDir, refresh],
+  );
+
+  const discardAll = useCallback(async () => {
+    if (!workspaceDir) return;
+    setError(null);
+    try {
+      await gitService.discardAll(workspaceDir);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Discard all failed");
+      throw err;
     }
   }, [workspaceDir, refresh]);
 
@@ -372,66 +395,6 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
     [workspaceDir, refresh],
   );
 
-  const stashPush = useCallback(
-    async (message?: string) => {
-      if (!workspaceDir) return;
-      setError(null);
-      try {
-        await gitService.stashPush(workspaceDir, message);
-        await refresh();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Stash failed");
-        throw err;
-      }
-    },
-    [workspaceDir, refresh],
-  );
-
-  const stashPop = useCallback(
-    async (index?: number) => {
-      if (!workspaceDir) return;
-      setError(null);
-      try {
-        await gitService.stashPop(workspaceDir, index);
-        await refresh();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Stash pop failed");
-        throw err;
-      }
-    },
-    [workspaceDir, refresh],
-  );
-
-  const stashDrop = useCallback(
-    async (index?: number) => {
-      if (!workspaceDir) return;
-      setError(null);
-      try {
-        await gitService.stashDrop(workspaceDir, index);
-        await refresh();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Stash drop failed");
-        throw err;
-      }
-    },
-    [workspaceDir, refresh],
-  );
-
-  const stashApply = useCallback(
-    async (index?: number) => {
-      if (!workspaceDir) return;
-      setError(null);
-      try {
-        await gitService.stashApply(workspaceDir, index);
-        await refresh();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Stash apply failed");
-        throw err;
-      }
-    },
-    [workspaceDir, refresh],
-  );
-
   const initRepo = useCallback(async () => {
     if (!workspaceDir) return;
     setError(null);
@@ -455,7 +418,6 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       recentCommits,
       hasMoreRecentCommits,
       isLoadingMoreRecentCommits,
-      stashList,
       isLoading,
       error,
       isGitRepo,
@@ -468,6 +430,8 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       unstageFiles,
       stageAll,
       unstageAll,
+      discardFiles,
+      discardAll,
       commit,
       checkoutBranch,
       createBranch,
@@ -475,10 +439,6 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       push,
       pull,
       fetch,
-      stashPush,
-      stashPop,
-      stashDrop,
-      stashApply,
       initRepo,
     }),
     [
@@ -488,7 +448,6 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       recentCommits,
       hasMoreRecentCommits,
       isLoadingMoreRecentCommits,
-      stashList,
       isLoading,
       error,
       isGitRepo,
@@ -500,6 +459,8 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       unstageFiles,
       stageAll,
       unstageAll,
+      discardFiles,
+      discardAll,
       commit,
       checkoutBranch,
       createBranch,
@@ -507,10 +468,6 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       push,
       pull,
       fetch,
-      stashPush,
-      stashPop,
-      stashDrop,
-      stashApply,
       initRepo,
     ],
   );

@@ -25,12 +25,6 @@ export type GitCommitEntry = {
   timestamp: number;
 };
 
-export type GitStashEntry = {
-  index: number;
-  message: string;
-  hash: string;
-};
-
 export type GitBranchesResponse = {
   currentBranch: string | null;
   branches: string[];
@@ -42,4 +36,4 @@ export type GitStatusResponse = {
 };
 
 /** Tab view within the Source Control panel. */
-export type SourceControlTab = "changes" | "history" | "stash";
+export type SourceControlTab = "changes" | "history";

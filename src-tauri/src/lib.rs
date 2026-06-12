@@ -14,10 +14,9 @@ use tauri::{Manager, RunEvent};
 use tools::{
     agent_get_runtime_environment,
     git_checkout_branch, git_commit, git_create_branch, git_delete_branch,
-    git_delete_branch_force, git_diff, git_fetch, git_get_current_branch, git_get_remote_url,
-    git_init, git_list_branches, git_log, git_pull, git_push, git_stage_all, git_stage_files,
-    git_stash_apply, git_stash_drop, git_stash_list, git_stash_pop, git_stash_push,
-    git_status, git_unstage_all, git_unstage_files,
+    git_delete_branch_force, git_diff, git_discard_all, git_discard_files, git_fetch,
+    git_get_current_branch, git_get_remote_url, git_init, git_list_branches, git_log, git_pull,
+    git_push, git_stage_all, git_stage_files, git_status, git_unstage_all, git_unstage_files,
     pty_close, pty_create, pty_resize, pty_write, shell_kill, shell_kill_by_task, shell_list,
     tool_await, tool_browse_page, tool_copy_path, tool_create_dir, tool_delete_path,
     tool_edit_file, tool_glob, tool_grep, tool_list_dir,     tool_move_path, tool_read_editor_file,
@@ -118,6 +117,8 @@ pub fn run() {
             git_unstage_files,
             git_stage_all,
             git_unstage_all,
+            git_discard_files,
+            git_discard_all,
             git_commit,
             git_log,
             git_diff,
@@ -128,11 +129,6 @@ pub fn run() {
             git_pull,
             git_fetch,
             git_get_remote_url,
-            git_stash_list,
-            git_stash_push,
-            git_stash_pop,
-            git_stash_drop,
-            git_stash_apply,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

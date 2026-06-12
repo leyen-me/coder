@@ -582,10 +582,13 @@ export type Messages = {
     noChanges: string;
     stagedFiles: string;
     unstagedFiles: string;
+    discard: string;
+    discardAll: string;
+    discardConfirmTitle: string;
+    discardFileConfirmDescription: string;
+    discardAllConfirmDescription: string;
+    cancel: string;
     history: string;
-    stash: string;
-    stashMessagePlaceholder: string;
-    stashNone: string;
     push: string;
     pull: string;
     fetch: string;
@@ -607,8 +610,6 @@ export type Messages = {
     pushSuccess: string;
     pullSuccess: string;
     fetchSuccess: string;
-    stashSuccess: string;
-    stashPopSuccess: string;
     checkoutSuccess: string;
     branchCreated: string;
     branchDeleted: string;

@@ -7,9 +7,20 @@ import {
   FileWarningIcon,
   GitBranchPlusIcon,
   RotateCcwIcon,
+  Trash2Icon,
 } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useTranslation } from "@/lib/i18n/locale-provider";
@@ -44,9 +55,10 @@ const STATUS_COLORS: Record<GitFileStatus, string> = {
 type ChangeFileItemProps = {
   entry: GitStatusEntry;
   onToggle: (path: string, staged: boolean) => void;
+  onDiscard: (entry: GitStatusEntry) => void;
 };
 
-function ChangeFileItem({ entry, onToggle }: ChangeFileItemProps) {
+function ChangeFileItem({ entry, onToggle, onDiscard }: ChangeFileItemProps) {
   const Icon = STATUS_ICONS[entry.status] ?? FileIcon;
 
   return (
@@ -63,24 +75,39 @@ function ChangeFileItem({ entry, onToggle }: ChangeFileItemProps) {
       />
       <Icon className={cn("size-3.5 shrink-0", STATUS_COLORS[entry.status])} />
       <span className="min-w-0 flex-1 truncate font-mono">{entry.path}</span>
-      <span className="shrink-0 text-[10px] uppercase text-muted-foreground/60">
-        {entry.status === "modified"
-          ? "M"
-          : entry.status === "added"
-            ? "A"
-            : entry.status === "deleted"
-              ? "D"
-              : entry.status === "renamed"
-                ? "R"
-                : entry.status === "conflicted"
-                  ? "C"
-                  : entry.status === "untracked"
-                    ? "U"
-                    : ""}
-      </span>
+      <div className="flex shrink-0 items-center gap-1">
+        <span className="text-[10px] uppercase text-muted-foreground/60">
+          {entry.status === "modified"
+            ? "M"
+            : entry.status === "added"
+              ? "A"
+              : entry.status === "deleted"
+                ? "D"
+                : entry.status === "renamed"
+                  ? "R"
+                  : entry.status === "conflicted"
+                    ? "C"
+                    : entry.status === "untracked"
+                      ? "U"
+                      : ""}
+        </span>
+        <Button
+          className="size-6 text-destructive/80 hover:text-destructive"
+          onClick={() => onDiscard(entry)}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
+          <Trash2Icon className="size-3" />
+        </Button>
+      </div>
     </div>
   );
 }
+
+type DiscardTarget =
+  | { type: "file"; path: string; entries: GitStatusEntry[] }
+  | { type: "all" };
 
 export function ChangesView() {
   const { t } = useTranslation();
@@ -90,8 +117,12 @@ export function ChangesView() {
     unstageFiles,
     stageAll,
     unstageAll,
+    discardFiles,
+    discardAll,
     isLoading,
   } = useGit();
+  const [discardTarget, setDiscardTarget] = useState<DiscardTarget | null>(null);
+  const [isDiscarding, setIsDiscarding] = useState(false);
 
   const handleToggle = useCallback(
     (path: string, currentlyStaged: boolean) => {
@@ -103,6 +134,47 @@ export function ChangesView() {
     },
     [stageFiles, unstageFiles],
   );
+
+  const discardDescription = useMemo(() => {
+    if (!discardTarget) {
+      return "";
+    }
+    return discardTarget.type === "file"
+      ? t("git.discardFileConfirmDescription", { path: discardTarget.path })
+      : t("git.discardAllConfirmDescription");
+  }, [discardTarget, t]);
+
+  const handleRequestDiscardFile = useCallback(
+    (entry: GitStatusEntry) => {
+      const matchingEntries = statusEntries.filter((candidate) => candidate.path === entry.path);
+      setDiscardTarget({
+        type: "file",
+        path: entry.path,
+        entries: matchingEntries.length > 0 ? matchingEntries : [entry],
+      });
+    },
+    [statusEntries],
+  );
+
+  const handleConfirmDiscard = useCallback(async () => {
+    if (!discardTarget) {
+      return;
+    }
+
+    setIsDiscarding(true);
+    try {
+      if (discardTarget.type === "file") {
+        await discardFiles(discardTarget.entries);
+      } else {
+        await discardAll();
+      }
+      setDiscardTarget(null);
+    } catch {
+      // Error handled in provider
+    } finally {
+      setIsDiscarding(false);
+    }
+  }, [discardAll, discardFiles, discardTarget]);
 
   const unstagedEntries = statusEntries.filter((e) => !e.staged);
   const stagedEntries = statusEntries.filter((e) => e.staged);
@@ -155,6 +227,18 @@ export function ChangesView() {
               {t("git.unstagedFiles")}
             </Button>
           ) : null}
+          {statusEntries.length > 0 ? (
+            <Button
+              className="ml-auto h-6 gap-1 text-[11px] text-destructive/90 hover:text-destructive"
+              onClick={() => setDiscardTarget({ type: "all" })}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              <Trash2Icon className="size-3" />
+              {t("git.discardAll")}
+            </Button>
+          ) : null}
         </div>
 
         {/* Staged changes */}
@@ -167,6 +251,7 @@ export function ChangesView() {
               <ChangeFileItem
                 entry={entry}
                 key={`staged-${entry.path}`}
+                onDiscard={handleRequestDiscardFile}
                 onToggle={handleToggle}
               />
             ))}
@@ -183,6 +268,7 @@ export function ChangesView() {
               <ChangeFileItem
                 entry={entry}
                 key={`unstaged-${entry.path}`}
+                onDiscard={handleRequestDiscardFile}
                 onToggle={handleToggle}
               />
             ))}
@@ -191,6 +277,24 @@ export function ChangesView() {
       </div>
 
       <CommitBox />
+      <AlertDialog open={discardTarget !== null} onOpenChange={(open) => !open && setDiscardTarget(null)}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("git.discardConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{discardDescription}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDiscarding}>{t("git.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDiscarding}
+              onClick={() => void handleConfirmDiscard()}
+            >
+              {t("git.discard")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

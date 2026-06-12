@@ -3,7 +3,6 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import type {
   GitBranchesResponse,
   GitCommitEntry,
-  GitStashEntry,
   GitStatusResponse,
 } from "./types";
 
@@ -65,6 +64,20 @@ export async function stageAll(workspaceDir: string): Promise<void> {
 export async function unstageAll(workspaceDir: string): Promise<void> {
   assertTauri();
   await invoke("git_unstage_all", { workspaceDir });
+}
+
+export async function discardFiles(
+  workspaceDir: string,
+  paths: string[],
+  untrackedPaths: string[],
+): Promise<void> {
+  assertTauri();
+  await invoke("git_discard_files", { workspaceDir, paths, untrackedPaths });
+}
+
+export async function discardAll(workspaceDir: string): Promise<void> {
+  assertTauri();
+  await invoke("git_discard_all", { workspaceDir });
 }
 
 // ---------------------------------------------------------------------------
@@ -198,49 +211,6 @@ export async function getRemoteUrl(
   } catch {
     return null;
   }
-}
-
-// ---------------------------------------------------------------------------
-// Stash
-// ---------------------------------------------------------------------------
-
-export async function fetchStashList(
-  workspaceDir: string,
-): Promise<GitStashEntry[]> {
-  assertTauri();
-  return await invoke<GitStashEntry[]>("git_stash_list", { workspaceDir });
-}
-
-export async function stashPush(
-  workspaceDir: string,
-  message?: string,
-): Promise<void> {
-  assertTauri();
-  await invoke("git_stash_push", { workspaceDir, message });
-}
-
-export async function stashPop(
-  workspaceDir: string,
-  index?: number,
-): Promise<void> {
-  assertTauri();
-  await invoke("git_stash_pop", { workspaceDir, index });
-}
-
-export async function stashDrop(
-  workspaceDir: string,
-  index?: number,
-): Promise<void> {
-  assertTauri();
-  await invoke("git_stash_drop", { workspaceDir, index });
-}
-
-export async function stashApply(
-  workspaceDir: string,
-  index?: number,
-): Promise<void> {
-  assertTauri();
-  await invoke("git_stash_apply", { workspaceDir, index });
 }
 
 export { checkoutGitBranch } from "@/features/workspace/git";
