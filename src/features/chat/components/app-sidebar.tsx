@@ -63,6 +63,7 @@ export function AppSidebar({ open }: AppSidebarProps) {
             <SidebarNavItem
               icon={Plus}
               label={t("sidebar.newChat")}
+              shortcutActionId="global.newChat"
               to={paths.chatNew}
               end
             />
@@ -70,15 +71,18 @@ export function AppSidebar({ open }: AppSidebarProps) {
               icon={Search}
               label={t("sidebar.search")}
               onClick={openSearch}
+              shortcutActionId="global.search"
             />
             <SidebarNavItem
               icon={Sparkles}
               label={t("sidebar.skills")}
+              shortcutActionId="global.skills"
               to={paths.skills}
             />
             <SidebarNavItem
               icon={Workflow}
               label={t("sidebar.automations")}
+              shortcutActionId="global.automations"
               to={paths.automations}
             />
           </nav>
@@ -97,6 +101,7 @@ export function AppSidebar({ open }: AppSidebarProps) {
             <SidebarNavItem
               icon={Settings}
               label={t("sidebar.settings")}
+              shortcutActionId="global.settings"
               to={paths.settings}
             />
           </div>
