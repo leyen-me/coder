@@ -8,7 +8,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::openai::{
     build_http_client, chat_completions_url, complete_chat_completion, stream_chat_completion,
-    REFINE_PROMPT_MAX_TOKENS, REFINE_PROMPT_SYSTEM_PROMPT, SESSION_TITLE_MAX_TOKENS,
+    REFINE_PROMPT_MAX_TOKENS, SESSION_TITLE_MAX_TOKENS,
     SESSION_TITLE_SYSTEM_PROMPT,
 };
 use super::stream_log::{agent_diagnostic_log, agent_stream_log};
@@ -198,6 +198,11 @@ pub async fn refine_prompt(
         return Ok(None);
     }
 
+    let system_prompt = params.system_prompt.trim();
+    if system_prompt.is_empty() {
+        return Err("System prompt is required".to_string());
+    }
+
     let user_content = if params.context_messages.is_empty() {
         format!("User prompt:\n{user_prompt}")
     } else {
@@ -213,7 +218,7 @@ pub async fn refine_prompt(
     let messages = vec![
         ChatMessage {
             role: "system".to_string(),
-            content: Some(Value::String(REFINE_PROMPT_SYSTEM_PROMPT.to_string())),
+            content: Some(Value::String(system_prompt.to_string())),
             reasoning_content: None,
             tool_calls: None,
             tool_call_id: None,

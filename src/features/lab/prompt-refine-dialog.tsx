@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +36,11 @@ export function PromptRefineDialog({
   const [countdownSeconds, setCountdownSeconds] = useState(
     Math.ceil(PROMPT_REFINE_TIMEOUT_MS / 1000)
   );
+  const onTimeoutRef = useRef(onTimeout);
+
+  useEffect(() => {
+    onTimeoutRef.current = onTimeout;
+  }, [onTimeout]);
 
   useEffect(() => {
     if (!open) {
@@ -56,14 +61,14 @@ export function PromptRefineDialog({
 
       if (remainingSeconds <= 0) {
         window.clearInterval(intervalId);
-        onTimeout();
+        onTimeoutRef.current();
       }
     }, 250);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [open, onTimeout, refinedText]);
+  }, [open, refinedText]);
 
   const trimmedEditedText = editedText.trim();
 

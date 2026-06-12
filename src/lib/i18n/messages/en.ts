@@ -401,6 +401,11 @@ export const enMessages = {
       promptRefineDescription:
         "Before sending, let AI polish your prompt for clarity and professionalism",
       promptRefineAriaLabel: "Enable prompt refiner",
+      promptRefineSystemPromptLabel: "Refiner system prompt",
+      promptRefineSystemPromptDescription:
+        "Instructions sent to the model when polishing prompts. The refined output is always shown for your review before sending.",
+      promptRefineSystemPromptAriaLabel: "Refiner system prompt",
+      promptRefineSystemPromptReset: "Reset to default",
     },
   },
   lab: {

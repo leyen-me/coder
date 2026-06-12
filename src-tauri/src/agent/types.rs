@@ -149,5 +149,6 @@ pub struct RefinePromptParams {
     pub api_key_env_var: String,
     pub model: String,
     pub user_prompt: String,
+    pub system_prompt: String,
     pub context_messages: Vec<RefineContextMessage>,
 }

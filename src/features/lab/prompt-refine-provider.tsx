@@ -12,7 +12,7 @@ import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
 import { PromptRefineDialog } from "./prompt-refine-dialog";
 import { refinePrompt, type RefineContextMessage } from "./refine-prompt";
-import { usePromptRefineEnabled } from "./use-prompt-refine-enabled";
+import { useLabSettings } from "./use-lab-settings";
 
 export type PromptRefineResult =
   | "original"
@@ -36,7 +36,7 @@ type PromptRefineContextValue = {
 const PromptRefineContext = createContext<PromptRefineContextValue | null>(null);
 
 export function PromptRefineProvider({ children }: { children: ReactNode }) {
-  const { enabled } = usePromptRefineEnabled();
+  const { settings } = useLabSettings();
   const { resolved } = useModelProvider();
   const [pendingRefine, setPendingRefine] = useState<PendingRefine | null>(null);
   const pendingRefineRef = useRef<PendingRefine | null>(null);
@@ -70,7 +70,7 @@ export function PromptRefineProvider({ children }: { children: ReactNode }) {
       model: string
     ): Promise<PromptRefineResult> => {
       const trimmed = text.trim();
-      if (!enabled || !trimmed) {
+      if (!settings.promptRefineEnabled || !trimmed) {
         return "original";
       }
 
@@ -82,6 +82,7 @@ export function PromptRefineProvider({ children }: { children: ReactNode }) {
         model,
         userPrompt: trimmed,
         contextMessages,
+        labSettings: settings,
       });
 
       if (!refined || refined === trimmed) {
@@ -90,8 +91,26 @@ export function PromptRefineProvider({ children }: { children: ReactNode }) {
 
       return showConfirmDialog(trimmed, refined);
     },
-    [enabled, resolved, showConfirmDialog]
+    [resolved, settings, showConfirmDialog]
   );
+
+  const handleConfirmRefine = useCallback(
+    (text: string) => {
+      settlePendingRefine({
+        type: "refined",
+        text,
+      });
+    },
+    [settlePendingRefine]
+  );
+
+  const handleCancelRefine = useCallback(() => {
+    settlePendingRefine("cancelled");
+  }, [settlePendingRefine]);
+
+  const handleTimeoutRefine = useCallback(() => {
+    settlePendingRefine("original");
+  }, [settlePendingRefine]);
 
   const value = useMemo(
     () => ({
@@ -108,18 +127,9 @@ export function PromptRefineProvider({ children }: { children: ReactNode }) {
           open
           originalText={pendingRefine.originalText}
           refinedText={pendingRefine.refinedText}
-          onConfirm={(text) => {
-            settlePendingRefine({
-              type: "refined",
-              text,
-            });
-          }}
-          onCancel={() => {
-            settlePendingRefine("cancelled");
-          }}
-          onTimeout={() => {
-            settlePendingRefine("original");
-          }}
+          onConfirm={handleConfirmRefine}
+          onCancel={handleCancelRefine}
+          onTimeout={handleTimeoutRefine}
         />
       ) : null}
     </PromptRefineContext.Provider>

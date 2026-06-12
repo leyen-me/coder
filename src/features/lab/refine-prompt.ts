@@ -2,15 +2,9 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { chatCompletionsUrl } from "@/features/agent/openai-url";
 
-export const REFINE_PROMPT_SYSTEM_PROMPT = `You are a professional prompt optimization assistant. Your task is to rewrite the user's prompt to be clearer, more specific, and more professional, based on the original input and current conversation context, so an AI agent can understand and execute it better.
-
-Rules:
-1. Preserve the user's original intent
-2. Fix grammar and wording to sound more professional
-3. If the input is vague, add necessary details inferred from context
-4. Output only the refined prompt with no explanation
-5. Reply in the same language as the user
-6. If the input is already clear and professional, make only minor edits or keep it unchanged`;
+import { resolvePromptRefineSystemPrompt } from "./storage";
+import { getLabSettingsSnapshot } from "./lab-settings-store";
+import type { LabSettings } from "./types";
 
 export const PROMPT_REFINE_TIMEOUT_MS = 60_000;
 const REFINE_MAX_TOKENS = 2048;
@@ -82,6 +76,7 @@ type RefinePromptRequest = {
   apiKeyEnvVar: string;
   model: string;
   userPrompt: string;
+  systemPrompt: string;
   contextMessages?: RefineContextMessage[];
   signal?: AbortSignal;
 };
@@ -94,6 +89,11 @@ async function requestRefinedPrompt(
     return null;
   }
   if (!input.apiKey.trim() && input.apiKeySource !== "env") {
+    return null;
+  }
+
+  const systemPrompt = input.systemPrompt.trim();
+  if (!systemPrompt) {
     return null;
   }
 
@@ -112,6 +112,7 @@ async function requestRefinedPrompt(
           apiKeyEnvVar: input.apiKeyEnvVar,
           model: input.model,
           userPrompt,
+          systemPrompt,
           contextMessages: input.contextMessages ?? [],
         },
       });
@@ -137,7 +138,7 @@ async function requestRefinedPrompt(
       max_tokens: REFINE_MAX_TOKENS,
       temperature: 0.3,
       messages: [
-        { role: "system", content: REFINE_PROMPT_SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
       ],
     }),
@@ -152,7 +153,13 @@ async function requestRefinedPrompt(
 }
 
 export async function refinePrompt(
-  input: RefinePromptRequest
+  input: Omit<RefinePromptRequest, "systemPrompt"> & {
+    labSettings?: LabSettings;
+  }
 ): Promise<string | null> {
-  return requestRefinedPrompt(input);
+  const labSettings = input.labSettings ?? getLabSettingsSnapshot();
+  return requestRefinedPrompt({
+    ...input,
+    systemPrompt: resolvePromptRefineSystemPrompt(labSettings),
+  });
 }

@@ -325,6 +325,10 @@ export type Messages = {
       promptRefineLabel: string;
       promptRefineDescription: string;
       promptRefineAriaLabel: string;
+      promptRefineSystemPromptLabel: string;
+      promptRefineSystemPromptDescription: string;
+      promptRefineSystemPromptAriaLabel: string;
+      promptRefineSystemPromptReset: string;
     };
   };
   lab: {

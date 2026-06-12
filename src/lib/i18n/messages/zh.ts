@@ -393,6 +393,11 @@ export const zhMessages = {
       promptRefineLabel: "提示词润色",
       promptRefineDescription: "发送前让 AI 优化你的提示词，使其更清晰专业",
       promptRefineAriaLabel: "启用提示词润色",
+      promptRefineSystemPromptLabel: "润色系统提示词",
+      promptRefineSystemPromptDescription:
+        "润色时发送给模型的系统指令。润色结果会在发送前展示供你确认或编辑。",
+      promptRefineSystemPromptAriaLabel: "润色系统提示词",
+      promptRefineSystemPromptReset: "恢复默认",
     },
   },
   lab: {
