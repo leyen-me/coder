@@ -12,7 +12,7 @@ Rules:
 2. Fix grammar and wording to sound more professional
 3. If the input is vague, add necessary details inferred from context
 4. Output only the refined prompt with no explanation
-5. Always write the refined prompt in English, regardless of the user's input language
+5. Always write the refined prompt in the same language as the user's input
 6. If the input is already clear and professional, make only minor edits or keep it unchanged`;
 
 export const DEFAULT_LAB_SETTINGS: LabSettings = {
