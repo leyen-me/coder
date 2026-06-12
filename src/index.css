@@ -148,3 +148,13 @@
     cursor: grabbing !important;
   }
 }
+
+@keyframes agent-stop-confirm-shrink {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}

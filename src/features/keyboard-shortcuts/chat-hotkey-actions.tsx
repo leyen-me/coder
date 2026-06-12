@@ -14,7 +14,7 @@ type ChatHotkeyActionsProps = {
   editingMessageId: string | null;
   editingQueuedMessageId: string | null;
   onCancelEdit: () => void;
-  onStop: () => void;
+  onRequestStop: () => void;
   onEditUserMessage: (message: MessageRecord) => void;
   onRegenerateAssistantMessage: (message: MessageRecord) => void;
 };
@@ -50,7 +50,7 @@ export function ChatHotkeyActions({
   editingMessageId,
   editingQueuedMessageId,
   onCancelEdit,
-  onStop,
+  onRequestStop,
   onEditUserMessage,
   onRegenerateAssistantMessage,
 }: ChatHotkeyActionsProps) {
@@ -64,7 +64,7 @@ export function ChatHotkeyActions({
 
     const task = getSessionTask(chatId);
     if (task) {
-      onStop();
+      onRequestStop();
       return true;
     }
 
@@ -75,7 +75,7 @@ export function ChatHotkeyActions({
     editingQueuedMessageId,
     getSessionTask,
     onCancelEdit,
-    onStop,
+    onRequestStop,
   ]);
 
   const handleRegenerate = useCallback(() => {

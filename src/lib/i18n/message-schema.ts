@@ -74,6 +74,9 @@ export type Messages = {
     confirmBeforeRun: string;
     send: string;
     stop: string;
+    stopAgentConfirm: string;
+    stopAgentConfirmAction: string;
+    stopAgentConfirmDismiss: string;
     localWork: string;
     selectWorkspace: string;
     clearWorkspace: string;

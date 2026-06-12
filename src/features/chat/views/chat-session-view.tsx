@@ -14,7 +14,9 @@ import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { ChatHotkeyActions } from "@/features/keyboard-shortcuts/chat-hotkey-actions";
 
+import { AgentStopConfirmBanner } from "../components/agent-stop-confirm-banner";
 import { AgentTodoList } from "../components/agent-todo-list";
+import { useAgentStopConfirmation } from "../hooks/use-agent-stop-confirmation";
 import { ChatMessageList } from "../components/chat-message-list";
 import { PromptComposer } from "../components/prompt-composer";
 import { QueuedMessageList } from "../components/queued-message-list";
@@ -344,6 +346,19 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     }
   };
 
+  const {
+    isPending: isStopConfirmPending,
+    requestStop: requestStopAgent,
+    confirmStop: confirmStopAgent,
+    dismissStopConfirm,
+  } = useAgentStopConfirmation(handleStop);
+
+  useEffect(() => {
+    if (!activeTask) {
+      dismissStopConfirm();
+    }
+  }, [activeTask, dismissStopConfirm]);
+
   const workspaceName = workspaceBinding.workspaceDir
     ? getWorkspaceDisplayName(workspaceBinding.workspaceDir)
     : null;
@@ -410,7 +425,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         onCancelEdit={handleCancelEdit}
         onEditUserMessage={handleEditUserMessage}
         onRegenerateAssistantMessage={handleRegenerateAssistantMessage}
-        onStop={handleStop}
+        onRequestStop={requestStopAgent}
       />
       <ChatMessageList
         editingMessageId={editingMessageId}
@@ -438,6 +453,12 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             onDelete={handleDeleteQueuedMessage}
             onEdit={handleEditQueuedMessage}
           />
+          {isStopConfirmPending ? (
+            <AgentStopConfirmBanner
+              onConfirm={confirmStopAgent}
+              onDismiss={dismissStopConfirm}
+            />
+          ) : null}
           {handoffStatus ? (
             <div className="mb-2 overflow-hidden rounded-2xl border bg-muted/40 px-3 py-2.5 dark:bg-muted/20">
               <div className="flex items-center gap-2">
