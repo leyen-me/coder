@@ -26,7 +26,10 @@ export function KeyboardShortcuts() {
   const { pathname } = useLocation();
   const { open: openSearch } = useSearchDialog();
   const { toggleSidebar } = useShellChrome();
-  const { isOpen: isRightPanelOpen, toggle: toggleRightPanel } = useRightPanel();
+  const {
+    isOpen: isRightPanelOpen,
+    toggleExplorer: toggleExplorerPanel,
+  } = useRightPanel();
   const {
     isOpen: isBottomPanelOpen,
     toggle: toggleBottomPanel,
@@ -67,7 +70,7 @@ export function KeyboardShortcuts() {
           toggleTab("processes");
           return true;
         case "panel.toggleRight":
-          toggleRightPanel();
+          toggleExplorerPanel();
           return true;
         default:
           return false;
@@ -77,7 +80,7 @@ export function KeyboardShortcuts() {
       navigate,
       openSearch,
       toggleBottomPanel,
-      toggleRightPanel,
+      toggleExplorerPanel,
       toggleSidebar,
       toggleTab,
     ]

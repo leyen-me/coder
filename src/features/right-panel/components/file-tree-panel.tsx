@@ -70,16 +70,6 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
   );
   const [planTabPulse, setPlanTabPulse] = useState(false);
   const lastPlanUpdateTick = useRef(planUpdateTick);
-  const lastWorkspaceDir = useRef(workspaceDir);
-
-  useEffect(() => {
-    if (lastWorkspaceDir.current === workspaceDir) {
-      return;
-    }
-
-    lastWorkspaceDir.current = workspaceDir;
-    openPlanPreview(null);
-  }, [openPlanPreview, workspaceDir]);
 
   useEffect(() => {
     if (planUpdateTick === 0 || planUpdateTick === lastPlanUpdateTick.current) {

@@ -16,7 +16,10 @@ export function SessionToolbar() {
   const { t } = useTranslation();
   const { isOpen, activeTab, toggleTab } = useBottomPanel();
   const isTerminalActive = isOpen && activeTab === "terminal";
-  const { isOpen: isRightPanelOpen, toggle: toggleRightPanel } = useRightPanel();
+  const {
+    isOpen: isRightPanelOpen,
+    toggleExplorer: toggleExplorerPanel,
+  } = useRightPanel();
 
   return (
     <div className="flex shrink-0 items-center gap-1">
@@ -54,7 +57,7 @@ export function SessionToolbar() {
             )}
             aria-label={t("rightPanel.explorer")}
             aria-pressed={isRightPanelOpen}
-            onClick={toggleRightPanel}
+            onClick={toggleExplorerPanel}
           >
             <FolderTree className="size-4" />
           </Button>

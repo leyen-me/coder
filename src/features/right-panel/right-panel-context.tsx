@@ -23,6 +23,7 @@ export type PlanBuildActions = {
 type RightPanelContextValue = {
   isOpen: boolean;
   toggle: () => void;
+  toggleExplorer: () => void;
   setOpen: (open: boolean) => void;
   /* Plan tab */
   isPlanTabActive: boolean;
@@ -82,6 +83,20 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
     setIsOpen((current) => !current);
   }, []);
 
+  const toggleExplorer = useCallback(() => {
+    setIsOpen((current) => {
+      const shouldClose = current && !isPlanTabActive && !isSourceControlTabActive;
+      if (shouldClose) {
+        return false;
+      }
+
+      setIsPlanTabActive(false);
+      setIsSourceControlTabActive(false);
+      setActivePlanName(null);
+      return true;
+    });
+  }, [isPlanTabActive, isSourceControlTabActive]);
+
   const openPlanPreview = useCallback((planName?: string | null) => {
     setActivePlanName(planName ?? null);
     setIsPlanTabActive(true);
@@ -108,6 +123,7 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
     () => ({
       isOpen,
       toggle,
+      toggleExplorer,
       setOpen: setIsOpen,
       isPlanTabActive,
       activePlanName,
@@ -129,6 +145,7 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
       planBuildActions,
       planUpdateTick,
       toggle,
+      toggleExplorer,
       isSourceControlTabActive,
       openSourceControlTab,
       deactivateSourceControlTab,

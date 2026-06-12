@@ -8,7 +8,6 @@ import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
 import { usePromptRefiner } from "@/features/lab/prompt-refine-provider";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
-import { resolveInitialSessionWorkspaceDir } from "@/features/workspace/resolve-session-workspace";
 import { createSession } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
@@ -62,7 +61,7 @@ export function NewChatView() {
       const session = await createSession({
         title: t("session.newChat"),
         model,
-        workspaceDir: resolveInitialSessionWorkspaceDir(),
+        workspaceDir,
       });
       navigate(paths.chat(session.id), { state: { agentMode } });
       setPrompt("");
