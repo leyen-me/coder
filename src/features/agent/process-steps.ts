@@ -182,6 +182,11 @@ export function buildAgentMessagesFromProcessSteps(
       assistantMessage.tool_calls = toApiToolCalls([toStoredToolCall(invocation)]);
     }
 
+    // Guard: assistant message must have content or tool_calls for the API
+    if (!assistantMessage.content && !assistantMessage.tool_calls?.length) {
+      return;
+    }
+
     messages.push(assistantMessage);
     reasoningText = "";
     contentText = "";
