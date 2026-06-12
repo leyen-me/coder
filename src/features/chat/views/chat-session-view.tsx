@@ -24,6 +24,7 @@ import { PromptComposer } from "../components/prompt-composer";
 import { QueuedMessageList } from "../components/queued-message-list";
 import { notifySendMessageError } from "../lib/notify-send-message-error";
 import { buildPlanExecutionPrompt } from "../lib/plan/build-plan-execution-prompt";
+import { resolvePlanContentForBuild } from "../lib/plan/resolve-plan-content";
 import {
   removeQueuedMessage,
   takeNextQueuedMessage,
@@ -223,9 +224,13 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       setIsBuildPending(true);
       setAgentMode("agent");
       try {
+        const resolvedContent = await resolvePlanContentForBuild(
+          workspaceBinding.workspaceDir,
+          planContent
+        );
         await sendMessage({
           sessionId: chatId,
-          content: buildPlanExecutionPrompt(planContent),
+          content: buildPlanExecutionPrompt(resolvedContent),
           model,
           thinkingEnabled,
           agentMode: "agent",
@@ -238,7 +243,15 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         setIsBuildPending(false);
       }
     },
-    [chatId, isRunning, model, sendMessage, t, thinkingEnabled]
+    [
+      chatId,
+      isRunning,
+      model,
+      sendMessage,
+      t,
+      thinkingEnabled,
+      workspaceBinding.workspaceDir,
+    ]
   );
 
   const handleSend = useCallback(

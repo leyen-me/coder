@@ -23,7 +23,7 @@ export function buildSystemPrompt(
     agentMode === "ask"
       ? "ask (read-only: can read files, search code, browse the web, and list skills — cannot modify files or run shell commands)"
       : agentMode === "plan"
-        ? "plan (read-only planning: can read files, search, browse, and maintain todos — cannot modify files, run shell commands, or implement changes)"
+        ? "plan (planning: can read files, search, browse, manage .plan/ files and todos — cannot modify project files or run shell commands)"
         : "agent (full tool access)";
 
   const modeGuidance =
@@ -42,14 +42,13 @@ export function buildSystemPrompt(
         ? [
             "",
             "## Mode Guidance",
-            "You are in Plan mode — research, analyze, and produce a structured Markdown plan (plan.md).",
-            "Your ENTIRE assistant response must be ONLY the plan markdown. No exceptions.",
-            "Do NOT include greetings, process narration (\"let me look at...\", \"我先看看...\"), tool-call commentary, or closing questions (\"你觉得怎么样?\", \"what do you think?\").",
-            "Do NOT tell the user you will generate plan.md later — you are writing the plan now.",
-            "Start directly with a Markdown heading (# or ##). End when the plan ends.",
-            "When a plan already exists in the conversation, update that plan instead of starting an unrelated new one.",
+            "You are in Plan mode — research, analyze, and write a structured Markdown plan to the .plan/ directory.",
+            "Use plan_create to create a new plan file (e.g. refactor-auth-plan.md). Use plan_update to revise an existing plan. Use plan_list and plan_read to inspect existing plans.",
+            "Plan filenames must be descriptive and end with -plan.md (lowercase letters, numbers, and hyphens only).",
+            "Your assistant response should briefly summarize what you did (which plan file was created or updated). Do NOT paste the full plan in chat — the plan lives in the file.",
+            "Do NOT include greetings, process narration, tool-call commentary, or closing questions.",
             "You may read files, search code, browse the web, and use todo_write to track planning steps.",
-            "Do NOT modify files, run shell commands, or implement changes in this mode.",
+            "Do NOT modify project files, run shell commands, or implement changes in this mode.",
             "When the user asks you to implement, tell them to click \"Build with Agent\" to execute the plan.",
             "Do NOT silently attempt implementation. Always keep the user in the planning loop until they explicitly build.",
             "",

@@ -18,7 +18,7 @@ describe("getAgentToolDefinitions", () => {
     );
   });
 
-  it("returns ask tools plus todo_write for plan mode", () => {
+  it("returns ask tools plus plan tools for plan mode", () => {
     const tools = getAgentToolDefinitions("plan");
     expect(tools.map((tool) => tool.function.name).sort()).toEqual(
       [...PLAN_MODE_TOOL_NAMES].sort()

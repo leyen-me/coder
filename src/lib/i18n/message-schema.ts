@@ -477,6 +477,9 @@ export type Messages = {
   };
   rightPanel: {
     explorer: string;
+    plan: string;
+    planLoading: string;
+    planEmpty: string;
     noWorkspace: string;
     loading: string;
     closePreview: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import { FileIcon, FilesIcon, RefreshCwIcon, XIcon } from "lucide-react";
+import { ClipboardListIcon, FileIcon, FilesIcon, RefreshCwIcon, XIcon } from "lucide-react";
 import { useCallback, useMemo, useRef } from "react";
 
 import { useRegisterHotkeyAction } from "@/features/keyboard-shortcuts/hotkey-actions-context";
@@ -11,7 +11,9 @@ import { cn } from "@/lib/utils";
 
 import { useFileEditorSessions } from "../hooks/use-file-editor-sessions";
 import { useFilePreviewTabs } from "../hooks/use-file-preview-tabs";
+import { useRightPanel } from "../right-panel-context";
 import { FilePreview } from "./file-preview";
+import { PlanPreviewPanel } from "./plan-preview-panel";
 import { UnsavedFileCloseDialog } from "./unsaved-file-close-dialog";
 import { WorkspaceFileTree } from "./workspace-file-tree";
 import type { WorkspaceFileTreeHandle } from "./workspace-file-tree";
@@ -22,6 +24,12 @@ type FileTreePanelProps = {
 
 export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
   const { t } = useTranslation();
+  const {
+    isPlanTabActive,
+    activePlanName,
+    openPlanPreview,
+    deactivatePlanTab,
+  } = useRightPanel();
   const {
     tabs,
     activeTabPath,
@@ -54,6 +62,28 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
   );
   const fileTreeRef = useRef<WorkspaceFileTreeHandle>(null);
   const activeTab = tabs.find((tab) => tab.path === activeTabPath) ?? null;
+  const showExplorerPanel = isExplorerActive && !isPlanTabActive;
+
+  const handleShowExplorer = useCallback(() => {
+    deactivatePlanTab();
+    showExplorer();
+  }, [deactivatePlanTab, showExplorer]);
+
+  const handleOpenFile = useCallback(
+    (file: { path: string; name: string }) => {
+      deactivatePlanTab();
+      openFile(file);
+    },
+    [deactivatePlanTab, openFile]
+  );
+
+  const handleActivateFile = useCallback(
+    (path: string) => {
+      deactivatePlanTab();
+      activateFile(path);
+    },
+    [activateFile, deactivatePlanTab]
+  );
 
   const handleCloseActivePreview = useCallback(() => {
     if (!activeTabPath || isExplorerActive) {
@@ -82,7 +112,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
         <div
           className={cn(
             "group inline-flex h-7 shrink-0 items-center rounded-md border text-xs",
-            isExplorerActive
+            showExplorerPanel
               ? "border-border/40 bg-muted/30 text-foreground/80"
               : "border-transparent text-muted-foreground/70 hover:bg-muted/20"
           )}
@@ -90,14 +120,14 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
           <button
             aria-label={t("rightPanel.explorer")}
             className="rounded-l-md px-1.5 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
-            onClick={showExplorer}
+            onClick={handleShowExplorer}
             type="button"
           >
             <FilesIcon className="size-3" />
           </button>
           <button
             className="max-w-40 truncate px-2 py-1"
-            onClick={showExplorer}
+            onClick={handleShowExplorer}
             type="button"
           >
             {t("rightPanel.explorer")}
@@ -113,6 +143,31 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
             type="button"
           >
             <RefreshCwIcon className="size-3" />
+          </button>
+        </div>
+
+        <div
+          className={cn(
+            "group inline-flex h-7 shrink-0 items-center rounded-md border text-xs",
+            isPlanTabActive
+              ? "border-border/40 bg-muted/30 text-foreground/80"
+              : "border-transparent text-muted-foreground/70 hover:bg-muted/20"
+          )}
+        >
+          <button
+            aria-label={t("rightPanel.plan")}
+            className="rounded-l-md px-1.5 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
+            onClick={() => openPlanPreview(activePlanName)}
+            type="button"
+          >
+            <ClipboardListIcon className="size-3" />
+          </button>
+          <button
+            className="max-w-40 truncate px-2 py-1"
+            onClick={() => openPlanPreview(activePlanName)}
+            type="button"
+          >
+            {t("rightPanel.plan")}
           </button>
         </div>
 
@@ -146,7 +201,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
               </button>
               <button
                 className="max-w-40 truncate px-2 py-1 font-mono"
-                onClick={() => activateFile(tab.path)}
+                onClick={() => handleActivateFile(tab.path)}
                 title={tab.path}
                 type="button"
               >
@@ -161,7 +216,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
         <div
           className={cn(
             "absolute inset-0",
-            isExplorerActive
+            showExplorerPanel
               ? "z-10 opacity-100"
               : "pointer-events-none z-0 opacity-0"
           )}
@@ -169,9 +224,23 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
           <WorkspaceFileTree
             ref={fileTreeRef}
             onFileClose={requestCloseFile}
-            onFileOpen={openFile}
+            onFileOpen={handleOpenFile}
             onFileRename={renameFile}
             openPreviewPaths={openPreviewPaths}
+            workspaceDir={workspaceDir}
+          />
+        </div>
+
+        <div
+          className={cn(
+            "absolute inset-0",
+            isPlanTabActive
+              ? "z-10 opacity-100"
+              : "pointer-events-none z-0 opacity-0"
+          )}
+        >
+          <PlanPreviewPanel
+            planName={activePlanName}
             workspaceDir={workspaceDir}
           />
         </div>
@@ -181,7 +250,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
             key={tab.path}
             className={cn(
               "absolute inset-0",
-              activeTabPath === tab.path
+              activeTabPath === tab.path && !isPlanTabActive
                 ? "z-10 opacity-100"
                 : "pointer-events-none z-0 opacity-0"
             )}

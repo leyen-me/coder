@@ -10,6 +10,11 @@ import {
   LIST_SHELLS_TOOL_NAME,
   CREATE_SKILL_TOOL_NAME,
   LIST_SKILLS_TOOL_NAME,
+  PLAN_CREATE_TOOL_NAME,
+  PLAN_DELETE_TOOL_NAME,
+  PLAN_LIST_TOOL_NAME,
+  PLAN_READ_TOOL_NAME,
+  PLAN_UPDATE_TOOL_NAME,
   READ_FILE_TOOL_NAME,
   READ_SKILL_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
@@ -29,6 +34,13 @@ import { listDirHandler } from "./list-dir";
 import { listShellsHandler } from "./list-shells";
 import { createSkillHandler } from "./create-skill";
 import { listSkillsHandler } from "./list-skills";
+import {
+  planCreateHandler,
+  planDeleteHandler,
+  planListHandler,
+  planReadHandler,
+  planUpdateHandler,
+} from "./plan";
 import { readFileHandler } from "./read-file";
 import { readSkillHandler } from "./read-skill";
 import { replaceFileHandler } from "./replace-file";
@@ -66,6 +78,11 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [CREATE_SKILL_TOOL_NAME]: createSkillHandler,
   [UPDATE_SKILL_TOOL_NAME]: updateSkillHandler,
   [TODO_WRITE_TOOL_NAME]: todoWriteHandler,
+  [PLAN_CREATE_TOOL_NAME]: planCreateHandler,
+  [PLAN_READ_TOOL_NAME]: planReadHandler,
+  [PLAN_UPDATE_TOOL_NAME]: planUpdateHandler,
+  [PLAN_DELETE_TOOL_NAME]: planDeleteHandler,
+  [PLAN_LIST_TOOL_NAME]: planListHandler,
 };
 
 const ASK_MODE_TOOL_NAMES_SET = new Set(ASK_MODE_TOOL_NAMES);
@@ -75,7 +92,7 @@ const PLAN_MODE_TOOL_NAMES_SET = new Set(PLAN_MODE_TOOL_NAMES);
  * Returns tool definitions for the given mode.
  * - `"agent"`: all tools available (default).
  * - `"ask"`: only read-only / information-gathering tools.
- * - `"plan"`: read-only tools plus todo_write for structured planning.
+ * - `"plan"`: read-only tools plus plan file management and todo_write.
  */
 export function getAgentToolDefinitions(
   mode?: AgentMode
