@@ -1,18 +1,24 @@
 import { describe, expect, it } from "vitest";
 
-import { PRESET_PROVIDERS } from "./constants";
+import {
+  createDefaultProviderSettings,
+  DEFAULT_MODEL_PROVIDER_SETTINGS,
+  PRESET_PROVIDERS,
+} from "./constants";
 import { resolveProviderConfig } from "./resolve-provider-config";
 
 describe("resolveProviderConfig", () => {
   it("resolves preset provider configuration", () => {
     expect(
       resolveProviderConfig({
-        provider: "deepseek",
-        apiKeySource: "env",
-        apiKey: "",
-        apiKeyEnvVar: "DEEPSEEK_API_KEY",
-        customBaseUrl: "",
-        customModels: [],
+        activeProvider: "deepseek",
+        providers: {
+          ...DEFAULT_MODEL_PROVIDER_SETTINGS.providers,
+          deepseek: {
+            ...createDefaultProviderSettings("deepseek"),
+            apiKeyEnvVar: "DEEPSEEK_API_KEY",
+          },
+        },
       })
     ).toEqual({
       provider: "deepseek",
@@ -36,12 +42,14 @@ describe("resolveProviderConfig", () => {
 
     expect(
       resolveProviderConfig({
-        provider: "nvidia",
-        apiKeySource: "env",
-        apiKey: "",
-        apiKeyEnvVar: "NVIDIA_API_KEY",
-        customBaseUrl: "",
-        customModels,
+        activeProvider: "nvidia",
+        providers: {
+          ...DEFAULT_MODEL_PROVIDER_SETTINGS.providers,
+          nvidia: {
+            ...createDefaultProviderSettings("nvidia"),
+            customModels,
+          },
+        },
       })
     ).toEqual({
       provider: "nvidia",
@@ -65,12 +73,17 @@ describe("resolveProviderConfig", () => {
 
     expect(
       resolveProviderConfig({
-        provider: "custom",
-        apiKeySource: "manual",
-        apiKey: "sk-custom",
-        apiKeyEnvVar: "",
-        customBaseUrl: "https://example.com/v1",
-        customModels,
+        activeProvider: "custom",
+        providers: {
+          ...DEFAULT_MODEL_PROVIDER_SETTINGS.providers,
+          custom: {
+            apiKeySource: "manual",
+            apiKey: "sk-custom",
+            apiKeyEnvVar: "",
+            customBaseUrl: "https://example.com/v1",
+            customModels,
+          },
+        },
       })
     ).toEqual({
       provider: "custom",

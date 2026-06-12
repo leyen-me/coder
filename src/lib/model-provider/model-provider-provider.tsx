@@ -12,12 +12,20 @@ import {
   readModelProviderSettings,
   writeModelProviderSettings,
 } from "./storage";
-import type { ModelProviderSettings, ResolvedProviderConfig } from "./types";
+import type {
+  ModelProviderSettings,
+  ProviderId,
+  ProviderSettings,
+  ResolvedProviderConfig,
+} from "./types";
 
 type ModelProviderContextValue = {
   settings: ModelProviderSettings;
+  activeProvider: ProviderId;
+  activeProviderSettings: ProviderSettings;
   resolved: ResolvedProviderConfig;
-  updateSettings: (patch: Partial<ModelProviderSettings>) => void;
+  setActiveProvider: (provider: ProviderId) => void;
+  updateActiveProviderSettings: (patch: Partial<ProviderSettings>) => void;
   setSettings: (settings: ModelProviderSettings) => void;
 };
 
@@ -39,13 +47,36 @@ export function ModelProviderProvider({ children }: ModelProviderProviderProps) 
     writeModelProviderSettings(nextSettings);
   }, []);
 
-  const updateSettings = useCallback((patch: Partial<ModelProviderSettings>) => {
+  const setActiveProvider = useCallback((provider: ProviderId) => {
     setSettingsState((current) => {
-      const next = { ...current, ...patch };
+      const next = { ...current, activeProvider: provider };
       writeModelProviderSettings(next);
       return next;
     });
   }, []);
+
+  const updateActiveProviderSettings = useCallback(
+    (patch: Partial<ProviderSettings>) => {
+      setSettingsState((current) => {
+        const next = {
+          ...current,
+          providers: {
+            ...current.providers,
+            [current.activeProvider]: {
+              ...current.providers[current.activeProvider],
+              ...patch,
+            },
+          },
+        };
+        writeModelProviderSettings(next);
+        return next;
+      });
+    },
+    []
+  );
+
+  const activeProvider = settings.activeProvider;
+  const activeProviderSettings = settings.providers[activeProvider];
 
   const resolved = useMemo(
     () => resolveProviderConfig(settings),
@@ -55,11 +86,22 @@ export function ModelProviderProvider({ children }: ModelProviderProviderProps) 
   const value = useMemo(
     () => ({
       settings,
+      activeProvider,
+      activeProviderSettings,
       resolved,
-      updateSettings,
+      setActiveProvider,
+      updateActiveProviderSettings,
       setSettings,
     }),
-    [settings, resolved, updateSettings, setSettings]
+    [
+      settings,
+      activeProvider,
+      activeProviderSettings,
+      resolved,
+      setActiveProvider,
+      updateActiveProviderSettings,
+      setSettings,
+    ]
   );
 
   return (

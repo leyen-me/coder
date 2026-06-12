@@ -1,10 +1,16 @@
 import {
   API_KEY_SOURCES,
+  createDefaultProviderSettings,
   DEFAULT_MODEL_PROVIDER_SETTINGS,
   PROVIDER_IDS,
 } from "./constants";
 import { parseModelDefinitions } from "./model-definition";
-import type { ApiKeySource, ModelProviderSettings, ProviderId } from "./types";
+import type {
+  ApiKeySource,
+  ModelProviderSettings,
+  ProviderId,
+  ProviderSettings,
+} from "./types";
 
 function isProviderId(value: unknown): value is ProviderId {
   return (
@@ -20,6 +26,82 @@ function isApiKeySource(value: unknown): value is ApiKeySource {
   );
 }
 
+function parseProviderSettings(
+  raw: Record<string, unknown>,
+  provider: ProviderId
+): ProviderSettings {
+  const defaults = createDefaultProviderSettings(provider);
+
+  return {
+    apiKeySource: isApiKeySource(raw.apiKeySource)
+      ? raw.apiKeySource
+      : defaults.apiKeySource,
+    apiKey:
+      typeof raw.apiKey === "string" ? raw.apiKey : defaults.apiKey,
+    apiKeyEnvVar:
+      typeof raw.apiKeyEnvVar === "string"
+        ? raw.apiKeyEnvVar
+        : defaults.apiKeyEnvVar,
+    customBaseUrl:
+      typeof raw.customBaseUrl === "string"
+        ? raw.customBaseUrl
+        : defaults.customBaseUrl,
+    customModels: parseModelDefinitions(raw.customModels),
+  };
+}
+
+function createDefaultProvidersMap(): Record<ProviderId, ProviderSettings> {
+  return Object.fromEntries(
+    PROVIDER_IDS.map((id) => [id, createDefaultProviderSettings(id)])
+  ) as Record<ProviderId, ProviderSettings>;
+}
+
+function parseProvidersMap(raw: unknown): Record<ProviderId, ProviderSettings> {
+  const providers = createDefaultProvidersMap();
+
+  if (raw === null || raw === undefined || typeof raw !== "object") {
+    return providers;
+  }
+
+  const record = raw as Record<string, unknown>;
+
+  for (const providerId of PROVIDER_IDS) {
+    const providerRaw = record[providerId];
+    if (providerRaw !== null && typeof providerRaw === "object") {
+      providers[providerId] = parseProviderSettings(
+        providerRaw as Record<string, unknown>,
+        providerId
+      );
+    }
+  }
+
+  return providers;
+}
+
+function isLegacySettingsFormat(record: Record<string, unknown>): boolean {
+  return (
+    !("providers" in record) &&
+    ("provider" in record ||
+      "apiKey" in record ||
+      "apiKeySource" in record ||
+      "apiKeyEnvVar" in record ||
+      "customBaseUrl" in record ||
+      "customModels" in record)
+  );
+}
+
+function parseActiveProvider(record: Record<string, unknown>): ProviderId {
+  if (isProviderId(record.activeProvider)) {
+    return record.activeProvider;
+  }
+
+  if (isProviderId(record.provider)) {
+    return record.provider;
+  }
+
+  return DEFAULT_MODEL_PROVIDER_SETTINGS.activeProvider;
+}
+
 export function parseModelProviderSettings(
   raw: unknown
 ): ModelProviderSettings {
@@ -29,25 +111,16 @@ export function parseModelProviderSettings(
 
   const record = raw as Record<string, unknown>;
 
+  if (isLegacySettingsFormat(record)) {
+    const activeProvider = parseActiveProvider(record);
+    const providers = createDefaultProvidersMap();
+    providers[activeProvider] = parseProviderSettings(record, activeProvider);
+
+    return { activeProvider, providers };
+  }
+
   return {
-    provider: isProviderId(record.provider)
-      ? record.provider
-      : DEFAULT_MODEL_PROVIDER_SETTINGS.provider,
-    apiKeySource: isApiKeySource(record.apiKeySource)
-      ? record.apiKeySource
-      : DEFAULT_MODEL_PROVIDER_SETTINGS.apiKeySource,
-    apiKey:
-      typeof record.apiKey === "string"
-        ? record.apiKey
-        : DEFAULT_MODEL_PROVIDER_SETTINGS.apiKey,
-    apiKeyEnvVar:
-      typeof record.apiKeyEnvVar === "string"
-        ? record.apiKeyEnvVar
-        : DEFAULT_MODEL_PROVIDER_SETTINGS.apiKeyEnvVar,
-    customBaseUrl:
-      typeof record.customBaseUrl === "string"
-        ? record.customBaseUrl
-        : DEFAULT_MODEL_PROVIDER_SETTINGS.customBaseUrl,
-    customModels: parseModelDefinitions(record.customModels),
+    activeProvider: parseActiveProvider(record),
+    providers: parseProvidersMap(record.providers),
   };
 }

@@ -1,5 +1,5 @@
 import {
-  DEFAULT_MODEL_PROVIDER_SETTINGS,
+  getDefaultApiKeyEnvVar,
   PRESET_PROVIDERS,
 } from "@/lib/model-provider/constants";
 import { findModelDefinition } from "@/lib/model-provider/model-definition";
@@ -48,7 +48,7 @@ export function resolveApiKeyEnvVar(resolved: ResolvedProviderConfig): string {
   }
 
   if (resolved.provider === "custom") {
-    return DEFAULT_MODEL_PROVIDER_SETTINGS.apiKeyEnvVar;
+    return getDefaultApiKeyEnvVar("custom");
   }
 
   return PRESET_PROVIDERS[resolved.provider].defaultApiKeyEnvVar;

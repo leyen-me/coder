@@ -8,6 +8,7 @@ import type {
   ModelProviderSettings,
   PresetProviderDefinition,
   ProviderId,
+  ProviderSettings,
 } from "./types";
 
 export const MODEL_PROVIDER_STORAGE_KEY = "coder:model-provider-settings";
@@ -123,11 +124,29 @@ export const PRESET_PROVIDERS = {
   PresetProviderDefinition
 >;
 
+export function getDefaultApiKeyEnvVar(provider: ProviderId): string {
+  if (provider === "custom") {
+    return "OPENAI_API_KEY";
+  }
+
+  return PRESET_PROVIDERS[provider].defaultApiKeyEnvVar;
+}
+
+export function createDefaultProviderSettings(
+  provider: ProviderId
+): ProviderSettings {
+  return {
+    apiKeySource: "env",
+    apiKey: "",
+    apiKeyEnvVar: getDefaultApiKeyEnvVar(provider),
+    customBaseUrl: "",
+    customModels: [],
+  };
+}
+
 export const DEFAULT_MODEL_PROVIDER_SETTINGS: ModelProviderSettings = {
-  provider: "deepseek",
-  apiKeySource: "env",
-  apiKey: "",
-  apiKeyEnvVar: PRESET_PROVIDERS.deepseek.defaultApiKeyEnvVar,
-  customBaseUrl: "",
-  customModels: [],
+  activeProvider: "deepseek",
+  providers: Object.fromEntries(
+    PROVIDER_IDS.map((id) => [id, createDefaultProviderSettings(id)])
+  ) as Record<ProviderId, ProviderSettings>,
 };

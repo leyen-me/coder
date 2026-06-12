@@ -4,13 +4,17 @@ export type ProviderId = "deepseek" | "glm" | "agnes" | "nvidia" | "custom";
 
 export type ApiKeySource = "manual" | "env";
 
-export type ModelProviderSettings = {
-  provider: ProviderId;
+export type ProviderSettings = {
   apiKeySource: ApiKeySource;
   apiKey: string;
   apiKeyEnvVar: string;
   customBaseUrl: string;
   customModels: ModelDefinition[];
+};
+
+export type ModelProviderSettings = {
+  activeProvider: ProviderId;
+  providers: Record<ProviderId, ProviderSettings>;
 };
 
 export type PresetProviderDefinition = {

@@ -1,11 +1,9 @@
 import { Input } from "@/components/ui/input";
 import {
-  PRESET_PROVIDERS,
   PROVIDER_IDS,
   usesUserManagedModels,
 } from "@/lib/model-provider/constants";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
-import type { ProviderId } from "@/lib/model-provider/types";
 import { useLocale } from "@/lib/i18n/locale-provider";
 
 import { CustomModelsEditor } from "./custom-models-editor";
@@ -14,20 +12,18 @@ import { SettingField } from "./setting-field";
 import { SettingRow } from "./setting-row";
 import { SettingSelect } from "./setting-select";
 
-function getDefaultApiKeyEnvVar(provider: ProviderId): string {
-  if (provider === "custom") {
-    return "OPENAI_API_KEY";
-  }
-
-  return PRESET_PROVIDERS[provider].defaultApiKeyEnvVar;
-}
-
 export function ModelProviderSettingsPanel() {
   const { t } = useLocale();
-  const { settings, resolved, updateSettings } = useModelProvider();
+  const {
+    activeProvider,
+    activeProviderSettings,
+    resolved,
+    setActiveProvider,
+    updateActiveProviderSettings,
+  } = useModelProvider();
 
-  const isCustom = settings.provider === "custom";
-  const usesCustomModels = usesUserManagedModels(settings.provider);
+  const isCustom = activeProvider === "custom";
+  const usesCustomModels = usesUserManagedModels(activeProvider);
 
   const providerOptions = PROVIDER_IDS.map((value) => ({
     value,
@@ -41,17 +37,6 @@ export function ModelProviderSettingsPanel() {
     label: t(`settings.modelProvider.apiKeySources.${value}`),
   }));
 
-  const handleProviderChange = (provider: ProviderId) => {
-    updateSettings({
-      provider,
-      apiKeyEnvVar:
-        settings.apiKeyEnvVar.trim().length === 0 ||
-        settings.apiKeyEnvVar === getDefaultApiKeyEnvVar(settings.provider)
-          ? getDefaultApiKeyEnvVar(provider)
-          : settings.apiKeyEnvVar,
-    });
-  };
-
   return (
     <section className="divide-y">
       <SettingRow
@@ -59,9 +44,9 @@ export function ModelProviderSettingsPanel() {
         description={t("settings.modelProvider.providerDescription")}
         control={
           <SettingSelect
-            value={settings.provider}
+            value={activeProvider}
             options={providerOptions}
-            onValueChange={handleProviderChange}
+            onValueChange={setActiveProvider}
             aria-label={t("settings.modelProvider.providerAriaLabel")}
           />
         }
@@ -73,9 +58,11 @@ export function ModelProviderSettingsPanel() {
           description={t("settings.modelProvider.baseUrlDescription")}
         >
           <Input
-            value={settings.customBaseUrl}
+            value={activeProviderSettings.customBaseUrl}
             onChange={(event) =>
-              updateSettings({ customBaseUrl: event.target.value })
+              updateActiveProviderSettings({
+                customBaseUrl: event.target.value,
+              })
             }
             placeholder={t("settings.modelProvider.baseUrlPlaceholder")}
             aria-label={t("settings.modelProvider.baseUrlAriaLabel")}
@@ -98,23 +85,27 @@ export function ModelProviderSettingsPanel() {
         description={t("settings.modelProvider.apiKeySourceDescription")}
         control={
           <SettingSelect
-            value={settings.apiKeySource}
+            value={activeProviderSettings.apiKeySource}
             options={apiKeySourceOptions}
-            onValueChange={(apiKeySource) => updateSettings({ apiKeySource })}
+            onValueChange={(apiKeySource) =>
+              updateActiveProviderSettings({ apiKeySource })
+            }
             aria-label={t("settings.modelProvider.apiKeySourceAriaLabel")}
           />
         }
       />
 
-      {settings.apiKeySource === "manual" ? (
+      {activeProviderSettings.apiKeySource === "manual" ? (
         <SettingField
           label={t("settings.modelProvider.apiKeyLabel")}
           description={t("settings.modelProvider.apiKeyDescription")}
         >
           <Input
             type="password"
-            value={settings.apiKey}
-            onChange={(event) => updateSettings({ apiKey: event.target.value })}
+            value={activeProviderSettings.apiKey}
+            onChange={(event) =>
+              updateActiveProviderSettings({ apiKey: event.target.value })
+            }
             placeholder={t("settings.modelProvider.apiKeyPlaceholder")}
             aria-label={t("settings.modelProvider.apiKeyAriaLabel")}
             autoComplete="off"
@@ -126,9 +117,11 @@ export function ModelProviderSettingsPanel() {
           description={t("settings.modelProvider.apiKeyEnvVarDescription")}
         >
           <Input
-            value={settings.apiKeyEnvVar}
+            value={activeProviderSettings.apiKeyEnvVar}
             onChange={(event) =>
-              updateSettings({ apiKeyEnvVar: event.target.value })
+              updateActiveProviderSettings({
+                apiKeyEnvVar: event.target.value,
+              })
             }
             placeholder={t("settings.modelProvider.apiKeyEnvVarPlaceholder")}
             aria-label={t("settings.modelProvider.apiKeyEnvVarAriaLabel")}
@@ -143,9 +136,11 @@ export function ModelProviderSettingsPanel() {
           description={t("settings.modelProvider.modelsDescription")}
         >
           <CustomModelsEditor
-            models={settings.customModels}
-            provider={settings.provider}
-            onChange={(customModels) => updateSettings({ customModels })}
+            models={activeProviderSettings.customModels}
+            provider={activeProvider}
+            onChange={(customModels) =>
+              updateActiveProviderSettings({ customModels })
+            }
           />
         </SettingField>
       ) : (
