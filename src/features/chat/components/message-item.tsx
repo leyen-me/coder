@@ -88,7 +88,8 @@ function areMessageItemPropsEqual(
     prevMessage.processSteps === nextMessage.processSteps &&
     prevMessage.toolInvocations === nextMessage.toolInvocations &&
     prevMessage.images === nextMessage.images &&
-    prevMessage.messageKind === nextMessage.messageKind
+    prevMessage.messageKind === nextMessage.messageKind &&
+    prevMessage.taskId === nextMessage.taskId
   );
 }
 
@@ -313,7 +314,7 @@ export const MessageItem = memo(function MessageItem({
   return (
     <Message from="assistant">
       {showProcessTimeline ? (
-        <AssistantProcessView steps={timelineSteps} />
+        <AssistantProcessView steps={timelineSteps} taskId={message.taskId} />
       ) : null}
       {answerText && showStandaloneAnswer ? (
         <StreamingMessageContent isStreaming={isStreaming} text={answerText} />

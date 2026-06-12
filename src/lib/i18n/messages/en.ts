@@ -153,6 +153,18 @@ export const enMessages = {
     planFileName: "Plan",
     planGenerating: "Generating…",
     buildWithAgent: "Build with Agent",
+    askQuestionTitle: "Need your input",
+    askQuestionDescription:
+      "Answer these questions so the agent can continue planning with the right assumptions.",
+    askQuestionSingle: "Choose one",
+    askQuestionMultiple: "Choose one or more",
+    askQuestionOther: "Other",
+    askQuestionOtherPlaceholder: "Enter your answer…",
+    askQuestionSubmit: "Continue",
+    askQuestionSelectRequired: "Select at least one option or use Other.",
+    askQuestionOtherRequired: "Enter your custom answer for Other.",
+    askQuestionSubmitError:
+      "This question request is no longer active. Try asking the agent again.",
   },
   time: {
     justNow: "Just now",

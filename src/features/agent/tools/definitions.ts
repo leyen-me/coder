@@ -23,6 +23,7 @@ export const PLAN_READ_TOOL_NAME = "plan_read";
 export const PLAN_UPDATE_TOOL_NAME = "plan_update";
 export const PLAN_DELETE_TOOL_NAME = "plan_delete";
 export const PLAN_LIST_TOOL_NAME = "plan_list";
+export const ASK_QUESTION_TOOL_NAME = "ask_question";
 
 export const LIST_DIR_TOOL: AgentToolDefinition = {
   type: "function",
@@ -603,6 +604,73 @@ export const TODO_WRITE_TOOL: AgentToolDefinition = {
   },
 };
 
+export const ASK_QUESTION_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: ASK_QUESTION_TOOL_NAME,
+    description:
+      "Ask the user one or more structured clarification questions and wait for their answers before continuing. Each question can be single-select or multi-select. The UI always provides an Other/custom-text option for every question.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description:
+            "Optional short title shown above the question list, e.g. Clarify requirements.",
+        },
+        questions: {
+          type: "array",
+          description:
+            "A non-empty list of questions to ask in one batch. Prefer batching related questions together instead of asking one at a time.",
+          items: {
+            type: "object",
+            properties: {
+              id: {
+                type: "string",
+                description: "Stable identifier for this question.",
+              },
+              prompt: {
+                type: "string",
+                description: "The question shown to the user.",
+              },
+              allow_multiple: {
+                type: "boolean",
+                description:
+                  "Whether the user may select multiple options. Defaults to false.",
+                default: false,
+              },
+              options: {
+                type: "array",
+                description:
+                  "At least 2 predefined options. The UI will add a built-in Other/custom option automatically.",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: {
+                      type: "string",
+                      description: "Stable identifier for this option.",
+                    },
+                    label: {
+                      type: "string",
+                      description: "Option label shown to the user.",
+                    },
+                  },
+                  required: ["id", "label"],
+                  additionalProperties: false,
+                },
+              },
+            },
+            required: ["id", "prompt", "options"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["questions"],
+      additionalProperties: false,
+    },
+  },
+};
+
 export const PLAN_CREATE_TOOL: AgentToolDefinition = {
   type: "function",
   function: {
@@ -758,6 +826,7 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   CREATE_SKILL_TOOL,
   UPDATE_SKILL_TOOL,
   TODO_WRITE_TOOL,
+  ASK_QUESTION_TOOL,
   PLAN_CREATE_TOOL,
   PLAN_READ_TOOL,
   PLAN_UPDATE_TOOL,

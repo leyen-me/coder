@@ -145,6 +145,16 @@ export type Messages = {
     planFileName: string;
     planGenerating: string;
     buildWithAgent: string;
+    askQuestionTitle: string;
+    askQuestionDescription: string;
+    askQuestionSingle: string;
+    askQuestionMultiple: string;
+    askQuestionOther: string;
+    askQuestionOtherPlaceholder: string;
+    askQuestionSubmit: string;
+    askQuestionSelectRequired: string;
+    askQuestionOtherRequired: string;
+    askQuestionSubmitError: string;
   };
   time: {
     justNow: string;

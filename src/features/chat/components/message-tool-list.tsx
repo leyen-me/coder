@@ -1,6 +1,9 @@
 import { normalizeToolInvocations, type MessageToolInvocation } from "@/lib/db";
 import type { MessageRecord } from "@/lib/db";
 
+import { ASK_QUESTION_TOOL_NAME } from "@/features/agent/tools/definitions";
+
+import { AskQuestionToolCard } from "./ask-question-tool-card";
 import { ToolInvocationChip } from "./tool-invocation-chip";
 
 type MessageToolListProps = {
@@ -17,7 +20,11 @@ export function MessageToolList({ message }: MessageToolListProps) {
   return (
     <div className="flex flex-wrap gap-2">
       {invocations.map((invocation) => (
-        <MessageToolItem key={invocation.id} invocation={invocation} />
+        <MessageToolItem
+          invocation={invocation}
+          key={invocation.id}
+          taskId={message.taskId}
+        />
       ))}
     </div>
   );
@@ -25,9 +32,22 @@ export function MessageToolList({ message }: MessageToolListProps) {
 
 type MessageToolItemProps = {
   invocation: MessageToolInvocation;
+  taskId?: string | null;
   className?: string;
 };
 
-export function MessageToolItem({ invocation, className }: MessageToolItemProps) {
+export function MessageToolItem({
+  invocation,
+  taskId,
+  className,
+}: MessageToolItemProps) {
+  if (
+    invocation.name === ASK_QUESTION_TOOL_NAME &&
+    invocation.state === "input-available" &&
+    taskId
+  ) {
+    return <AskQuestionToolCard invocation={invocation} taskId={taskId} />;
+  }
+
   return <ToolInvocationChip className={className} invocation={invocation} />;
 }

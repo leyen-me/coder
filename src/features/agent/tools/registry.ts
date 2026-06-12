@@ -1,5 +1,6 @@
 import {
   AGENT_TOOL_DEFINITIONS,
+  ASK_QUESTION_TOOL_NAME,
   AWAIT_TOOL_NAME,
   EDIT_FILE_TOOL_NAME,
   GLOB_TOOL_NAME,
@@ -25,6 +26,7 @@ import {
   WRITE_FILE_TOOL_NAME,
 } from "./definitions";
 import { awaitShellHandler } from "./await-shell";
+import { askQuestionHandler } from "./ask-question";
 import { browsePageHandler } from "./browse-page";
 import { editFileHandler } from "./edit-file";
 import { globHandler } from "./glob";
@@ -60,6 +62,7 @@ import type { ToolResultEnvelope } from "./result";
 import type { AgentMode } from "../types";
 
 const TOOL_HANDLERS: Record<string, ToolHandler> = {
+  [ASK_QUESTION_TOOL_NAME]: askQuestionHandler,
   [LIST_DIR_TOOL_NAME]: listDirHandler,
   [READ_FILE_TOOL_NAME]: readFileHandler,
   [WRITE_FILE_TOOL_NAME]: writeFileHandler,
@@ -87,10 +90,11 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
 
 const ASK_MODE_TOOL_NAMES_SET = new Set(ASK_MODE_TOOL_NAMES);
 const PLAN_MODE_TOOL_NAMES_SET = new Set(PLAN_MODE_TOOL_NAMES);
+const AGENT_MODE_EXCLUDED_TOOL_NAMES_SET = new Set([ASK_QUESTION_TOOL_NAME]);
 
 /**
  * Returns tool definitions for the given mode.
- * - `"agent"`: all tools available (default).
+ * - `"agent"`: all tools except plan-only interaction helpers.
  * - `"ask"`: only read-only / information-gathering tools.
  * - `"plan"`: read-only tools plus plan file management and todo_write.
  */
@@ -109,7 +113,9 @@ export function getAgentToolDefinitions(
     );
   }
 
-  return AGENT_TOOL_DEFINITIONS;
+  return AGENT_TOOL_DEFINITIONS.filter(
+    (tool) => !AGENT_MODE_EXCLUDED_TOOL_NAMES_SET.has(tool.function.name)
+  );
 }
 
 export function getToolHandler(name: string): ToolHandler | null {

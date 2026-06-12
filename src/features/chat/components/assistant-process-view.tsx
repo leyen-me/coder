@@ -1,6 +1,7 @@
 "use client";
 
 import type { MessageToolInvocation } from "@/lib/db";
+import { ASK_QUESTION_TOOL_NAME } from "@/features/agent/tools/definitions";
 
 import type { AssistantProcessStep } from "./assistant-process";
 import { MessageToolItem } from "./message-tool-list";
@@ -9,6 +10,7 @@ import { ThinkingBlock } from "./thinking-block";
 
 type AssistantProcessViewProps = {
   steps: AssistantProcessStep[];
+  taskId?: string | null;
 };
 
 type AssistantProcessGroup =
@@ -19,17 +21,27 @@ type AssistantProcessGroup =
       invocations: MessageToolInvocation[];
     };
 
-export function AssistantProcessView({ steps }: AssistantProcessViewProps) {
+export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProps) {
   const groups = groupAssistantProcessSteps(steps);
 
   return (
     <div className="flex w-full flex-col gap-3">
       {groups.map((group) => {
         if (group.kind === "tools") {
+          const hasAskQuestion = group.invocations.some(
+            (invocation) => invocation.name === ASK_QUESTION_TOOL_NAME
+          );
           return (
-            <div className="flex flex-wrap gap-2" key={group.id}>
+            <div
+              className={hasAskQuestion ? "flex flex-col gap-3" : "flex flex-wrap gap-2"}
+              key={group.id}
+            >
               {group.invocations.map((invocation) => (
-                <MessageToolItem invocation={invocation} key={invocation.id} />
+                <MessageToolItem
+                  invocation={invocation}
+                  key={invocation.id}
+                  taskId={taskId}
+                />
               ))}
             </div>
           );
