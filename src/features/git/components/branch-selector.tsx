@@ -189,7 +189,7 @@ export function BranchSelector() {
           <DialogFooter>
             <DialogClose asChild>
               <Button type="button" variant="ghost">
-                Cancel
+                {t("git.cancel")}
               </Button>
             </DialogClose>
             <Button

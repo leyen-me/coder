@@ -6,6 +6,7 @@ import {
   FileXIcon,
   FileWarningIcon,
   GitBranchPlusIcon,
+  InboxIcon,
   RotateCcwIcon,
   Trash2Icon,
 } from "lucide-react";
@@ -29,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { useGit } from "../git-provider";
 import type { GitFileStatus, GitStatusEntry } from "../types";
 import { CommitBox } from "./commit-box";
+import { EmptyState } from "./empty-state";
 
 const STATUS_ICONS: Record<GitFileStatus, React.ComponentType<{ className?: string }>> = {
   modified: FileIcon,
@@ -64,8 +66,8 @@ function ChangeFileItem({ entry, onToggle, onDiscard }: ChangeFileItemProps) {
   return (
     <div
       className={cn(
-        "group flex items-center gap-2 px-3 py-1 text-xs transition-colors hover:bg-muted/30",
-        entry.staged && "bg-muted/10",
+        "group flex min-w-0 items-start gap-2 px-3 py-2 transition-colors hover:bg-muted/40",
+        entry.staged && "bg-primary/5",
       )}
     >
       <Checkbox
@@ -73,28 +75,27 @@ function ChangeFileItem({ entry, onToggle, onDiscard }: ChangeFileItemProps) {
         className="size-3.5"
         onCheckedChange={() => onToggle(entry.path, entry.staged)}
       />
-      <Icon className={cn("size-3.5 shrink-0", STATUS_COLORS[entry.status])} />
-      <span className="min-w-0 flex-1 truncate font-mono">{entry.path}</span>
-      <div className="flex shrink-0 items-center gap-1">
-        <span className="text-[10px] uppercase text-muted-foreground/60">
-          {entry.status === "modified"
-            ? "M"
-            : entry.status === "added"
-              ? "A"
-              : entry.status === "deleted"
-                ? "D"
-                : entry.status === "renamed"
-                  ? "R"
-                  : entry.status === "conflicted"
-                    ? "C"
-                    : entry.status === "untracked"
-                      ? "U"
-                      : ""}
+      <div className="rounded-xl bg-muted/50 p-1.5">
+        <Icon className={cn("size-3.5 shrink-0", STATUS_COLORS[entry.status])} />
+      </div>
+      <div className="min-w-0 flex-1 pt-0.5">
+        <p className="wrap-anywhere text-xs leading-4 font-mono">{entry.path}</p>
+        {entry.originalPath ? (
+          <p className="wrap-anywhere pt-0.5 text-[11px] leading-4 text-muted-foreground">
+            {entry.originalPath}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex shrink-0 items-center gap-1 pl-1">
+        <span className={cn("text-[10px] font-medium", STATUS_COLORS[entry.status])}>
+          {entry.status.slice(0, 1).toUpperCase()}
         </span>
         <Button
-          className="size-6 text-destructive/80 hover:text-destructive"
+          aria-label={entry.path}
+          className="text-destructive/80 hover:text-destructive"
           onClick={() => onDiscard(entry)}
-          size="icon-sm"
+          size="icon-xs"
+          title={entry.path}
           type="button"
           variant="ghost"
         >
@@ -108,6 +109,37 @@ function ChangeFileItem({ entry, onToggle, onDiscard }: ChangeFileItemProps) {
 type DiscardTarget =
   | { type: "file"; path: string; entries: GitStatusEntry[] }
   | { type: "all" };
+
+type ChangeSectionProps = {
+  entries: GitStatusEntry[];
+  title: string;
+  onDiscard: (entry: GitStatusEntry) => void;
+  onToggle: (path: string, staged: boolean) => void;
+};
+
+function ChangeSection({ entries, title, onDiscard, onToggle }: ChangeSectionProps) {
+  if (entries.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="overflow-hidden rounded-2xl border bg-background shadow-xs">
+      <div className="border-b px-3 py-2">
+        <p className="truncate text-xs font-medium">{title}</p>
+      </div>
+      <div className="divide-y divide-border/60">
+        {entries.map((entry) => (
+          <ChangeFileItem
+            entry={entry}
+            key={`${entry.staged ? "staged" : "unstaged"}-${entry.path}-${entry.status}`}
+            onDiscard={onDiscard}
+            onToggle={onToggle}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export function ChangesView() {
   const { t } = useTranslation();
@@ -189,9 +221,14 @@ export function ChangesView() {
 
   if (statusEntries.length === 0) {
     return (
-      <div className="flex h-full flex-col">
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-          {t("git.noChanges")}
+      <div className="flex h-full flex-col bg-muted/10">
+        <div className="flex flex-1 items-center justify-center p-4">
+          <div className="w-full rounded-3xl border border-dashed bg-background/80">
+            <EmptyState
+              icon={<InboxIcon className="size-8 text-muted-foreground/40" />}
+              message={t("git.noChanges")}
+            />
+          </div>
         </div>
         <CommitBox />
       </div>
@@ -199,81 +236,66 @@ export function ChangesView() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex-1 overflow-y-auto">
-        {/* Stage/Unstage All buttons */}
-        <div className="flex items-center gap-1 border-b px-2 py-1">
-          {unstagedEntries.length > 0 ? (
-            <Button
-              className="h-6 gap-1 text-[11px]"
-              onClick={() => void stageAll()}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              <GitBranchPlusIcon className="size-3" />
-              {t("git.stagedFiles")}
-            </Button>
-          ) : null}
-          {stagedEntries.length > 0 ? (
-            <Button
-              className="h-6 gap-1 text-[11px]"
-              onClick={() => void unstageAll()}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              <RotateCcwIcon className="size-3" />
-              {t("git.unstagedFiles")}
-            </Button>
-          ) : null}
-          {statusEntries.length > 0 ? (
-            <Button
-              className="ml-auto h-6 gap-1 text-[11px] text-destructive/90 hover:text-destructive"
-              onClick={() => setDiscardTarget({ type: "all" })}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              <Trash2Icon className="size-3" />
-              {t("git.discardAll")}
-            </Button>
-          ) : null}
+    <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
+      <div className="shrink-0 border-b bg-background/80 px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="truncate text-xs font-medium">{t("git.changes")}</p>
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {unstagedEntries.length > 0 ? (
+              <Button
+                aria-label={t("git.stagedFiles")}
+                onClick={() => void stageAll()}
+                size="icon-xs"
+                title={t("git.stagedFiles")}
+                type="button"
+                variant="outline"
+              >
+                <GitBranchPlusIcon className="size-3" />
+              </Button>
+            ) : null}
+            {stagedEntries.length > 0 ? (
+              <Button
+                aria-label={t("git.unstagedFiles")}
+                onClick={() => void unstageAll()}
+                size="icon-xs"
+                title={t("git.unstagedFiles")}
+                type="button"
+                variant="outline"
+              >
+                <RotateCcwIcon className="size-3" />
+              </Button>
+            ) : null}
+            {statusEntries.length > 0 ? (
+              <Button
+                aria-label={t("git.discardAll")}
+                className="text-destructive/90 hover:text-destructive"
+                onClick={() => setDiscardTarget({ type: "all" })}
+                size="icon-xs"
+                title={t("git.discardAll")}
+                type="button"
+                variant="ghost"
+              >
+                <Trash2Icon className="size-3" />
+              </Button>
+            ) : null}
+          </div>
         </div>
-
-        {/* Staged changes */}
-        {stagedEntries.length > 0 ? (
-          <div>
-            <div className="sticky top-0 bg-background px-3 py-1 text-[11px] font-medium uppercase text-muted-foreground/70">
-              {t("git.stagedChanges")} ({stagedEntries.length})
-            </div>
-            {stagedEntries.map((entry) => (
-              <ChangeFileItem
-                entry={entry}
-                key={`staged-${entry.path}`}
-                onDiscard={handleRequestDiscardFile}
-                onToggle={handleToggle}
-              />
-            ))}
-          </div>
-        ) : null}
-
-        {/* Unstaged changes */}
-        {unstagedEntries.length > 0 ? (
-          <div>
-            <div className="sticky top-0 bg-background px-3 py-1 text-[11px] font-medium uppercase text-muted-foreground/70">
-              {t("git.unstagedChanges")} ({unstagedEntries.length})
-            </div>
-            {unstagedEntries.map((entry) => (
-              <ChangeFileItem
-                entry={entry}
-                key={`unstaged-${entry.path}`}
-                onDiscard={handleRequestDiscardFile}
-                onToggle={handleToggle}
-              />
-            ))}
-          </div>
-        ) : null}
+      </div>
+      <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
+        <div className="flex flex-col gap-3 p-3">
+          <ChangeSection
+            entries={stagedEntries}
+            onDiscard={handleRequestDiscardFile}
+            onToggle={handleToggle}
+            title={t("git.stagedChanges")}
+          />
+          <ChangeSection
+            entries={unstagedEntries}
+            onDiscard={handleRequestDiscardFile}
+            onToggle={handleToggle}
+            title={t("git.unstagedChanges")}
+          />
+        </div>
       </div>
 
       <CommitBox />

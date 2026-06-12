@@ -1,14 +1,23 @@
 "use client";
 
-import { GitBranchIcon, HistoryIcon, InboxIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import {
+  AlertCircleIcon,
+  GitBranchIcon,
+  HistoryIcon,
+  InboxIcon,
+  PlusIcon,
+  RefreshCwIcon,
+} from "lucide-react";
 import { useCallback, useState } from "react";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
 import { useGit } from "../git-provider";
+import { BranchSelector } from "./branch-selector";
 import { ChangesView } from "./changes-view";
 import { HistoryView } from "./history-view";
 import { RemoteActions } from "./remote-actions";
@@ -19,8 +28,21 @@ type SourceControlPanelProps = {
 
 export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
   const { t } = useTranslation();
-  const { activeTab, setActiveTab, currentBranch, refresh, isLoading, isGitRepo, initRepo } = useGit();
+  const {
+    activeTab,
+    setActiveTab,
+    currentBranch,
+    refresh,
+    isLoading,
+    isGitRepo,
+    initRepo,
+    statusEntries,
+    remoteUrl,
+    error,
+  } = useGit();
   const [isIniting, setIsIniting] = useState(false);
+
+  const summaryText = statusEntries.length === 0 ? t("git.workingTreeClean") : currentBranch ?? "—";
 
   const handleInit = useCallback(async () => {
     setIsIniting(true);
@@ -43,45 +65,81 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
 
   if (!isGitRepo) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
-        <GitBranchIcon className="size-10 text-muted-foreground/40" />
-        <p className="text-sm text-muted-foreground">{t("git.noRepository")}</p>
-        <Button
-          disabled={isIniting}
-          onClick={handleInit}
-          size="sm"
-          type="button"
-          className="gap-2"
-        >
-          <PlusIcon className="size-4" />
-          {isIniting ? t("git.operationInProgress") : t("git.initRepository")}
-        </Button>
+      <div className="flex h-full items-center justify-center bg-muted/10 p-4">
+        <div className="flex max-w-sm flex-col items-center gap-4 rounded-3xl border bg-background px-6 py-8 text-center shadow-sm">
+          <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+            <GitBranchIcon className="size-6" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium">{t("git.sourceControl")}</p>
+            <p className="text-sm text-muted-foreground">{t("git.noRepository")}</p>
+          </div>
+          <Button
+            className="gap-2"
+            disabled={isIniting}
+            onClick={handleInit}
+            size="sm"
+            type="button"
+          >
+            <PlusIcon className="size-4" />
+            {isIniting ? t("git.operationInProgress") : t("git.initRepository")}
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col">
-      {/* Header */}
-      <div className="flex items-center gap-2 border-b px-3 py-2">
-        <GitBranchIcon className="size-4 shrink-0 text-muted-foreground" />
-        <span className="truncate text-sm font-medium">
-          {currentBranch ?? "—"}
-        </span>
-        <button
-          aria-label={t("git.refresh")}
-          className="ml-auto rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-foreground"
-          disabled={isLoading}
-          onClick={() => void refresh()}
-          title={t("git.refresh")}
-          type="button"
-        >
-          <RefreshCwIcon className={cn("size-3.5", isLoading && "animate-spin")} />
-        </button>
-        <RemoteActions />
+    <div className="flex h-full min-h-0 min-w-0 flex-col bg-muted/10">
+      <div className="shrink-0 border-b bg-background/95 px-3 py-3 backdrop-blur">
+        <div className="flex min-w-0 items-start gap-2">
+          <div className="rounded-xl bg-primary/10 p-2 text-primary">
+            <GitBranchIcon className="size-3.5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm font-medium">{currentBranch ?? "—"}</span>
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                  remoteUrl
+                    ? "bg-primary/10 text-primary"
+                    : "bg-muted text-muted-foreground",
+                )}
+                title={remoteUrl ? t("git.remoteConnected") : t("git.localOnly")}
+              >
+                {remoteUrl ? "R" : "L"}
+              </span>
+            </div>
+            <p className="mt-1 truncate text-[11px] text-muted-foreground">{summaryText}</p>
+            <div className="mt-2 flex justify-end">
+              <div className="flex shrink-0 items-center gap-0.5">
+                <BranchSelector />
+                <RemoteActions />
+                <Button
+                  aria-label={t("git.refresh")}
+                  disabled={isLoading}
+                  onClick={() => void refresh()}
+                  size="icon-xs"
+                  title={t("git.refresh")}
+                  type="button"
+                  variant="ghost"
+                >
+                  <RefreshCwIcon className={cn("size-3", isLoading && "animate-spin")} />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+        {error ? (
+          <Alert className="mt-3" variant="destructive">
+            <AlertCircleIcon className="size-4" />
+            <AlertTitle>{t("git.error")}</AlertTitle>
+            <AlertDescription className="wrap-break-word">{error}</AlertDescription>
+          </Alert>
+        ) : null}
       </div>
 
-      {/* Tabs */}
       <Tabs
         className="flex min-h-0 min-w-0 flex-1 flex-col gap-0"
         onValueChange={(value) => {
@@ -91,13 +149,13 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
         }}
         value={activeTab}
       >
-        <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5">
-          <TabsList className="h-7" variant="line">
-            <TabsTrigger className="h-7 gap-1.5 px-2.5 text-xs" value="changes">
+        <div className="flex shrink-0 items-center gap-2 border-b bg-background/80 px-3 py-1.5">
+          <TabsList className="h-7 w-full" variant="line">
+            <TabsTrigger className="h-7 flex-1 gap-1.5 px-2 text-xs" value="changes">
               <InboxIcon className="size-3.5 shrink-0" />
               {t("git.changes")}
             </TabsTrigger>
-            <TabsTrigger className="h-7 gap-1.5 px-2.5 text-xs" value="history">
+            <TabsTrigger className="h-7 flex-1 gap-1.5 px-2 text-xs" value="history">
               <HistoryIcon className="size-3.5 shrink-0" />
               {t("git.history")}
             </TabsTrigger>

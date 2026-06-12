@@ -575,6 +575,10 @@ export type Messages = {
     changes: string;
     stagedChanges: string;
     unstagedChanges: string;
+    workingTreeClean: string;
+    changesSummary: string;
+    readyToCommit: string;
+    stageChangesToCommit: string;
     commitMessagePlaceholder: string;
     commit: string;
     commitDisabled: string;
@@ -599,6 +603,8 @@ export type Messages = {
     noRepository: string;
     uncommittedChanges: string;
     initRepository: string;
+    localOnly: string;
+    remoteConnected: string;
     remoteUrl: string;
     diffView: string;
     loading: string;
