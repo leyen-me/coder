@@ -572,6 +572,7 @@ export const zhMessages = {
     noWorkspace: "请先选择工作区以浏览文件",
     loading: "正在加载文件…",
     closePreview: "关闭预览",
+    closePanel: "关闭侧栏",
     previewLoading: "正在加载预览…",
     previewBinary: "无法预览二进制文件",
     previewTooLarge: "文件过大，无法预览",

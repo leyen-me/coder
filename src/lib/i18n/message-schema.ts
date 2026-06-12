@@ -496,6 +496,7 @@ export type Messages = {
     noWorkspace: string;
     loading: string;
     closePreview: string;
+    closePanel: string;
     previewLoading: string;
     previewBinary: string;
     previewTooLarge: string;

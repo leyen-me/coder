@@ -587,6 +587,7 @@ export const enMessages = {
     noWorkspace: "Select a workspace to browse files",
     loading: "Loading files…",
     closePreview: "Close preview",
+    closePanel: "Close panel",
     previewLoading: "Loading preview…",
     previewBinary: "Binary files cannot be previewed",
     previewTooLarge: "File is too large to preview",

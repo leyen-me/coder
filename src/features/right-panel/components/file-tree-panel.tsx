@@ -10,6 +10,8 @@ import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { useFileEditorSessions } from "../hooks/use-file-editor-sessions";
 import { useFilePreviewTabs } from "../hooks/use-file-preview-tabs";
@@ -38,6 +40,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     openSourceControlTab,
     deactivateSourceControlTab,
     isOpen: isRightPanelOpen,
+    setOpen,
   } = useRightPanel();
   const {
     tabs,
@@ -172,7 +175,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
         onValueChange={handleMainTabChange}
       >
         {/* ── Level 1: Underline-style tabs ── */}
-        <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5">
+        <div className="flex shrink-0 items-center gap-2 border-t border-b px-3 py-1.5">
           <TabsList className="h-7" variant="line">
             <TabsTrigger
               className="h-7 gap-1.5 px-2.5 text-xs"
@@ -199,6 +202,22 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
               {t("git.sourceControl")}
             </TabsTrigger>
           </TabsList>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label={t("rightPanel.closePanel")}
+                className="ml-auto size-7 shrink-0 text-muted-foreground"
+                onClick={() => setOpen(false)}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <XIcon className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("rightPanel.closePanel")}</TooltipContent>
+          </Tooltip>
         </div>
 
         {/* ── Explorer Panel ── */}
