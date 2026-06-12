@@ -418,6 +418,19 @@ export const enMessages = {
         "Instructions sent to the model when polishing prompts. The refined output is always shown for your review before sending.",
       promptRefineSystemPromptAriaLabel: "Refiner system prompt",
       promptRefineSystemPromptReset: "Reset to default",
+      responseStyleLabel: "AI response style",
+      responseStyleDescription:
+        "Change how the AI expresses itself — normal, meme-filled, roast-style, or funny",
+      responseStyleAriaLabel: "Enable AI response style",
+      responseStyleSelectLabel: "Style",
+      responseStyleCustomPromptLabel: "Custom prompt",
+      responseStyleCustomPromptDescription:
+        "Custom instructions for this style. Leave empty to use the default.",
+      responseStyleCustomPromptReset: "Reset to default",
+      responseStyleNormalName: "Normal",
+      responseStyleMemeName: "Meme",
+      responseStyleRoastName: "Roast",
+      responseStyleFunnyName: "Funny",
     },
   },
   lab: {

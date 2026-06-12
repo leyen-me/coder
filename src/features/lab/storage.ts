@@ -2,6 +2,7 @@ import {
   DEFAULT_LAB_SETTINGS,
   LAB_STORAGE_KEY,
   LEGACY_PROMPT_REFINE_ENABLED_KEY,
+  RESPONSE_STYLE_PRESETS,
 } from "./constants";
 import { parseLabSettings } from "./parse-lab-settings";
 import type { LabSettings } from "./types";
@@ -53,4 +54,28 @@ export function writeLabSettings(settings: LabSettings): void {
 
 export function resolvePromptRefineSystemPrompt(settings: LabSettings): string {
   return settings.promptRefineSystemPrompt.trim() || DEFAULT_LAB_SETTINGS.promptRefineSystemPrompt;
+}
+
+export function resolveResponseStylePrompt(settings: LabSettings): string | null {
+  if (!settings.responseStyle.enabled) {
+    return null;
+  }
+
+  const { selectedKey, customPrompts } = settings.responseStyle;
+  const preset = RESPONSE_STYLE_PRESETS.find((p) => p.key === selectedKey);
+
+  if (!preset) {
+    return null;
+  }
+
+  if (preset.key === "normal") {
+    return null;
+  }
+
+  const custom = customPrompts[selectedKey];
+  if (custom?.trim()) {
+    return custom.trim();
+  }
+
+  return preset.defaultPrompt.trim() || null;
 }

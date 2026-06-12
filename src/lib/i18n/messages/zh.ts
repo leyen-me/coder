@@ -408,6 +408,19 @@ export const zhMessages = {
         "润色时发送给模型的系统指令。润色结果会在发送前展示供你确认或编辑。",
       promptRefineSystemPromptAriaLabel: "润色系统提示词",
       promptRefineSystemPromptReset: "恢复默认",
+      responseStyleLabel: "AI 回答风格",
+      responseStyleDescription:
+        "改变 AI 的表达方式 — 正常、玩梗、嘴臭或搞笑风格",
+      responseStyleAriaLabel: "启用 AI 回答风格",
+      responseStyleSelectLabel: "风格",
+      responseStyleCustomPromptLabel: "自定义提示词",
+      responseStyleCustomPromptDescription:
+        "该风格的定制指令。留空则使用默认提示词。",
+      responseStyleCustomPromptReset: "恢复默认",
+      responseStyleNormalName: "正常",
+      responseStyleMemeName: "玩梗",
+      responseStyleRoastName: "嘴臭",
+      responseStyleFunnyName: "搞笑",
     },
   },
   lab: {

@@ -339,6 +339,17 @@ export type Messages = {
       promptRefineSystemPromptDescription: string;
       promptRefineSystemPromptAriaLabel: string;
       promptRefineSystemPromptReset: string;
+      responseStyleLabel: string;
+      responseStyleDescription: string;
+      responseStyleAriaLabel: string;
+      responseStyleSelectLabel: string;
+      responseStyleCustomPromptLabel: string;
+      responseStyleCustomPromptDescription: string;
+      responseStyleCustomPromptReset: string;
+      responseStyleNormalName: string;
+      responseStyleMemeName: string;
+      responseStyleRoastName: string;
+      responseStyleFunnyName: string;
     };
   };
   lab: {
