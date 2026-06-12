@@ -175,7 +175,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
         onValueChange={handleMainTabChange}
       >
         {/* ── Level 1: Underline-style tabs ── */}
-        <div className="flex shrink-0 items-center gap-2 border-t border-b px-3 py-1.5">
+        <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5">
           <TabsList className="h-7" variant="line">
             <TabsTrigger
               className="h-7 gap-1.5 px-2.5 text-xs"

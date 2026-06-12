@@ -33,7 +33,7 @@ export function ContentTitleBar({
       className={cn(
         "flex",
         TITLE_BAR_CLASS,
-        "shrink-0 items-stretch overflow-hidden",
+        "shrink-0 items-stretch overflow-hidden border-b border-border",
       )}
     >
       <div
