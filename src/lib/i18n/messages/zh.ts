@@ -684,6 +684,8 @@ export const zhMessages = {
     remoteUrl: "远程仓库地址",
     diffView: "差异对比",
     loading: "加载中…",
+    loadingMoreHistory: "正在加载更多提交…",
+    loadMoreWhenScrolled: "滚动到底部后继续加载",
     error: "错误",
     commitSuccess: "提交成功",
     commitFailed: "提交失败",

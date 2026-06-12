@@ -62,7 +62,7 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 min-w-0 flex-col">
       {/* Header */}
       <div className="flex items-center gap-2 border-b px-3 py-2">
         <GitBranchIcon className="size-4 shrink-0 text-muted-foreground" />
@@ -84,7 +84,7 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
 
       {/* Tabs */}
       <Tabs
-        className="flex min-h-0 flex-1 flex-col gap-0"
+        className="flex min-h-0 min-w-0 flex-1 flex-col gap-0"
         onValueChange={(value) => {
           if (value === "changes" || value === "history" || value === "stash") {
             setActiveTab(value);
@@ -110,21 +110,21 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
         </div>
 
         <TabsContent
-          className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+          className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col data-[state=inactive]:hidden"
           value="changes"
         >
           <ChangesView />
         </TabsContent>
 
         <TabsContent
-          className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+          className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col data-[state=inactive]:hidden"
           value="history"
         >
           <HistoryView workspaceDir={workspaceDir} />
         </TabsContent>
 
         <TabsContent
-          className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+          className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col data-[state=inactive]:hidden"
           value="stash"
         >
           <StashView />

@@ -28,6 +28,10 @@ export type GitContextValue = {
   statusEntries: GitStatusEntry[];
   /** Recent commits. */
   recentCommits: GitCommitEntry[];
+  /** Whether the history view can load more commits. */
+  hasMoreRecentCommits: boolean;
+  /** Whether additional history entries are loading. */
+  isLoadingMoreRecentCommits: boolean;
   /** Stash entries. */
   stashList: GitStashEntry[];
   /** Whether the workspace is a valid git repository. */
@@ -41,6 +45,8 @@ export type GitContextValue = {
   setActiveTab: (tab: SourceControlTab) => void;
   /** Refresh all git data from the backend. */
   refresh: () => Promise<void>;
+  /** Load the next page of commit history. */
+  loadMoreRecentCommits: () => Promise<void>;
   /** Stage specific files. */
   stageFiles: (paths: string[]) => Promise<void>;
   /** Unstage specific files. */
@@ -77,6 +83,8 @@ export type GitContextValue = {
   initRepo: () => Promise<void>;
 };
 
+const HISTORY_PAGE_SIZE = 50;
+
 const GitContext = createContext<GitContextValue | null>(null);
 
 type GitProviderProps = {
@@ -91,6 +99,8 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
   const [branches, setBranches] = useState<string[]>([]);
   const [statusEntries, setStatusEntries] = useState<GitStatusEntry[]>([]);
   const [recentCommits, setRecentCommits] = useState<GitCommitEntry[]>([]);
+  const [hasMoreRecentCommits, setHasMoreRecentCommits] = useState(false);
+  const [isLoadingMoreRecentCommits, setIsLoadingMoreRecentCommits] = useState(false);
   const [stashList, setStashList] = useState<GitStashEntry[]>([]);
   const [remoteUrl, setRemoteUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -120,7 +130,7 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
     // If git_status fails with "not a git repository", mark isGitRepo = false.
     const statusPromise = gitService.fetchGitStatus(workspaceDir);
     const branchesPromise = gitService.fetchGitBranches(workspaceDir);
-    const logPromise = gitService.fetchGitLog(workspaceDir, 50);
+    const logPromise = gitService.fetchGitLog(workspaceDir, HISTORY_PAGE_SIZE);
     const stashPromise = gitService.fetchStashList(workspaceDir);
     const urlPromise = gitService.getRemoteUrl(workspaceDir);
 
@@ -149,10 +159,42 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       setBranches(branchRes.branches);
     }
     setRecentCommits(log);
+    setHasMoreRecentCommits(log.length === HISTORY_PAGE_SIZE);
+    setIsLoadingMoreRecentCommits(false);
     setStashList(stashes);
     setRemoteUrl(url);
     setIsLoading(false);
   }, [workspaceDir]);
+
+  const loadMoreRecentCommits = useCallback(async () => {
+    if (!workspaceDir || isLoadingMoreRecentCommits || !hasMoreRecentCommits) {
+      return;
+    }
+
+    setIsLoadingMoreRecentCommits(true);
+    try {
+      const nextPage = await gitService.fetchGitLog(
+        workspaceDir,
+        HISTORY_PAGE_SIZE,
+        recentCommits.length,
+      );
+      setRecentCommits((current) => {
+        const existingHashes = new Set(current.map((commit) => commit.hash));
+        const uniqueNextPage = nextPage.filter((commit) => !existingHashes.has(commit.hash));
+        return [...current, ...uniqueNextPage];
+      });
+      setHasMoreRecentCommits(nextPage.length === HISTORY_PAGE_SIZE);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Load commit history failed");
+    } finally {
+      setIsLoadingMoreRecentCommits(false);
+    }
+  }, [
+    workspaceDir,
+    isLoadingMoreRecentCommits,
+    hasMoreRecentCommits,
+    recentCommits.length,
+  ]);
 
   // Auto-refresh when workspace changes
   useEffect(() => {
@@ -163,6 +205,8 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       setBranches([]);
       setStatusEntries([]);
       setRecentCommits([]);
+      setHasMoreRecentCommits(false);
+      setIsLoadingMoreRecentCommits(false);
       setStashList([]);
       setRemoteUrl(null);
       setIsGitRepo(true);
@@ -409,6 +453,8 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       branches,
       statusEntries,
       recentCommits,
+      hasMoreRecentCommits,
+      isLoadingMoreRecentCommits,
       stashList,
       isLoading,
       error,
@@ -417,6 +463,7 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       setActiveTab,
       remoteUrl,
       refresh,
+      loadMoreRecentCommits,
       stageFiles,
       unstageFiles,
       stageAll,
@@ -439,6 +486,8 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       branches,
       statusEntries,
       recentCommits,
+      hasMoreRecentCommits,
+      isLoadingMoreRecentCommits,
       stashList,
       isLoading,
       error,
@@ -446,6 +495,7 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       activeTab,
       remoteUrl,
       refresh,
+      loadMoreRecentCommits,
       stageFiles,
       unstageFiles,
       stageAll,

@@ -86,11 +86,13 @@ export async function commit(
 export async function fetchGitLog(
   workspaceDir: string,
   maxCount?: number,
+  skip?: number,
 ): Promise<GitCommitEntry[]> {
   assertTauri();
   return await invoke<GitCommitEntry[]>("git_log", {
     workspaceDir,
     maxCount: maxCount ?? 50,
+    skip: skip ?? 0,
   });
 }
 

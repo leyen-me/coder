@@ -599,6 +599,8 @@ export type Messages = {
     remoteUrl: string;
     diffView: string;
     loading: string;
+    loadingMoreHistory: string;
+    loadMoreWhenScrolled: string;
     error: string;
     commitSuccess: string;
     commitFailed: string;

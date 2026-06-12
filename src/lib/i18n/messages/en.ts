@@ -725,6 +725,8 @@ export const enMessages = {
     remoteUrl: "Remote URL",
     diffView: "Diff",
     loading: "Loading…",
+    loadingMoreHistory: "Loading more commits…",
+    loadMoreWhenScrolled: "Scroll to load more commits",
     error: "Error",
     commitSuccess: "Changes committed successfully",
     commitFailed: "Commit failed",

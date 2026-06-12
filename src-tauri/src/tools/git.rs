@@ -358,19 +358,23 @@ pub fn git_commit(workspace_dir: String, message: String) -> Result<(), String> 
 
 /// Get commit log.
 /// `max_count` defaults to 50 if not provided or 0.
+/// `skip` defaults to 0 when not provided.
 #[tauri::command]
 pub fn git_log(
     workspace_dir: String,
     max_count: Option<u32>,
+    skip: Option<u32>,
 ) -> Result<Vec<GitCommitEntry>, String> {
     let workspace = validate_git_workspace(&workspace_dir)?;
     let count = max_count.filter(|&c| c > 0).unwrap_or(50);
+    let skip = skip.unwrap_or(0);
 
     let output = run_git(
         workspace,
         &[
             "log",
             &format!("--max-count={count}"),
+            &format!("--skip={skip}"),
             "--format=%H%n%an%n%ae%n%ct%n%s%n---",
             "--no-color",
         ],
@@ -923,9 +927,40 @@ mod tests {
             .status()
             .expect("git commit");
 
-        let log = git_log(dir_str, Some(10)).expect("git_log");
+        let log = git_log(dir_str, Some(10), None).expect("git_log");
         assert!(!log.is_empty());
         assert_eq!(log[0].message, "first commit");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn commit_history_supports_pagination() {
+        let dir = temp_git_dir();
+        let dir_str = dir.to_string_lossy().to_string();
+
+        for index in 0..3 {
+            fs::write(dir.join("file.txt"), format!("content-{index}")).expect("write");
+            Command::new("git")
+                .args(["add", "-A"])
+                .current_dir(&dir)
+                .status()
+                .expect("git add");
+            Command::new("git")
+                .args(["commit", "-m", &format!("commit-{index}")])
+                .current_dir(&dir)
+                .status()
+                .expect("git commit");
+        }
+
+        let first_page = git_log(dir_str.clone(), Some(2), Some(0)).expect("git_log first page");
+        let second_page = git_log(dir_str.clone(), Some(2), Some(2)).expect("git_log second page");
+
+        assert_eq!(first_page.len(), 2);
+        assert_eq!(second_page.len(), 1);
+        assert_eq!(first_page[0].message, "commit-2");
+        assert_eq!(first_page[1].message, "commit-1");
+        assert_eq!(second_page[0].message, "commit-0");
 
         let _ = fs::remove_dir_all(&dir);
     }
