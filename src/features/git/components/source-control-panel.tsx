@@ -42,7 +42,8 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
   } = useGit();
   const [isIniting, setIsIniting] = useState(false);
 
-  const summaryText = statusEntries.length === 0 ? t("git.workingTreeClean") : currentBranch ?? "—";
+  const summaryText =
+    statusEntries.length === 0 ? t("git.workingTreeClean") : t("git.uncommittedChanges");
 
   const handleInit = useCallback(async () => {
     setIsIniting(true);
@@ -91,46 +92,40 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col bg-muted/10">
-      <div className="shrink-0 border-b bg-background/95 px-3 py-3 backdrop-blur">
-        <div className="flex min-w-0 items-start gap-2">
-          <div className="rounded-xl bg-primary/10 p-2 text-primary">
-            <GitBranchIcon className="size-3.5" />
+      <div className="shrink-0 border-b bg-background/95 px-3 py-2.5 backdrop-blur">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <GitBranchIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="truncate text-sm font-medium">{currentBranch ?? "—"}</span>
+            <span
+              className={cn(
+                "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                remoteUrl
+                  ? "bg-primary/10 text-primary"
+                  : "bg-muted text-muted-foreground",
+              )}
+              title={remoteUrl ? t("git.remoteConnected") : t("git.localOnly")}
+            >
+              {remoteUrl ? "R" : "L"}
+            </span>
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="truncate text-sm font-medium">{currentBranch ?? "—"}</span>
-              <span
-                className={cn(
-                  "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                  remoteUrl
-                    ? "bg-primary/10 text-primary"
-                    : "bg-muted text-muted-foreground",
-                )}
-                title={remoteUrl ? t("git.remoteConnected") : t("git.localOnly")}
-              >
-                {remoteUrl ? "R" : "L"}
-              </span>
-            </div>
-            <p className="mt-1 truncate text-[11px] text-muted-foreground">{summaryText}</p>
-            <div className="mt-2 flex justify-end">
-              <div className="flex shrink-0 items-center gap-0.5">
-                <BranchSelector />
-                <RemoteActions />
-                <Button
-                  aria-label={t("git.refresh")}
-                  disabled={isLoading}
-                  onClick={() => void refresh()}
-                  size="icon-xs"
-                  title={t("git.refresh")}
-                  type="button"
-                  variant="ghost"
-                >
-                  <RefreshCwIcon className={cn("size-3", isLoading && "animate-spin")} />
-                </Button>
-              </div>
-            </div>
+          <div className="flex shrink-0 items-center gap-0.5">
+            <BranchSelector />
+            <RemoteActions />
+            <Button
+              aria-label={t("git.refresh")}
+              disabled={isLoading}
+              onClick={() => void refresh()}
+              size="icon-xs"
+              title={t("git.refresh")}
+              type="button"
+              variant="ghost"
+            >
+              <RefreshCwIcon className={cn("size-3", isLoading && "animate-spin")} />
+            </Button>
           </div>
         </div>
+        <p className="mt-1 truncate pl-5 text-[11px] text-muted-foreground">{summaryText}</p>
         {error ? (
           <Alert className="mt-3" variant="destructive">
             <AlertCircleIcon className="size-4" />

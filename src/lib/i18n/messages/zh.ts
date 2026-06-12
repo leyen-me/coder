@@ -683,6 +683,13 @@ export const zhMessages = {
     push: "推送",
     pull: "拉取",
     fetch: "获取",
+    pullConfirmTitle: "要拉取远程更新吗？",
+    pullConfirmDescription:
+      "拉取会更新当前分支「{branch}」，如果本地与远程修改重叠，后续可能需要你手动解决冲突。",
+    pullBlockedTitle: "当前不能拉取",
+    pullBlockedDescription:
+      "你还有未提交的本地更改。请先提交、整理或丢弃这些更改，再执行拉取，避免把工作区直接拉进冲突状态。",
+    continuePull: "继续拉取",
     createBranch: "新建分支",
     deleteBranch: "删除分支",
     deleteBranchConfirm: "确定要删除分支 \"{branch}\" 吗？",

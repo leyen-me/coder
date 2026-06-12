@@ -596,6 +596,11 @@ export type Messages = {
     push: string;
     pull: string;
     fetch: string;
+    pullConfirmTitle: string;
+    pullConfirmDescription: string;
+    pullBlockedTitle: string;
+    pullBlockedDescription: string;
+    continuePull: string;
     createBranch: string;
     deleteBranch: string;
     deleteBranchConfirm: string;

@@ -724,6 +724,13 @@ export const enMessages = {
     push: "Push",
     pull: "Pull",
     fetch: "Fetch",
+    pullConfirmTitle: "Pull remote changes?",
+    pullConfirmDescription:
+      'Pull will update your current branch "{branch}" and may require conflict resolution if local and remote changes overlap.',
+    pullBlockedTitle: "Pull is blocked",
+    pullBlockedDescription:
+      "You have uncommitted local changes. Commit, stage, or discard them before pulling to avoid merge conflicts in the working tree.",
+    continuePull: "Continue Pull",
     createBranch: "New Branch",
     deleteBranch: "Delete Branch",
     deleteBranchConfirm: "Are you sure you want to delete branch \"{branch}\"?",
