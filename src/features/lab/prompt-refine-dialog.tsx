@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { PROMPT_REFINE_TIMEOUT_MS } from "./refine-prompt";
@@ -17,7 +18,7 @@ type PromptRefineDialogProps = {
   open: boolean;
   originalText: string;
   refinedText: string;
-  onConfirm: () => void;
+  onConfirm: (text: string) => void;
   onCancel: () => void;
   onTimeout: () => void;
 };
@@ -31,6 +32,7 @@ export function PromptRefineDialog({
   onTimeout,
 }: PromptRefineDialogProps) {
   const { t } = useTranslation();
+  const [editedText, setEditedText] = useState(refinedText);
   const [countdownSeconds, setCountdownSeconds] = useState(
     Math.ceil(PROMPT_REFINE_TIMEOUT_MS / 1000)
   );
@@ -40,6 +42,7 @@ export function PromptRefineDialog({
       return;
     }
 
+    setEditedText(refinedText);
     setCountdownSeconds(Math.ceil(PROMPT_REFINE_TIMEOUT_MS / 1000));
 
     const startedAt = Date.now();
@@ -60,7 +63,9 @@ export function PromptRefineDialog({
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [open, onTimeout]);
+  }, [open, onTimeout, refinedText]);
+
+  const trimmedEditedText = editedText.trim();
 
   return (
     <Dialog
@@ -93,9 +98,14 @@ export function PromptRefineDialog({
             <p className="text-xs font-medium text-muted-foreground">
               {t("lab.confirmRefined")}
             </p>
-            <div className="max-h-40 overflow-y-auto rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-sm whitespace-pre-wrap">
-              {refinedText}
-            </div>
+            <Textarea
+              aria-label={t("lab.confirmRefined")}
+              className="max-h-48 min-h-28 resize-y border-primary/20 bg-primary/5 text-sm"
+              onChange={(event) => {
+                setEditedText(event.target.value);
+              }}
+              value={editedText}
+            />
           </div>
         </div>
 
@@ -112,7 +122,13 @@ export function PromptRefineDialog({
           <Button type="button" variant="ghost" onClick={onCancel}>
             {t("lab.cancel")}
           </Button>
-          <Button type="button" onClick={onConfirm}>
+          <Button
+            disabled={!trimmedEditedText}
+            type="button"
+            onClick={() => {
+              onConfirm(trimmedEditedText);
+            }}
+          >
             {t("lab.confirmSend")}
           </Button>
         </DialogFooter>

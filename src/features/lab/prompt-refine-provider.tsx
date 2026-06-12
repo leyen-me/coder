@@ -108,10 +108,10 @@ export function PromptRefineProvider({ children }: { children: ReactNode }) {
           open
           originalText={pendingRefine.originalText}
           refinedText={pendingRefine.refinedText}
-          onConfirm={() => {
+          onConfirm={(text) => {
             settlePendingRefine({
               type: "refined",
-              text: pendingRefine.refinedText,
+              text,
             });
           }}
           onCancel={() => {
