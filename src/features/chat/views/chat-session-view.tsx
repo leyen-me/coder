@@ -12,6 +12,8 @@ import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
+import { ChatHotkeyActions } from "@/features/keyboard-shortcuts/chat-hotkey-actions";
+
 import { AgentTodoList } from "../components/agent-todo-list";
 import { ChatMessageList } from "../components/chat-message-list";
 import { PromptComposer } from "../components/prompt-composer";
@@ -399,6 +401,17 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
   const chatContent = (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <ChatHotkeyActions
+        chatId={chatId}
+        editingMessageId={editingMessageId}
+        editingQueuedMessageId={editingQueuedMessageId}
+        isRunning={isRunning}
+        messages={messages}
+        onCancelEdit={handleCancelEdit}
+        onEditUserMessage={handleEditUserMessage}
+        onRegenerateAssistantMessage={handleRegenerateAssistantMessage}
+        onStop={handleStop}
+      />
       <ChatMessageList
         editingMessageId={editingMessageId}
         isBuildPending={isBuildPending}

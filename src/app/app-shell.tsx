@@ -3,6 +3,10 @@ import { useEffect } from "react";
 
 import { FloatingShellNav } from "@/components/layout/floating-shell-nav";
 import { useSidebarOpen } from "@/features/chat/hooks/use-sidebar-open";
+import { HotkeyActionsProvider } from "@/features/keyboard-shortcuts/hotkey-actions-context";
+import { KeyboardShortcuts } from "@/features/keyboard-shortcuts/keyboard-shortcuts";
+import { SearchDialogProvider } from "@/features/keyboard-shortcuts/search-dialog-context";
+import { ShellChromeProvider } from "@/features/keyboard-shortcuts/shell-chrome-context";
 import { RightPanelProvider } from "@/features/right-panel/right-panel-context";
 import { BottomPanelProvider } from "@/features/terminal/bottom-panel-context";
 import { BottomPanelPortalProvider } from "@/features/terminal/bottom-panel-portal-context";
@@ -59,18 +63,25 @@ export function AppShell() {
         canGoBack={canGoBack}
       />
 
-      <BottomPanelProvider>
-        <RightPanelProvider>
-          <BottomPanelPortalProvider>
-            <ShellProcessesProvider>
-              <PersistentBottomPanel workspaceDir={workspaceDir} />
-              <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
-                <Outlet context={shellContext} />
-              </div>
-            </ShellProcessesProvider>
-          </BottomPanelPortalProvider>
-        </RightPanelProvider>
-      </BottomPanelProvider>
+      <ShellChromeProvider toggleSidebar={toggleSidebar}>
+        <SearchDialogProvider>
+          <HotkeyActionsProvider>
+            <BottomPanelProvider>
+              <RightPanelProvider>
+                <BottomPanelPortalProvider>
+                  <ShellProcessesProvider>
+                    <PersistentBottomPanel workspaceDir={workspaceDir} />
+                    <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
+                      <Outlet context={shellContext} />
+                    </div>
+                    <KeyboardShortcuts />
+                  </ShellProcessesProvider>
+                </BottomPanelPortalProvider>
+              </RightPanelProvider>
+            </BottomPanelProvider>
+          </HotkeyActionsProvider>
+        </SearchDialogProvider>
+      </ShellChromeProvider>
       <Toaster richColors />
       <WorkspacePathDragPreview />
     </div>

@@ -9,6 +9,7 @@ import { initLocaleBeforeRender } from "@/lib/i18n/init-locale";
 import { LocaleProvider } from "@/lib/i18n/locale-provider";
 import { initThemeBeforeRender } from "@/lib/theme/init-theme";
 import { ModelProviderProvider } from "@/lib/model-provider/model-provider-provider";
+import { KeyboardShortcutsProvider } from "@/lib/keyboard-shortcuts/keyboard-shortcuts-provider";
 import { WebToolsProvider } from "@/lib/web-tools/web-tools-provider";
 import { ThemeProvider } from "@/lib/theme/theme-provider";
 import { AgentStoreProvider } from "@/features/agent/store/agent-store";
@@ -22,6 +23,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <LocaleProvider>
       <ThemeProvider>
         <ModelProviderProvider>
+          <KeyboardShortcutsProvider>
           <WebToolsProvider>
             <WorkspaceProvider>
               <AgentStoreProvider>
@@ -31,6 +33,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
               </AgentStoreProvider>
             </WorkspaceProvider>
           </WebToolsProvider>
+          </KeyboardShortcutsProvider>
         </ModelProviderProvider>
       </ThemeProvider>
     </LocaleProvider>

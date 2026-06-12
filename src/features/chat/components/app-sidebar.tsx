@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   Plus,
   Search,
@@ -18,8 +17,9 @@ import { useChatSessions } from "@/features/chat/hooks/use-chat-sessions";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
+import { useSearchDialog } from "@/features/keyboard-shortcuts/search-dialog-context";
+
 import { ChatHistoryList } from "./chat-history-list";
-import { SearchDialog } from "./search-dialog";
 import { SidebarNavItem } from "./sidebar-nav-item";
 import { SidebarThemeToggle } from "./sidebar-theme-toggle";
 
@@ -32,7 +32,7 @@ export function AppSidebar({ open }: AppSidebarProps) {
   const { sessions } = useChatSessions();
   const generatingTitleIds = useGeneratingSessionTitles();
   const runningSessionIds = useRunningSessionIds();
-  const [searchOpen, setSearchOpen] = useState(false);
+  const { open: openSearch } = useSearchDialog();
 
   const chatMatch = useMatch("/chat/:chatId");
   const selectedChatId =
@@ -69,7 +69,7 @@ export function AppSidebar({ open }: AppSidebarProps) {
             <SidebarNavItem
               icon={Search}
               label={t("sidebar.search")}
-              onClick={() => setSearchOpen(true)}
+              onClick={openSearch}
             />
             <SidebarNavItem
               icon={Sparkles}
@@ -103,7 +103,6 @@ export function AppSidebar({ open }: AppSidebarProps) {
         </aside>
       </div>
 
-      <SearchDialog open={searchOpen} onOpenChange={setSearchOpen} />
     </>
   );
 }

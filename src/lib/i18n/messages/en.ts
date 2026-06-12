@@ -164,6 +164,7 @@ export const enMessages = {
     categories: {
       general: "General",
       appearance: "Appearance",
+      keyboardShortcuts: "Keyboard shortcuts",
       modelProvider: "Models",
       webTools: "Web tools",
       data: "Data",
@@ -177,6 +178,114 @@ export const enMessages = {
       themeLabel: "Theme",
       themeDescription: "Choose the application color theme",
       themeAriaLabel: "Theme",
+    },
+    keyboardShortcuts: {
+      description:
+        "Customize keyboard shortcuts. Press Backspace while recording to clear a binding.",
+      change: "Change",
+      recording: "Press keys…",
+      reset: "Reset",
+      resetAll: "Reset all",
+      conflict: "This shortcut is already assigned to another action.",
+      groups: {
+        navigation: "Navigation",
+        panels: "Panels",
+        chat: "Chat",
+        file: "Files",
+        terminal: "Terminal",
+      },
+      actions: {
+        global: {
+          search: {
+            label: "Open search",
+            description: "Search across chat sessions",
+          },
+          newChat: {
+            label: "New chat",
+            description: "Start a new conversation",
+          },
+          settings: {
+            label: "Open settings",
+            description: "Go to application settings",
+          },
+          skills: {
+            label: "Open skills",
+            description: "Go to the skills page",
+          },
+          automations: {
+            label: "Open automations",
+            description: "Go to the automations page",
+          },
+          history: {
+            label: "Open history",
+            description: "Go to the history page",
+          },
+        },
+        panel: {
+          toggleSidebar: {
+            label: "Toggle sidebar",
+            description: "Show or hide the left sidebar",
+          },
+          toggleBottom: {
+            label: "Toggle bottom panel",
+            description: "Show or hide the bottom panel",
+          },
+          bottomTerminal: {
+            label: "Toggle terminal",
+            description: "Open or close the terminal tab",
+          },
+          bottomProcesses: {
+            label: "Toggle processes",
+            description: "Open or close the processes tab",
+          },
+          toggleRight: {
+            label: "Toggle right panel",
+            description: "Show or hide the file tree panel",
+          },
+        },
+        chat: {
+          send: {
+            label: "Send message",
+            description: "Send the current composer message",
+          },
+          cancel: {
+            label: "Cancel",
+            description: "Stop the agent or exit message editing",
+          },
+          regenerate: {
+            label: "Regenerate",
+            description: "Regenerate the last assistant message",
+          },
+          editLastUser: {
+            label: "Edit last message",
+            description: "Edit your most recent user message",
+          },
+          copyLastCode: {
+            label: "Copy last code block",
+            description: "Copy the last code block from the assistant",
+          },
+        },
+        file: {
+          quickOpen: {
+            label: "Quick open file",
+            description: "Quickly open a file by name",
+          },
+          closePreview: {
+            label: "Close file preview",
+            description: "Close the active file preview tab",
+          },
+          save: {
+            label: "Save file",
+            description: "Save the active file preview",
+          },
+        },
+        terminal: {
+          focus: {
+            label: "Focus terminal",
+            description: "Focus the terminal when the bottom panel is open",
+          },
+        },
+      },
     },
     modelProvider: {
       providerLabel: "Provider",

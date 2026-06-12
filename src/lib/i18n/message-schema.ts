@@ -156,6 +156,7 @@ export type Messages = {
     categories: {
       general: string;
       appearance: string;
+      keyboardShortcuts: string;
       modelProvider: string;
       webTools: string;
       data: string;
@@ -169,6 +170,53 @@ export type Messages = {
       themeLabel: string;
       themeDescription: string;
       themeAriaLabel: string;
+    };
+    keyboardShortcuts: {
+      description: string;
+      change: string;
+      recording: string;
+      reset: string;
+      resetAll: string;
+      conflict: string;
+      groups: {
+        navigation: string;
+        panels: string;
+        chat: string;
+        file: string;
+        terminal: string;
+      };
+      actions: {
+        global: {
+          search: { label: string; description: string };
+          newChat: { label: string; description: string };
+          settings: { label: string; description: string };
+          skills: { label: string; description: string };
+          automations: { label: string; description: string };
+          history: { label: string; description: string };
+        };
+        panel: {
+          toggleSidebar: { label: string; description: string };
+          toggleBottom: { label: string; description: string };
+          bottomTerminal: { label: string; description: string };
+          bottomProcesses: { label: string; description: string };
+          toggleRight: { label: string; description: string };
+        };
+        chat: {
+          send: { label: string; description: string };
+          cancel: { label: string; description: string };
+          regenerate: { label: string; description: string };
+          editLastUser: { label: string; description: string };
+          copyLastCode: { label: string; description: string };
+        };
+        file: {
+          quickOpen: { label: string; description: string };
+          closePreview: { label: string; description: string };
+          save: { label: string; description: string };
+        };
+        terminal: {
+          focus: { label: string; description: string };
+        };
+      };
     };
     modelProvider: {
       providerLabel: string;

@@ -10,6 +10,7 @@ import { DEFAULT_SETTINGS_CATEGORY } from "../constants";
 import { AppearanceSettingsPanel } from "../components/appearance-settings-panel";
 import { DataSettingsPanel } from "../components/data-settings-panel";
 import { GeneralSettingsPanel } from "../components/general-settings-panel";
+import { KeyboardShortcutsSettingsPanel } from "../components/keyboard-shortcuts-settings-panel";
 import { ModelProviderSettingsPanel } from "../components/model-provider-settings-panel";
 import { WebToolsSettingsPanel } from "../components/web-tools-settings-panel";
 import { SettingsSidebar } from "../components/settings-sidebar";
@@ -18,6 +19,7 @@ import type { SettingsCategoryId } from "../types";
 const SETTINGS_PANELS: Record<SettingsCategoryId, ComponentType> = {
   general: GeneralSettingsPanel,
   appearance: AppearanceSettingsPanel,
+  keyboardShortcuts: KeyboardShortcutsSettingsPanel,
   modelProvider: ModelProviderSettingsPanel,
   webTools: WebToolsSettingsPanel,
   data: DataSettingsPanel,

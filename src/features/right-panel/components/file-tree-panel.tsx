@@ -1,7 +1,9 @@
 "use client";
 
 import { FileIcon, FilesIcon, RefreshCwIcon, XIcon } from "lucide-react";
-import { useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
+
+import { useRegisterHotkeyAction } from "@/features/keyboard-shortcuts/hotkey-actions-context";
 
 import { createFileTreePointerDragProps } from "@/lib/dnd/workspace-path-pointer";
 import { useTranslation } from "@/lib/i18n/locale-provider";
@@ -37,6 +39,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     dismissPendingClose,
     isSaving,
     pendingClose,
+    saveFile,
     setSession,
   } = useFileEditorSessions();
 
@@ -50,6 +53,28 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     [tabs]
   );
   const fileTreeRef = useRef<WorkspaceFileTreeHandle>(null);
+  const activeTab = tabs.find((tab) => tab.path === activeTabPath) ?? null;
+
+  const handleCloseActivePreview = useCallback(() => {
+    if (!activeTabPath || isExplorerActive) {
+      return false;
+    }
+
+    requestCloseFile(activeTabPath, activeTab?.name);
+    return true;
+  }, [activeTab?.name, activeTabPath, isExplorerActive, requestCloseFile]);
+
+  const handleSaveActivePreview = useCallback(() => {
+    if (!activeTabPath || isExplorerActive) {
+      return false;
+    }
+
+    void saveFile(activeTabPath);
+    return true;
+  }, [activeTabPath, isExplorerActive, saveFile]);
+
+  useRegisterHotkeyAction("file.closePreview", handleCloseActivePreview);
+  useRegisterHotkeyAction("file.save", handleSaveActivePreview);
 
   return (
     <div className="flex h-full min-h-0 flex-col">

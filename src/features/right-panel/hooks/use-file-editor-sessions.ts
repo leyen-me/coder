@@ -62,6 +62,20 @@ export function useFileEditorSessions() {
     [isSaving, pendingClose]
   );
 
+  const saveFile = useCallback(async (path: string) => {
+    const session = sessionsRef.current.get(path);
+    if (!session) {
+      return false;
+    }
+
+    setIsSaving(true);
+    try {
+      return await session.save();
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
   const confirmSave = useCallback(
     async (closeFile: (path: string) => void) => {
       if (!pendingClose || isSaving) {
@@ -97,6 +111,7 @@ export function useFileEditorSessions() {
     dismissPendingClose,
     isSaving,
     pendingClose,
+    saveFile,
     setSession,
   };
 }

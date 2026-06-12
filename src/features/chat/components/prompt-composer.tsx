@@ -47,6 +47,8 @@ import {
 import { useTauriNativeFileDropTarget } from "../hooks/use-tauri-native-file-drop-target";
 import { useWorkspacePathDropTarget } from "../hooks/use-workspace-path-drop-target";
 
+import { useRegisterHotkeyAction } from "@/features/keyboard-shortcuts/hotkey-actions-context";
+
 import { ComposerContextUsage } from "./composer-context-usage";
 import { ComposerEditTag } from "./composer-edit-tag";
 import { ComposerRichInput } from "./composer-rich-input";
@@ -144,6 +146,28 @@ function ComposerAttachmentError({
       {message}
     </p>
   );
+}
+
+function ComposerHotkeyActions({
+  onSubmit,
+  supportsMultimodal,
+  value,
+}: {
+  onSubmit: (message: PromptInputMessage) => void;
+  supportsMultimodal: boolean;
+  value: string;
+}) {
+  const attachments = usePromptInputAttachments();
+
+  useRegisterHotkeyAction("chat.send", () => {
+    onSubmit({
+      text: value,
+      files: supportsMultimodal ? attachments.files : [],
+    });
+    return true;
+  });
+
+  return null;
 }
 
 function ComposerSubmit({
@@ -501,6 +525,11 @@ export function PromptComposer({
       onNativeFileDrop={handleNativeFileDrop}
       onWorkspacePathDrop={handleWorkspacePathDrop}
     >
+      <ComposerHotkeyActions
+        onSubmit={handleSubmit}
+        supportsMultimodal={supportsMultimodal}
+        value={value}
+      />
       <ComposerTauriFileDropBridge
         dropTargetRef={dropTargetRef}
         onDropPaths={handleTauriNativeFileDrop}

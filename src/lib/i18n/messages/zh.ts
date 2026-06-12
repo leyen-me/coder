@@ -159,6 +159,7 @@ export const zhMessages = {
     categories: {
       general: "常规",
       appearance: "外观",
+      keyboardShortcuts: "键盘快捷键",
       modelProvider: "模型",
       webTools: "网络工具",
       data: "数据",
@@ -172,6 +173,114 @@ export const zhMessages = {
       themeLabel: "主题",
       themeDescription: "选择应用的颜色主题",
       themeAriaLabel: "主题",
+    },
+    keyboardShortcuts: {
+      description:
+        "自定义键盘快捷键。录制时按 Backspace 可清除当前绑定。",
+      change: "修改",
+      recording: "请按键…",
+      reset: "重置",
+      resetAll: "全部重置",
+      conflict: "该快捷键已分配给其他操作。",
+      groups: {
+        navigation: "导航",
+        panels: "面板",
+        chat: "聊天",
+        file: "文件",
+        terminal: "终端",
+      },
+      actions: {
+        global: {
+          search: {
+            label: "打开搜索",
+            description: "搜索聊天记录",
+          },
+          newChat: {
+            label: "新建聊天",
+            description: "开始新的对话",
+          },
+          settings: {
+            label: "打开设置",
+            description: "进入应用设置",
+          },
+          skills: {
+            label: "打开技能页",
+            description: "进入技能管理页面",
+          },
+          automations: {
+            label: "打开自动化页",
+            description: "进入自动化页面",
+          },
+          history: {
+            label: "打开历史记录",
+            description: "进入历史记录页面",
+          },
+        },
+        panel: {
+          toggleSidebar: {
+            label: "切换侧边栏",
+            description: "显示或隐藏左侧边栏",
+          },
+          toggleBottom: {
+            label: "切换底部面板",
+            description: "显示或隐藏底部面板",
+          },
+          bottomTerminal: {
+            label: "切换终端",
+            description: "打开或关闭终端标签页",
+          },
+          bottomProcesses: {
+            label: "切换进程列表",
+            description: "打开或关闭进程标签页",
+          },
+          toggleRight: {
+            label: "切换右侧面板",
+            description: "显示或隐藏文件树面板",
+          },
+        },
+        chat: {
+          send: {
+            label: "发送消息",
+            description: "发送当前输入框中的消息",
+          },
+          cancel: {
+            label: "取消",
+            description: "停止 Agent 或退出消息编辑",
+          },
+          regenerate: {
+            label: "重新生成",
+            description: "重新生成最后一条助手消息",
+          },
+          editLastUser: {
+            label: "编辑上一条消息",
+            description: "编辑最近一条用户消息",
+          },
+          copyLastCode: {
+            label: "复制最后代码块",
+            description: "复制助手回复中的最后一个代码块",
+          },
+        },
+        file: {
+          quickOpen: {
+            label: "快速打开文件",
+            description: "按名称快速打开文件",
+          },
+          closePreview: {
+            label: "关闭文件预览",
+            description: "关闭当前文件预览标签页",
+          },
+          save: {
+            label: "保存文件",
+            description: "保存当前文件预览",
+          },
+        },
+        terminal: {
+          focus: {
+            label: "聚焦终端",
+            description: "在底部面板打开时聚焦到终端",
+          },
+        },
+      },
     },
     modelProvider: {
       providerLabel: "提供商",

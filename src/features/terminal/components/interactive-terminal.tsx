@@ -4,7 +4,9 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { useRegisterHotkeyAction } from "@/features/keyboard-shortcuts/hotkey-actions-context";
 
 import { useTheme } from "@/lib/theme/theme-provider";
 import { cn } from "@/lib/utils";
@@ -33,6 +35,17 @@ export function InteractiveTerminal({
   const isActiveRef = useRef(isActive);
   const [error, setError] = useState<string | null>(null);
   const { resolved } = useTheme();
+
+  const focusTerminal = useCallback(() => {
+    terminalRef.current?.focus();
+    return Boolean(terminalRef.current);
+  }, []);
+
+  useRegisterHotkeyAction(
+    "terminal.focus",
+    focusTerminal,
+    () => isActive
+  );
 
   useEffect(() => {
     isActiveRef.current = isActive;
