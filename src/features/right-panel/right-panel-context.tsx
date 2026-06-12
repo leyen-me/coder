@@ -24,6 +24,7 @@ type RightPanelContextValue = {
   isOpen: boolean;
   toggle: () => void;
   setOpen: (open: boolean) => void;
+  /* Plan tab */
   isPlanTabActive: boolean;
   activePlanName: string | null;
   openPlanPreview: (planName?: string | null) => void;
@@ -31,6 +32,10 @@ type RightPanelContextValue = {
   planBuildActions: PlanBuildActions | null;
   setPlanBuildActions: (actions: PlanBuildActions | null) => void;
   planUpdateTick: number;
+  /* Source Control tab */
+  isSourceControlTabActive: boolean;
+  openSourceControlTab: () => void;
+  deactivateSourceControlTab: () => void;
 };
 
 const RightPanelContext = createContext<RightPanelContextValue | null>(null);
@@ -44,6 +49,7 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
     null
   );
   const [planUpdateTick, setPlanUpdateTick] = useState(0);
+  const [isSourceControlTabActive, setIsSourceControlTabActive] = useState(false);
 
   useEffect(() => {
     if (!isChatRoute(pathname)) {
@@ -51,6 +57,7 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
       setIsPlanTabActive(false);
       setActivePlanName(null);
       setPlanBuildActions(null);
+      setIsSourceControlTabActive(false);
     }
   }, [pathname]);
 
@@ -65,6 +72,7 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
 
       setActivePlanName(detail.name);
       setIsPlanTabActive(true);
+      setIsSourceControlTabActive(false);
       setIsOpen(true);
       setPlanUpdateTick((current) => current + 1);
     });
@@ -77,11 +85,23 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
   const openPlanPreview = useCallback((planName?: string | null) => {
     setActivePlanName(planName ?? null);
     setIsPlanTabActive(true);
+    setIsSourceControlTabActive(false);
     setIsOpen(true);
   }, []);
 
   const deactivatePlanTab = useCallback(() => {
     setIsPlanTabActive(false);
+  }, []);
+
+  const openSourceControlTab = useCallback(() => {
+    setIsSourceControlTabActive(true);
+    setIsPlanTabActive(false);
+    setActivePlanName(null);
+    setIsOpen(true);
+  }, []);
+
+  const deactivateSourceControlTab = useCallback(() => {
+    setIsSourceControlTabActive(false);
   }, []);
 
   const value = useMemo(
@@ -96,6 +116,9 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
       planBuildActions,
       setPlanBuildActions,
       planUpdateTick,
+      isSourceControlTabActive,
+      openSourceControlTab,
+      deactivateSourceControlTab,
     }),
     [
       activePlanName,
@@ -106,6 +129,9 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
       planBuildActions,
       planUpdateTick,
       toggle,
+      isSourceControlTabActive,
+      openSourceControlTab,
+      deactivateSourceControlTab,
     ]
   );
 

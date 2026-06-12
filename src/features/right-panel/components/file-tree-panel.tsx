@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardListIcon, FileIcon, FilesIcon, RefreshCwIcon, XIcon } from "lucide-react";
+import { ClipboardListIcon, FileIcon, FilesIcon, GitBranchIcon, RefreshCwIcon, XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useRegisterHotkeyAction } from "@/features/keyboard-shortcuts/hotkey-actions-context";
@@ -18,6 +18,9 @@ import { UnsavedFileCloseDialog } from "./unsaved-file-close-dialog";
 import { WorkspaceFileTree } from "./workspace-file-tree";
 import type { WorkspaceFileTreeHandle } from "./workspace-file-tree";
 
+import { GitProvider } from "@/features/git/git-provider";
+import { SourceControlPanel } from "@/features/git/components/source-control-panel";
+
 type FileTreePanelProps = {
   workspaceDir: string | null;
 };
@@ -30,6 +33,9 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     openPlanPreview,
     deactivatePlanTab,
     planUpdateTick,
+    isSourceControlTabActive,
+    openSourceControlTab,
+    deactivateSourceControlTab,
   } = useRightPanel();
   const {
     tabs,
@@ -92,27 +98,31 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
   }, [planUpdateTick]);
 
   const activeTab = tabs.find((tab) => tab.path === activeTabPath) ?? null;
-  const showExplorerPanel = isExplorerActive && !isPlanTabActive;
+  const showExplorerPanel =
+    isExplorerActive && !isPlanTabActive && !isSourceControlTabActive;
 
   const handleShowExplorer = useCallback(() => {
     deactivatePlanTab();
+    deactivateSourceControlTab();
     showExplorer();
-  }, [deactivatePlanTab, showExplorer]);
+  }, [deactivatePlanTab, deactivateSourceControlTab, showExplorer]);
 
   const handleOpenFile = useCallback(
     (file: { path: string; name: string }) => {
       deactivatePlanTab();
+      deactivateSourceControlTab();
       openFile(file);
     },
-    [deactivatePlanTab, openFile]
+    [deactivatePlanTab, deactivateSourceControlTab, openFile]
   );
 
   const handleActivateFile = useCallback(
     (path: string) => {
       deactivatePlanTab();
+      deactivateSourceControlTab();
       activateFile(path);
     },
-    [activateFile, deactivatePlanTab]
+    [activateFile, deactivatePlanTab, deactivateSourceControlTab]
   );
 
   const handleCloseActivePreview = useCallback(() => {
@@ -202,6 +212,32 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
           </button>
         </div>
 
+        {/* Source Control tab button */}
+        <div
+          className={cn(
+            "group inline-flex h-7 shrink-0 items-center rounded-md border text-xs",
+            isSourceControlTabActive
+              ? "border-border/40 bg-muted/30 text-foreground/80"
+              : "border-transparent text-muted-foreground/70 hover:bg-muted/20",
+          )}
+        >
+          <button
+            aria-label={t("git.sourceControl")}
+            className="rounded-l-md px-1.5 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
+            onClick={() => openSourceControlTab()}
+            type="button"
+          >
+            <GitBranchIcon className="size-3" />
+          </button>
+          <button
+            className="max-w-40 truncate px-2 py-1"
+            onClick={() => openSourceControlTab()}
+            type="button"
+          >
+            {t("git.sourceControl")}
+          </button>
+        </div>
+
         {tabs.map((tab) => {
           const isActive = activeTabPath === tab.path;
           const pointerDragProps = createFileTreePointerDragProps({
@@ -276,12 +312,28 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
           />
         </div>
 
+        {/* Source Control panel */}
+        <div
+          className={cn(
+            "absolute inset-0",
+            isSourceControlTabActive
+              ? "z-10 opacity-100"
+              : "pointer-events-none z-0 opacity-0"
+          )}
+        >
+          <GitProvider workspaceDir={workspaceDir}>
+            <SourceControlPanel workspaceDir={workspaceDir} />
+          </GitProvider>
+        </div>
+
         {tabs.map((tab) => (
           <div
             key={tab.path}
             className={cn(
               "absolute inset-0",
-              activeTabPath === tab.path && !isPlanTabActive
+              activeTabPath === tab.path &&
+                !isPlanTabActive &&
+                !isSourceControlTabActive
                 ? "z-10 opacity-100"
                 : "pointer-events-none z-0 opacity-0"
             )}

@@ -29,7 +29,13 @@ pub use file_ops::{
     tool_copy_path, tool_create_dir, tool_delete_path, tool_move_path, tool_rename_path,
     tool_normalize_external_path, tool_read_local_image_bytes, tool_resolve_absolute_path,
 };
-pub use git::{git_checkout_branch, git_get_current_branch, git_list_branches};
+pub use git::{
+    git_checkout_branch, git_commit, git_create_branch, git_delete_branch,
+    git_delete_branch_force, git_diff, git_fetch, git_get_current_branch, git_get_remote_url,
+    git_list_branches, git_log, git_pull, git_push, git_stage_all, git_stage_files,
+    git_stash_apply, git_stash_drop, git_stash_list, git_stash_pop, git_stash_push,
+    git_status, git_unstage_all, git_unstage_files,
+};
 pub use glob::tool_glob;
 pub use grep::tool_grep;
 pub use list_dir::tool_list_dir;
