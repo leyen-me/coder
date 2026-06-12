@@ -563,6 +563,7 @@ export const zhMessages = {
   },
   rightPanel: {
     explorer: "资源管理器",
+    fileTree: "文件树",
     plan: "计划",
     planBuild: "执行",
     planSaved: "已保存",

@@ -578,6 +578,7 @@ export const enMessages = {
   },
   rightPanel: {
     explorer: "Explorer",
+    fileTree: "File Tree",
     plan: "Plan",
     planBuild: "Build",
     planSaved: "Saved",

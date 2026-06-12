@@ -10,6 +10,7 @@ import type { ListDirEntry } from "@/features/agent/tools/types";
 import { createFileTreePointerDragProps } from "@/lib/dnd/workspace-path-pointer";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
+import { FilesIcon, RefreshCwIcon } from "lucide-react";
 import { forwardRef, useCallback, useImperativeHandle } from "react";
 
 import {
@@ -186,8 +187,30 @@ export const WorkspaceFileTree = forwardRef<
   }
 
   return (
-    <>
-      <ScrollArea className={cn("h-full min-h-0", className)}>
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <FilesIcon className="size-4 shrink-0 text-muted-foreground" />
+          <span className="truncate text-sm font-medium">
+            {t("rightPanel.explorer")}
+          </span>
+        </div>
+        <button
+          aria-label={t("rightPanel.menuRefresh")}
+          className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-foreground"
+          disabled={tree.loading}
+          onClick={handleRefreshAll}
+          title={t("rightPanel.menuRefresh")}
+          type="button"
+        >
+          <RefreshCwIcon
+            className={cn("size-3.5", tree.loading && "animate-spin")}
+          />
+        </button>
+      </div>
+
+      <ScrollArea className={cn("flex-1", className)}>
         <FileTreeBlankContextMenu
           actions={actions}
           onCollapseAll={tree.collapseAll}
@@ -251,6 +274,6 @@ export const WorkspaceFileTree = forwardRef<
         }}
         targetName={actions.deleteTarget?.name ?? null}
       />
-    </>
+    </div>
   );
 });

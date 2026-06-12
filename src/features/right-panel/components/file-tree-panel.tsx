@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardListIcon, FileIcon, FilesIcon, GitBranchIcon, RefreshCwIcon, XIcon } from "lucide-react";
+import { ClipboardListIcon, FileIcon, FilesIcon, GitBranchIcon, XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useRegisterHotkeyAction } from "@/features/keyboard-shortcuts/hotkey-actions-context";
@@ -9,6 +9,8 @@ import { createFileTreePointerDragProps } from "@/lib/dnd/workspace-path-pointer
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { useFileEditorSessions } from "../hooks/use-file-editor-sessions";
 import { useFilePreviewTabs } from "../hooks/use-file-preview-tabs";
 import { useRightPanel } from "../right-panel-context";
@@ -16,7 +18,6 @@ import { FilePreview } from "./file-preview";
 import { PlanPreviewPanel } from "./plan-preview-panel";
 import { UnsavedFileCloseDialog } from "./unsaved-file-close-dialog";
 import { WorkspaceFileTree } from "./workspace-file-tree";
-import type { WorkspaceFileTreeHandle } from "./workspace-file-tree";
 
 import { GitProvider } from "@/features/git/git-provider";
 import { SourceControlPanel } from "@/features/git/components/source-control-panel";
@@ -41,7 +42,6 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
   const {
     tabs,
     activeTabPath,
-    isExplorerActive,
     openFile,
     closeFile,
     renameFile,
@@ -68,7 +68,6 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     () => new Set(tabs.map((tab) => tab.path)),
     [tabs]
   );
-  const fileTreeRef = useRef<WorkspaceFileTreeHandle>(null);
   const [planTabPulse, setPlanTabPulse] = useState(false);
   const lastPlanUpdateTick = useRef(planUpdateTick);
   const lastWorkspaceDir = useRef(workspaceDir);
@@ -99,8 +98,6 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
   }, [planUpdateTick]);
 
   const activeTab = tabs.find((tab) => tab.path === activeTabPath) ?? null;
-  const showExplorerPanel =
-    isExplorerActive && !isPlanTabActive && !isSourceControlTabActive;
 
   const handleShowExplorer = useCallback(() => {
     deactivatePlanTab();
@@ -127,200 +124,181 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
   );
 
   const handleCloseActivePreview = useCallback(() => {
-    if (!activeTabPath || isExplorerActive) {
+    if (!activeTabPath) {
       return false;
     }
 
     requestCloseFile(activeTabPath, activeTab?.name);
     return true;
-  }, [activeTab?.name, activeTabPath, isExplorerActive, requestCloseFile]);
+  }, [activeTab?.name, activeTabPath, requestCloseFile]);
 
   const handleSaveActivePreview = useCallback(() => {
-    if (!activeTabPath || isExplorerActive) {
+    if (!activeTabPath) {
       return false;
     }
 
     void saveFile(activeTabPath);
     return true;
-  }, [activeTabPath, isExplorerActive, saveFile]);
+  }, [activeTabPath, saveFile]);
 
   useRegisterHotkeyAction("file.closePreview", handleCloseActivePreview);
   useRegisterHotkeyAction("file.save", handleSaveActivePreview);
 
+  /** Derive the active main tab value from context state. */
+  const mainTabValue: string = isPlanTabActive
+    ? "plan"
+    : isSourceControlTabActive
+      ? "source-control"
+      : "explorer";
+
+  const handleMainTabChange = useCallback(
+    (value: string) => {
+      if (value === "explorer") {
+        handleShowExplorer();
+      } else if (value === "plan") {
+        openPlanPreview(activePlanName);
+      } else if (value === "source-control") {
+        openSourceControlTab();
+      }
+    },
+    [activePlanName, handleShowExplorer, openPlanPreview, openSourceControlTab]
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-1 overflow-x-auto border-b px-2 py-1.5">
-        <div
-          className={cn(
-            "group inline-flex h-7 shrink-0 items-center rounded-md border text-xs",
-            showExplorerPanel
-              ? "border-border/40 bg-muted/30 text-foreground/80"
-              : "border-transparent text-muted-foreground/70 hover:bg-muted/20"
-          )}
-        >
-          <button
-            aria-label={t("rightPanel.explorer")}
-            className="rounded-l-md px-1.5 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
-            onClick={handleShowExplorer}
-            type="button"
-          >
-            <FilesIcon className="size-3" />
-          </button>
-          <button
-            className="max-w-40 truncate px-2 py-1"
-            onClick={handleShowExplorer}
-            type="button"
-          >
-            {t("rightPanel.explorer")}
-          </button>
-          <button
-            aria-label={t("rightPanel.menuRefresh")}
-            className="rounded-r-md px-1.5 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
-            onClick={(event) => {
-              event.stopPropagation();
-              fileTreeRef.current?.refreshAll();
-            }}
-            title={t("rightPanel.menuRefresh")}
-            type="button"
-          >
-            <RefreshCwIcon className="size-3" />
-          </button>
-        </div>
-
-        <div
-          className={cn(
-            "group inline-flex h-7 shrink-0 items-center rounded-md border text-xs transition-colors duration-500",
-            isPlanTabActive
-              ? "border-border/40 bg-muted/30 text-foreground/80"
-              : "border-transparent text-muted-foreground/70 hover:bg-muted/20",
-            planTabPulse && "border-primary/40 bg-primary/10 text-primary"
-          )}
-        >
-          <button
-            aria-label={t("rightPanel.plan")}
-            className="rounded-l-md px-1.5 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
-            onClick={() => openPlanPreview(activePlanName)}
-            type="button"
-          >
-            <ClipboardListIcon className="size-3" />
-          </button>
-          <button
-            className="max-w-40 truncate px-2 py-1"
-            onClick={() => openPlanPreview(activePlanName)}
-            type="button"
-          >
-            {t("rightPanel.plan")}
-          </button>
-        </div>
-
-        {/* Source Control tab button */}
-        <div
-          className={cn(
-            "group inline-flex h-7 shrink-0 items-center rounded-md border text-xs",
-            isSourceControlTabActive
-              ? "border-border/40 bg-muted/30 text-foreground/80"
-              : "border-transparent text-muted-foreground/70 hover:bg-muted/20",
-          )}
-        >
-          <button
-            aria-label={t("git.sourceControl")}
-            className="rounded-l-md px-1.5 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
-            onClick={() => openSourceControlTab()}
-            type="button"
-          >
-            <GitBranchIcon className="size-3" />
-          </button>
-          <button
-            className="max-w-40 truncate px-2 py-1"
-            onClick={() => openSourceControlTab()}
-            type="button"
-          >
-            {t("git.sourceControl")}
-          </button>
-        </div>
-
-        {tabs.map((tab) => {
-          const isActive = activeTabPath === tab.path;
-          const pointerDragProps = createFileTreePointerDragProps({
-            isDir: false,
-            name: tab.name,
-            path: tab.path,
-          });
-
-          return (
-            <div
-              key={tab.path}
+      <Tabs
+        className="flex min-h-0 flex-1 flex-col gap-0"
+        value={mainTabValue}
+        onValueChange={handleMainTabChange}
+      >
+        {/* ── Level 1: Underline-style tabs ── */}
+        <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5">
+          <TabsList className="h-7" variant="line">
+            <TabsTrigger
+              className="h-7 gap-1.5 px-2.5 text-xs"
+              value="explorer"
+            >
+              <FilesIcon className="size-3.5 shrink-0" />
+              {t("rightPanel.explorer")}
+            </TabsTrigger>
+            <TabsTrigger
               className={cn(
-                "group inline-flex h-7 shrink-0 cursor-grab items-center rounded-md border text-xs active:cursor-grabbing",
-                isActive
+                "h-7 gap-1.5 px-2.5 text-xs transition-colors duration-500",
+                planTabPulse && "text-primary"
+              )}
+              value="plan"
+            >
+              <ClipboardListIcon className="size-3.5 shrink-0" />
+              {t("rightPanel.plan")}
+            </TabsTrigger>
+            <TabsTrigger
+              className="h-7 gap-1.5 px-2.5 text-xs"
+              value="source-control"
+            >
+              <GitBranchIcon className="size-3.5 shrink-0" />
+              {t("git.sourceControl")}
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* ── Explorer Panel ── */}
+        <TabsContent
+          className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+          value="explorer"
+        >
+          {/* Level 2: File preview tabs (rounded rectangle) */}
+          <div className="flex items-center gap-1 overflow-x-auto border-b px-2 py-1.5">
+            {/* File tree tab — always visible, cannot close */}
+            <button
+              className={cn(
+                "inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-1.5 py-1 text-xs transition-colors",
+                activeTabPath === null
                   ? "border-border/40 bg-muted/30 text-foreground/80"
                   : "border-transparent text-muted-foreground/70 hover:bg-muted/20"
               )}
-              {...pointerDragProps}
+              onClick={showExplorer}
+              type="button"
             >
-              <button
-                aria-label={t("rightPanel.closePreview")}
-                className="rounded-l-md px-1.5 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
-                onClick={() => requestCloseFile(tab.path, tab.name)}
-                type="button"
-              >
-                <FileIcon className="size-3 group-hover:hidden" />
-                <XIcon className="hidden size-3 group-hover:block" />
-              </button>
-              <button
-                className="max-w-40 truncate px-2 py-1 font-mono"
-                onClick={() => handleActivateFile(tab.path)}
-                title={tab.path}
-                type="button"
-              >
-                {tab.name}
-              </button>
-            </div>
-          );
-        })}
-      </div>
+              <FilesIcon className="size-3" />
+              <span className="truncate">{t("rightPanel.fileTree")}</span>
+            </button>
 
-      <div className="relative min-h-0 flex-1">
-        <div
-          className={cn(
-            "absolute inset-0",
-            showExplorerPanel
-              ? "z-10 opacity-100"
-              : "pointer-events-none z-0 opacity-0"
-          )}
-        >
-          <WorkspaceFileTree
-            ref={fileTreeRef}
-            onFileClose={requestCloseFile}
-            onFileOpen={handleOpenFile}
-            onFileRename={renameFile}
-            openPreviewPaths={openPreviewPaths}
-            workspaceDir={workspaceDir}
-          />
-        </div>
+            {tabs.map((tab) => {
+              const isActive = activeTabPath === tab.path;
+              const pointerDragProps = createFileTreePointerDragProps({
+                isDir: false,
+                name: tab.name,
+                path: tab.path,
+              });
 
-        <div
-          className={cn(
-            "absolute inset-0",
-            isPlanTabActive
-              ? "z-10 opacity-100"
-              : "pointer-events-none z-0 opacity-0"
-          )}
+              return (
+                <div
+                  key={tab.path}
+                  className={cn(
+                    "group inline-flex h-7 shrink-0 cursor-grab items-center rounded-md border text-xs active:cursor-grabbing",
+                    isActive
+                      ? "border-border/40 bg-muted/30 text-foreground/80"
+                      : "border-transparent text-muted-foreground/70 hover:bg-muted/20"
+                  )}
+                  {...pointerDragProps}
+                >
+                  <button
+                    aria-label={t("rightPanel.closePreview")}
+                    className="rounded-l-md px-1.5 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
+                    onClick={() => requestCloseFile(tab.path, tab.name)}
+                    type="button"
+                  >
+                    <FileIcon className="size-3 group-hover:hidden" />
+                    <XIcon className="hidden size-3 group-hover:block" />
+                  </button>
+                  <button
+                    className="max-w-40 truncate px-2 py-1 font-mono"
+                    onClick={() => handleActivateFile(tab.path)}
+                    title={tab.path}
+                    type="button"
+                  >
+                    {tab.name}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* File tree or file preview */}
+          <div className="relative min-h-0 flex-1">
+            {activeTabPath !== null ? (
+              <FilePreview
+                onSessionChange={setSession}
+                path={activeTabPath}
+                workspaceDir={workspaceDir}
+              />
+            ) : (
+              <WorkspaceFileTree
+                onFileClose={requestCloseFile}
+                onFileOpen={handleOpenFile}
+                onFileRename={renameFile}
+                openPreviewPaths={openPreviewPaths}
+                workspaceDir={workspaceDir}
+              />
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ── Plan Panel ── */}
+        <TabsContent
+          className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+          value="plan"
         >
           <PlanPreviewPanel
             planName={activePlanName}
             workspaceDir={workspaceDir}
           />
-        </div>
+        </TabsContent>
 
-        {/* Source Control panel */}
-        <div
-          className={cn(
-            "absolute inset-0",
-            isSourceControlTabActive
-              ? "z-10 opacity-100"
-              : "pointer-events-none z-0 opacity-0"
-          )}
+        {/* ── Source Control Panel ── */}
+        <TabsContent
+          className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+          value="source-control"
         >
           <GitProvider
             isActive={isRightPanelOpen && isSourceControlTabActive}
@@ -328,28 +306,8 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
           >
             <SourceControlPanel workspaceDir={workspaceDir} />
           </GitProvider>
-        </div>
-
-        {tabs.map((tab) => (
-          <div
-            key={tab.path}
-            className={cn(
-              "absolute inset-0",
-              activeTabPath === tab.path &&
-                !isPlanTabActive &&
-                !isSourceControlTabActive
-                ? "z-10 opacity-100"
-                : "pointer-events-none z-0 opacity-0"
-            )}
-          >
-            <FilePreview
-              onSessionChange={setSession}
-              path={tab.path}
-              workspaceDir={workspaceDir}
-            />
-          </div>
-        ))}
-      </div>
+        </TabsContent>
+      </Tabs>
 
       <UnsavedFileCloseDialog
         fileName={pendingClose?.fileName ?? null}

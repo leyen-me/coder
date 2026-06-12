@@ -487,6 +487,7 @@ export type Messages = {
   };
   rightPanel: {
     explorer: string;
+    fileTree: string;
     plan: string;
     planBuild: string;
     planSaved: string;
