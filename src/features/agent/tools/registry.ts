@@ -11,6 +11,7 @@ import {
   LIST_SHELLS_TOOL_NAME,
   CREATE_SKILL_TOOL_NAME,
   LIST_SKILLS_TOOL_NAME,
+  TODO_READ_TOOL_NAME,
   PLAN_CREATE_TOOL_NAME,
   PLAN_DELETE_TOOL_NAME,
   PLAN_LIST_TOOL_NAME,
@@ -47,6 +48,7 @@ import { readFileHandler } from "./read-file";
 import { readSkillHandler } from "./read-skill";
 import { replaceFileHandler } from "./replace-file";
 import { shellHandler } from "./shell";
+import { todoReadHandler } from "./todo-read";
 import { todoWriteHandler } from "./todo-write";
 import { updateSkillHandler } from "./update-skill";
 import { webSearchHandler } from "./web-search";
@@ -80,6 +82,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [READ_SKILL_TOOL_NAME]: readSkillHandler,
   [CREATE_SKILL_TOOL_NAME]: createSkillHandler,
   [UPDATE_SKILL_TOOL_NAME]: updateSkillHandler,
+  [TODO_READ_TOOL_NAME]: todoReadHandler,
   [TODO_WRITE_TOOL_NAME]: todoWriteHandler,
   [PLAN_CREATE_TOOL_NAME]: planCreateHandler,
   [PLAN_READ_TOOL_NAME]: planReadHandler,

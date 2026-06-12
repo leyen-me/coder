@@ -219,6 +219,20 @@ export type BrowsePageData = {
   contentType?: string;
 };
 
+export type TodoSnapshotItem = {
+  id: string;
+  content: string;
+  status: "pending" | "in_progress" | "completed" | "cancelled";
+};
+
+export type TodoReadData = {
+  sessionId: string;
+  todos: TodoSnapshotItem[];
+  total: number;
+  active: number;
+  completed: number;
+};
+
 export type ToolExecutionContext = {
   workspaceDir: string | null;
   sessionId?: string;

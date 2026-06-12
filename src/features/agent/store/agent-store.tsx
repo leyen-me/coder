@@ -703,7 +703,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         (await getMessagesBySession(input.sessionId)).flatMap(
           messageRecordToAgentMessages
         ),
-        environment
+        environment,
+        undefined,
+        input.sessionId
       );
 
       const handoffTaskId = createTaskId();
@@ -869,7 +871,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           (await getMessagesBySession(nextSession.id)).flatMap(
             messageRecordToAgentMessages
           ),
-          environment
+          environment,
+          undefined,
+          nextSession.id
         );
 
         setSessionHandoffState(input.sessionId, "starting_new_session");
@@ -1015,7 +1019,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const history = await buildAgentMessages(
         historyMessages.flatMap(messageRecordToAgentMessages),
         environment,
-        input.agentMode
+        input.agentMode,
+        input.sessionId
       );
       const thinkingEnabled = resolveThinkingEnabledForRequest(
         resolved,
@@ -1111,7 +1116,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const history = await buildAgentMessages(
         historyMessages.flatMap(messageRecordToAgentMessages),
         environment,
-        resolvedAgentMode
+        resolvedAgentMode,
+        input.sessionId
       );
       const storedImages = userMessage.images ?? [];
       const thinkingEnabled = resolveThinkingEnabledForRequest(

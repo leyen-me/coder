@@ -109,7 +109,8 @@ export async function executeAutomation(
     const messages = await buildAgentMessages(
       agentMessages,
       environment,
-      runConfig.agentMode
+      runConfig.agentMode,
+      session.id
     );
 
     const abortController = new AbortController();

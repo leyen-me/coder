@@ -1,7 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/db/agent-todos", () => ({
+  getAgentTodosBySession: vi.fn(async () => []),
+}));
 
 import { buildAgentMessages } from "@/features/agent/build-agent-messages";
 import { normalizeEnvironment } from "@/features/agent/environment/build-system-prompt";
+import { getAgentTodosBySession } from "@/lib/db/agent-todos";
 
 const environment = normalizeEnvironment({
   workspaceDir: "/Users/apple/project",
@@ -12,6 +17,10 @@ const environment = normalizeEnvironment({
 });
 
 describe("buildAgentMessages", () => {
+  beforeEach(() => {
+    vi.mocked(getAgentTodosBySession).mockResolvedValue([]);
+  });
+
   it("prepends a dynamic system message and drops empty history entries", async () => {
     const messages = await buildAgentMessages(
       [
@@ -126,5 +135,95 @@ describe("buildAgentMessages", () => {
     );
 
     expect(messages.filter((message) => message.role === "tool")).toHaveLength(1);
+  });
+
+  it("injects a persisted todo snapshot as an extra system message", async () => {
+    vi.mocked(getAgentTodosBySession).mockResolvedValue([
+      {
+        id: "inspect-state",
+        sessionId: "session-1",
+        content: "Inspect current state",
+        status: "completed",
+        order: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      {
+        id: "implement-read",
+        sessionId: "session-1",
+        content: "Implement todo_read",
+        status: "in_progress",
+        order: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+
+    const messages = await buildAgentMessages(
+      [{ role: "user", content: "继续实现" }],
+      environment,
+      "agent",
+      "session-1"
+    );
+
+    expect(messages).toHaveLength(3);
+    expect(messages[1]).toEqual({
+      role: "system",
+      content: expect.stringContaining("## Current session todo state"),
+    });
+    expect(messages[1]?.content).not.toContain(
+      "[completed] inspect-state: Inspect current state"
+    );
+    expect(messages[1]?.content).toContain("[in_progress] implement-read: Implement todo_read");
+    expect(messages[1]?.content).toContain("Completed or cancelled todos are omitted");
+  });
+
+  it("omits the snapshot when only terminal todos exist", async () => {
+    vi.mocked(getAgentTodosBySession).mockResolvedValue([
+      {
+        id: "done-task",
+        sessionId: "session-1",
+        content: "Already done",
+        status: "completed",
+        order: 0,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ]);
+
+    const messages = await buildAgentMessages(
+      [{ role: "user", content: "继续实现" }],
+      environment,
+      "agent",
+      "session-1"
+    );
+
+    expect(messages).toHaveLength(2);
+  });
+
+  it("truncates long active todo snapshots and hints to use todo_read", async () => {
+    vi.mocked(getAgentTodosBySession).mockResolvedValue(
+      Array.from({ length: 10 }, (_, index) => ({
+        id: `task-${index + 1}`,
+        sessionId: "session-1",
+        content: `Task ${index + 1}`,
+        status: "pending" as const,
+        order: index,
+        createdAt: 1,
+        updatedAt: 1,
+      }))
+    );
+
+    const messages = await buildAgentMessages(
+      [{ role: "user", content: "继续实现" }],
+      environment,
+      "agent",
+      "session-1"
+    );
+
+    expect(messages[1]?.content).toContain("[pending] task-1: Task 1");
+    expect(messages[1]?.content).toContain("[pending] task-8: Task 8");
+    expect(messages[1]?.content).not.toContain("[pending] task-9: Task 9");
+    expect(messages[1]?.content).toContain("2 more active todos omitted");
   });
 });

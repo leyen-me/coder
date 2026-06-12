@@ -17,6 +17,7 @@ export const LIST_SKILLS_TOOL_NAME = "list_skills";
 export const READ_SKILL_TOOL_NAME = "read_skill";
 export const CREATE_SKILL_TOOL_NAME = "create_skill";
 export const UPDATE_SKILL_TOOL_NAME = "update_skill";
+export const TODO_READ_TOOL_NAME = "todo_read";
 export const TODO_WRITE_TOOL_NAME = "todo_write";
 export const PLAN_CREATE_TOOL_NAME = "plan_create";
 export const PLAN_READ_TOOL_NAME = "plan_read";
@@ -604,6 +605,20 @@ export const TODO_WRITE_TOOL: AgentToolDefinition = {
   },
 };
 
+export const TODO_READ_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: TODO_READ_TOOL_NAME,
+    description:
+      "Read the current structured todo list for this chat session. Use when you need to inspect or re-sync task state before deciding what to update with todo_write.",
+    parameters: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+};
+
 export const ASK_QUESTION_TOOL: AgentToolDefinition = {
   type: "function",
   function: {
@@ -825,6 +840,7 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   READ_SKILL_TOOL,
   CREATE_SKILL_TOOL,
   UPDATE_SKILL_TOOL,
+  TODO_READ_TOOL,
   TODO_WRITE_TOOL,
   ASK_QUESTION_TOOL,
   PLAN_CREATE_TOOL,
