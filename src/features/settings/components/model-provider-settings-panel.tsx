@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   PROVIDER_IDS,
   usesUserManagedModels,
@@ -100,14 +101,15 @@ export function ModelProviderSettingsPanel() {
           label={t("settings.modelProvider.apiKeyLabel")}
           description={t("settings.modelProvider.apiKeyDescription")}
         >
-          <Input
-            type="password"
+          <PasswordInput
             value={activeProviderSettings.apiKey}
             onChange={(event) =>
               updateActiveProviderSettings({ apiKey: event.target.value })
             }
             placeholder={t("settings.modelProvider.apiKeyPlaceholder")}
             aria-label={t("settings.modelProvider.apiKeyAriaLabel")}
+            showPasswordLabel={t("settings.modelProvider.apiKeyShowAriaLabel")}
+            hidePasswordLabel={t("settings.modelProvider.apiKeyHideAriaLabel")}
             autoComplete="off"
           />
         </SettingField>

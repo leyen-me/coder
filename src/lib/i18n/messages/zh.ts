@@ -201,6 +201,8 @@ export const zhMessages = {
       apiKeyDescription: "用于调用模型 API 的密钥",
       apiKeyPlaceholder: "sk-...",
       apiKeyAriaLabel: "API Key",
+      apiKeyShowAriaLabel: "显示 API Key",
+      apiKeyHideAriaLabel: "隐藏 API Key",
       apiKeyEnvVarLabel: "环境变量名",
       apiKeyEnvVarDescription: "运行时从此环境变量读取 API Key",
       apiKeyEnvVarPlaceholder: "OPENAI_API_KEY",

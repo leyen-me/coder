@@ -206,6 +206,8 @@ export const enMessages = {
       apiKeyDescription: "Secret used to authenticate model API requests",
       apiKeyPlaceholder: "sk-...",
       apiKeyAriaLabel: "API key",
+      apiKeyShowAriaLabel: "Show API key",
+      apiKeyHideAriaLabel: "Hide API key",
       apiKeyEnvVarLabel: "Environment variable",
       apiKeyEnvVarDescription: "Read the API key from this variable at runtime",
       apiKeyEnvVarPlaceholder: "OPENAI_API_KEY",

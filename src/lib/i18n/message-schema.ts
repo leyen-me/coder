@@ -198,6 +198,8 @@ export type Messages = {
       apiKeyDescription: string;
       apiKeyPlaceholder: string;
       apiKeyAriaLabel: string;
+      apiKeyShowAriaLabel: string;
+      apiKeyHideAriaLabel: string;
       apiKeyEnvVarLabel: string;
       apiKeyEnvVarDescription: string;
       apiKeyEnvVarPlaceholder: string;
