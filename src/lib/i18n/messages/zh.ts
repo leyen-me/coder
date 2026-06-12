@@ -677,6 +677,7 @@ export const zhMessages = {
     deleteBranchConfirm: "确定要删除分支 \"{branch}\" 吗？",
     refresh: "刷新",
     noRepository: "请打开 Git 仓库以查看源代码管理功能",
+    initRepository: "初始化仓库",
     uncommittedChanges: "未提交的更改",
     remoteUrl: "远程仓库地址",
     diffView: "差异对比",

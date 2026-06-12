@@ -718,6 +718,7 @@ export const enMessages = {
     deleteBranchConfirm: "Are you sure you want to delete branch \"{branch}\"?",
     refresh: "Refresh",
     noRepository: "Open a Git repository to see source control features",
+    initRepository: "Initialize Repository",
     uncommittedChanges: "Uncommitted changes",
     remoteUrl: "Remote URL",
     diffView: "Diff",

@@ -18,6 +18,15 @@ function assertTauri(): void {
 }
 
 // ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+
+export async function initRepo(workspaceDir: string): Promise<void> {
+  assertTauri();
+  await invoke("git_init", { workspaceDir });
+}
+
+// ---------------------------------------------------------------------------
 // Status
 // ---------------------------------------------------------------------------
 
@@ -25,11 +34,7 @@ export async function fetchGitStatus(
   workspaceDir: string,
 ): Promise<GitStatusResponse | null> {
   if (!isTauri()) return null;
-  try {
-    return await invoke<GitStatusResponse>("git_status", { workspaceDir });
-  } catch {
-    return null;
-  }
+  return await invoke<GitStatusResponse>("git_status", { workspaceDir });
 }
 
 // ---------------------------------------------------------------------------
@@ -114,13 +119,9 @@ export async function fetchGitBranches(
   workspaceDir: string,
 ): Promise<GitBranchesResponse | null> {
   if (!isTauri()) return null;
-  try {
-    return await invoke<GitBranchesResponse>("git_list_branches", {
-      workspaceDir,
-    });
-  } catch {
-    return null;
-  }
+  return await invoke<GitBranchesResponse>("git_list_branches", {
+    workspaceDir,
+  });
 }
 
 export async function checkoutBranch(

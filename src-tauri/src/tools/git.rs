@@ -224,6 +224,38 @@ fn parse_porcelain_line(line: &str) -> Vec<GitStatusEntry> {
 // Tauri commands
 // ---------------------------------------------------------------------------
 
+/// Initialize a git repository in the workspace directory.
+#[tauri::command]
+pub fn git_init(workspace_dir: String) -> Result<(), String> {
+    let trimmed = workspace_dir.trim();
+    if trimmed.is_empty() {
+        return Err("workspaceDir is required".to_string());
+    }
+
+    let path = Path::new(trimmed);
+    if !path.is_dir() {
+        return Err(format!("Workspace not found: {trimmed}"));
+    }
+    if path.join(".git").exists() {
+        return Err("Workspace is already a git repository".to_string());
+    }
+
+    let output = run_git(path, &["init"])?;
+    if output.status.success() {
+        // Configure default user so subsequent commits work without global config.
+        let _ = run_git(path, &["config", "user.email", "coder@local.dev"]);
+        let _ = run_git(path, &["config", "user.name", "Coder"]);
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if stderr.is_empty() {
+            Err("Failed to initialize git repository".to_string())
+        } else {
+            Err(stderr)
+        }
+    }
+}
+
 /// Get full file status: staged + unstaged changes.
 #[tauri::command]
 pub fn git_status(workspace_dir: String) -> Result<GitStatusResponse, String> {

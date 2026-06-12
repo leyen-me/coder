@@ -593,6 +593,7 @@ export type Messages = {
     refresh: string;
     noRepository: string;
     uncommittedChanges: string;
+    initRepository: string;
     remoteUrl: string;
     diffView: string;
     loading: string;

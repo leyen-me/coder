@@ -1,9 +1,12 @@
 "use client";
 
-import { GitBranchIcon, HistoryIcon, InboxIcon } from "lucide-react";
+import { GitBranchIcon, HistoryIcon, InboxIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import { useCallback, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "@/lib/i18n/locale-provider";
+import { cn } from "@/lib/utils";
 
 import { useGit } from "../git-provider";
 import { ChangesView } from "./changes-view";
@@ -17,12 +20,43 @@ type SourceControlPanelProps = {
 
 export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
   const { t } = useTranslation();
-  const { activeTab, setActiveTab, currentBranch } = useGit();
+  const { activeTab, setActiveTab, currentBranch, refresh, isLoading, isGitRepo, initRepo } = useGit();
+  const [isIniting, setIsIniting] = useState(false);
+
+  const handleInit = useCallback(async () => {
+    setIsIniting(true);
+    try {
+      await initRepo();
+    } catch {
+      // Error handled in provider
+    } finally {
+      setIsIniting(false);
+    }
+  }, [initRepo]);
 
   if (!workspaceDir) {
     return (
       <div className="flex h-full items-center justify-center px-4 text-sm text-muted-foreground">
         {t("git.noRepository")}
+      </div>
+    );
+  }
+
+  if (!isGitRepo) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+        <GitBranchIcon className="size-10 text-muted-foreground/40" />
+        <p className="text-sm text-muted-foreground">{t("git.noRepository")}</p>
+        <Button
+          disabled={isIniting}
+          onClick={handleInit}
+          size="sm"
+          type="button"
+          className="gap-2"
+        >
+          <PlusIcon className="size-4" />
+          {isIniting ? t("git.operationInProgress") : t("git.initRepository")}
+        </Button>
       </div>
     );
   }
@@ -35,7 +69,16 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
         <span className="truncate text-sm font-medium">
           {currentBranch ?? "—"}
         </span>
-        <div className="ml-auto" />
+        <button
+          aria-label={t("git.refresh")}
+          className="ml-auto rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-foreground"
+          disabled={isLoading}
+          onClick={() => void refresh()}
+          title={t("git.refresh")}
+          type="button"
+        >
+          <RefreshCwIcon className={cn("size-3.5", isLoading && "animate-spin")} />
+        </button>
         <RemoteActions />
       </div>
 

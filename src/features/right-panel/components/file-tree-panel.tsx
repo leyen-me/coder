@@ -36,6 +36,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     isSourceControlTabActive,
     openSourceControlTab,
     deactivateSourceControlTab,
+    isOpen: isRightPanelOpen,
   } = useRightPanel();
   const {
     tabs,
@@ -321,7 +322,10 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
               : "pointer-events-none z-0 opacity-0"
           )}
         >
-          <GitProvider workspaceDir={workspaceDir}>
+          <GitProvider
+            isActive={isRightPanelOpen && isSourceControlTabActive}
+            workspaceDir={workspaceDir}
+          >
             <SourceControlPanel workspaceDir={workspaceDir} />
           </GitProvider>
         </div>

@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -29,6 +30,8 @@ export type GitContextValue = {
   recentCommits: GitCommitEntry[];
   /** Stash entries. */
   stashList: GitStashEntry[];
+  /** Whether the workspace is a valid git repository. */
+  isGitRepo: boolean;
   /** Whether any git data is loading. */
   isLoading: boolean;
   /** Error message from last operation. */
@@ -70,6 +73,8 @@ export type GitContextValue = {
   stashApply: (index?: number) => Promise<void>;
   /** Get remote URL. */
   remoteUrl: string | null;
+  /** Initialize a git repository in the workspace. */
+  initRepo: () => Promise<void>;
 };
 
 const GitContext = createContext<GitContextValue | null>(null);
@@ -77,9 +82,11 @@ const GitContext = createContext<GitContextValue | null>(null);
 type GitProviderProps = {
   children: ReactNode;
   workspaceDir: string | null;
+  /** When true the Source Control panel is visible. Triggers a refresh on transition to true. */
+  isActive: boolean;
 };
 
-export function GitProvider({ children, workspaceDir }: GitProviderProps) {
+export function GitProvider({ children, workspaceDir, isActive }: GitProviderProps) {
   const [currentBranch, setCurrentBranch] = useState<string | null>(null);
   const [branches, setBranches] = useState<string[]>([]);
   const [statusEntries, setStatusEntries] = useState<GitStatusEntry[]>([]);
@@ -88,37 +95,63 @@ export function GitProvider({ children, workspaceDir }: GitProviderProps) {
   const [remoteUrl, setRemoteUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isGitRepo, setIsGitRepo] = useState(true);
   const [activeTab, setActiveTab] = useState<SourceControlTab>("changes");
+  const wasActiveRef = useRef(isActive);
+
+  // Auto-refresh when the panel becomes visible (opened or tab switched to it).
+  // This ensures data is always fresh when the user looks at the Source Control panel.
+  useEffect(() => {
+    if (isActive && !wasActiveRef.current && workspaceDir) {
+      wasActiveRef.current = true;
+      void refresh();
+    } else if (!isActive) {
+      wasActiveRef.current = false;
+    }
+  }); // run every render to detect transitions
+  // Note: intentional — we need to detect transitions without depending on `refresh` (stable ref)
 
   const refresh = useCallback(async () => {
     if (!workspaceDir) return;
     setIsLoading(true);
     setError(null);
 
-    try {
-      const [statusRes, branchRes, log, stashes, url] = await Promise.all([
-        gitService.fetchGitStatus(workspaceDir),
-        gitService.fetchGitBranches(workspaceDir).catch(() => null),
-        gitService.fetchGitLog(workspaceDir, 50).catch(() => [] as GitCommitEntry[]),
-        gitService.fetchStashList(workspaceDir).catch(() => [] as GitStashEntry[]),
-        gitService.getRemoteUrl(workspaceDir).catch(() => null),
-      ]);
+    // Fetch all git state in parallel.
+    // If git_status fails with "not a git repository", mark isGitRepo = false.
+    const statusPromise = gitService.fetchGitStatus(workspaceDir);
+    const branchesPromise = gitService.fetchGitBranches(workspaceDir);
+    const logPromise = gitService.fetchGitLog(workspaceDir, 50);
+    const stashPromise = gitService.fetchStashList(workspaceDir);
+    const urlPromise = gitService.getRemoteUrl(workspaceDir);
 
-      if (statusRes) {
-        setStatusEntries(statusRes.entries);
-        setCurrentBranch(statusRes.currentBranch);
-      }
-      if (branchRes) {
-        setBranches(branchRes.branches);
-      }
-      setRecentCommits(log);
-      setStashList(stashes);
-      setRemoteUrl(url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Git operation failed");
-    } finally {
-      setIsLoading(false);
+    const [statusRes, branchRes, log, stashes, url] = await Promise.all([
+      statusPromise.catch((err: unknown) => {
+        const msg = typeof err === "string" ? err : String(err);
+        if (msg.toLowerCase().includes("not a git repository")) {
+          setIsGitRepo(false);
+        } else {
+          setError(msg);
+        }
+        return null;
+      }),
+      branchesPromise.catch(() => null),
+      logPromise.catch(() => [] as GitCommitEntry[]),
+      stashPromise.catch(() => [] as GitStashEntry[]),
+      urlPromise.catch(() => null),
+    ]);
+
+    if (statusRes) {
+      setStatusEntries(statusRes.entries);
+      setCurrentBranch(statusRes.currentBranch);
+      setIsGitRepo(true);
     }
+    if (branchRes) {
+      setBranches(branchRes.branches);
+    }
+    setRecentCommits(log);
+    setStashList(stashes);
+    setRemoteUrl(url);
+    setIsLoading(false);
   }, [workspaceDir]);
 
   // Auto-refresh when workspace changes
@@ -132,6 +165,7 @@ export function GitProvider({ children, workspaceDir }: GitProviderProps) {
       setRecentCommits([]);
       setStashList([]);
       setRemoteUrl(null);
+      setIsGitRepo(true);
       setError(null);
     }
   }, [refresh, workspaceDir]);
@@ -354,6 +388,21 @@ export function GitProvider({ children, workspaceDir }: GitProviderProps) {
     [workspaceDir, refresh],
   );
 
+  const initRepo = useCallback(async () => {
+    if (!workspaceDir) return;
+    setError(null);
+    setIsLoading(true);
+    try {
+      await gitService.initRepo(workspaceDir);
+      setIsGitRepo(true);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Init repo failed");
+      setIsLoading(false);
+      throw err;
+    }
+  }, [workspaceDir, refresh]);
+
   const value = useMemo<GitContextValue>(
     () => ({
       currentBranch,
@@ -363,6 +412,7 @@ export function GitProvider({ children, workspaceDir }: GitProviderProps) {
       stashList,
       isLoading,
       error,
+      isGitRepo,
       activeTab,
       setActiveTab,
       remoteUrl,
@@ -382,6 +432,7 @@ export function GitProvider({ children, workspaceDir }: GitProviderProps) {
       stashPop,
       stashDrop,
       stashApply,
+      initRepo,
     }),
     [
       currentBranch,
@@ -391,6 +442,7 @@ export function GitProvider({ children, workspaceDir }: GitProviderProps) {
       stashList,
       isLoading,
       error,
+      isGitRepo,
       activeTab,
       remoteUrl,
       refresh,
@@ -409,6 +461,7 @@ export function GitProvider({ children, workspaceDir }: GitProviderProps) {
       stashPop,
       stashDrop,
       stashApply,
+      initRepo,
     ],
   );
 
