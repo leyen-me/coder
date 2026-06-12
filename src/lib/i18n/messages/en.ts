@@ -233,8 +233,15 @@ export const enMessages = {
       addModelButton: "Add model",
       removeModelAriaLabel: "Remove model",
       emptyModelsHint: "No custom models yet. Click “Add model” to get started.",
-      thinkingConfigDescription:
-        "JSON fields merged into the API request when deep thinking is on or off. DeepSeek uses thinking and reasoning_effort; GLM uses thinking.type.",
+      thinkingTemplateLabel: "Template",
+      thinkingTemplateAriaLabel: "Deep thinking parameter template",
+      thinkingTemplates: {
+        glm: "GLM",
+        deepseek: "DeepSeek",
+        "chat-template": "Chat template",
+        none: "None",
+        custom: "Custom",
+      },
       thinkingEnabledParamsLabel: "API params when thinking is enabled",
       thinkingEnabledParamsAriaLabel: "API params when thinking is enabled",
       thinkingDisabledParamsLabel: "API params when thinking is disabled",

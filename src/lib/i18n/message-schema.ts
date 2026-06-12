@@ -225,7 +225,15 @@ export type Messages = {
       addModelButton: string;
       removeModelAriaLabel: string;
       emptyModelsHint: string;
-      thinkingConfigDescription: string;
+      thinkingTemplateLabel: string;
+      thinkingTemplateAriaLabel: string;
+      thinkingTemplates: {
+        glm: string;
+        deepseek: string;
+        "chat-template": string;
+        none: string;
+        custom: string;
+      };
       thinkingEnabledParamsLabel: string;
       thinkingEnabledParamsAriaLabel: string;
       thinkingDisabledParamsLabel: string;

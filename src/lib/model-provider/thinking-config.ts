@@ -4,6 +4,13 @@ export type ModelThinkingConfig = {
   defaultEnabled?: boolean;
 };
 
+export type ThinkingConfigTemplateId =
+  | "glm"
+  | "deepseek"
+  | "chat-template"
+  | "none"
+  | "custom";
+
 export const GLM_THINKING_CONFIG: ModelThinkingConfig = {
   enabled: { thinking: { type: "enabled" } },
   disabled: { thinking: { type: "disabled" } },
@@ -37,6 +44,75 @@ export const NVIDIA_THINKING_CONFIG: ModelThinkingConfig = {
   },
   defaultEnabled: true,
 };
+
+export const EMPTY_THINKING_CONFIG: ModelThinkingConfig = {
+  enabled: {},
+  disabled: {},
+  defaultEnabled: false,
+};
+
+export const CHAT_TEMPLATE_THINKING_CONFIG: ModelThinkingConfig = {
+  enabled: { ...NVIDIA_THINKING_CONFIG.enabled },
+  disabled: { ...NVIDIA_THINKING_CONFIG.disabled },
+  defaultEnabled: NVIDIA_THINKING_CONFIG.defaultEnabled,
+};
+
+export const THINKING_CONFIG_TEMPLATE_IDS = [
+  "glm",
+  "deepseek",
+  "chat-template",
+  "none",
+  "custom",
+] as const satisfies readonly ThinkingConfigTemplateId[];
+
+const THINKING_CONFIG_TEMPLATES: Record<
+  Exclude<ThinkingConfigTemplateId, "custom">,
+  ModelThinkingConfig
+> = {
+  glm: GLM_THINKING_CONFIG,
+  deepseek: DEEPSEEK_THINKING_CONFIG,
+  "chat-template": CHAT_TEMPLATE_THINKING_CONFIG,
+  none: EMPTY_THINKING_CONFIG,
+};
+
+export function getThinkingConfigTemplate(
+  templateId: Exclude<ThinkingConfigTemplateId, "custom">
+): ModelThinkingConfig {
+  const template = THINKING_CONFIG_TEMPLATES[templateId];
+
+  return {
+    enabled: { ...template.enabled },
+    disabled: { ...template.disabled },
+    defaultEnabled: template.defaultEnabled,
+  };
+}
+
+function thinkingConfigParamsEqual(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>
+): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export function detectThinkingConfigTemplate(
+  config: Pick<ModelThinkingConfig, "enabled" | "disabled">
+): ThinkingConfigTemplateId {
+  for (const templateId of THINKING_CONFIG_TEMPLATE_IDS) {
+    if (templateId === "custom") {
+      continue;
+    }
+
+    const template = THINKING_CONFIG_TEMPLATES[templateId];
+    if (
+      thinkingConfigParamsEqual(config.enabled, template.enabled) &&
+      thinkingConfigParamsEqual(config.disabled, template.disabled)
+    ) {
+      return templateId;
+    }
+  }
+
+  return "custom";
+}
 
 export function createDefaultThinkingConfigForProvider(
   provider: "custom" | "nvidia" | string

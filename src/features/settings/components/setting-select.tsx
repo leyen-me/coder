@@ -8,6 +8,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 type SettingSelectOption<T extends string> = {
   value: T;
@@ -19,6 +20,7 @@ type SettingSelectProps<T extends string> = {
   options: readonly SettingSelectOption<T>[];
   onValueChange: (value: T) => void;
   "aria-label": string;
+  className?: string;
 };
 
 export function SettingSelect<T extends string>({
@@ -26,6 +28,7 @@ export function SettingSelect<T extends string>({
   options,
   onValueChange,
   "aria-label": ariaLabel,
+  className,
 }: SettingSelectProps<T>) {
   const selectedLabel =
     options.find((option) => option.value === value)?.label ?? value;
@@ -36,7 +39,7 @@ export function SettingSelect<T extends string>({
         <Button
           type="button"
           variant="outline"
-          className="min-w-32 justify-between font-normal"
+          className={cn("min-w-32 justify-between font-normal", className)}
           aria-label={ariaLabel}
         >
           <span>{selectedLabel}</span>

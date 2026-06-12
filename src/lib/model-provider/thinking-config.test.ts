@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AGNES_THINKING_CONFIG,
+  CHAT_TEMPLATE_THINKING_CONFIG,
   createDefaultThinkingConfigForProvider,
   DEEPSEEK_THINKING_CONFIG,
+  detectThinkingConfigTemplate,
+  EMPTY_THINKING_CONFIG,
+  getThinkingConfigTemplate,
   GLM_THINKING_CONFIG,
   NVIDIA_THINKING_CONFIG,
   parseThinkingConfigJson,
@@ -53,5 +58,37 @@ describe("parseThinkingConfigJson", () => {
   it("rejects invalid JSON", () => {
     expect(parseThinkingConfigJson("{invalid")).toBeNull();
     expect(parseThinkingConfigJson("[]")).toBeNull();
+  });
+});
+
+describe("detectThinkingConfigTemplate", () => {
+  it("detects known presets", () => {
+    expect(detectThinkingConfigTemplate(GLM_THINKING_CONFIG)).toBe("glm");
+    expect(detectThinkingConfigTemplate(DEEPSEEK_THINKING_CONFIG)).toBe(
+      "deepseek"
+    );
+    expect(detectThinkingConfigTemplate(CHAT_TEMPLATE_THINKING_CONFIG)).toBe(
+      "chat-template"
+    );
+    expect(detectThinkingConfigTemplate(EMPTY_THINKING_CONFIG)).toBe("none");
+  });
+
+  it("falls back to custom for unmatched configs", () => {
+    expect(
+      detectThinkingConfigTemplate({
+        enabled: { thinking: { type: "enabled" } },
+        disabled: {},
+      })
+    ).toBe("custom");
+    expect(detectThinkingConfigTemplate(AGNES_THINKING_CONFIG)).toBe("custom");
+  });
+});
+
+describe("getThinkingConfigTemplate", () => {
+  it("returns cloned preset configs", () => {
+    const template = getThinkingConfigTemplate("deepseek");
+    expect(template).toEqual(DEEPSEEK_THINKING_CONFIG);
+    template.enabled.reasoning_effort = "low";
+    expect(DEEPSEEK_THINKING_CONFIG.enabled.reasoning_effort).toBe("high");
   });
 });

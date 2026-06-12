@@ -228,8 +228,15 @@ export const zhMessages = {
       addModelButton: "添加模型",
       removeModelAriaLabel: "移除模型",
       emptyModelsHint: "尚未添加自定义模型，点击「添加模型」开始配置。",
-      thinkingConfigDescription:
-        "配置开启/关闭深度思考时合并到 API 请求体的 JSON 参数。DeepSeek 需包含 thinking 与 reasoning_effort，GLM 使用 thinking.type。",
+      thinkingTemplateLabel: "参数模板",
+      thinkingTemplateAriaLabel: "深度思考参数模板",
+      thinkingTemplates: {
+        glm: "GLM",
+        deepseek: "DeepSeek",
+        "chat-template": "Chat Template",
+        none: "无参数",
+        custom: "自定义",
+      },
       thinkingEnabledParamsLabel: "开启思考时的 API 参数",
       thinkingEnabledParamsAriaLabel: "开启思考时的 API 参数",
       thinkingDisabledParamsLabel: "关闭思考时的 API 参数",
