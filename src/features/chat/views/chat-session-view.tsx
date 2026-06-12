@@ -8,6 +8,8 @@ import { nanoid } from "nanoid";
 import { storedImagesToFileUIParts } from "@/features/agent/message-content";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
+import { usePromptRefiner } from "@/features/lab/prompt-refine-provider";
+import { buildRefineContextMessages } from "@/features/lab/refine-prompt";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { useTranslation } from "@/lib/i18n/locale-provider";
@@ -57,6 +59,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     getSessionHandoffState,
     isSessionRunning,
   } = useAgentStore();
+  const { refineIfEnabled } = usePromptRefiner();
   const { session, messages, isLoading } = useSessionData(chatId);
   const displayMessages = useDisplayMessages(messages);
   const [prompt, setPrompt] = useState("");
@@ -259,12 +262,31 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         return;
       }
 
+      let finalText = trimmed;
+      if (trimmed) {
+        setIsSubmitting(true);
+        try {
+          const refineResult = await refineIfEnabled(
+            trimmed,
+            buildRefineContextMessages(messages),
+            model
+          );
+          if (refineResult === "cancelled") {
+            return;
+          }
+          finalText =
+            refineResult === "original" ? trimmed : refineResult.text;
+        } finally {
+          setIsSubmitting(false);
+        }
+      }
+
       if (isRunning && !editingMessageId) {
         setQueuedMessages((currentQueue) => [
           ...currentQueue,
           {
             id: nanoid(),
-            text: trimmed,
+            text: finalText,
             files: payload.files,
           },
         ]);
@@ -278,7 +300,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       setEditInitialFiles([]);
       await sendPayload(
         {
-          text: trimmed,
+          text: finalText,
           files: payload.files,
         },
         {
@@ -287,7 +309,15 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         }
       );
     },
-    [editingMessageId, editingQueuedMessageId, isRunning, sendPayload]
+    [
+      editingMessageId,
+      editingQueuedMessageId,
+      isRunning,
+      messages,
+      model,
+      refineIfEnabled,
+      sendPayload,
+    ]
   );
 
   const handleEditQueuedMessage = useCallback((message: QueuedMessage) => {

@@ -8,12 +8,13 @@ use tokio_util::sync::CancellationToken;
 
 use super::openai::{
     build_http_client, chat_completions_url, complete_chat_completion, stream_chat_completion,
+    REFINE_PROMPT_MAX_TOKENS, REFINE_PROMPT_SYSTEM_PROMPT, SESSION_TITLE_MAX_TOKENS,
     SESSION_TITLE_SYSTEM_PROMPT,
 };
 use super::stream_log::{agent_diagnostic_log, agent_stream_log};
 use super::types::{
     AgentEvent, AgentStartParams, AgentStatus, AgentStatusResponse, ChatMessage,
-    GenerateSessionTitleParams,
+    GenerateSessionTitleParams, RefinePromptParams,
 };
 
 fn debug_emit_log(event: &AgentEvent) {
@@ -163,7 +164,81 @@ pub async fn generate_session_title(
     ];
 
     let url = chat_completions_url(&params.base_url);
-    complete_chat_completion(client, url, &api_key, params.model.trim(), &messages).await
+    complete_chat_completion(
+        client,
+        url,
+        &api_key,
+        params.model.trim(),
+        &messages,
+        SESSION_TITLE_MAX_TOKENS,
+    )
+    .await
+}
+
+pub async fn refine_prompt(
+    client: &Client,
+    params: RefinePromptParams,
+) -> Result<Option<String>, String> {
+    let api_key = resolve_api_key(
+        params.api_key_source.as_str(),
+        params.api_key.as_deref(),
+        params.api_key_env_var.as_str(),
+    )?;
+
+    if params.base_url.trim().is_empty() {
+        return Err("Base URL is required".to_string());
+    }
+
+    if params.model.trim().is_empty() {
+        return Err("Model is required".to_string());
+    }
+
+    let user_prompt = params.user_prompt.trim();
+    if user_prompt.is_empty() {
+        return Ok(None);
+    }
+
+    let user_content = if params.context_messages.is_empty() {
+        format!("User prompt:\n{user_prompt}")
+    } else {
+        let context_block = params
+            .context_messages
+            .iter()
+            .map(|message| format!("{}: {}", message.role, message.content))
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        format!("Conversation context:\n{context_block}\n\nUser prompt:\n{user_prompt}")
+    };
+
+    let messages = vec![
+        ChatMessage {
+            role: "system".to_string(),
+            content: Some(Value::String(REFINE_PROMPT_SYSTEM_PROMPT.to_string())),
+            reasoning_content: None,
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        },
+        ChatMessage {
+            role: "user".to_string(),
+            content: Some(Value::String(user_content)),
+            reasoning_content: None,
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        },
+    ];
+
+    let url = chat_completions_url(&params.base_url);
+    complete_chat_completion(
+        client,
+        url,
+        &api_key,
+        params.model.trim(),
+        &messages,
+        REFINE_PROMPT_MAX_TOKENS,
+    )
+    .await
 }
 
 impl AgentRegistry {

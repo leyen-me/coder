@@ -4,4 +4,5 @@ export type SettingsCategoryId =
   | "keyboardShortcuts"
   | "modelProvider"
   | "webTools"
-  | "data";
+  | "data"
+  | "lab";

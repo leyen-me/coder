@@ -107,7 +107,18 @@ struct ChatCompletionRequest<'a> {
     tool_choice: Option<&'static str>,
 }
 
-const SESSION_TITLE_MAX_TOKENS: u32 = 128;
+pub const SESSION_TITLE_MAX_TOKENS: u32 = 128;
+pub const REFINE_PROMPT_MAX_TOKENS: u32 = 2048;
+
+pub const REFINE_PROMPT_SYSTEM_PROMPT: &str = r#"You are a professional prompt optimization assistant. Your task is to rewrite the user's prompt to be clearer, more specific, and more professional, based on the original input and current conversation context, so an AI agent can understand and execute it better.
+
+Rules:
+1. Preserve the user's original intent
+2. Fix grammar and wording to sound more professional
+3. If the input is vague, add necessary details inferred from context
+4. Output only the refined prompt with no explanation
+5. Reply in the same language as the user
+6. If the input is already clear and professional, make only minor edits or keep it unchanged"#;
 
 #[derive(Debug, Deserialize)]
 struct CompletionResponse {
@@ -521,12 +532,13 @@ pub async fn complete_chat_completion(
     api_key: &str,
     model: &str,
     messages: &[ChatMessage],
+    max_tokens: u32,
 ) -> Result<Option<String>, String> {
     let request_body = ChatCompletionRequest {
         model,
         messages,
         stream: false,
-        max_tokens: Some(SESSION_TITLE_MAX_TOKENS),
+        max_tokens: Some(max_tokens),
         temperature: Some(0.3),
         tools: None,
         tool_choice: None,

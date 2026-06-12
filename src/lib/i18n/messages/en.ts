@@ -171,6 +171,7 @@ export const enMessages = {
       modelProvider: "Models",
       webTools: "Web tools",
       data: "Data",
+      lab: "Lab",
     },
     general: {
       languageLabel: "Language",
@@ -395,6 +396,20 @@ export const enMessages = {
       confirmCancel: "Cancel",
       confirmAction: "Clear all",
     },
+    lab: {
+      promptRefineLabel: "Prompt refiner",
+      promptRefineDescription:
+        "Before sending, let AI polish your prompt for clarity and professionalism",
+      promptRefineAriaLabel: "Enable prompt refiner",
+    },
+  },
+  lab: {
+    confirmTitle: "Refined prompt",
+    confirmOriginal: "Original",
+    confirmRefined: "Refined",
+    confirmSend: "Send refined prompt",
+    confirmTimeout: "Sending original prompt in {countdown}s…",
+    cancel: "Cancel",
   },
   theme: {
     light: "Light",

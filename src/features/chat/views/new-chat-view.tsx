@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { paths } from "@/app/paths";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
+import { usePromptRefiner } from "@/features/lab/prompt-refine-provider";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { resolveInitialSessionWorkspaceDir } from "@/features/workspace/resolve-session-workspace";
 import { createSession } from "@/lib/db";
@@ -25,6 +26,7 @@ export function NewChatView() {
   const navigate = useNavigate();
   const { resolved } = useModelProvider();
   const { sendMessage } = useAgentStore();
+  const { refineIfEnabled } = usePromptRefiner();
   const { workspaceDir, pickWorkspace, clearWorkspace } = useNewChatWorkspace();
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState(() => resolveDefaultModel(resolved));
@@ -50,6 +52,13 @@ export function NewChatView() {
     setIsSubmitting(true);
     const previousPrompt = trimmed;
     try {
+      const refineResult = await refineIfEnabled(trimmed, [], model);
+      if (refineResult === "cancelled") {
+        return;
+      }
+      const finalText =
+        refineResult === "original" ? trimmed : refineResult.text;
+
       const session = await createSession({
         title: t("session.newChat"),
         model,
@@ -59,7 +68,7 @@ export function NewChatView() {
       setPrompt("");
       await sendMessage({
         sessionId: session.id,
-        content: trimmed,
+        content: finalText,
         images: payload.files,
         model,
         thinkingEnabled,

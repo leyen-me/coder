@@ -1,6 +1,7 @@
 import {
   Bot,
   Database,
+  FlaskConical,
   Globe,
   Keyboard,
   Palette,
@@ -21,6 +22,7 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   { id: "modelProvider", icon: Bot },
   { id: "webTools", icon: Globe },
   { id: "data", icon: Database },
+  { id: "lab", icon: FlaskConical },
 ];
 
 export const DEFAULT_SETTINGS_CATEGORY: SettingsCategoryId = "general";

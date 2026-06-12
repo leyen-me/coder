@@ -132,3 +132,22 @@ pub struct GenerateSessionTitleParams {
     pub user_message: String,
     pub assistant_message: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RefineContextMessage {
+    pub role: String,
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RefinePromptParams {
+    pub base_url: String,
+    pub api_key: Option<String>,
+    pub api_key_source: String,
+    pub api_key_env_var: String,
+    pub model: String,
+    pub user_prompt: String,
+    pub context_messages: Vec<RefineContextMessage>,
+}

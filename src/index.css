@@ -158,3 +158,13 @@
     transform: scaleX(0);
   }
 }
+
+@keyframes prompt-refine-confirm-shrink {
+  from {
+    transform: scaleX(1);
+  }
+
+  to {
+    transform: scaleX(0);
+  }
+}

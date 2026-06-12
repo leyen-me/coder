@@ -7,7 +7,8 @@ use std::sync::{Arc, Mutex};
 
 use agent::registry::AgentRegistry;
 use agent::{
-    agent_cancel, agent_generate_session_title, agent_get_status, agent_start, AgentState,
+    agent_cancel, agent_generate_session_title, agent_get_status, agent_refine_prompt,
+    agent_start, AgentState,
 };
 use tauri::{Manager, RunEvent};
 use tools::{
@@ -67,6 +68,7 @@ pub fn run() {
             agent_cancel,
             agent_get_status,
             agent_generate_session_title,
+            agent_refine_prompt,
             tool_list_dir,
             tool_read_file,
             tool_read_editor_file,

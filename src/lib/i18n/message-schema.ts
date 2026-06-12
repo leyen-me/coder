@@ -163,6 +163,7 @@ export type Messages = {
       modelProvider: string;
       webTools: string;
       data: string;
+      lab: string;
     };
     general: {
       languageLabel: string;
@@ -320,6 +321,19 @@ export type Messages = {
       confirmCancel: string;
       confirmAction: string;
     };
+    lab: {
+      promptRefineLabel: string;
+      promptRefineDescription: string;
+      promptRefineAriaLabel: string;
+    };
+  };
+  lab: {
+    confirmTitle: string;
+    confirmOriginal: string;
+    confirmRefined: string;
+    confirmSend: string;
+    confirmTimeout: string;
+    cancel: string;
   };
   theme: {
     light: string;

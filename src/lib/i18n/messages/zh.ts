@@ -166,6 +166,7 @@ export const zhMessages = {
       modelProvider: "模型",
       webTools: "网络工具",
       data: "数据",
+      lab: "实验室",
     },
     general: {
       languageLabel: "语言",
@@ -388,6 +389,19 @@ export const zhMessages = {
       confirmCancel: "取消",
       confirmAction: "确认清除",
     },
+    lab: {
+      promptRefineLabel: "提示词润色",
+      promptRefineDescription: "发送前让 AI 优化你的提示词，使其更清晰专业",
+      promptRefineAriaLabel: "启用提示词润色",
+    },
+  },
+  lab: {
+    confirmTitle: "润色后的提示词",
+    confirmOriginal: "原始输入",
+    confirmRefined: "润色后",
+    confirmSend: "发送润色后的提示词",
+    confirmTimeout: "{countdown} 秒后自动发送原始提示词…",
+    cancel: "取消",
   },
   theme: {
     light: "浅色",

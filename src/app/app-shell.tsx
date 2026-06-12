@@ -5,6 +5,7 @@ import { FloatingShellNav } from "@/components/layout/floating-shell-nav";
 import { useSidebarOpen } from "@/features/chat/hooks/use-sidebar-open";
 import { HotkeyActionsProvider } from "@/features/keyboard-shortcuts/hotkey-actions-context";
 import { KeyboardShortcuts } from "@/features/keyboard-shortcuts/keyboard-shortcuts";
+import { PromptRefineProvider } from "@/features/lab/prompt-refine-provider";
 import { SearchDialogProvider } from "@/features/keyboard-shortcuts/search-dialog-context";
 import { ShellChromeProvider } from "@/features/keyboard-shortcuts/shell-chrome-context";
 import { RightPanelProvider } from "@/features/right-panel/right-panel-context";
@@ -65,6 +66,7 @@ export function AppShell() {
 
       <ShellChromeProvider toggleSidebar={toggleSidebar}>
         <SearchDialogProvider>
+          <PromptRefineProvider>
           <HotkeyActionsProvider>
             <BottomPanelProvider>
               <RightPanelProvider>
@@ -80,6 +82,7 @@ export function AppShell() {
               </RightPanelProvider>
             </BottomPanelProvider>
           </HotkeyActionsProvider>
+          </PromptRefineProvider>
         </SearchDialogProvider>
       </ShellChromeProvider>
       <Toaster richColors />

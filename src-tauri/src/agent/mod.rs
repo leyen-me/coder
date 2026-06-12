@@ -5,10 +5,13 @@ mod types;
 
 use std::sync::{Arc, Mutex};
 
-use registry::{generate_session_title, AgentRegistry};
+use registry::{generate_session_title, refine_prompt, AgentRegistry};
 use tauri::ipc::Channel;
 use tauri::State;
-pub use types::{AgentEvent, AgentStartParams, AgentStatusResponse, GenerateSessionTitleParams};
+pub use types::{
+    AgentEvent, AgentStartParams, AgentStatusResponse, GenerateSessionTitleParams,
+    RefinePromptParams,
+};
 
 pub struct AgentState(pub Arc<Mutex<AgentRegistry>>);
 
@@ -46,6 +49,21 @@ pub async fn agent_generate_session_title(
         registry.http_client()
     };
     generate_session_title(&client, params).await
+}
+
+#[tauri::command]
+pub async fn agent_refine_prompt(
+    state: State<'_, AgentState>,
+    params: RefinePromptParams,
+) -> Result<Option<String>, String> {
+    let client = {
+        let registry = state
+            .0
+            .lock()
+            .map_err(|_| "Agent registry lock poisoned".to_string())?;
+        registry.http_client()
+    };
+    refine_prompt(&client, params).await
 }
 
 #[tauri::command]

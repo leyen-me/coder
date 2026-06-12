@@ -12,6 +12,7 @@ import { DataSettingsPanel } from "../components/data-settings-panel";
 import { GeneralSettingsPanel } from "../components/general-settings-panel";
 import { KeyboardShortcutsSettingsPanel } from "../components/keyboard-shortcuts-settings-panel";
 import { ModelProviderSettingsPanel } from "../components/model-provider-settings-panel";
+import { LabSettingsPanel } from "../components/lab-settings-panel";
 import { WebToolsSettingsPanel } from "../components/web-tools-settings-panel";
 import { SettingsSidebar } from "../components/settings-sidebar";
 import type { SettingsCategoryId } from "../types";
@@ -23,6 +24,7 @@ const SETTINGS_PANELS: Record<SettingsCategoryId, ComponentType> = {
   modelProvider: ModelProviderSettingsPanel,
   webTools: WebToolsSettingsPanel,
   data: DataSettingsPanel,
+  lab: LabSettingsPanel,
 };
 
 export function SettingsPage() {
