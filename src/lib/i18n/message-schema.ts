@@ -478,6 +478,8 @@ export type Messages = {
   rightPanel: {
     explorer: string;
     plan: string;
+    planBuild: string;
+    planSaved: string;
     planLoading: string;
     planEmpty: string;
     noWorkspace: string;

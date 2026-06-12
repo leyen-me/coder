@@ -31,7 +31,6 @@ import {
   shouldRenderStandaloneAssistantAnswer,
   shouldShowAssistantProcessTimeline,
 } from "./assistant-process";
-import { PlanPreviewCard } from "./plan-preview-card";
 import { StreamingMessageContent } from "./streaming-message-content";
 
 type MessageItemProps = {
@@ -40,11 +39,8 @@ type MessageItemProps = {
   isStreaming: boolean;
   chatRetry?: ChatRetryState | null;
   editingMessageId?: string | null;
-  isLatestPlan?: boolean;
-  isBuildPending?: boolean;
   onEditUserMessage?: (message: MessageRecord) => void;
   onRegenerateAssistantMessage?: (message: MessageRecord) => void;
-  onBuildFromPlan?: (planContent: string) => void;
 };
 
 function areMessageItemPropsEqual(
@@ -79,18 +75,6 @@ function areMessageItemPropsEqual(
     return false;
   }
 
-  if (prev.isLatestPlan !== next.isLatestPlan) {
-    return false;
-  }
-
-  if (prev.isBuildPending !== next.isBuildPending) {
-    return false;
-  }
-
-  if (prev.onBuildFromPlan !== next.onBuildFromPlan) {
-    return false;
-  }
-
   const prevMessage = prev.message;
   const nextMessage = next.message;
 
@@ -114,11 +98,8 @@ export const MessageItem = memo(function MessageItem({
   isStreaming,
   chatRetry = null,
   editingMessageId,
-  isLatestPlan = false,
-  isBuildPending = false,
   onEditUserMessage,
   onRegenerateAssistantMessage,
-  onBuildFromPlan,
 }: MessageItemProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -260,13 +241,6 @@ export const MessageItem = memo(function MessageItem({
     }
   }, [isRegenerating, message, onRegenerateAssistantMessage]);
 
-  const handleBuildFromPlan = useCallback(() => {
-    if (!answerText.trim() || !onBuildFromPlan) {
-      return;
-    }
-    onBuildFromPlan(answerText);
-  }, [answerText, onBuildFromPlan]);
-
   if (isUser) {
     const images = message.images ?? [];
     const hasCopyContent =
@@ -341,15 +315,7 @@ export const MessageItem = memo(function MessageItem({
       {showProcessTimeline ? (
         <AssistantProcessView steps={timelineSteps} />
       ) : null}
-      {isPlanMessage ? (
-        <PlanPreviewCard
-          content={answerText}
-          isStreaming={isStreaming}
-          showBuildAction={isLatestPlan && Boolean(onBuildFromPlan)}
-          isBuildPending={isBuildPending}
-          onBuild={handleBuildFromPlan}
-        />
-      ) : answerText && showStandaloneAnswer ? (
+      {answerText && showStandaloneAnswer ? (
         <StreamingMessageContent isStreaming={isStreaming} text={answerText} />
       ) : null}
       {showActions ? (

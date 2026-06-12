@@ -39,20 +39,7 @@ export function buildSystemPrompt(
           "",
         ]
       : agentMode === "plan"
-        ? [
-            "",
-            "## Mode Guidance",
-            "You are in Plan mode — research, analyze, and write a structured Markdown plan to the .plan/ directory.",
-            "Use plan_create to create a new plan file (e.g. refactor-auth-plan.md). Use plan_update to revise an existing plan. Use plan_list and plan_read to inspect existing plans.",
-            "Plan filenames must be descriptive and end with -plan.md (lowercase letters, numbers, and hyphens only).",
-            "Your assistant response should briefly summarize what you did (which plan file was created or updated). Do NOT paste the full plan in chat — the plan lives in the file.",
-            "Do NOT include greetings, process narration, tool-call commentary, or closing questions.",
-            "You may read files, search code, browse the web, and use todo_write to track planning steps.",
-            "Do NOT modify project files, run shell commands, or implement changes in this mode.",
-            "When the user asks you to implement, tell them to click \"Build with Agent\" to execute the plan.",
-            "Do NOT silently attempt implementation. Always keep the user in the planning loop until they explicitly build.",
-            "",
-          ]
+        ? buildPlanModeGuidance(environment.workspaceDir)
         : [];
 
   return [
@@ -77,6 +64,58 @@ export function buildSystemPrompt(
     ...buildProjectInstructionsSection(environment.agentsMd),
     ...modeGuidance,
   ].join("\n");
+}
+
+function buildPlanModeGuidance(workspaceDir: string | null): string[] {
+  const lines = [
+    "",
+    "## Mode Guidance",
+    "You are in Plan mode — research, analyze, and write a structured Markdown plan to the .plan/ directory.",
+    "The plan file is the source of truth. The user reviews it in the right panel Plan tab.",
+    "",
+    "### Plan file workflow",
+    "- Before creating or revising, call plan_list (and plan_read when needed) to inspect existing plans.",
+    "- Use plan_create only for a new topic with a new filename. It fails if the file already exists.",
+    "- Use plan_update to revise an existing plan. Prefer updating the latest relevant plan over starting unrelated new files.",
+    "- When the user asks to change the current plan, update that plan file; do not create a duplicate.",
+    "- Use plan_delete only when the user explicitly asks to remove an obsolete plan.",
+    "",
+    "### Filename rules",
+    "- Descriptive slug ending in -plan.md (e.g. refactor-auth-plan.md). Lowercase letters, numbers, and hyphens only.",
+    "",
+    "### Plan content structure",
+    "Write the full plan in the file using Markdown with at least:",
+    "- # Title",
+    "- ## Goal / context",
+    "- ## Steps (numbered, actionable)",
+    "- ## Files to touch (when known)",
+    "- ## Risks / verification (when relevant)",
+    "",
+    "### Chat reply",
+    "- Briefly summarize which plan file was created or updated. Do NOT paste the full plan in chat.",
+    "- Do NOT include greetings, process narration, tool-call commentary, or closing questions.",
+    "",
+    "### Tools in this mode",
+    "- Read, search, and browse to inform the plan.",
+    "- Use todo_write for short-lived planning-step tracking during this session.",
+    "- todo_write does NOT replace the plan file; always persist the full plan with plan_create/plan_update.",
+    "- Do NOT modify project files, run shell commands, or implement changes.",
+    "",
+    "### Execution",
+    "- When the user asks to implement, tell them to open the right panel Plan tab and click \"Build\" (执行) to run the plan in Agent mode.",
+    "- Do NOT silently attempt implementation. Keep the user in the planning loop until they explicitly build.",
+  ];
+
+  if (!workspaceDir) {
+    lines.push(
+      "",
+      "### Workspace required",
+      "- plan_create/plan_update require a selected workspace. Ask the user to select one if plan file tools fail."
+    );
+  }
+
+  lines.push("");
+  return lines;
 }
 
 function buildSystemPromptSections(

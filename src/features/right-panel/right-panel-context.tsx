@@ -14,6 +14,12 @@ import { useLocation } from "react-router-dom";
 import { isChatRoute } from "@/app/paths";
 import { subscribePlanFileUpdated } from "@/features/plan/plan-events";
 
+export type PlanBuildActions = {
+  isRunning: boolean;
+  isBuildPending: boolean;
+  onBuild: () => void;
+};
+
 type RightPanelContextValue = {
   isOpen: boolean;
   toggle: () => void;
@@ -22,6 +28,9 @@ type RightPanelContextValue = {
   activePlanName: string | null;
   openPlanPreview: (planName?: string | null) => void;
   deactivatePlanTab: () => void;
+  planBuildActions: PlanBuildActions | null;
+  setPlanBuildActions: (actions: PlanBuildActions | null) => void;
+  planUpdateTick: number;
 };
 
 const RightPanelContext = createContext<RightPanelContextValue | null>(null);
@@ -31,12 +40,17 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPlanTabActive, setIsPlanTabActive] = useState(false);
   const [activePlanName, setActivePlanName] = useState<string | null>(null);
+  const [planBuildActions, setPlanBuildActions] = useState<PlanBuildActions | null>(
+    null
+  );
+  const [planUpdateTick, setPlanUpdateTick] = useState(0);
 
   useEffect(() => {
     if (!isChatRoute(pathname)) {
       setIsOpen(false);
       setIsPlanTabActive(false);
       setActivePlanName(null);
+      setPlanBuildActions(null);
     }
   }, [pathname]);
 
@@ -52,6 +66,7 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
       setActivePlanName(detail.name);
       setIsPlanTabActive(true);
       setIsOpen(true);
+      setPlanUpdateTick((current) => current + 1);
     });
   }, []);
 
@@ -78,6 +93,9 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
       activePlanName,
       openPlanPreview,
       deactivatePlanTab,
+      planBuildActions,
+      setPlanBuildActions,
+      planUpdateTick,
     }),
     [
       activePlanName,
@@ -85,6 +103,8 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
       isOpen,
       isPlanTabActive,
       openPlanPreview,
+      planBuildActions,
+      planUpdateTick,
       toggle,
     ]
   );

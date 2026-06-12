@@ -1,7 +1,7 @@
 "use client";
 
 import { ClipboardListIcon, FileIcon, FilesIcon, RefreshCwIcon, XIcon } from "lucide-react";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useRegisterHotkeyAction } from "@/features/keyboard-shortcuts/hotkey-actions-context";
 
@@ -29,6 +29,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     activePlanName,
     openPlanPreview,
     deactivatePlanTab,
+    planUpdateTick,
   } = useRightPanel();
   const {
     tabs,
@@ -61,6 +62,35 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     [tabs]
   );
   const fileTreeRef = useRef<WorkspaceFileTreeHandle>(null);
+  const [planTabPulse, setPlanTabPulse] = useState(false);
+  const lastPlanUpdateTick = useRef(planUpdateTick);
+  const lastWorkspaceDir = useRef(workspaceDir);
+
+  useEffect(() => {
+    if (lastWorkspaceDir.current === workspaceDir) {
+      return;
+    }
+
+    lastWorkspaceDir.current = workspaceDir;
+    openPlanPreview(null);
+  }, [openPlanPreview, workspaceDir]);
+
+  useEffect(() => {
+    if (planUpdateTick === 0 || planUpdateTick === lastPlanUpdateTick.current) {
+      return;
+    }
+
+    lastPlanUpdateTick.current = planUpdateTick;
+    setPlanTabPulse(true);
+    const timer = window.setTimeout(() => {
+      setPlanTabPulse(false);
+    }, 1500);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [planUpdateTick]);
+
   const activeTab = tabs.find((tab) => tab.path === activeTabPath) ?? null;
   const showExplorerPanel = isExplorerActive && !isPlanTabActive;
 
@@ -148,10 +178,11 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
 
         <div
           className={cn(
-            "group inline-flex h-7 shrink-0 items-center rounded-md border text-xs",
+            "group inline-flex h-7 shrink-0 items-center rounded-md border text-xs transition-colors duration-500",
             isPlanTabActive
               ? "border-border/40 bg-muted/30 text-foreground/80"
-              : "border-transparent text-muted-foreground/70 hover:bg-muted/20"
+              : "border-transparent text-muted-foreground/70 hover:bg-muted/20",
+            planTabPulse && "border-primary/40 bg-primary/10 text-primary"
           )}
         >
           <button

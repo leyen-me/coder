@@ -567,6 +567,8 @@ export const enMessages = {
   rightPanel: {
     explorer: "Explorer",
     plan: "Plan",
+    planBuild: "Build",
+    planSaved: "Saved",
     planLoading: "Loading plan…",
     planEmpty: "No plan file yet. Switch to Plan mode and ask the assistant to create one.",
     noWorkspace: "Select a workspace to browse files",

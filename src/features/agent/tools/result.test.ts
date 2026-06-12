@@ -137,8 +137,24 @@ describe("buildSystemPrompt", () => {
 
     expect(prompt).toContain("mode: plan");
     expect(prompt).toContain("You are in Plan mode");
-    expect(prompt).toContain("plan_create");
-    expect(prompt).toContain("Build with Agent");
+    expect(prompt).toContain("plan_update");
+    expect(prompt).toContain("Plan tab");
+    expect(prompt).toContain("Build");
+  });
+
+  it("warns when workspace is not selected in plan mode", () => {
+    const prompt = buildSystemPrompt(
+      normalizeEnvironment({
+        workspaceDir: null,
+        os: "macos aarch64 (15.5)",
+        shell: "/bin/zsh",
+        isGitRepository: false,
+        today: "2026-06-02, Monday",
+      }),
+      "plan"
+    );
+
+    expect(prompt).toContain("Workspace required");
   });
 });
 

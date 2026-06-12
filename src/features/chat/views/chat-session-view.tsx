@@ -13,6 +13,7 @@ import { buildRefineContextMessages } from "@/features/lab/refine-prompt";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { useTranslation } from "@/lib/i18n/locale-provider";
+import { useRightPanel } from "@/features/right-panel/right-panel-context";
 
 import { ChatHotkeyActions } from "@/features/keyboard-shortcuts/chat-hotkey-actions";
 
@@ -31,9 +32,6 @@ import {
   updateQueuedMessage,
   type QueuedMessage,
 } from "../lib/message-queue";
-import {
-  getLatestPlanMessage,
-} from "../lib/plan/get-latest-plan-message";
 import { useComposerThinking } from "../hooks/use-composer-thinking";
 import { estimateSessionContextUsage } from "../lib/estimate-session-context-usage";
 import {
@@ -101,10 +99,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const activeTask = getSessionTask(chatId);
   const handoffState = getSessionHandoffState(chatId);
   const isRunning = isSessionRunning(chatId) || isSubmitting || isBuildPending;
-  const latestPlanMessage = useMemo(
-    () => getLatestPlanMessage(displayMessages),
-    [displayMessages]
-  );
+  const { setPlanBuildActions } = useRightPanel();
 
   useEffect(() => {
     if (session?.model) {
@@ -224,13 +219,13 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       setIsBuildPending(true);
       setAgentMode("agent");
       try {
-        const resolvedContent = await resolvePlanContentForBuild(
+        const resolved = await resolvePlanContentForBuild(
           workspaceBinding.workspaceDir,
           planContent
         );
         await sendMessage({
           sessionId: chatId,
-          content: buildPlanExecutionPrompt(resolvedContent),
+          content: buildPlanExecutionPrompt(resolved.content, resolved.path),
           model,
           thinkingEnabled,
           agentMode: "agent",
@@ -253,6 +248,20 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       workspaceBinding.workspaceDir,
     ]
   );
+
+  useEffect(() => {
+    setPlanBuildActions({
+      isRunning,
+      isBuildPending,
+      onBuild: () => {
+        void handleBuildFromPlan("");
+      },
+    });
+
+    return () => {
+      setPlanBuildActions(null);
+    };
+  }, [handleBuildFromPlan, isBuildPending, isRunning, setPlanBuildActions]);
 
   const handleSend = useCallback(
     async (payload: { text: string; files: FileUIPart[] }) => {
@@ -472,12 +481,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       />
       <ChatMessageList
         editingMessageId={editingMessageId}
-        isBuildPending={isBuildPending}
-        latestPlanMessageId={latestPlanMessage?.id ?? null}
         messages={messages}
-        onBuildFromPlan={(planContent) => {
-          void handleBuildFromPlan(planContent);
-        }}
         onEditUserMessage={handleEditUserMessage}
         onRegenerateAssistantMessage={handleRegenerateAssistantMessage}
         onSystemPromptExpand={() => {

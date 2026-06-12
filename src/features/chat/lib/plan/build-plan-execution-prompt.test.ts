@@ -7,9 +7,18 @@ describe("buildPlanExecutionPrompt", () => {
     const prompt = buildPlanExecutionPrompt("## Step 1\nDo the thing");
 
     expect(prompt).toContain("implement the following plan");
-    expect(prompt).toContain("## Plan (plan.md)");
+    expect(prompt).toContain("## Plan (.plan/)");
     expect(prompt).toContain("## Step 1");
     expect(prompt).toContain("Do the thing");
+  });
+
+  it("includes the plan file path when provided", () => {
+    const prompt = buildPlanExecutionPrompt(
+      "## Step 1\nDo the thing",
+      ".plan/refactor-auth-plan.md"
+    );
+
+    expect(prompt).toContain("## Plan (.plan/refactor-auth-plan.md)");
   });
 
   it("strips conversational wrapper before building", () => {
