@@ -46,7 +46,7 @@ export const CommitBox = forwardRef<HTMLTextAreaElement>(
 
     return (
       <div className="shrink-0 border-t bg-background/95 p-3 backdrop-blur">
-        <div className="rounded-2xl border bg-muted/20 p-3">
+        <div className="rounded-xl border bg-muted/20 p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="text-sm font-medium">{t("git.commit")}</p>

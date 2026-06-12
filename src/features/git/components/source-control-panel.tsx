@@ -144,13 +144,13 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
         }}
         value={activeTab}
       >
-        <div className="flex shrink-0 items-center gap-2 border-b bg-background/80 px-3 py-1.5">
-          <TabsList className="h-7 w-full" variant="line">
-            <TabsTrigger className="h-7 flex-1 gap-1.5 px-2 text-xs" value="changes">
+        <div className="shrink-0 border-b bg-background/80 px-3 py-2">
+          <TabsList className="h-8 w-full rounded-lg bg-muted/70 p-0.5">
+            <TabsTrigger className="h-7 flex-1 gap-1.5 rounded-md px-2 text-xs" value="changes">
               <InboxIcon className="size-3.5 shrink-0" />
               {t("git.changes")}
             </TabsTrigger>
-            <TabsTrigger className="h-7 flex-1 gap-1.5 px-2 text-xs" value="history">
+            <TabsTrigger className="h-7 flex-1 gap-1.5 rounded-md px-2 text-xs" value="history">
               <HistoryIcon className="size-3.5 shrink-0" />
               {t("git.history")}
             </TabsTrigger>

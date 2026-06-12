@@ -75,7 +75,7 @@ function ChangeFileItem({ entry, onToggle, onDiscard }: ChangeFileItemProps) {
         className="size-3.5"
         onCheckedChange={() => onToggle(entry.path, entry.staged)}
       />
-      <div className="rounded-xl bg-muted/50 p-1.5">
+      <div className="rounded-lg bg-muted/50 p-1.5">
         <Icon className={cn("size-3.5 shrink-0", STATUS_COLORS[entry.status])} />
       </div>
       <div className="min-w-0 flex-1 pt-0.5">
@@ -123,7 +123,7 @@ function ChangeSection({ entries, title, onDiscard, onToggle }: ChangeSectionPro
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl border bg-background shadow-xs">
+    <section className="overflow-hidden rounded-xl border bg-background shadow-xs">
       <div className="border-b px-3 py-2">
         <p className="truncate text-xs font-medium">{title}</p>
       </div>
@@ -223,7 +223,7 @@ export function ChangesView() {
     return (
       <div className="flex h-full flex-col bg-muted/10">
         <div className="flex flex-1 items-center justify-center p-4">
-          <div className="w-full rounded-3xl border border-dashed bg-background/80">
+          <div className="w-full rounded-xl border border-dashed bg-background/80">
             <EmptyState
               icon={<InboxIcon className="size-8 text-muted-foreground/40" />}
               message={t("git.noChanges")}
@@ -238,47 +238,44 @@ export function ChangesView() {
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
       <div className="shrink-0 border-b bg-background/80 px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <p className="truncate text-xs font-medium">{t("git.changes")}</p>
-          <div className="ml-auto flex shrink-0 items-center gap-1">
-            {unstagedEntries.length > 0 ? (
-              <Button
-                aria-label={t("git.stagedFiles")}
-                onClick={() => void stageAll()}
-                size="icon-xs"
-                title={t("git.stagedFiles")}
-                type="button"
-                variant="outline"
-              >
-                <GitBranchPlusIcon className="size-3" />
-              </Button>
-            ) : null}
-            {stagedEntries.length > 0 ? (
-              <Button
-                aria-label={t("git.unstagedFiles")}
-                onClick={() => void unstageAll()}
-                size="icon-xs"
-                title={t("git.unstagedFiles")}
-                type="button"
-                variant="outline"
-              >
-                <RotateCcwIcon className="size-3" />
-              </Button>
-            ) : null}
-            {statusEntries.length > 0 ? (
-              <Button
-                aria-label={t("git.discardAll")}
-                className="text-destructive/90 hover:text-destructive"
-                onClick={() => setDiscardTarget({ type: "all" })}
-                size="icon-xs"
-                title={t("git.discardAll")}
-                type="button"
-                variant="ghost"
-              >
-                <Trash2Icon className="size-3" />
-              </Button>
-            ) : null}
-          </div>
+        <div className="flex justify-end gap-1">
+          {unstagedEntries.length > 0 ? (
+            <Button
+              aria-label={t("git.stagedFiles")}
+              onClick={() => void stageAll()}
+              size="icon-xs"
+              title={t("git.stagedFiles")}
+              type="button"
+              variant="outline"
+            >
+              <GitBranchPlusIcon className="size-3" />
+            </Button>
+          ) : null}
+          {stagedEntries.length > 0 ? (
+            <Button
+              aria-label={t("git.unstagedFiles")}
+              onClick={() => void unstageAll()}
+              size="icon-xs"
+              title={t("git.unstagedFiles")}
+              type="button"
+              variant="outline"
+            >
+              <RotateCcwIcon className="size-3" />
+            </Button>
+          ) : null}
+          {statusEntries.length > 0 ? (
+            <Button
+              aria-label={t("git.discardAll")}
+              className="text-destructive/90 hover:text-destructive"
+              onClick={() => setDiscardTarget({ type: "all" })}
+              size="icon-xs"
+              title={t("git.discardAll")}
+              type="button"
+              variant="ghost"
+            >
+              <Trash2Icon className="size-3" />
+            </Button>
+          ) : null}
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">

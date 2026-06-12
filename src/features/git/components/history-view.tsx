@@ -78,9 +78,6 @@ export function HistoryView({ workspaceDir: _workspaceDir }: HistoryViewProps) {
 
   return (
     <div ref={scrollAreaRef} className="flex min-h-0 min-w-0 flex-1 flex-col bg-muted/10">
-      <div className="shrink-0 border-b bg-background/80 px-3 py-2">
-        <p className="truncate text-xs font-medium">{t("git.history")}</p>
-      </div>
       <div
         className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
         onScroll={maybeLoadMore}
@@ -89,10 +86,10 @@ export function HistoryView({ workspaceDir: _workspaceDir }: HistoryViewProps) {
           {recentCommits.map((commit) => (
             <div
               key={commit.hash}
-              className="flex min-w-0 w-full flex-col gap-2 rounded-2xl border bg-background p-3 shadow-xs transition-colors hover:bg-muted/20"
+              className="flex min-w-0 w-full flex-col gap-2 rounded-xl border bg-background p-3 shadow-xs transition-colors hover:bg-muted/20"
             >
               <div className="flex min-w-0 items-start gap-2">
-                <div className="rounded-xl bg-muted/50 p-1.5">
+                <div className="rounded-lg bg-muted/50 p-1.5">
                   <GitCommitIcon className="size-3.5 shrink-0 text-muted-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
