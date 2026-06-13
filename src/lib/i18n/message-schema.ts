@@ -203,6 +203,11 @@ export type Messages = {
   };
   settings: {
     title: string;
+    groups: {
+      general: string;
+      services: string;
+      system: string;
+    };
     categories: {
       general: string;
       appearance: string;

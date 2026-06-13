@@ -8,7 +8,8 @@ import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import { paths } from "@/app/paths";
 
-import { SETTINGS_CATEGORIES } from "../constants";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { SETTINGS_CATEGORY_GROUPS } from "../constants";
 import type { SettingsCategoryId } from "../types";
 
 type SettingsSidebarProps = {
@@ -56,14 +57,21 @@ export function SettingsSidebar({
         </div>
 
         <nav className="flex flex-col gap-0.5 px-2 pb-2">
-          {SETTINGS_CATEGORIES.map((category) => (
-            <SidebarNavItem
-              key={category.id}
-              icon={category.icon}
-              label={t(`settings.categories.${category.id}`)}
-              isActive={selectedCategory === category.id}
-              onClick={() => onSelectCategory(category.id)}
-            />
+          {SETTINGS_CATEGORY_GROUPS.map((group) => (
+            <div key={group.nameKey}>
+              <p className="px-2 pb-0.5 pt-3 text-[11px] font-medium tracking-wider text-muted-foreground/60 uppercase">
+                {t(group.nameKey as MessageKey)}
+              </p>
+              {group.items.map((category) => (
+                <SidebarNavItem
+                  key={category.id}
+                  icon={category.icon}
+                  label={t(`settings.categories.${category.id}`)}
+                  isActive={selectedCategory === category.id}
+                  onClick={() => onSelectCategory(category.id)}
+                />
+              ))}
+            </div>
           ))}
         </nav>
       </aside>

@@ -212,6 +212,11 @@ export const zhMessages = {
   },
   settings: {
     title: "设置",
+    groups: {
+      general: "通用",
+      services: "服务",
+      system: "系统",
+    },
     categories: {
       general: "常规",
       appearance: "外观",

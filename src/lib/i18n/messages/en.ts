@@ -222,6 +222,11 @@ export const enMessages = {
   },
   settings: {
     title: "Settings",
+    groups: {
+      general: "General",
+      services: "Services",
+      system: "System",
+    },
     categories: {
       general: "General",
       appearance: "Appearance",
