@@ -72,23 +72,14 @@ Spend a few seconds thinking about what unique signal the target code would emit
 
 const COMMIT_HELPER_CONTENT = `# Commit Rules
 
-Generate commit messages from staged changes:
-
-1. Run \`git diff\` and \`git status\` to understand changes
-2. Focus on **why**, not just what changed
-3. Use conventional format:
-
-\`\`\`
-type(scope): short summary
-
-Optional body explaining motivation and impact
-\`\`\`
-
-Types: feat, fix, refactor, docs, test, chore, perf, ci
-
-Keep the subject line under 72 characters.
-
-4. When the user says "commit": stage and commit, but do not push until the user explicitly says "push".
+- Review \`git status\` and \`git diff --staged\`
+- Stage only task-related files; avoid \`git add .\` / \`git add -A\`
+- Generate messages from staged changes only
+- Use Conventional Commits: \`type(scope): summary\`
+- Focus on why; do not invent context
+- Subject < 72 chars
+- "commit" = commit only
+- "push" = push
 `;
 
 const TASK_PLANNING_CONTENT = `# Task Planning
