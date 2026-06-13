@@ -193,6 +193,10 @@ export function ComposerRichInput({
         codeBlock: false,
         heading: false,
         orderedList: false,
+        bold: false,
+        code: false,
+        italic: false,
+        strike: false,
       }),
       Placeholder.configure({
         placeholder: placeholder ?? "",
@@ -343,12 +347,13 @@ export function ComposerRichInput({
 
         return false;
       },
-      handlePaste: (_view, event) => {
+      handlePaste: (view, event) => {
         const items = event.clipboardData?.items;
         if (!items) {
           return false;
         }
 
+        // File paste — delegate to attachment handling.
         const files: File[] = [];
         for (const item of items) {
           if (item.kind === "file") {
@@ -362,6 +367,16 @@ export function ComposerRichInput({
         if (files.length > 0) {
           event.preventDefault();
           attachments.add(files);
+          return true;
+        }
+
+        // Text paste — insert as plain text to strip all HTML formatting
+        // (bold, italic, code, etc.) that ProseMirror's default paste
+        // handler would otherwise preserve from the rich clipboard.
+        const plainText = event.clipboardData?.getData("text/plain");
+        if (plainText) {
+          event.preventDefault();
+          view.dispatch(view.state.tr.insertText(plainText));
           return true;
         }
 
