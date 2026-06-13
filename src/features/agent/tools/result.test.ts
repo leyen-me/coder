@@ -157,6 +157,36 @@ describe("buildSystemPrompt", () => {
 
     expect(prompt).toContain("Workspace required");
   });
+
+  it("includes Windows-specific environment guidance on Windows", () => {
+    const prompt = buildSystemPrompt(
+      normalizeEnvironment({
+        workspaceDir: "C:\\project",
+        os: "windows x86_64 (windows)",
+        shell: "powershell",
+        isGitRepository: true,
+        today: "2026-06-13, Saturday",
+      })
+    );
+
+    expect(prompt).toContain("windows_cmd_quoting:");
+    expect(prompt).toContain("windows_unicode_filenames:");
+  });
+
+  it("omits Windows-specific environment guidance on non-Windows", () => {
+    const prompt = buildSystemPrompt(
+      normalizeEnvironment({
+        workspaceDir: "/tmp/project",
+        os: "macos aarch64 (15.5)",
+        shell: "/bin/zsh",
+        isGitRepository: false,
+        today: "2026-06-02, Monday",
+      })
+    );
+
+    expect(prompt).not.toContain("windows_cmd_quoting:");
+    expect(prompt).not.toContain("windows_unicode_filenames:");
+  });
 });
 
 describe("tool result envelope", () => {
