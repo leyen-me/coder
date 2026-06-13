@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useRightPanel } from "@/features/right-panel/right-panel-context";
 import { AgentProcessesToolbarButton } from "@/features/terminal/components/agent-processes-toolbar-button";
+import { UpdateTag } from "@/features/update/update-tag";
 import { useBottomPanel } from "@/features/terminal/bottom-panel-context";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ export function SessionToolbar() {
 
   return (
     <div className="flex shrink-0 items-center gap-1">
+      <UpdateTag />
       <AgentProcessesToolbarButton />
 
       <Tooltip>
