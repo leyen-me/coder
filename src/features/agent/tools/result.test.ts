@@ -169,8 +169,10 @@ describe("buildSystemPrompt", () => {
       })
     );
 
-    expect(prompt).toContain("windows_cmd_quoting:");
-    expect(prompt).toContain("windows_unicode_filenames:");
+    expect(prompt).toContain("## ⚠️ Windows Shell Rules (CRITICAL)");
+    expect(prompt).toContain("### CMD Quoting");
+    expect(prompt).toContain("### Unicode Filenames");
+    expect(prompt).toContain("powershell -NoProfile -File script.ps1");
   });
 
   it("omits Windows-specific environment guidance on non-Windows", () => {
@@ -184,8 +186,9 @@ describe("buildSystemPrompt", () => {
       })
     );
 
-    expect(prompt).not.toContain("windows_cmd_quoting:");
-    expect(prompt).not.toContain("windows_unicode_filenames:");
+    expect(prompt).not.toContain("## ⚠️ Windows Shell Rules (CRITICAL)");
+    expect(prompt).not.toContain("### CMD Quoting");
+    expect(prompt).not.toContain("### Unicode Filenames");
   });
 });
 

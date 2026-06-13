@@ -45,6 +45,7 @@ export function buildSystemPrompt(
         : [];
 
   const stylePrompt = resolveResponseStylePrompt(getLabSettingsSnapshot());
+  const isWindows = environment.os.toLowerCase().startsWith("windows");
 
   const identityLines = stylePrompt
     ? [stylePrompt, ""]
@@ -59,22 +60,37 @@ export function buildSystemPrompt(
     "## Environment",
     `- workspaceDir: ${workspaceLine}`,
     `- os: ${environment.os}`,
-    ...(environment.os.toLowerCase().startsWith("windows")
-      ? [
-          `- windows_cmd_quoting: CMD's parser does not handle multi-line strings, nested quotes, or shell metacharacters (&, |, >, <, ^, %) reliably inside argument strings. For any command with complex arguments — write content to a temp file first and use the tool's --file/-F/@path flag, or encode the command as a PowerShell script and invoke it via pwsh -EncodedCommand.`,
-          `- windows_unicode_filenames: When operating on files with non-ASCII characters (rename, delete, etc.), use PowerShell script files (UTF-8 with BOM) via -File flag. Using powershell -Command "中文" still sends Chinese characters through CMD's command line, which gets garbled. Write the commands to a .ps1 file first, then execute via powershell -NoProfile -File script.ps1.`,
-        ]
-      : []),
     `- shell: ${environment.shell}`,
     `- gitRepository: ${gitLine}`,
     `- date: ${environment.today}`,
     `- mode: ${modeLine}`,
-    "",
+    ...(isWindows ? buildWindowsGuidanceSections() : [""]),
     ...buildSystemPromptSections(environment.enabledSystemSkills),
     ...buildUserSkillsSection(),
     ...buildProjectInstructionsSection(environment.agentsMd),
     ...modeGuidance,
   ].join("\n");
+}
+
+function buildWindowsGuidanceSections(): string[] {
+  return [
+    "",
+    "## ⚠️ Windows Shell Rules (CRITICAL)",
+    "",
+    "### CMD Quoting",
+    "When using git commit with a message, or any command containing spaces, quotes, or special characters (& | > < ^ %):",
+    "  - DO NOT pass the command string directly through CMD — it will be mangled.",
+    "  - ALWAYS write the command to a temporary .ps1 file first, then execute via:",
+    "    powershell -NoProfile -File temp.ps1",
+    "  - After execution, delete the temp .ps1 file.",
+    "",
+    "### Unicode Filenames",
+    "When operating on files with non-ASCII characters (rename, delete, etc.):",
+    "  - Use PowerShell script files (UTF-8 with BOM) via -File flag.",
+    '  - Using powershell -Command "中文" still sends Chinese characters through CMD\'s command line, which gets garbled.',
+    "  - Write the commands to a .ps1 file first, then execute via powershell -NoProfile -File script.ps1.",
+    "",
+  ];
 }
 
 function buildPlanModeGuidance(workspaceDir: string | null): string[] {
