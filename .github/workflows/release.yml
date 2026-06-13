@@ -48,11 +48,13 @@ jobs:
 
           CHANGELOG=$(git log --oneline --no-decorate $RANGE 2>/dev/null || echo "（尚无提交记录）")
 
-          # 转义换行符和多行文本，适配 GITHUB_OUTPUT
-          CHANGELOG="${CHANGELOG//'%'/'%25'}"
-          CHANGELOG="${CHANGELOG//$'\n'/'%0A'}"
-          CHANGELOG="${CHANGELOG//$'\r'/'%0D'}"
-          echo "CHANGELOG=$CHANGELOG" >> "$GITHUB_OUTPUT"
+          # 用 EOF 定界符传递多行文本，保留换行
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          {
+            echo "CHANGELOG<<$EOF"
+            echo "$CHANGELOG"
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
 
   publish:
     needs:
