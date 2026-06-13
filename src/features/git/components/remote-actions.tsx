@@ -20,6 +20,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useTranslation } from "@/lib/i18n/locale-provider";
+import { cn } from "@/lib/utils";
 
 import { useGit } from "../git-provider";
 
@@ -27,7 +28,8 @@ type PullDialogMode = "confirm" | "blocked" | null;
 
 export function RemoteActions() {
   const { t } = useTranslation();
-  const { push, pull, remoteUrl, statusEntries, currentBranch } = useGit();
+  const { push, pull, remoteUrl, statusEntries, currentBranch, aheadCount, behindCount } =
+    useGit();
   const [isPushing, setIsPushing] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
   const [pullDialogMode, setPullDialogMode] = useState<PullDialogMode>(null);
@@ -73,13 +75,18 @@ export function RemoteActions() {
             <Button
               aria-label={t("git.push")}
               className="h-6 w-6"
-              disabled={isPushing}
+              disabled={isPushing || aheadCount === 0}
               onClick={handlePush}
               size="icon-sm"
               type="button"
               variant="ghost"
             >
-              <ArrowUpFromLineIcon className="size-3" />
+              <ArrowUpFromLineIcon
+                className={cn(
+                  "size-3",
+                  aheadCount === 0 && "text-muted-foreground/40"
+                )}
+              />
             </Button>
           </TooltipTrigger>
           <TooltipContent>{t("git.push")}</TooltipContent>
@@ -90,13 +97,18 @@ export function RemoteActions() {
             <Button
               aria-label={t("git.pull")}
               className="h-6 w-6"
-              disabled={isPulling}
+              disabled={isPulling || behindCount === 0}
               onClick={handlePull}
               size="icon-sm"
               type="button"
               variant="ghost"
             >
-              <ArrowDownFromLineIcon className="size-3" />
+              <ArrowDownFromLineIcon
+                className={cn(
+                  "size-3",
+                  behindCount === 0 && "text-muted-foreground/40"
+                )}
+              />
             </Button>
           </TooltipTrigger>
           <TooltipContent>{t("git.pull")}</TooltipContent>

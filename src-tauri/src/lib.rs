@@ -13,7 +13,7 @@ use agent::{
 use tauri::{Manager, RunEvent};
 use tools::{
     agent_get_runtime_environment,
-    git_checkout_branch, git_commit, git_create_branch, git_delete_branch,
+    git_ahead_behind, git_checkout_branch, git_commit, git_create_branch, git_delete_branch,
     git_delete_branch_force, git_diff, git_discard_all, git_discard_files, git_fetch,
     git_get_current_branch, git_get_remote_url, git_init, git_list_branches, git_log, git_pull,
     git_push, git_stage_all, git_stage_files, git_status, git_unstage_all, git_unstage_files,
@@ -108,6 +108,7 @@ pub fn run() {
             tool_plan_update,
             tool_plan_delete,
             tool_plan_list,
+            git_ahead_behind,
             git_init,
             git_list_branches,
             git_get_current_branch,

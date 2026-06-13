@@ -1,6 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import type {
+  GitAheadBehind,
   GitBranchesResponse,
   GitCommitEntry,
   GitStatusResponse,
@@ -211,6 +212,13 @@ export async function getRemoteUrl(
   } catch {
     return null;
   }
+}
+
+export async function getAheadBehind(
+  workspaceDir: string,
+): Promise<GitAheadBehind> {
+  if (!isTauri()) return { ahead: 0, behind: 0 };
+  return await invoke<GitAheadBehind>("git_ahead_behind", { workspaceDir });
 }
 
 export { checkoutGitBranch } from "@/features/workspace/git";

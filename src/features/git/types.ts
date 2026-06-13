@@ -35,5 +35,10 @@ export type GitStatusResponse = {
   currentBranch: string | null;
 };
 
+export type GitAheadBehind = {
+  ahead: number;
+  behind: number;
+};
+
 /** Tab view within the Source Control panel. */
 export type SourceControlTab = "changes" | "history";

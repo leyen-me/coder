@@ -74,6 +74,10 @@ export type GitContextValue = {
   remoteUrl: string | null;
   /** Initialize a git repository in the workspace. */
   initRepo: () => Promise<void>;
+  /** Commits ahead of upstream (unpushed). */
+  aheadCount: number;
+  /** Commits behind upstream (unpulled). */
+  behindCount: number;
 };
 
 const HISTORY_PAGE_SIZE = 50;
@@ -95,6 +99,8 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
   const [hasMoreRecentCommits, setHasMoreRecentCommits] = useState(false);
   const [isLoadingMoreRecentCommits, setIsLoadingMoreRecentCommits] = useState(false);
   const [remoteUrl, setRemoteUrl] = useState<string | null>(null);
+  const [aheadCount, setAheadCount] = useState(0);
+  const [behindCount, setBehindCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isGitRepo, setIsGitRepo] = useState(true);
@@ -124,8 +130,9 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
     const branchesPromise = gitService.fetchGitBranches(workspaceDir);
     const logPromise = gitService.fetchGitLog(workspaceDir, HISTORY_PAGE_SIZE);
     const urlPromise = gitService.getRemoteUrl(workspaceDir);
+    const aheadBehindPromise = gitService.getAheadBehind(workspaceDir);
 
-    const [statusRes, branchRes, log, url] = await Promise.all([
+    const [statusRes, branchRes, log, url, aheadBehind] = await Promise.all([
       statusPromise.catch((err: unknown) => {
         const msg = typeof err === "string" ? err : String(err);
         if (msg.toLowerCase().includes("not a git repository")) {
@@ -138,6 +145,7 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       branchesPromise.catch(() => null),
       logPromise.catch(() => [] as GitCommitEntry[]),
       urlPromise.catch(() => null),
+      aheadBehindPromise.catch(() => ({ ahead: 0, behind: 0 })),
     ]);
 
     if (statusRes) {
@@ -152,6 +160,13 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
     setHasMoreRecentCommits(log.length === HISTORY_PAGE_SIZE);
     setIsLoadingMoreRecentCommits(false);
     setRemoteUrl(url);
+    if (aheadBehind) {
+      setAheadCount(aheadBehind.ahead);
+      setBehindCount(aheadBehind.behind);
+    } else {
+      setAheadCount(0);
+      setBehindCount(0);
+    }
     setIsLoading(false);
   }, [workspaceDir]);
 
@@ -424,6 +439,8 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       activeTab,
       setActiveTab,
       remoteUrl,
+      aheadCount,
+      behindCount,
       refresh,
       loadMoreRecentCommits,
       stageFiles,
@@ -453,6 +470,8 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       isGitRepo,
       activeTab,
       remoteUrl,
+      aheadCount,
+      behindCount,
       refresh,
       loadMoreRecentCommits,
       stageFiles,

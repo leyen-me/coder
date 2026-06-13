@@ -720,6 +720,51 @@ pub fn git_get_remote_url(
 }
 
 // ---------------------------------------------------------------------------
+// Ahead / Behind
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitAheadBehind {
+    pub ahead: u32,
+    pub behind: u32,
+}
+
+/// Get the ahead/behind counts of the current branch relative to its upstream.
+/// Returns (0, 0) when no upstream is configured.
+#[tauri::command]
+pub fn git_ahead_behind(workspace_dir: String) -> Result<GitAheadBehind, String> {
+    let workspace = validate_git_workspace(&workspace_dir)?;
+
+    // First check that the branch has an upstream
+    let output = run_git(
+        workspace,
+        &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"],
+    );
+    let has_upstream = match output {
+        Ok(out) => out.status.success(),
+        Err(_) => false,
+    };
+
+    if !has_upstream {
+        return Ok(GitAheadBehind { ahead: 0, behind: 0 });
+    }
+
+    let output = run_git(
+        workspace,
+        &["rev-list", "--count", "--left-right", "HEAD...@{upstream}"],
+    )?;
+
+    let stdout = git_success(output, "ahead/behind")?;
+    let parts: Vec<&str> = stdout.split('\t').collect();
+
+    let ahead: u32 = parts.first().and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+    let behind: u32 = parts.get(1).and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+
+    Ok(GitAheadBehind { ahead, behind })
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
