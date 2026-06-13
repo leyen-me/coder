@@ -24,6 +24,9 @@ import { memo, useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { ChatRetryState } from "@/features/agent/types";
+import {
+  resolveHandoffMessageKind,
+} from "@/features/agent/handoff";
 
 import {
   buildAssistantProcessSteps,
@@ -32,10 +35,13 @@ import {
   shouldShowAssistantProcessTimeline,
 } from "./assistant-process";
 import { StreamingMessageContent } from "./streaming-message-content";
+import { HandoffContinuationMessage } from "./handoff-continuation-message";
+import { HandoffSourceMessage } from "./handoff-source-message";
 
 type MessageItemProps = {
   message: MessageRecord;
   sessionTitle?: string;
+  handoffFromSessionId?: string | null;
   isStreaming: boolean;
   chatRetry?: ChatRetryState | null;
   editingMessageId?: string | null;
@@ -64,6 +70,10 @@ function areMessageItemPropsEqual(
   }
 
   if (prev.editingMessageId !== next.editingMessageId) {
+    return false;
+  }
+
+  if (prev.handoffFromSessionId !== next.handoffFromSessionId) {
     return false;
   }
 
@@ -96,6 +106,7 @@ function areMessageItemPropsEqual(
 export const MessageItem = memo(function MessageItem({
   message,
   sessionTitle,
+  handoffFromSessionId,
   isStreaming,
   chatRetry = null,
   editingMessageId,
@@ -242,6 +253,17 @@ export const MessageItem = memo(function MessageItem({
     }
   }, [isRegenerating, message, onRegenerateAssistantMessage]);
 
+  const handoffMessageKind = resolveHandoffMessageKind(message);
+
+  if (handoffMessageKind === "handoff_continuation") {
+    return (
+      <HandoffContinuationMessage
+        content={message.content}
+        sourceSessionId={handoffFromSessionId}
+      />
+    );
+  }
+
   if (isUser) {
     const images = message.images ?? [];
     const hasCopyContent =
@@ -305,6 +327,38 @@ export const MessageItem = memo(function MessageItem({
                 <PencilIcon className="size-3.5" />
               </MessageAction>
             ) : null}
+          </MessageActions>
+        ) : null}
+      </Message>
+    );
+  }
+
+  if (handoffMessageKind === "handoff") {
+    return (
+      <Message from="assistant">
+        <HandoffSourceMessage content={message.content} />
+        {showActions ? (
+          <MessageActions className="mt-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            <MessageAction
+              disabled={isActionPending}
+              label={t("chat.copyMessage")}
+              onClick={() => {
+                void handleCopy();
+              }}
+              tooltip={t("chat.copyMessage")}
+            >
+              <CopyIcon className="size-3.5" />
+            </MessageAction>
+            <MessageAction
+              disabled={isActionPending}
+              label={t("chat.forkMessage")}
+              onClick={() => {
+                void handleFork();
+              }}
+              tooltip={t("chat.forkMessage")}
+            >
+              <GitForkIcon className="size-3.5" />
+            </MessageAction>
           </MessageActions>
         ) : null}
       </Message>

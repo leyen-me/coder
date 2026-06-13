@@ -43,6 +43,14 @@ import { useSystemPrompt } from "../hooks/use-system-prompt";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
 import type { MessageRecord } from "@/lib/db";
 import { resolveAgentSessionPolicy } from "@/features/agent/session-policy";
+import {
+  buildHandoffPreviewMessages,
+  buildHandoffPreviewSessionPatch,
+  getHandoffPreviewHint,
+  getHandoffPreviewMode,
+  getHandoffPreviewProgressPhase,
+} from "../lib/handoff/mock-handoff-preview";
+import { HandoffPreviewBanner } from "../components/handoff-preview-banner";
 
 type ChatSessionViewProps = {
   chatId: string;
@@ -60,8 +68,34 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     isSessionRunning,
   } = useAgentStore();
   const { refineIfEnabled } = usePromptRefiner();
+  const location = useLocation();
+  const handoffPreviewMode = getHandoffPreviewMode();
   const { session, messages, isLoading } = useSessionData(chatId);
-  const displayMessages = useDisplayMessages(messages);
+  const previewMessages = useMemo(() => {
+    if (!handoffPreviewMode || handoffPreviewMode === "progress") {
+      return null;
+    }
+
+    return buildHandoffPreviewMessages({
+      mode: handoffPreviewMode,
+      sessionId: chatId,
+    });
+  }, [chatId, handoffPreviewMode]);
+  const previewSession = useMemo(() => {
+    if (!handoffPreviewMode || !session) {
+      return session;
+    }
+
+    const patch = buildHandoffPreviewSessionPatch({
+      mode: handoffPreviewMode,
+      session,
+    });
+
+    return patch ? { ...session, ...patch } : session;
+  }, [handoffPreviewMode, session]);
+  const effectiveSession = previewSession ?? session;
+  const effectiveMessages = previewMessages ?? messages;
+  const displayMessages = useDisplayMessages(effectiveMessages);
   const [prompt, setPrompt] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingQueuedMessageId, setEditingQueuedMessageId] = useState<string | null>(
@@ -77,19 +111,18 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBuildPending, setIsBuildPending] = useState(false);
-  const location = useLocation();
   const initialAgentModeFromState =
     (location.state as { agentMode?: AgentMode } | null)?.agentMode ?? "agent";
   const [agentMode, setAgentMode] = useState<AgentMode>(initialAgentModeFromState);
 
-  const canEditWorkspace = messages.length === 0;
+  const canEditWorkspace = effectiveMessages.length === 0;
   const workspaceBinding = useSessionWorkspaceBinding({
-    session,
+    session: effectiveSession,
     canEdit: canEditWorkspace,
   });
   const sessionPolicy = useMemo(
-    () => (session ? resolveAgentSessionPolicy(session) : null),
-    [session]
+    () => (effectiveSession ? resolveAgentSessionPolicy(effectiveSession) : null),
+    [effectiveSession]
   );
 
   const gitControls = useWorkspaceGitControls({
@@ -421,6 +454,27 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     ? getWorkspaceDisplayName(workspaceBinding.workspaceDir)
     : null;
   const handoffStatus = useMemo(() => {
+    if (handoffPreviewMode === "progress") {
+      const phase = getHandoffPreviewProgressPhase();
+      switch (phase) {
+        case "generating_handoff":
+          return {
+            label: t("chat.handoffGenerating"),
+            step: 1,
+          };
+        case "creating_session":
+          return {
+            label: t("chat.handoffCreatingSession"),
+            step: 2,
+          };
+        case "starting_new_session":
+          return {
+            label: t("chat.handoffStartingNewSession"),
+            step: 3,
+          };
+      }
+    }
+
     if (!handoffState) {
       return null;
     }
@@ -444,7 +498,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       default:
         return null;
     }
-  }, [handoffState, t]);
+  }, [handoffPreviewMode, handoffState, t]);
 
   const contextUsage = useMemo(
     () =>
@@ -474,12 +528,15 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
   const chatContent = (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      {handoffPreviewMode ? (
+        <HandoffPreviewBanner hint={getHandoffPreviewHint(handoffPreviewMode)} />
+      ) : null}
       <ChatHotkeyActions
         chatId={chatId}
         editingMessageId={editingMessageId}
         editingQueuedMessageId={editingQueuedMessageId}
         isRunning={isRunning}
-        messages={messages}
+        messages={effectiveMessages}
         onCancelEdit={handleCancelEdit}
         onEditUserMessage={handleEditUserMessage}
         onRegenerateAssistantMessage={handleRegenerateAssistantMessage}
@@ -487,13 +544,14 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       />
       <ChatMessageList
         editingMessageId={editingMessageId}
-        messages={messages}
+        handoffFromSessionId={effectiveSession?.handoffFromSessionId}
+        messages={effectiveMessages}
         onEditUserMessage={handleEditUserMessage}
         onRegenerateAssistantMessage={handleRegenerateAssistantMessage}
         onSystemPromptExpand={() => {
           void refreshSystemPrompt();
         }}
-        sessionTitle={session?.title}
+        sessionTitle={effectiveSession?.title}
         systemPrompt={systemPrompt}
       />
 
@@ -565,7 +623,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             contextUsage={contextUsage}
             agentMode={agentMode}
             onAgentModeChange={setAgentMode}
-            sessionKind={session?.sessionKind ?? "standard"}
+            sessionKind={effectiveSession?.sessionKind ?? "standard"}
           />
         </div>
       </div>

@@ -1,4 +1,20 @@
 import type { AgentContextUsageSnapshot } from "./types";
+import type { MessageKind, MessageRecord } from "@/lib/db/types";
+
+export const HANDOFF_ARTIFACT_HEADING = "# Automatic Session Handoff";
+
+export const HANDOFF_CONTINUATION_PROMPT_PREFIX =
+  "A previous session of this task reached its context budget and handed off the work.";
+
+export type ParsedHandoffArtifact = {
+  metadata: Record<string, string>;
+  body: string;
+  sourceSessionId: string | null;
+  continuedSessionId: string | null;
+  sourceSessionTitle: string | null;
+  contextBudget: string | null;
+  generatedAt: string | null;
+};
 
 export const AGENT_HANDOFF_SYSTEM_PROMPT = `You are preparing a structured handoff for the next session of the same coding agent.
 Write in the same language as the conversation.
@@ -71,7 +87,7 @@ export function buildStoredHandoffArtifact(input: {
   const body = normalizeHandoffBody(input.handoffBody);
 
   return [
-    "# Automatic Session Handoff",
+    HANDOFF_ARTIFACT_HEADING,
     "",
     `- sourceSessionId: ${input.sourceSessionId}`,
     `- continuedSessionId: ${input.continuedSessionId}`,
@@ -158,6 +174,134 @@ export function buildFallbackHandoffBody(input: {
 export function deriveContinuationSessionTitle(title: string): string {
   const trimmed = title.trim();
   return trimmed ? `Continue · ${trimmed}` : "Continue · Session";
+}
+
+export function isHandoffArtifactContent(content: string): boolean {
+  return content.trimStart().startsWith(HANDOFF_ARTIFACT_HEADING);
+}
+
+export function isHandoffContinuationPrompt(content: string): boolean {
+  return content.trimStart().startsWith(HANDOFF_CONTINUATION_PROMPT_PREFIX);
+}
+
+export function extractHandoffArtifactFromContinuationPrompt(
+  content: string
+): string | null {
+  const markerIndex = content.indexOf(HANDOFF_ARTIFACT_HEADING);
+  if (markerIndex === -1) {
+    return null;
+  }
+
+  return content.slice(markerIndex).trim() || null;
+}
+
+export function parseStoredHandoffArtifact(
+  content: string
+): ParsedHandoffArtifact | null {
+  const trimmed = content.trim();
+  if (!trimmed.startsWith(HANDOFF_ARTIFACT_HEADING)) {
+    return null;
+  }
+
+  const lines = trimmed.split("\n");
+  const metadata: Record<string, string> = {};
+  let bodyStartIndex = 1;
+
+  for (let index = 1; index < lines.length; index += 1) {
+    const line = lines[index]?.trim() ?? "";
+    if (!line) {
+      bodyStartIndex = index + 1;
+      continue;
+    }
+
+    if (!line.startsWith("- ")) {
+      bodyStartIndex = index;
+      break;
+    }
+
+    const separatorIndex = line.indexOf(": ");
+    if (separatorIndex === -1) {
+      bodyStartIndex = index;
+      break;
+    }
+
+    const key = line.slice(2, separatorIndex).trim();
+    const value = line.slice(separatorIndex + 2).trim();
+    if (key) {
+      metadata[key] = value;
+    }
+    bodyStartIndex = index + 1;
+  }
+
+  while (bodyStartIndex < lines.length && !lines[bodyStartIndex]?.trim()) {
+    bodyStartIndex += 1;
+  }
+
+  const body = lines.slice(bodyStartIndex).join("\n").trim();
+
+  return {
+    metadata,
+    body,
+    sourceSessionId: metadata.sourceSessionId ?? null,
+    continuedSessionId: metadata.continuedSessionId ?? null,
+    sourceSessionTitle: metadata.sourceSessionTitle ?? null,
+    contextBudget: metadata.contextBudget ?? null,
+    generatedAt: metadata.generatedAt ?? null,
+  };
+}
+
+export function resolveHandoffMessageKind(
+  message: Pick<MessageRecord, "role" | "messageKind" | "content">
+): MessageKind | null {
+  if (
+    message.messageKind === "handoff" ||
+    message.messageKind === "handoff_continuation"
+  ) {
+    return message.messageKind;
+  }
+
+  if (message.role === "assistant" && isHandoffArtifactContent(message.content)) {
+    return "handoff";
+  }
+
+  if (
+    message.role === "user" &&
+    isHandoffContinuationPrompt(message.content)
+  ) {
+    return "handoff_continuation";
+  }
+
+  return null;
+}
+
+export function findLatestHandoffArtifactMessage(
+  messages: ReadonlyArray<Pick<MessageRecord, "role" | "messageKind" | "content">>
+): Pick<MessageRecord, "role" | "messageKind" | "content"> | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message) {
+      continue;
+    }
+
+    if (resolveHandoffMessageKind(message) === "handoff") {
+      return message;
+    }
+  }
+
+  return null;
+}
+
+export function resolveContinuedSessionIdFromMessages(
+  messages: ReadonlyArray<Pick<MessageRecord, "role" | "messageKind" | "content">>
+): string | null {
+  const handoffMessage = findLatestHandoffArtifactMessage(messages);
+  if (!handoffMessage) {
+    return null;
+  }
+
+  return (
+    parseStoredHandoffArtifact(handoffMessage.content)?.continuedSessionId ?? null
+  );
 }
 
 function normalizeHandoffBody(body: string): string {

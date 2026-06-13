@@ -7,6 +7,13 @@ import {
   buildFallbackHandoffBody,
   buildStoredHandoffArtifact,
   deriveContinuationSessionTitle,
+  findLatestHandoffArtifactMessage,
+  extractHandoffArtifactFromContinuationPrompt,
+  isHandoffArtifactContent,
+  isHandoffContinuationPrompt,
+  parseStoredHandoffArtifact,
+  resolveContinuedSessionIdFromMessages,
+  resolveHandoffMessageKind,
 } from "./handoff";
 
 const contextUsage = {
@@ -94,5 +101,90 @@ describe("handoff helpers", () => {
   it("derives a continuation session title", () => {
     expect(deriveContinuationSessionTitle("现有任务")).toBe("Continue · 现有任务");
     expect(deriveContinuationSessionTitle("   ")).toBe("Continue · Session");
+  });
+
+  it("parses stored handoff artifacts into metadata and body", () => {
+    const artifact = buildStoredHandoffArtifact({
+      sourceSessionId: "session-old",
+      continuedSessionId: "session-new",
+      sourceSessionTitle: "长任务排查",
+      generatedAt: "2026-06-10T20:00:00.000Z",
+      model: "test-model",
+      contextUsage,
+      sessionKind: "long_task",
+      autonomyMode: "unattended",
+      decisionPolicyVersion: "mvp-v1",
+      decisionModel: "decision-model",
+      handoffBody: "## Original User Intent\n继续任务",
+    });
+
+    const parsed = parseStoredHandoffArtifact(artifact);
+    expect(parsed).not.toBeNull();
+    expect(parsed?.sourceSessionId).toBe("session-old");
+    expect(parsed?.continuedSessionId).toBe("session-new");
+    expect(parsed?.sourceSessionTitle).toBe("长任务排查");
+    expect(parsed?.body).toContain("## Original User Intent");
+    expect(isHandoffArtifactContent(artifact)).toBe(true);
+  });
+
+  it("extracts handoff artifacts from continuation prompts", () => {
+    const prompt = buildContinuationPrompt({
+      sourceSessionTitle: "长任务排查",
+      handoffArtifact: "# Automatic Session Handoff\n\n## Resume Instructions\n继续",
+      sessionKind: "long_task",
+      autonomyMode: "unattended",
+      decisionPolicyVersion: "mvp-v1",
+    });
+
+    expect(isHandoffContinuationPrompt(prompt)).toBe(true);
+    expect(extractHandoffArtifactFromContinuationPrompt(prompt)).toContain(
+      "# Automatic Session Handoff"
+    );
+    expect(
+      resolveHandoffMessageKind({
+        role: "user",
+        messageKind: undefined,
+        content: prompt,
+      })
+    ).toBe("handoff_continuation");
+    expect(
+      resolveHandoffMessageKind({
+        role: "assistant",
+        messageKind: "handoff",
+        content: "ignored",
+      })
+    ).toBe("handoff");
+  });
+
+  it("resolves the continued session id from the latest handoff artifact message", () => {
+    const artifact = buildStoredHandoffArtifact({
+      sourceSessionId: "session-old",
+      continuedSessionId: "session-new",
+      sourceSessionTitle: "长任务排查",
+      generatedAt: "2026-06-10T20:00:00.000Z",
+      model: "test-model",
+      contextUsage,
+      sessionKind: "long_task",
+      autonomyMode: "unattended",
+      decisionPolicyVersion: "mvp-v1",
+      decisionModel: "decision-model",
+      handoffBody: "## Resume Instructions\n继续",
+    });
+
+    const messages = [
+      {
+        role: "assistant" as const,
+        messageKind: "handoff" as const,
+        content: artifact,
+      },
+      {
+        role: "user" as const,
+        messageKind: undefined,
+        content: "later message",
+      },
+    ];
+
+    expect(findLatestHandoffArtifactMessage(messages)?.content).toBe(artifact);
+    expect(resolveContinuedSessionIdFromMessages(messages)).toBe("session-new");
   });
 });

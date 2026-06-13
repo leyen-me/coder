@@ -120,6 +120,27 @@ export const zhMessages = {
     handoffGenerating: "上下文已接近上限，正在生成交接文档…",
     handoffCreatingSession: "交接文档已生成，正在创建新的续跑会话…",
     handoffStartingNewSession: "新会话已创建，正在启动自动续跑…",
+    handoffArtifactTitle: "会话交接文档",
+    handoffArtifactSubtitle: "上下文交接产物",
+    handoffMetadataSourceSession: "来源会话",
+    handoffMetadataContextBudget: "上下文用量",
+    handoffMetadataGeneratedAt: "生成时间",
+    handoffContinuationSummary: "自动续跑已启动",
+    handoffContinuationDescription:
+      "上一个会话因上下文接近上限而交接了工作状态。Agent 已收到下方交接文档并继续执行。",
+    handoffContinuationBannerTitle: "续跑会话",
+    handoffContinuationBannerDescription:
+      "此会话由上下文交接自动创建，可查看来源会话了解完整历史。",
+    handoffSourceBannerTitle: "已交接至续跑会话",
+    handoffSourceBannerDescription:
+      "此会话因上下文接近上限已生成交接文档，工作已在续跑会话中继续。",
+    handoffSourceSummary: "工作已交接至续跑会话",
+    handoffSourceDescription:
+      "下方交接文档记录了当前工作状态，点击链接可打开续跑会话查看后续进展。",
+    handoffViewSourceSession: "查看来源会话",
+    handoffViewSourceSessionNamed: "查看来源会话：{title}",
+    handoffViewContinuationSession: "查看续跑会话",
+    handoffViewContinuationSessionNamed: "查看续跑会话：{title}",
     todoListTitle: "任务进度",
     todoExpand: "展开待办列表",
     todoCollapse: "收起待办列表",

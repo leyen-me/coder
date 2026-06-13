@@ -7,8 +7,8 @@ import type {
 
 export type MessageRole = "user" | "assistant";
 
-/** Distinguishes plan artifact messages from regular assistant replies. */
-export type MessageKind = "plan";
+/** Distinguishes structured artifact messages from regular chat replies. */
+export type MessageKind = "plan" | "handoff" | "handoff_continuation";
 
 export type SessionKind = "standard" | "long_task";
 export type SessionAutonomyMode = "interactive" | "unattended";
@@ -92,7 +92,7 @@ export type MessageRecord = {
   id: string;
   sessionId: string;
   role: MessageRole;
-  /** When set, the message is a structured plan artifact (plan.md). */
+  /** When set, marks structured plan/handoff artifact messages. */
   messageKind?: MessageKind;
   content: string;
   /** User-uploaded images only; empty for assistant messages. */

@@ -125,6 +125,27 @@ export const enMessages = {
       "Handoff document is ready. Creating a continuation session…",
     handoffStartingNewSession:
       "Continuation session created. Starting the next unattended run…",
+    handoffArtifactTitle: "Session handoff",
+    handoffArtifactSubtitle: "Context rollover document",
+    handoffMetadataSourceSession: "Source session",
+    handoffMetadataContextBudget: "Context budget",
+    handoffMetadataGeneratedAt: "Generated at",
+    handoffContinuationSummary: "Automatic continuation started",
+    handoffContinuationDescription:
+      "The previous session handed off its working state after nearing the context budget. The agent received the handoff below and continued.",
+    handoffContinuationBannerTitle: "Continuation session",
+    handoffContinuationBannerDescription:
+      "This session was created automatically from a context handoff. Open the source session to review the full history.",
+    handoffSourceBannerTitle: "Handed off to a continuation session",
+    handoffSourceBannerDescription:
+      "This session reached its context budget and created a handoff document. Work continues in the continuation session.",
+    handoffSourceSummary: "Work continued in a new session",
+    handoffSourceDescription:
+      "The handoff document below captures the working state. Open the continuation session to see what happened next.",
+    handoffViewSourceSession: "View source session",
+    handoffViewSourceSessionNamed: "View source session: {title}",
+    handoffViewContinuationSession: "View continuation session",
+    handoffViewContinuationSessionNamed: "View continuation session: {title}",
     todoListTitle: "Task progress",
     todoExpand: "Expand todo list",
     todoCollapse: "Collapse todo list",

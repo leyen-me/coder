@@ -1,18 +1,22 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import {
   useActiveStreamingMessageIds,
   useChatRetryByMessageId,
 } from "@/features/agent/store/agent-store";
+import { resolveContinuedSessionIdFromMessages } from "@/features/agent/handoff";
 import type { MessageRecord } from "@/lib/db";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { MessageItem } from "./message-item";
 import { SystemPromptBlock } from "./system-prompt-block";
+import { HandoffContinuationBanner } from "./handoff-continuation-banner";
+import { HandoffSourceBanner } from "./handoff-source-banner";
 
 type MessageListProps = {
   messages: MessageRecord[];
   sessionTitle?: string;
+  handoffFromSessionId?: string | null;
   systemPrompt?: string | null;
   onSystemPromptExpand?: () => void;
   editingMessageId?: string | null;
@@ -49,6 +53,7 @@ function scrollMessagesToBottom(container: HTMLElement, smooth: boolean) {
 export function MessageList({
   messages,
   sessionTitle,
+  handoffFromSessionId,
   systemPrompt,
   onSystemPromptExpand,
   editingMessageId,
@@ -63,6 +68,13 @@ export function MessageList({
   const isStreamingRef = useRef(false);
   const scrollRafRef = useRef<number | null>(null);
   const sessionId = messages[0]?.sessionId;
+  const handoffContinuedSessionId = useMemo(
+    () =>
+      handoffFromSessionId
+        ? null
+        : resolveContinuedSessionIdFromMessages(messages),
+    [handoffFromSessionId, messages]
+  );
 
   useEffect(() => {
     isPinnedToBottomRef.current = true;
@@ -148,10 +160,17 @@ export function MessageList({
               onExpand={onSystemPromptExpand}
             />
           ) : null}
+          {handoffFromSessionId ? (
+            <HandoffContinuationBanner fromSessionId={handoffFromSessionId} />
+          ) : null}
+          {handoffContinuedSessionId ? (
+            <HandoffSourceBanner continuedSessionId={handoffContinuedSessionId} />
+          ) : null}
           {messages.map((message) => (
             <MessageItem
               chatRetry={chatRetryByMessageId.get(message.id) ?? null}
               editingMessageId={editingMessageId}
+              handoffFromSessionId={handoffFromSessionId}
               isStreaming={streamingMessageIds.has(message.id)}
               key={message.id}
               message={message}
