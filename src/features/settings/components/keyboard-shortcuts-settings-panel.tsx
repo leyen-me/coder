@@ -16,7 +16,7 @@ export function KeyboardShortcutsSettingsPanel() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 pt-4">
         <p className="text-sm text-muted-foreground">
           {t("settings.keyboardShortcuts.description")}
         </p>
