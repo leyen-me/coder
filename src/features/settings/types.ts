@@ -5,4 +5,5 @@ export type SettingsCategoryId =
   | "modelProvider"
   | "webTools"
   | "data"
-  | "lab";
+  | "lab"
+  | "email";

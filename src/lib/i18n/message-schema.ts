@@ -211,6 +211,7 @@ export type Messages = {
       webTools: string;
       data: string;
       lab: string;
+      email: string;
     };
     general: {
       languageLabel: string;
@@ -393,6 +394,37 @@ export type Messages = {
       responseStyleMemeName: string;
       responseStyleRoastName: string;
       responseStyleFunnyName: string;
+    };
+    email: {
+      providerLabel: string;
+      providerDescription: string;
+      providerAriaLabel: string;
+      smtpHostLabel: string;
+      smtpHostDescription: string;
+      smtpHostAriaLabel: string;
+      portLabel: string;
+      portDescription: string;
+      portAriaLabel: string;
+      usernameLabel: string;
+      usernameDescription: string;
+      usernamePlaceholder: string;
+      usernameAriaLabel: string;
+      passwordLabel: string;
+      passwordDescription: string;
+      passwordPlaceholder: string;
+      passwordAriaLabel: string;
+      passwordShowAriaLabel: string;
+      passwordHideAriaLabel: string;
+      fromAddressLabel: string;
+      fromAddressDescription: string;
+      fromAddressPlaceholder: string;
+      fromAddressAriaLabel: string;
+      testSendLabel: string;
+      testSendDescription: string;
+      testSend: string;
+      sending: string;
+      testSubject: string;
+      testBody: string;
     };
   };
   lab: {

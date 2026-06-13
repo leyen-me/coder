@@ -9,6 +9,7 @@ import { useTranslation } from "@/lib/i18n/locale-provider";
 import { DEFAULT_SETTINGS_CATEGORY } from "../constants";
 import { AppearanceSettingsPanel } from "../components/appearance-settings-panel";
 import { DataSettingsPanel } from "../components/data-settings-panel";
+import { EmailSettingsPanel } from "../components/email-settings-panel";
 import { GeneralSettingsPanel } from "../components/general-settings-panel";
 import { KeyboardShortcutsSettingsPanel } from "../components/keyboard-shortcuts-settings-panel";
 import { ModelProviderSettingsPanel } from "../components/model-provider-settings-panel";
@@ -25,6 +26,7 @@ const SETTINGS_PANELS: Record<SettingsCategoryId, ComponentType> = {
   webTools: WebToolsSettingsPanel,
   data: DataSettingsPanel,
   lab: LabSettingsPanel,
+  email: EmailSettingsPanel,
 };
 
 export function SettingsPage() {

@@ -6,6 +6,7 @@ mod git;
 mod glob;
 mod grep;
 mod list_dir;
+mod mail;
 mod network;
 mod plan;
 mod pty_terminal;
@@ -38,6 +39,7 @@ pub use git::{
 pub use glob::tool_glob;
 pub use grep::tool_grep;
 pub use list_dir::tool_list_dir;
+pub use mail::send_email;
 pub use plan::{
     tool_plan_create, tool_plan_delete, tool_plan_list, tool_plan_read, tool_plan_update,
 };

@@ -4,6 +4,7 @@ import {
   FlaskConical,
   Globe,
   Keyboard,
+  Mail,
   Palette,
   SlidersHorizontal,
 } from "lucide-react";
@@ -23,6 +24,7 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   { id: "webTools", icon: Globe },
   { id: "data", icon: Database },
   { id: "lab", icon: FlaskConical },
+  { id: "email", icon: Mail },
 ];
 
 export const DEFAULT_SETTINGS_CATEGORY: SettingsCategoryId = "general";
