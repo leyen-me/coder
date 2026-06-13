@@ -20,7 +20,12 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag_name: ${{ steps.tag.outputs.TAG }}
+      changelog: ${{ steps.changelog.outputs.CHANGELOG }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: 生成按时间的 release 标签（UTC）
         id: tag
         run: |
@@ -28,8 +33,30 @@ jobs:
           echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
           echo "本次发布标签: $TAG"
 
+      - name: 生成上次发布以来的变更日志
+        id: changelog
+        run: |
+          # 取最后一个 release tag，如果没有则从项目开始算
+          LAST_TAG=$(git tag --list 'release-*' --sort=-creatordate | head -1 || true)
+          if [ -z "$LAST_TAG" ]; then
+            RANGE="HEAD"
+            echo "首个发布，无历史 tag"
+          else
+            RANGE="$LAST_TAG..HEAD"
+            echo "对比范围: $RANGE"
+          fi
+
+          CHANGELOG=$(git log --oneline --no-decorate $RANGE 2>/dev/null || echo "（尚无提交记录）")
+
+          # 转义换行符和多行文本，适配 GITHUB_OUTPUT
+          CHANGELOG="${CHANGELOG//'%'/'%25'}"
+          CHANGELOG="${CHANGELOG//$'\n'/'%0A'}"
+          CHANGELOG="${CHANGELOG//$'\r'/'%0D'}"
+          echo "CHANGELOG=$CHANGELOG" >> "$GITHUB_OUTPUT"
+
   publish:
-    needs: prepare-tag
+    needs:
+      - prepare-tag
     env:
       # Vite 打包 monaco/mermaid/shiki 等重型依赖时易触达 Node 默认 ~2GB 堆上限
       NODE_OPTIONS: --max-old-space-size=4096
@@ -94,10 +121,7 @@ jobs:
           tagName: ${{ needs.prepare-tag.outputs.tag_name }}
           releaseName: ${{ needs.prepare-tag.outputs.tag_name }}
           releaseBody: |
-            自动构建（UTC 时间戳标签）
-
-            - 提交: ${{ github.sha }}
-            - 工作流: ${{ github.run_id }}
+            ${{ needs.prepare-tag.outputs.changelog }}
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
