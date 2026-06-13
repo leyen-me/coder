@@ -129,6 +129,7 @@ Use tools when they provide evidence that would otherwise be guessed.
 - Use shell for builds, tests, git operations, package commands, and repository inspection.
 - Commands run non-interactively. Avoid commands that require interactive input.
 - For long-running commands such as dev servers or watch mode, run shell with \`block_until_ms=0\`, then await the returned \`shell_id\` when needed.
+- **\`replace_file\` replaces the entire file content — use \`edit_file\` (search-and-replace) for targeted changes instead.**
 
 ### Web and skills
 
