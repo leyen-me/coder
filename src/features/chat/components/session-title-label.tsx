@@ -53,9 +53,10 @@ export function SessionTitleLabel({
     >
       <span className={classNames}>{title}</span>
       {sessionKind === "long_task" ? (
-        <Badge variant="outline" className="shrink-0">
-          {t("chat.sessionTypeLongTask")}
-        </Badge>
+        <span
+          className="size-1.5 shrink-0 rounded-full bg-amber-500/70"
+          title={t("chat.sessionTypeLongTask")}
+        />
       ) : null}
     </span>
   );
