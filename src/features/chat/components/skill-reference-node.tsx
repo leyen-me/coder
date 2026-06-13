@@ -19,7 +19,7 @@ export function SkillReferenceNodeView({
     <NodeViewWrapper as="span" className="inline">
       <span
         className={cn(
-          "mx-0.5 inline-flex max-w-full items-center gap-1 rounded-md border border-primary/20 bg-primary/5 py-0.5 pr-0.5 pl-1.5 align-middle text-xs text-foreground",
+          "mx-0.5 inline-flex max-w-full items-center gap-1 rounded-full border border-primary/20 bg-primary/5 py-0.5 pr-0.5 pl-1.5 align-middle text-xs text-foreground",
           selected && "border-primary/40 ring-1 ring-primary/20"
         )}
         contentEditable={false}
@@ -29,7 +29,7 @@ export function SkillReferenceNodeView({
         <span className="max-w-48 truncate font-mono">/{slug || name}</span>
         <button
           aria-label={t("chat.removeSkillReference")}
-          className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="inline-flex size-4 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
