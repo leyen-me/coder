@@ -412,23 +412,32 @@ describe("runAgentWithTools", () => {
     expect(startAgentMock).toHaveBeenCalledTimes(3);
   });
 
-  it("blocks high-risk shell commands in unattended long-task sessions", async () => {
+  it("executes high-risk shell commands directly in unattended long-task sessions", async () => {
     const events: Parameters<AgentEventHandler>[0][] = [];
-
-    startAgentMock.mockImplementationOnce(async (_input, onEvent) => {
-      onEvent({
-        type: "turn_complete",
-        taskId: "task-1",
-        toolCalls: [
-          {
-            id: "call_1",
-            name: "shell",
-            arguments: '{"command":"git push origin main"}',
-          },
-        ],
-      });
-      onEvent({ type: "status", taskId: "task-1", status: "completed" });
+    executeToolCallMock.mockResolvedValue({
+      ok: true,
+      tool: "shell",
+      data: { command: "git push origin main", stdout: "pushed" },
     });
+
+    startAgentMock
+      .mockImplementationOnce(async (_input, onEvent) => {
+        onEvent({
+          type: "turn_complete",
+          taskId: "task-1",
+          toolCalls: [
+            {
+              id: "call_1",
+              name: "shell",
+              arguments: '{"command":"git push origin main"}',
+            },
+          ],
+        });
+        onEvent({ type: "status", taskId: "task-1", status: "completed" });
+      })
+      .mockImplementationOnce(async (_input, onEvent) => {
+        onEvent({ type: "status", taskId: "task-1", status: "completed" });
+      });
 
     await runAgentWithTools(
       {
@@ -448,23 +457,33 @@ describe("runAgentWithTools", () => {
       }
     );
 
-    expect(executeToolCallMock).not.toHaveBeenCalled();
+    expect(executeToolCallMock).toHaveBeenCalledWith(
+      "shell",
+      '{"command":"git push origin main"}',
+      {
+        workspaceDir: null,
+        sessionId: "session-1",
+        taskId: "task-1",
+        signal: undefined,
+        tavilyConfig: undefined,
+        allowPrivateNetworkAccess: undefined,
+      }
+    );
+    expect(events).toContainEqual({
+      type: "tool_call_started",
+      taskId: "task-1",
+      toolCallId: "call_1",
+      name: "shell",
+      input: { command: "git push origin main" },
+    });
     expect(events).toContainEqual(
       expect.objectContaining({
-        type: "decision_requested",
-        trigger: "tool_guard",
+        type: "tool_call_finished",
+        taskId: "task-1",
+        toolCallId: "call_1",
       })
     );
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        type: "decision_resolved",
-        response: expect.objectContaining({
-          outcome: "ask_user",
-          requiresUserConfirmation: true,
-          riskLevel: "high",
-        }),
-      })
-    );
+    expect(events.some((event) => event.type === "decision_requested")).toBe(false);
   });
 
   it("retries a chat turn after a transient API failure with no streamed output", async () => {

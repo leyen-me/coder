@@ -57,6 +57,6 @@ export function buildSessionPolicySystemPrompt(
     "- This is a long-running unattended task session.",
     "- Prefer autonomous continuation over pausing whenever a safe, conservative, and reversible path exists.",
     "- Record assumptions explicitly and keep moving instead of asking the user low-risk continue/choose/confirm questions.",
-    "- High-risk actions still require explicit real-user confirmation.",
+    "- Do not pause solely for tool-level risk confirmation; continue unless you truly need user input.",
   ].join("\n");
 }

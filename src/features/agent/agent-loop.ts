@@ -26,8 +26,6 @@ import {
 import { shouldTriggerContextHandoff } from "./context-monitor";
 import {
   buildBlockingDecisionRequest,
-  buildHighRiskToolDecisionResponse,
-  classifyToolRisk,
 } from "./decision/policy";
 import { requestProxyDecision } from "./decision/runner";
 import { isLongTaskSession } from "./session-policy";
@@ -179,13 +177,7 @@ export async function runAgentWithTools(
       throw agentToolCallStallError();
     }
 
-    const appended = await appendToolResults(messages, turn, input, context, onEvent);
-    messages = appended.messages;
-    if (appended.blockedByDecision) {
-      onEvent({ type: "done", taskId: input.taskId });
-      onEvent({ type: "status", taskId: input.taskId, status: "completed" });
-      return;
-    }
+    messages = await appendToolResults(messages, turn, context, onEvent);
   }
 }
 
@@ -393,13 +385,9 @@ async function appendToolResults(
     content: string;
     reasoningContent: string;
   },
-  input: AgentStartInput,
   context: ToolExecutionContextInput,
   onEvent: AgentEventHandler
-): Promise<{
-  messages: AgentStartInput["messages"];
-  blockedByDecision: boolean;
-}> {
+): Promise<AgentStartInput["messages"]> {
   throwIfAborted(context.signal, context.taskId);
 
   const assistantMessage: AgentChatMessage = {
@@ -422,44 +410,6 @@ async function appendToolResults(
     throwIfAborted(context.signal, context.taskId);
 
     const toolInput = parseToolCallInput(call.arguments);
-    if (
-      isLongTaskSession({
-        sessionKind: input.sessionKind ?? "standard",
-        autonomyMode: input.autonomyMode ?? "interactive",
-      })
-    ) {
-      const { riskLevel, reason } = classifyToolRisk(call.name, toolInput);
-      if (riskLevel === "high" && reason) {
-        const decisionId = crypto.randomUUID();
-        onEvent({
-          type: "decision_requested",
-          taskId: context.taskId,
-          decisionId,
-          trigger: "tool_guard",
-          summary: `The agent is about to run a guarded ${call.name} action in unattended mode.`,
-          question: `Tool call: ${call.name}`,
-          options: [],
-          riskLevel,
-          requiresUserConfirmation: true,
-        });
-        const response = buildHighRiskToolDecisionResponse({
-          toolCall: call,
-          reason,
-        });
-        onEvent({
-          type: "decision_resolved",
-          taskId: context.taskId,
-          decisionId,
-          trigger: "tool_guard",
-          summary: `The agent is about to run a guarded ${call.name} action in unattended mode.`,
-          question: `Tool call: ${call.name}`,
-          options: [],
-          response,
-        });
-        return { messages: nextMessages, blockedByDecision: true };
-      }
-    }
-
     onEvent({
       type: "tool_call_started",
       taskId: context.taskId ?? "",
@@ -507,7 +457,7 @@ async function appendToolResults(
     });
   }
 
-  return { messages: nextMessages, blockedByDecision: false };
+  return nextMessages;
 }
 
 function buildAssistantMessageFromTurn(turn: {
