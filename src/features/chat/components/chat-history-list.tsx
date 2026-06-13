@@ -86,6 +86,7 @@ export function ChatHistoryList({
                     ) : null}
                     <SessionTitleLabel
                       title={item.title}
+                      sessionKind={item.sessionKind}
                       isGenerating={isGeneratingTitle}
                     />
                     <span className="shrink-0 text-xs text-muted-foreground">

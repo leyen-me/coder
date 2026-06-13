@@ -178,6 +178,28 @@ describe("buildAgentMessages", () => {
     expect(messages[1]?.content).toContain("Completed or cancelled todos are omitted");
   });
 
+  it("injects a long-task session policy system message", async () => {
+    const messages = await buildAgentMessages(
+      [{ role: "user", content: "继续实现" }],
+      environment,
+      "agent",
+      "session-1",
+      {
+        sessionKind: "long_task",
+        autonomyMode: "unattended",
+        decisionPolicyVersion: "mvp-v1",
+        decisionModel: "decision-model",
+      }
+    );
+
+    expect(messages[1]).toEqual({
+      role: "system",
+      content: expect.stringContaining("## Session execution policy"),
+    });
+    expect(messages[1]?.content).toContain("sessionKind: long_task");
+    expect(messages[1]?.content).toContain("decisionModel: decision-model");
+  });
+
   it("omits the snapshot when only terminal todos exist", async () => {
     vi.mocked(getAgentTodosBySession).mockResolvedValue([
       {

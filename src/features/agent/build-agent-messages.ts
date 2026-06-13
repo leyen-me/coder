@@ -3,6 +3,10 @@ import type { AgentEnvironment } from "./environment/types";
 import { hasAgentMessageContent } from "./message-content";
 import { assertValidToolCallChain } from "./process-steps";
 import type { AgentChatMessage, AgentMode } from "./types";
+import {
+  buildSessionPolicySystemPrompt,
+  type AgentSessionPolicy,
+} from "./session-policy";
 import { getAgentTodosBySession } from "@/lib/db/agent-todos";
 import {
   extractSkillSlugsFromText,
@@ -16,16 +20,21 @@ export async function buildAgentMessages(
   history: AgentChatMessage[],
   environment: AgentEnvironment,
   agentMode?: AgentMode,
-  sessionId?: string
+  sessionId?: string,
+  sessionPolicy?: AgentSessionPolicy | null
 ): Promise<AgentChatMessage[]> {
   const conversation = history.filter((message) => hasMessagePayload(message));
   assertValidToolCallChain(conversation);
 
   const withSkillInjection = await applyReferencedSkillsToConversation(conversation);
   const todoSnapshotMessage = await buildTodoSnapshotSystemMessage(sessionId);
+  const sessionPolicyPrompt = buildSessionPolicySystemPrompt(sessionPolicy);
 
   return [
     { role: "system", content: buildSystemPrompt(environment, agentMode) },
+    ...(sessionPolicyPrompt
+      ? [{ role: "system" as const, content: sessionPolicyPrompt }]
+      : []),
     ...(todoSnapshotMessage ? [todoSnapshotMessage] : []),
     ...withSkillInjection,
   ];

@@ -4,11 +4,16 @@ import {
   buildSystemPrompt,
   resolveAgentEnvironment,
 } from "@/features/agent/environment";
+import {
+  buildSessionPolicySystemPrompt,
+  type AgentSessionPolicy,
+} from "@/features/agent/session-policy";
 import type { AgentMode } from "@/features/agent/types";
 
 export function useSystemPrompt(
   workspaceDir: string | null | undefined,
-  agentMode?: AgentMode
+  agentMode?: AgentMode,
+  sessionPolicy?: AgentSessionPolicy | null
 ) {
   const [systemPrompt, setSystemPrompt] = useState<string | null>(null);
 
@@ -16,8 +21,13 @@ export function useSystemPrompt(
     const environment = await resolveAgentEnvironment(
       workspaceDir?.trim() || null
     );
-    setSystemPrompt(buildSystemPrompt(environment, agentMode));
-  }, [workspaceDir, agentMode]);
+    const policyPrompt = buildSessionPolicySystemPrompt(sessionPolicy);
+    setSystemPrompt(
+      [buildSystemPrompt(environment, agentMode), policyPrompt]
+        .filter(Boolean)
+        .join("\n\n")
+    );
+  }, [workspaceDir, agentMode, sessionPolicy]);
 
   useEffect(() => {
     let active = true;
@@ -29,13 +39,18 @@ export function useSystemPrompt(
       if (!active) {
         return;
       }
-      setSystemPrompt(buildSystemPrompt(environment, agentMode));
+      const policyPrompt = buildSessionPolicySystemPrompt(sessionPolicy);
+      setSystemPrompt(
+        [buildSystemPrompt(environment, agentMode), policyPrompt]
+          .filter(Boolean)
+          .join("\n\n")
+      );
     })();
 
     return () => {
       active = false;
     };
-  }, [workspaceDir, agentMode]);
+  }, [workspaceDir, agentMode, sessionPolicy]);
 
   return { systemPrompt, refreshSystemPrompt };
 }

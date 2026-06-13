@@ -2,7 +2,11 @@ import { getDb } from "./client";
 import { SESSIONS_STORE } from "./constants";
 import { normalizeSessionRecord } from "./normalize-session";
 import { notifyDbChange } from "./subscriptions";
-import type { SessionRecord } from "./types";
+import type {
+  SessionAutonomyMode,
+  SessionKind,
+  SessionRecord,
+} from "./types";
 
 export function createSessionId(): string {
   return crypto.randomUUID();
@@ -21,6 +25,10 @@ export type CreateSessionInput = {
   title: string;
   model: string;
   workspaceDir?: string | null;
+  sessionKind?: SessionKind;
+  autonomyMode?: SessionAutonomyMode;
+  decisionPolicyVersion?: string;
+  decisionModel?: string | null;
   parentSessionId?: string | null;
   handoffFromSessionId?: string | null;
   handoffMessageId?: string | null;
@@ -33,6 +41,10 @@ export async function createSession(input: CreateSessionInput): Promise<SessionR
     title: input.title,
     model: input.model,
     workspaceDir: input.workspaceDir ?? null,
+    sessionKind: input.sessionKind,
+    autonomyMode: input.autonomyMode,
+    decisionPolicyVersion: input.decisionPolicyVersion,
+    decisionModel: input.decisionModel,
     parentSessionId: input.parentSessionId ?? null,
     handoffFromSessionId: input.handoffFromSessionId ?? null,
     handoffMessageId: input.handoffMessageId ?? null,
@@ -58,6 +70,10 @@ export type SessionPatch = Partial<
     | "title"
     | "model"
     | "workspaceDir"
+    | "sessionKind"
+    | "autonomyMode"
+    | "decisionPolicyVersion"
+    | "decisionModel"
     | "parentSessionId"
     | "handoffFromSessionId"
     | "handoffMessageId"

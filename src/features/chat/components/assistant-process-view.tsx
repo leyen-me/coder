@@ -4,6 +4,7 @@ import type { MessageToolInvocation } from "@/lib/db";
 import { ASK_QUESTION_TOOL_NAME } from "@/features/agent/tools/definitions";
 
 import type { AssistantProcessStep } from "./assistant-process";
+import { DecisionEventCard } from "./decision-event-card";
 import { MessageToolItem } from "./message-tool-list";
 import { StreamingMessageContent } from "./streaming-message-content";
 import { ThinkingBlock } from "./thinking-block";
@@ -75,6 +76,22 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
               isStreaming={group.isStreaming}
               key={group.id}
               text={group.text}
+            />
+          );
+        }
+
+        if (group.kind === "decision") {
+          return (
+            <DecisionEventCard
+              assumption={group.response?.assumption ?? null}
+              key={group.id}
+              outcome={group.response?.outcome ?? null}
+              question={group.question}
+              reason={group.response?.reason ?? null}
+              requiresUserConfirmation={group.requiresUserConfirmation}
+              riskLevel={group.riskLevel}
+              status={group.status}
+              summary={group.summary}
             />
           );
         }

@@ -74,6 +74,7 @@ import {
   deriveContinuationSessionTitle,
 } from "../handoff";
 import { readAgentHandoffThreshold } from "../handoff-settings";
+import { resolveAgentSessionPolicy } from "../session-policy";
 
 export type StreamingMessageOverlay = {
   content: string;
@@ -146,6 +147,11 @@ type PendingSessionHandoff = {
   userContent: string;
   thinkingEnabled: boolean;
   contextUsage: AgentContextUsageSnapshot;
+  sessionKind: ActiveTaskState["sessionKind"];
+  autonomyMode: ActiveTaskState["autonomyMode"];
+  decisionPolicyVersion: ActiveTaskState["decisionPolicyVersion"];
+  decisionModel: ActiveTaskState["decisionModel"];
+  agentMode: AgentMode;
 };
 
 function resolveContextWindowForModel(
@@ -347,6 +353,37 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           emit();
           return;
         }
+        case "decision_requested":
+          streamingBufferRef.current.upsertProcessStep(assistantMessageId, {
+            id: `decision:${event.decisionId}`,
+            kind: "decision",
+            trigger: event.trigger,
+            summary: event.summary,
+            question: event.question,
+            options: event.options,
+            riskLevel: event.riskLevel,
+            status: "requested",
+            requiresUserConfirmation: event.requiresUserConfirmation,
+            response: null,
+          });
+          await streamingBufferRef.current.flush(assistantMessageId);
+          await setMessageStatus(assistantMessageId, "streaming");
+          return;
+        case "decision_resolved":
+          streamingBufferRef.current.upsertProcessStep(assistantMessageId, {
+            id: `decision:${event.decisionId}`,
+            kind: "decision",
+            trigger: event.trigger,
+            summary: event.summary,
+            question: event.question,
+            options: event.options,
+            riskLevel: event.response.riskLevel,
+            status: "resolved",
+            requiresUserConfirmation: event.response.requiresUserConfirmation,
+            response: event.response,
+          });
+          await streamingBufferRef.current.flush(assistantMessageId);
+          return;
         case "tool_call_pending":
           streamingBufferRef.current.upsertToolInvocation(assistantMessageId, {
             id: event.toolCallId,
@@ -474,6 +511,11 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
                     userContent: task.userContent,
                     thinkingEnabled: task.thinkingEnabled,
                     contextUsage: task.handoff.contextUsage,
+                    sessionKind: task.sessionKind,
+                    autonomyMode: task.autonomyMode,
+                    decisionPolicyVersion: task.decisionPolicyVersion,
+                    decisionModel: task.decisionModel,
+                    agentMode: task.agentMode,
                   }
                 : null;
             const terminalOverlayTimer = terminalOverlayTimersRef.current.get(
@@ -584,6 +626,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       isFirstTurn: boolean;
       thinkingEnabled: boolean;
       agentMode?: AgentMode;
+      sessionKind: ActiveTaskState["sessionKind"];
+      autonomyMode: ActiveTaskState["autonomyMode"];
+      decisionPolicyVersion: ActiveTaskState["decisionPolicyVersion"];
+      decisionModel: ActiveTaskState["decisionModel"];
     }) => {
       const taskId = createTaskId();
       const assistantMessage = await createMessage({
@@ -613,6 +659,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         thinkingEnabled: input.thinkingEnabled,
         handoff: null,
         agentMode: input.agentMode ?? "agent",
+        sessionKind: input.sessionKind,
+        autonomyMode: input.autonomyMode,
+        decisionPolicyVersion: input.decisionPolicyVersion,
+        decisionModel: input.decisionModel,
       };
       tasksRef.current.set(taskId, activeTask);
       const abortController = new AbortController();
@@ -636,6 +686,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           maxContextTokens: resolveContextWindowForModel(resolved, input.model),
           handoffTriggerThreshold: readAgentHandoffThreshold(),
           agentMode: input.agentMode,
+          sessionKind: input.sessionKind,
+          autonomyMode: input.autonomyMode,
+          decisionPolicyVersion: input.decisionPolicyVersion,
+          decisionModel: input.decisionModel,
         },
         {
           workspaceDir: input.workspaceDir,
@@ -693,6 +747,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       model: string;
       userContent: string;
       contextUsage: AgentContextUsageSnapshot;
+      sessionKind: ActiveTaskState["sessionKind"];
+      autonomyMode: ActiveTaskState["autonomyMode"];
+      decisionPolicyVersion: ActiveTaskState["decisionPolicyVersion"];
+      decisionModel: ActiveTaskState["decisionModel"];
     }): Promise<string> => {
       const session = await getSession(input.sessionId);
       if (!session) {
@@ -707,7 +765,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         ),
         environment,
         undefined,
-        input.sessionId
+        input.sessionId,
+        resolveAgentSessionPolicy(session)
       );
 
       const handoffTaskId = createTaskId();
@@ -719,6 +778,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           content: buildAgentHandoffUserPrompt({
             sessionTitle: session.title,
             contextUsage: input.contextUsage,
+            sessionKind: input.sessionKind,
+            autonomyMode: input.autonomyMode,
+            decisionPolicyVersion: input.decisionPolicyVersion,
+            decisionModel: input.decisionModel,
           }),
         },
       ];
@@ -809,6 +872,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           model: input.model,
           userContent: input.userContent,
           contextUsage: input.contextUsage,
+          sessionKind: input.sessionKind,
+          autonomyMode: input.autonomyMode,
+          decisionPolicyVersion: input.decisionPolicyVersion,
+          decisionModel: input.decisionModel,
         });
 
         setSessionHandoffState(input.sessionId, "creating_session");
@@ -818,6 +885,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           ),
           model: input.model,
           workspaceDir: sourceSession.workspaceDir,
+          sessionKind: input.sessionKind,
+          autonomyMode: input.autonomyMode,
+          decisionPolicyVersion: input.decisionPolicyVersion,
+          decisionModel: input.decisionModel,
           parentSessionId: sourceSession.id,
           handoffFromSessionId: sourceSession.id,
         });
@@ -829,6 +900,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           generatedAt: new Date().toISOString(),
           model: input.model,
           contextUsage: input.contextUsage,
+          sessionKind: input.sessionKind,
+          autonomyMode: input.autonomyMode,
+          decisionPolicyVersion: input.decisionPolicyVersion,
+          decisionModel: input.decisionModel,
           handoffBody,
         });
 
@@ -852,6 +927,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         const continuationPrompt = buildContinuationPrompt({
           handoffArtifact,
           sourceSessionTitle: sourceSession.title,
+          sessionKind: input.sessionKind,
+          autonomyMode: input.autonomyMode,
+          decisionPolicyVersion: input.decisionPolicyVersion,
         });
 
         const userMessage = await createMessage({
@@ -874,8 +952,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             messageRecordToAgentMessages
           ),
           environment,
-          undefined,
-          nextSession.id
+          input.agentMode,
+          nextSession.id,
+          resolveAgentSessionPolicy(nextSession)
         );
 
         setSessionHandoffState(input.sessionId, "starting_new_session");
@@ -888,6 +967,11 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             sourceSession.title.trim() || userMessage.content.trim() || "Continue",
           isFirstTurn: true,
           thinkingEnabled: input.thinkingEnabled,
+          agentMode: input.agentMode,
+          sessionKind: input.sessionKind,
+          autonomyMode: input.autonomyMode,
+          decisionPolicyVersion: input.decisionPolicyVersion,
+          decisionModel: input.decisionModel,
         });
 
         clearSessionHandoffState(input.sessionId);
@@ -1016,13 +1100,15 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
       const session = await ensureSessionWorkspaceForAgent(input.sessionId);
       const workspaceDir = session.workspaceDir?.trim() || null;
+      const sessionPolicy = resolveAgentSessionPolicy(session);
       const historyMessages = await getMessagesBySession(input.sessionId);
       const environment = await resolveAgentEnvironment(workspaceDir);
       const history = await buildAgentMessages(
         historyMessages.flatMap(messageRecordToAgentMessages),
         environment,
         input.agentMode,
-        input.sessionId
+        input.sessionId,
+        sessionPolicy
       );
       const thinkingEnabled = resolveThinkingEnabledForRequest(
         resolved,
@@ -1041,6 +1127,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         isFirstTurn,
         thinkingEnabled,
         agentMode: input.agentMode,
+        sessionKind: sessionPolicy.sessionKind,
+        autonomyMode: sessionPolicy.autonomyMode,
+        decisionPolicyVersion: sessionPolicy.decisionPolicyVersion,
+        decisionModel: sessionPolicy.decisionModel,
       });
 
       return {
@@ -1113,13 +1203,15 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
       const session = await ensureSessionWorkspaceForAgent(input.sessionId);
       const workspaceDir = session.workspaceDir?.trim() || null;
+      const sessionPolicy = resolveAgentSessionPolicy(session);
       const historyMessages = await getMessagesBySession(input.sessionId);
       const environment = await resolveAgentEnvironment(workspaceDir);
       const history = await buildAgentMessages(
         historyMessages.flatMap(messageRecordToAgentMessages),
         environment,
         resolvedAgentMode,
-        input.sessionId
+        input.sessionId,
+        sessionPolicy
       );
       const storedImages = userMessage.images ?? [];
       const thinkingEnabled = resolveThinkingEnabledForRequest(
@@ -1139,6 +1231,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         isFirstTurn,
         thinkingEnabled,
         agentMode: resolvedAgentMode,
+        sessionKind: sessionPolicy.sessionKind,
+        autonomyMode: sessionPolicy.autonomyMode,
+        decisionPolicyVersion: sessionPolicy.decisionPolicyVersion,
+        decisionModel: sessionPolicy.decisionModel,
       });
 
       return {

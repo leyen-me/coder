@@ -62,6 +62,7 @@ export type StreamingBufferManager = {
     invocation: MessageToolInvocation
   ) => void;
   failPendingToolInvocations: (messageId: string, errorText: string) => void;
+  upsertProcessStep: (messageId: string, step: MessageProcessStep) => void;
   flush: (messageId: string) => Promise<void>;
   finalize: (messageId: string) => void;
   clear: (messageId: string) => void;
@@ -227,6 +228,21 @@ export function createStreamingBufferManager(options: {
     scheduleFlush(messageId);
   };
 
+  const upsertProcessStep = (messageId: string, step: MessageProcessStep) => {
+    const buffer = ensureBuffer(messageId);
+    const index = buffer.processSteps.findIndex(
+      (currentStep) => currentStep.id === step.id
+    );
+    if (index === -1) {
+      buffer.processSteps.push(step);
+    } else {
+      buffer.processSteps[index] = step;
+    }
+    buffer.cached = null;
+    scheduleEmitChange();
+    scheduleFlush(messageId);
+  };
+
   const scheduleFlush = (messageId: string) => {
     if (timers.has(messageId)) {
       return;
@@ -304,6 +320,7 @@ export function createStreamingBufferManager(options: {
     setToolInvocations,
     upsertToolInvocation,
     failPendingToolInvocations,
+    upsertProcessStep,
     get: (messageId) => {
       const buffer = buffers.get(messageId);
       return buffer ? toStreamingFields(buffer) : null;

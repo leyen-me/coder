@@ -24,6 +24,14 @@ import {
   agentToolCallStallError,
 } from "./tool-call-stall";
 import { shouldTriggerContextHandoff } from "./context-monitor";
+import {
+  buildBlockingDecisionRequest,
+  buildHighRiskToolDecisionResponse,
+  classifyToolRisk,
+} from "./decision/policy";
+import { requestProxyDecision } from "./decision/runner";
+import { isLongTaskSession } from "./session-policy";
+import type { DecisionResponse } from "@/lib/decision";
 
 type ToolExecutionContextInput = {
   workspaceDir: string | null;
@@ -79,6 +87,89 @@ export async function runAgentWithTools(
     );
 
     if (turn.toolCalls.length === 0) {
+      if (
+        isLongTaskSession({
+          sessionKind: input.sessionKind ?? "standard",
+          autonomyMode: input.autonomyMode ?? "interactive",
+        })
+      ) {
+        const decisionRequest = buildBlockingDecisionRequest({
+          sessionId: context.sessionId,
+          taskId: input.taskId,
+          assistantResponse: turn.content,
+          sessionKind: input.sessionKind ?? "standard",
+          autonomyMode: input.autonomyMode ?? "interactive",
+          decisionPolicyVersion:
+            input.decisionPolicyVersion?.trim() || "mvp-v1",
+        });
+
+        if (decisionRequest) {
+          const decisionId = crypto.randomUUID();
+          onEvent({
+            type: "decision_requested",
+            taskId: input.taskId,
+            decisionId,
+            trigger: decisionRequest.trigger,
+            summary: decisionRequest.summary,
+            question: decisionRequest.question,
+            options: decisionRequest.options,
+            riskLevel: "medium",
+            requiresUserConfirmation: false,
+          });
+
+          let decisionResponse: DecisionResponse;
+          try {
+            decisionResponse = await requestProxyDecision({
+              taskId: input.taskId,
+              model: input.decisionModel?.trim() || input.model,
+              baseUrl: input.baseUrl,
+              apiKey: input.apiKey,
+              apiKeySource: input.apiKeySource,
+              apiKeyEnvVar: input.apiKeyEnvVar,
+              request: decisionRequest,
+              signal: context.signal,
+            });
+          } catch (error) {
+            decisionResponse = {
+              outcome: "ask_user",
+              selectedOptionId: "ask_user",
+              reason:
+                error instanceof Error
+                  ? `Proxy decision failed: ${error.message}`
+                  : "Proxy decision failed.",
+              riskLevel: "medium",
+              recordAsAssumption: false,
+              requiresUserConfirmation: true,
+              assumption: null,
+              suggestedContinuation: null,
+            };
+          }
+
+          onEvent({
+            type: "decision_resolved",
+            taskId: input.taskId,
+            decisionId,
+            trigger: decisionRequest.trigger,
+            summary: decisionRequest.summary,
+            question: decisionRequest.question,
+            options: decisionRequest.options,
+            response: decisionResponse,
+          });
+
+          if (decisionResponse.outcome === "continue") {
+            messages = [
+              ...messages,
+              buildAssistantMessageFromTurn(turn),
+              {
+                role: "system",
+                content: buildDecisionContinuationSystemMessage(decisionResponse),
+              },
+            ];
+            continue;
+          }
+        }
+      }
+
       onEvent({ type: "done", taskId: input.taskId });
       onEvent({ type: "status", taskId: input.taskId, status: "completed" });
       return;
@@ -88,7 +179,13 @@ export async function runAgentWithTools(
       throw agentToolCallStallError();
     }
 
-    messages = await appendToolResults(messages, turn, context, onEvent);
+    const appended = await appendToolResults(messages, turn, input, context, onEvent);
+    messages = appended.messages;
+    if (appended.blockedByDecision) {
+      onEvent({ type: "done", taskId: input.taskId });
+      onEvent({ type: "status", taskId: input.taskId, status: "completed" });
+      return;
+    }
   }
 }
 
@@ -296,9 +393,13 @@ async function appendToolResults(
     content: string;
     reasoningContent: string;
   },
+  input: AgentStartInput,
   context: ToolExecutionContextInput,
   onEvent: AgentEventHandler
-): Promise<AgentStartInput["messages"]> {
+): Promise<{
+  messages: AgentStartInput["messages"];
+  blockedByDecision: boolean;
+}> {
   throwIfAborted(context.signal, context.taskId);
 
   const assistantMessage: AgentChatMessage = {
@@ -320,14 +421,51 @@ async function appendToolResults(
   for (const call of turn.toolCalls) {
     throwIfAborted(context.signal, context.taskId);
 
-    const input = parseToolCallInput(call.arguments);
+    const toolInput = parseToolCallInput(call.arguments);
+    if (
+      isLongTaskSession({
+        sessionKind: input.sessionKind ?? "standard",
+        autonomyMode: input.autonomyMode ?? "interactive",
+      })
+    ) {
+      const { riskLevel, reason } = classifyToolRisk(call.name, toolInput);
+      if (riskLevel === "high" && reason) {
+        const decisionId = crypto.randomUUID();
+        onEvent({
+          type: "decision_requested",
+          taskId: context.taskId,
+          decisionId,
+          trigger: "tool_guard",
+          summary: `The agent is about to run a guarded ${call.name} action in unattended mode.`,
+          question: `Tool call: ${call.name}`,
+          options: [],
+          riskLevel,
+          requiresUserConfirmation: true,
+        });
+        const response = buildHighRiskToolDecisionResponse({
+          toolCall: call,
+          reason,
+        });
+        onEvent({
+          type: "decision_resolved",
+          taskId: context.taskId,
+          decisionId,
+          trigger: "tool_guard",
+          summary: `The agent is about to run a guarded ${call.name} action in unattended mode.`,
+          question: `Tool call: ${call.name}`,
+          options: [],
+          response,
+        });
+        return { messages: nextMessages, blockedByDecision: true };
+      }
+    }
 
     onEvent({
       type: "tool_call_started",
       taskId: context.taskId ?? "",
       toolCallId: call.id,
       name: call.name,
-      input,
+      input: toolInput,
     });
 
     let result;
@@ -369,5 +507,40 @@ async function appendToolResults(
     });
   }
 
-  return nextMessages;
+  return { messages: nextMessages, blockedByDecision: false };
 }
+
+function buildAssistantMessageFromTurn(turn: {
+  toolCalls: AgentToolCall[];
+  content: string;
+  reasoningContent: string;
+}): AgentChatMessage {
+  const message: AgentChatMessage = { role: "assistant" };
+  if (turn.content.trim()) {
+    message.content = turn.content;
+  }
+  if (turn.reasoningContent.trim()) {
+    message.reasoning_content = turn.reasoningContent;
+  }
+  if (turn.toolCalls.length > 0) {
+    message.tool_calls = toApiToolCalls(turn.toolCalls);
+  }
+  return message;
+}
+
+function buildDecisionContinuationSystemMessage(
+  response: DecisionResponse
+): string {
+  return [
+    "## Proxy decision result",
+    `- outcome: ${response.outcome}`,
+    `- riskLevel: ${response.riskLevel}`,
+    `- reason: ${response.reason}`,
+    ...(response.assumption ? [`- assumption: ${response.assumption}`] : []),
+    ...(response.suggestedContinuation
+      ? [`- suggestedContinuation: ${response.suggestedContinuation}`]
+      : []),
+    "Continue the task using this decision as an explicit constraint.",
+  ].join("\n");
+}
+

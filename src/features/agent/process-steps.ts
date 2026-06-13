@@ -51,8 +51,16 @@ export function ensureAnswerForReasoningOnlyTurn(
   }
 
   const reasoningText = steps
-    .filter((step) => step.kind === "reasoning")
-    .map((step) => (step.kind === "tool" ? "" : step.text))
+    .filter(
+      (
+        step
+      ): step is {
+        id: string;
+        kind: "reasoning";
+        text: string;
+      } => step.kind === "reasoning"
+    )
+    .map((step) => step.text)
     .join("");
 
   if (!reasoningText.trim()) {

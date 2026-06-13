@@ -42,6 +42,7 @@ import { useSessionWorkspaceBinding } from "../hooks/use-session-workspace-bindi
 import { useSystemPrompt } from "../hooks/use-system-prompt";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
 import type { MessageRecord } from "@/lib/db";
+import { resolveAgentSessionPolicy } from "@/features/agent/session-policy";
 
 type ChatSessionViewProps = {
   chatId: string;
@@ -86,6 +87,10 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     session,
     canEdit: canEditWorkspace,
   });
+  const sessionPolicy = useMemo(
+    () => (session ? resolveAgentSessionPolicy(session) : null),
+    [session]
+  );
 
   const gitControls = useWorkspaceGitControls({
     workspaceDir: workspaceBinding.workspaceDir,
@@ -93,7 +98,8 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   });
   const { systemPrompt, refreshSystemPrompt } = useSystemPrompt(
     workspaceBinding.workspaceDir,
-    agentMode
+    agentMode,
+    sessionPolicy
   );
 
   const activeTask = getSessionTask(chatId);
@@ -574,6 +580,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             contextUsage={contextUsage}
             agentMode={agentMode}
             onAgentModeChange={setAgentMode}
+            sessionKind={session?.sessionKind ?? "standard"}
           />
         </div>
       </div>

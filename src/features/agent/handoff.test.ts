@@ -27,9 +27,15 @@ describe("handoff helpers", () => {
     const prompt = buildAgentHandoffUserPrompt({
       sessionTitle: "长任务排查",
       contextUsage,
+      sessionKind: "long_task",
+      autonomyMode: "unattended",
+      decisionPolicyVersion: "mvp-v1",
+      decisionModel: "decision-model",
     });
 
     expect(prompt).toContain("sourceSessionTitle: 长任务排查");
+    expect(prompt).toContain("sessionKind: long_task");
+    expect(prompt).toContain("autonomyMode: unattended");
     expect(prompt).toContain("usedTokens: 150000");
     expect(prompt).toContain("triggerThreshold: 0.75");
     expect(prompt).toContain("Prefer autonomous continuation");
@@ -43,12 +49,17 @@ describe("handoff helpers", () => {
       generatedAt: "2026-06-10T20:00:00.000Z",
       model: "test-model",
       contextUsage,
+      sessionKind: "long_task",
+      autonomyMode: "unattended",
+      decisionPolicyVersion: "mvp-v1",
+      decisionModel: "decision-model",
       handoffBody: "## Original User Intent\n继续任务",
     });
 
     expect(artifact).toContain("# Automatic Session Handoff");
     expect(artifact).toContain("- sourceSessionId: session-old");
     expect(artifact).toContain("- continuedSessionId: session-new");
+    expect(artifact).toContain("- sessionKind: long_task");
     expect(artifact).toContain("## Original User Intent");
   });
 
@@ -56,12 +67,16 @@ describe("handoff helpers", () => {
     const prompt = buildContinuationPrompt({
       sourceSessionTitle: "长任务排查",
       handoffArtifact: "# Automatic Session Handoff\n\n## Resume Instructions\n继续",
+      sessionKind: "long_task",
+      autonomyMode: "unattended",
+      decisionPolicyVersion: "mvp-v1",
     });
 
     expect(prompt).toContain("authoritative working state");
     expect(prompt).toContain("Continue autonomously without waiting for user input");
     expect(prompt).toContain("choose the best reasonable default");
     expect(prompt).toContain("Previous session: 长任务排查");
+    expect(prompt).toContain("Session policy: long_task / unattended / mvp-v1");
   });
 
   it("creates a deterministic fallback handoff when generation fails", () => {

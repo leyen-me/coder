@@ -8,7 +8,7 @@ import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
 import { usePromptRefiner } from "@/features/lab/prompt-refine-provider";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
-import { createSession } from "@/lib/db";
+import { createSession, type SessionKind } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
@@ -35,6 +35,7 @@ export function NewChatView() {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [agentMode, setAgentMode] = useState<AgentMode>("agent");
+  const [sessionKind, setSessionKind] = useState<SessionKind>("standard");
 
   const gitControls = useWorkspaceGitControls({
     workspaceDir,
@@ -62,6 +63,10 @@ export function NewChatView() {
         title: t("session.newChat"),
         model,
         workspaceDir,
+        sessionKind,
+        autonomyMode:
+          sessionKind === "long_task" ? "unattended" : "interactive",
+        decisionModel: model,
       });
       navigate(paths.chat(session.id), { state: { agentMode } });
       setPrompt("");
@@ -124,7 +129,14 @@ export function NewChatView() {
           isRunning={isSubmitting}
           agentMode={agentMode}
           onAgentModeChange={setAgentMode}
+          sessionKind={sessionKind}
+          onSessionKindChange={setSessionKind}
         />
+        {sessionKind === "long_task" ? (
+          <p className="max-w-3xl px-2 text-center text-muted-foreground text-sm">
+            {t("chat.sessionTypeLongTaskHint")}
+          </p>
+        ) : null}
 
         <StarterPromptList onSelect={setPrompt} />
     </div>

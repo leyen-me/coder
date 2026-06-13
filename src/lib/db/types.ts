@@ -1,7 +1,21 @@
+import type {
+  DecisionOption,
+  DecisionResponse,
+  DecisionRiskLevel,
+  DecisionTrigger,
+} from "@/lib/decision";
+
 export type MessageRole = "user" | "assistant";
 
 /** Distinguishes plan artifact messages from regular assistant replies. */
 export type MessageKind = "plan";
+
+export type SessionKind = "standard" | "long_task";
+export type SessionAutonomyMode = "interactive" | "unattended";
+
+export const DEFAULT_SESSION_KIND: SessionKind = "standard";
+export const DEFAULT_SESSION_AUTONOMY_MODE: SessionAutonomyMode = "interactive";
+export const DEFAULT_DECISION_POLICY_VERSION = "mvp-v1";
 
 export type MessageStatus =
   | "pending"
@@ -16,6 +30,10 @@ export type SessionRecord = {
   model: string;
   /** Absolute path; owned by this session after the first message. */
   workspaceDir: string | null;
+  sessionKind: SessionKind;
+  autonomyMode: SessionAutonomyMode;
+  decisionPolicyVersion: string;
+  decisionModel?: string | null;
   parentSessionId?: string | null;
   handoffFromSessionId?: string | null;
   handoffMessageId?: string | null;
@@ -48,6 +66,18 @@ export type MessageProcessStep =
       id: string;
       kind: "tool";
       toolCallId: string;
+    }
+  | {
+      id: string;
+      kind: "decision";
+      trigger: DecisionTrigger;
+      summary: string;
+      question: string;
+      options: DecisionOption[];
+      riskLevel: DecisionRiskLevel;
+      status: "requested" | "resolved";
+      requiresUserConfirmation: boolean;
+      response?: DecisionResponse | null;
     };
 
 /** Persisted user image (data URL) for chat history and agent replay. */
@@ -137,6 +167,7 @@ export type ChatHistoryItem = {
   relativeTime: string;
   updatedAt: number;
   workspaceDir: string | null;
+  sessionKind: SessionKind;
 };
 
 export type AgentTodoStatus =

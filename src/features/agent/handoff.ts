@@ -25,6 +25,10 @@ Use exactly these sections and keep the order:
 export function buildAgentHandoffUserPrompt(input: {
   sessionTitle: string;
   contextUsage: AgentContextUsageSnapshot;
+  sessionKind: "standard" | "long_task";
+  autonomyMode: "interactive" | "unattended";
+  decisionPolicyVersion: string;
+  decisionModel: string | null;
 }): string {
   return [
     "Create a handoff document for a fresh session that has no memory of the previous conversation.",
@@ -39,6 +43,10 @@ export function buildAgentHandoffUserPrompt(input: {
     "",
     "Current rollover context:",
     `- sourceSessionTitle: ${sanitizeInlineValue(input.sessionTitle)}`,
+    `- sessionKind: ${input.sessionKind}`,
+    `- autonomyMode: ${input.autonomyMode}`,
+    `- decisionPolicyVersion: ${sanitizeInlineValue(input.decisionPolicyVersion)}`,
+    `- decisionModel: ${sanitizeInlineValue(input.decisionModel ?? "default")}`,
     `- usedTokens: ${input.contextUsage.usedTokens}`,
     `- maxTokens: ${input.contextUsage.maxTokens}`,
     `- remainingTokens: ${input.contextUsage.remainingTokens}`,
@@ -54,6 +62,10 @@ export function buildStoredHandoffArtifact(input: {
   generatedAt: string;
   model: string;
   contextUsage: AgentContextUsageSnapshot;
+  sessionKind: "standard" | "long_task";
+  autonomyMode: "interactive" | "unattended";
+  decisionPolicyVersion: string;
+  decisionModel: string | null;
   handoffBody: string;
 }): string {
   const body = normalizeHandoffBody(input.handoffBody);
@@ -66,6 +78,10 @@ export function buildStoredHandoffArtifact(input: {
     `- sourceSessionTitle: ${sanitizeInlineValue(input.sourceSessionTitle)}`,
     `- generatedAt: ${sanitizeInlineValue(input.generatedAt)}`,
     `- model: ${sanitizeInlineValue(input.model)}`,
+    `- sessionKind: ${input.sessionKind}`,
+    `- autonomyMode: ${input.autonomyMode}`,
+    `- decisionPolicyVersion: ${sanitizeInlineValue(input.decisionPolicyVersion)}`,
+    `- decisionModel: ${sanitizeInlineValue(input.decisionModel ?? "default")}`,
     `- contextBudget: ${input.contextUsage.usedTokens}/${input.contextUsage.maxTokens} used, ${input.contextUsage.remainingTokens} remaining, reserve ${input.contextUsage.reservedTokens}`,
     "",
     body,
@@ -75,6 +91,9 @@ export function buildStoredHandoffArtifact(input: {
 export function buildContinuationPrompt(input: {
   handoffArtifact: string;
   sourceSessionTitle: string;
+  sessionKind: "standard" | "long_task";
+  autonomyMode: "interactive" | "unattended";
+  decisionPolicyVersion: string;
 }): string {
   return [
     "A previous session of this task reached its context budget and handed off the work.",
@@ -85,6 +104,7 @@ export function buildContinuationPrompt(input: {
     "Only stop to ask the user if proceeding is literally impossible without information that cannot be inferred or safely defaulted.",
     "",
     `Previous session: ${sanitizeInlineValue(input.sourceSessionTitle)}`,
+    `Session policy: ${input.sessionKind} / ${input.autonomyMode} / ${sanitizeInlineValue(input.decisionPolicyVersion)}`,
     "",
     input.handoffArtifact.trim(),
   ].join("\n");

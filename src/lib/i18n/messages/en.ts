@@ -149,6 +149,15 @@ export const enMessages = {
     modeAgentLabel: "Agent mode — full tool access",
     modeAskLabel: "Ask mode — read-only tool access",
     modePlanLabel: "Plan mode — research and write plans to .plan/",
+    sessionTypeStandard: "Standard",
+    sessionTypeLongTask: "Long task",
+    sessionTypeLabel: "Session type",
+    sessionTypeStandardLabel:
+      "Standard session — use the default interactive behavior",
+    sessionTypeLongTaskLabel:
+      "Long-task session — keep moving autonomously and let the system resolve low-risk choices",
+    sessionTypeLongTaskHint:
+      "Best for unattended work. The system keeps going when safe, but still pauses for high-risk actions.",
     composerPlanPlaceholder: "Describe what you want to plan, or ask to revise the current plan…",
     planFileName: "Plan",
     planGenerating: "Generating…",
@@ -165,6 +174,21 @@ export const enMessages = {
     askQuestionOtherRequired: "Enter your custom answer for Other.",
     askQuestionSubmitError:
       "This question request is no longer active. Try asking the agent again.",
+    decisionTitle: "Proxy decision",
+    decisionDescription:
+      "The system made a limited-scope decision on the user's behalf in long-task mode.",
+    decisionStatusRequested: "Evaluating",
+    decisionStatusResolved: "Resolved",
+    decisionOutcomeContinue: "Continue",
+    decisionOutcomeAskUser: "Ask the user",
+    decisionOutcomeStopPath: "Stop this path",
+    decisionRiskLow: "Low risk",
+    decisionRiskMedium: "Medium risk",
+    decisionRiskHigh: "High risk",
+    decisionReason: "Reason",
+    decisionAssumption: "Recorded assumption",
+    decisionRequiresUserConfirmation:
+      "This decision still requires real-user confirmation before continuing.",
   },
   time: {
     justNow: "Just now",

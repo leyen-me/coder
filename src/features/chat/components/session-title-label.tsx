@@ -1,8 +1,11 @@
+import { Badge } from "@/components/ui/badge";
+import type { SessionKind } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
 type SessionTitleLabelProps = {
   title: string;
+  sessionKind?: SessionKind;
   isGenerating?: boolean;
   /** compact: sidebar row; header: top bar */
   variant?: "compact" | "header";
@@ -11,6 +14,7 @@ type SessionTitleLabelProps = {
 
 export function SessionTitleLabel({
   title,
+  sessionKind = "standard",
   isGenerating = false,
   variant = "compact",
   className,
@@ -20,30 +24,39 @@ export function SessionTitleLabel({
   const classNames = cn(
     "min-w-0 truncate",
     variant === "header" ? "text-sm font-medium" : "text-sm",
-    isGenerating && "text-muted-foreground",
-    className
+    isGenerating && "text-muted-foreground"
   );
 
   if (variant === "header") {
     return (
-      <h1
-        className={classNames}
-        aria-busy={isGenerating || undefined}
-        aria-live={isGenerating ? "polite" : undefined}
-        title={isGenerating ? t("session.generatingTitle") : title}
-      >
-        {title}
-      </h1>
+      <div className="flex min-w-0 items-center gap-2">
+        <h1
+          className={cn(classNames, className)}
+          aria-busy={isGenerating || undefined}
+          aria-live={isGenerating ? "polite" : undefined}
+          title={isGenerating ? t("session.generatingTitle") : title}
+        >
+          {title}
+        </h1>
+        {sessionKind === "long_task" ? (
+          <Badge variant="secondary">{t("chat.sessionTypeLongTask")}</Badge>
+        ) : null}
+      </div>
     );
   }
 
   return (
     <span
-      className={classNames}
+      className={cn("flex min-w-0 items-center gap-2", className)}
       aria-busy={isGenerating || undefined}
       title={isGenerating ? t("session.generatingTitle") : title}
     >
-      {title}
+      <span className={classNames}>{title}</span>
+      {sessionKind === "long_task" ? (
+        <Badge variant="outline" className="shrink-0">
+          {t("chat.sessionTypeLongTask")}
+        </Badge>
+      ) : null}
     </span>
   );
 }

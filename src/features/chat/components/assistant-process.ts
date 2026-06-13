@@ -3,6 +3,12 @@ import {
   type MessageProcessStep,
   type MessageToolInvocation,
 } from "@/lib/db";
+import type {
+  DecisionOption,
+  DecisionResponse,
+  DecisionRiskLevel,
+  DecisionTrigger,
+} from "@/lib/decision";
 
 export type AssistantProcessStep =
   | {
@@ -21,6 +27,18 @@ export type AssistantProcessStep =
       kind: "answer";
       text: string;
       isStreaming: boolean;
+    }
+  | {
+      id: string;
+      kind: "decision";
+      trigger: DecisionTrigger;
+      summary: string;
+      question: string;
+      options: DecisionOption[];
+      riskLevel: DecisionRiskLevel;
+      status: "requested" | "resolved";
+      requiresUserConfirmation: boolean;
+      response?: DecisionResponse | null;
     };
 
 export function buildAssistantProcessSteps(input: {
@@ -107,7 +125,8 @@ export function shouldShowAssistantProcessTimeline(input: {
     (step) =>
       step.kind === "reasoning" ||
       step.kind === "tool" ||
-      step.kind === "answer"
+      step.kind === "answer" ||
+      step.kind === "decision"
   );
 }
 
@@ -140,6 +159,22 @@ function buildPersistedAssistantProcessSteps(
           invocation,
         });
       }
+      continue;
+    }
+
+    if (step.kind === "decision") {
+      resolvedSteps.push({
+        id: step.id,
+        kind: "decision",
+        trigger: step.trigger,
+        summary: step.summary,
+        question: step.question,
+        options: step.options,
+        riskLevel: step.riskLevel,
+        status: step.status,
+        requiresUserConfirmation: step.requiresUserConfirmation,
+        response: step.response,
+      });
       continue;
     }
 

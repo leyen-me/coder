@@ -18,6 +18,7 @@ function item(
     relativeTime: "1h",
     updatedAt: overrides.updatedAt ?? 0,
     workspaceDir: overrides.workspaceDir ?? null,
+    sessionKind: overrides.sessionKind ?? "standard",
   };
 }
 

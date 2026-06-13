@@ -36,6 +36,7 @@ import {
 import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { cn } from "@/lib/utils";
 import type { AgentMode } from "@/features/agent/types";
+import type { SessionKind } from "@/lib/db";
 
 import { collectNativeFileDropItems } from "@/lib/dnd/external-file-drop";
 
@@ -79,6 +80,8 @@ type PromptComposerProps = {
   onModelChange: (model: string) => void;
   agentMode?: AgentMode;
   onAgentModeChange?: (mode: AgentMode) => void;
+  sessionKind?: SessionKind;
+  onSessionKindChange?: (kind: SessionKind) => void;
   thinkingEnabled?: boolean;
   onThinkingEnabledChange?: (enabled: boolean) => void;
   showWorkspaceControls?: boolean;
@@ -377,6 +380,8 @@ export function PromptComposer({
   contextUsage,
   agentMode = "agent",
   onAgentModeChange,
+  sessionKind = "standard",
+  onSessionKindChange,
 }: PromptComposerProps) {
   const { t } = useTranslation();
   const isCompact = variant === "compact";
@@ -615,6 +620,51 @@ export function PromptComposer({
                 <DropdownMenuRadioItem value="plan">
                   <ClipboardListIcon className="mr-2 size-4" />
                   <span>{t("chat.modePlan")}</span>
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                disabled={isRunning || !onSessionKindChange}
+                className={cn(
+                  composerFooterControlClassName,
+                  sessionKind === "long_task" &&
+                    composerFooterControlActiveClassName,
+                  "inline-flex items-center gap-1.5",
+                  "data-[state=open]:bg-accent data-[state=open]:text-foreground data-[state=open]:dark:bg-input/50"
+                )}
+                title={
+                  sessionKind === "long_task"
+                    ? t("chat.sessionTypeLongTaskLabel")
+                    : t("chat.sessionTypeStandardLabel")
+                }
+              >
+                <span className="truncate">
+                  {sessionKind === "long_task"
+                    ? t("chat.sessionTypeLongTask")
+                    : t("chat.sessionTypeStandard")}
+                </span>
+                {onSessionKindChange ? (
+                  <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
+                ) : null}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-44">
+              <DropdownMenuRadioGroup
+                value={sessionKind}
+                onValueChange={(value) => {
+                  onSessionKindChange?.(value as SessionKind);
+                }}
+              >
+                <DropdownMenuRadioItem value="standard">
+                  <span>{t("chat.sessionTypeStandard")}</span>
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="long_task">
+                  <span>{t("chat.sessionTypeLongTask")}</span>
                 </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>

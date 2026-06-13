@@ -38,6 +38,10 @@ export async function forkSessionFromMessage(
     title,
     model: session.model,
     workspaceDir: session.workspaceDir,
+    sessionKind: session.sessionKind,
+    autonomyMode: session.autonomyMode,
+    decisionPolicyVersion: session.decisionPolicyVersion,
+    decisionModel: session.decisionModel ?? null,
   });
 
   await Promise.all(

@@ -40,6 +40,7 @@ export function useSessionTitleBarSlots(pathname: string) {
     leading: (
       <SessionTitleLabel
         title={title}
+        sessionKind={session?.sessionKind ?? "standard"}
         isGenerating={isGeneratingTitle}
         variant="header"
       />

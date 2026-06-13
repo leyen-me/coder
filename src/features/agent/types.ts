@@ -1,6 +1,13 @@
 import type { AgentMessageContent } from "./message-content";
 import type { AgentToolCall, AgentToolDefinition } from "./tools/types";
 import type { ApiToolCall } from "./tools/api-tool-call";
+import type { SessionAutonomyMode, SessionKind } from "@/lib/db";
+import type {
+  DecisionOption,
+  DecisionResponse,
+  DecisionRiskLevel,
+  DecisionTrigger,
+} from "@/lib/decision";
 
 export type AgentStatus =
   | "pending"
@@ -50,6 +57,27 @@ export type AgentEvent =
       output?: unknown;
       errorText?: string;
     }
+  | {
+      type: "decision_requested";
+      taskId: string;
+      decisionId: string;
+      trigger: DecisionTrigger;
+      summary: string;
+      question: string;
+      options: DecisionOption[];
+      riskLevel: DecisionRiskLevel;
+      requiresUserConfirmation: boolean;
+    }
+  | {
+      type: "decision_resolved";
+      taskId: string;
+      decisionId: string;
+      trigger: DecisionTrigger;
+      summary: string;
+      question: string;
+      options: DecisionOption[];
+      response: DecisionResponse;
+    }
   | { type: "done"; taskId: string }
   | { type: "error"; taskId: string; message: string }
   | {
@@ -78,6 +106,10 @@ export type AgentStartInput = {
   handoffTriggerThreshold?: number;
   /** Agent mode — controls which tools are available. Defaults to "agent". */
   agentMode?: AgentMode;
+  sessionKind?: SessionKind;
+  autonomyMode?: SessionAutonomyMode;
+  decisionPolicyVersion?: string;
+  decisionModel?: string | null;
 };
 
 export type ChatRetryState = {
@@ -121,6 +153,10 @@ export type ActiveTaskState = {
   thinkingEnabled: boolean;
   handoff: AgentHandoffRequest | null;
   agentMode: AgentMode;
+  sessionKind: SessionKind;
+  autonomyMode: SessionAutonomyMode;
+  decisionPolicyVersion: string;
+  decisionModel: string | null;
 };
 
 /** Agent vs Ask vs Plan mode — controls which tools are available to the model. */

@@ -141,6 +141,12 @@ export type Messages = {
     modeAgentLabel: string;
     modeAskLabel: string;
     modePlanLabel: string;
+    sessionTypeStandard: string;
+    sessionTypeLongTask: string;
+    sessionTypeLabel: string;
+    sessionTypeStandardLabel: string;
+    sessionTypeLongTaskLabel: string;
+    sessionTypeLongTaskHint: string;
     composerPlanPlaceholder: string;
     planFileName: string;
     planGenerating: string;
@@ -155,6 +161,19 @@ export type Messages = {
     askQuestionSelectRequired: string;
     askQuestionOtherRequired: string;
     askQuestionSubmitError: string;
+    decisionTitle: string;
+    decisionDescription: string;
+    decisionStatusRequested: string;
+    decisionStatusResolved: string;
+    decisionOutcomeContinue: string;
+    decisionOutcomeAskUser: string;
+    decisionOutcomeStopPath: string;
+    decisionRiskLow: string;
+    decisionRiskMedium: string;
+    decisionRiskHigh: string;
+    decisionReason: string;
+    decisionAssumption: string;
+    decisionRequiresUserConfirmation: string;
   };
   time: {
     justNow: string;

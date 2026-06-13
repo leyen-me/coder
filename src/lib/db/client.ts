@@ -146,6 +146,14 @@ async function openCoderDb(repairAttempted = false): Promise<IDBPDatabase<CoderD
         store.createIndex("by-sessionId", "sessionId");
         store.createIndex("by-sessionId-order", ["sessionId", "order"]);
       }
+
+      if (oldVersion > 0 && oldVersion < 10) {
+        const store = transaction.objectStore(SESSIONS_STORE);
+        const sessions = await store.getAll();
+        for (const session of sessions) {
+          await store.put(normalizeSessionRecord(session));
+        }
+      }
     },
   });
 

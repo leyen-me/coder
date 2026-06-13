@@ -7,6 +7,7 @@ const startAgentMock = vi.fn<
   (input: AgentStartInput, onEvent: AgentEventHandler) => Promise<void>
 >();
 const executeToolCallMock = vi.fn();
+const requestProxyDecisionMock = vi.fn();
 
 vi.mock("./runner", () => ({
   startAgent: (input: AgentStartInput, onEvent: AgentEventHandler) =>
@@ -29,12 +30,17 @@ vi.mock("./chat-retry", async (importOriginal) => {
   };
 });
 
+vi.mock("./decision/runner", () => ({
+  requestProxyDecision: (...args: unknown[]) => requestProxyDecisionMock(...args),
+}));
+
 import { runAgentWithTools } from "./agent-loop";
 
 describe("runAgentWithTools", () => {
   beforeEach(() => {
     startAgentMock.mockReset();
     executeToolCallMock.mockReset();
+    requestProxyDecisionMock.mockReset();
     sleepMock.mockClear();
   });
 
@@ -293,6 +299,78 @@ describe("runAgentWithTools", () => {
     expect(executeToolCallMock).toHaveBeenCalledTimes(toolRoundCount);
   });
 
+  it("uses proxy decisions to continue unattended long-task sessions", async () => {
+    const events: Parameters<AgentEventHandler>[0][] = [];
+    requestProxyDecisionMock.mockResolvedValue({
+      outcome: "continue",
+      selectedOptionId: "continue_conservative",
+      reason: "Choose the conservative default and continue implementing.",
+      riskLevel: "medium",
+      recordAsAssumption: true,
+      requiresUserConfirmation: false,
+      assumption: "Proceed with the safest default.",
+      suggestedContinuation: "Continue with the conservative path.",
+    });
+
+    startAgentMock
+      .mockImplementationOnce(async (_input, onEvent) => {
+        onEvent({
+          type: "content_delta",
+          taskId: "task-1",
+          delta: "我现在需要你决定要不要继续吗？",
+        });
+        onEvent({ type: "status", taskId: "task-1", status: "completed" });
+      })
+      .mockImplementationOnce(async (input, onEvent) => {
+        expect(input.messages.at(-1)).toEqual({
+          role: "system",
+          content: expect.stringContaining("## Proxy decision result"),
+        });
+        onEvent({
+          type: "content_delta",
+          taskId: "task-1",
+          delta: "我将按保守默认继续执行。",
+        });
+        onEvent({ type: "status", taskId: "task-1", status: "completed" });
+      });
+
+    await runAgentWithTools(
+      {
+        taskId: "task-1",
+        baseUrl: "https://api.example.com",
+        apiKey: "test-key",
+        apiKeySource: "manual",
+        apiKeyEnvVar: "TEST_API_KEY",
+        model: "deepseek-v4-pro",
+        messages: [{ role: "user", content: "继续这个长任务" }],
+        sessionKind: "long_task",
+        autonomyMode: "unattended",
+        decisionPolicyVersion: "mvp-v1",
+        decisionModel: "decision-model",
+      },
+      { workspaceDir: null, sessionId: "session-1", taskId: "task-1" },
+      (event) => {
+        events.push(event);
+      }
+    );
+
+    expect(requestProxyDecisionMock).toHaveBeenCalledTimes(1);
+    expect(startAgentMock).toHaveBeenCalledTimes(2);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "decision_requested",
+        taskId: "task-1",
+        trigger: "blocking_response",
+      })
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "decision_resolved",
+        taskId: "task-1",
+      })
+    );
+  });
+
   it("fails when the agent repeats the same tool batch", async () => {
     executeToolCallMock.mockResolvedValue({
       ok: true,
@@ -332,6 +410,61 @@ describe("runAgentWithTools", () => {
     ).rejects.toThrow("Agent appears stuck repeating the same tool calls");
 
     expect(startAgentMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("blocks high-risk shell commands in unattended long-task sessions", async () => {
+    const events: Parameters<AgentEventHandler>[0][] = [];
+
+    startAgentMock.mockImplementationOnce(async (_input, onEvent) => {
+      onEvent({
+        type: "turn_complete",
+        taskId: "task-1",
+        toolCalls: [
+          {
+            id: "call_1",
+            name: "shell",
+            arguments: '{"command":"git push origin main"}',
+          },
+        ],
+      });
+      onEvent({ type: "status", taskId: "task-1", status: "completed" });
+    });
+
+    await runAgentWithTools(
+      {
+        taskId: "task-1",
+        baseUrl: "https://api.example.com",
+        apiKey: "test-key",
+        apiKeySource: "manual",
+        apiKeyEnvVar: "TEST_API_KEY",
+        model: "deepseek-v4-pro",
+        messages: [{ role: "user", content: "推送到远程主分支" }],
+        sessionKind: "long_task",
+        autonomyMode: "unattended",
+      },
+      { workspaceDir: null, sessionId: "session-1", taskId: "task-1" },
+      (event) => {
+        events.push(event);
+      }
+    );
+
+    expect(executeToolCallMock).not.toHaveBeenCalled();
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "decision_requested",
+        trigger: "tool_guard",
+      })
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "decision_resolved",
+        response: expect.objectContaining({
+          outcome: "ask_user",
+          requiresUserConfirmation: true,
+          riskLevel: "high",
+        }),
+      })
+    );
   });
 
   it("retries a chat turn after a transient API failure with no streamed output", async () => {
