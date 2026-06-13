@@ -182,6 +182,9 @@ export const zhMessages = {
       languageLabel: "语言",
       languageDescription: "选择界面显示语言",
       languageAriaLabel: "语言",
+      contextHandoffThresholdLabel: "上下文交接阈值",
+      contextHandoffThresholdDescription: "默认 80%",
+      contextHandoffThresholdAriaLabel: "上下文交接阈值",
     },
     appearance: {
       themeLabel: "主题",

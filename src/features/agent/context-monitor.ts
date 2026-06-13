@@ -1,10 +1,14 @@
 import { estimateTextTokens } from "@/features/chat/lib/estimate-session-context-usage";
 import { DEFAULT_MODEL_CONTEXT_WINDOW } from "@/lib/model-provider/model-definition";
+import {
+  DEFAULT_AGENT_HANDOFF_THRESHOLD,
+  MAX_AGENT_HANDOFF_THRESHOLD,
+  MIN_AGENT_HANDOFF_THRESHOLD,
+} from "./handoff-settings";
 
 import type { AgentChatMessage } from "./types";
 
 const IMAGE_TOKEN_ESTIMATE = 765;
-const DEFAULT_HANDOFF_THRESHOLD = 0.75;
 const HANDOFF_RESERVE_RATIO = 0.25;
 const MIN_HANDOFF_RESERVE_TOKENS = 1_000;
 const MAX_HANDOFF_RESERVE_TOKENS = 24_000;
@@ -28,7 +32,7 @@ export function estimateAgentContextUsage(input: {
   );
   const triggerThreshold = normalizeThreshold(
     input.triggerThreshold,
-    DEFAULT_HANDOFF_THRESHOLD
+    DEFAULT_AGENT_HANDOFF_THRESHOLD
   );
   const usedTokens = input.messages.reduce(
     (total, message) => total + estimateAgentMessageTokens(message),
@@ -145,7 +149,11 @@ function normalizeThreshold(value: number | undefined, fallback: number): number
   if (!Number.isFinite(value) || value === undefined) {
     return fallback;
   }
-  return clamp(value, 0.5, 0.95);
+  return clamp(
+    value,
+    MIN_AGENT_HANDOFF_THRESHOLD,
+    MAX_AGENT_HANDOFF_THRESHOLD
+  );
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -153,7 +161,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export const agentContextMonitorConfig = {
-  defaultThreshold: DEFAULT_HANDOFF_THRESHOLD,
+  defaultThreshold: DEFAULT_AGENT_HANDOFF_THRESHOLD,
   reserveRatio: HANDOFF_RESERVE_RATIO,
   minReserveTokens: MIN_HANDOFF_RESERVE_TOKENS,
   maxReserveTokens: MAX_HANDOFF_RESERVE_TOKENS,

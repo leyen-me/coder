@@ -179,6 +179,9 @@ export type Messages = {
       languageLabel: string;
       languageDescription: string;
       languageAriaLabel: string;
+      contextHandoffThresholdLabel: string;
+      contextHandoffThresholdDescription: string;
+      contextHandoffThresholdAriaLabel: string;
     };
     appearance: {
       themeLabel: string;

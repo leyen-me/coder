@@ -74,6 +74,8 @@ export type AgentStartInput = {
   requestExtensions?: Record<string, unknown>;
   /** Estimated provider context window used for proactive rollover before overflow. */
   maxContextTokens?: number;
+  /** Ratio at which the agent proactively rolls over into a continuation session. */
+  handoffTriggerThreshold?: number;
   /** Agent mode — controls which tools are available. Defaults to "agent". */
   agentMode?: AgentMode;
 };

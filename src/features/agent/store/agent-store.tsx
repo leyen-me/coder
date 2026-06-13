@@ -73,6 +73,7 @@ import {
   buildStoredHandoffArtifact,
   deriveContinuationSessionTitle,
 } from "../handoff";
+import { readAgentHandoffThreshold } from "../handoff-settings";
 
 export type StreamingMessageOverlay = {
   content: string;
@@ -633,6 +634,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             thinkingEnabled: input.thinkingEnabled,
           }),
           maxContextTokens: resolveContextWindowForModel(resolved, input.model),
+          handoffTriggerThreshold: readAgentHandoffThreshold(),
           agentMode: input.agentMode,
         },
         {

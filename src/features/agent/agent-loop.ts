@@ -49,6 +49,7 @@ export async function runAgentWithTools(
     const handoffUsage = shouldTriggerContextHandoff({
       messages,
       maxTokens: input.maxContextTokens,
+      triggerThreshold: input.handoffTriggerThreshold,
     });
     if (handoffUsage) {
       onEvent({

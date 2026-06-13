@@ -189,6 +189,9 @@ export const enMessages = {
       languageLabel: "Language",
       languageDescription: "Choose the interface language",
       languageAriaLabel: "Language",
+      contextHandoffThresholdLabel: "Context handoff threshold",
+      contextHandoffThresholdDescription: "Default 80%",
+      contextHandoffThresholdAriaLabel: "Context handoff threshold",
     },
     appearance: {
       themeLabel: "Theme",
