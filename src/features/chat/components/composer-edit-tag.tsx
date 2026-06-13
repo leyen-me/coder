@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { XIcon } from "lucide-react";
+import { PencilIcon, XIcon } from "lucide-react";
 
 type ComposerEditTagProps = {
   label: string;
@@ -17,22 +17,25 @@ export function ComposerEditTag({
   className,
 }: ComposerEditTagProps) {
   return (
-    <span
+    <div
       className={cn(
-        "inline-flex w-fit max-w-full shrink-0 self-start items-center gap-0.5 rounded-md border border-primary/20 bg-primary/10 py-0.5 pr-0.5 pl-2 text-primary",
-        "animate-in fade-in-0 zoom-in-95 duration-150",
+        "flex items-center justify-between border-b border-border/60 px-4 py-2",
+        "animate-in fade-in-0 slide-in-from-top-1 duration-150",
         className
       )}
     >
-      <span className="truncate text-xs font-medium">{label}</span>
+      <div className="flex items-center gap-2 text-xs font-medium text-primary">
+        <PencilIcon className="size-3.5" strokeWidth={2} />
+        <span>{label}</span>
+      </div>
       <button
         aria-label={dismissLabel}
-        className="inline-flex size-4 shrink-0 items-center justify-center rounded-sm text-primary/80 transition-colors hover:bg-primary/15 hover:text-primary"
+        className="inline-flex size-5 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground"
         onClick={onDismiss}
         type="button"
       >
-        <XIcon className="size-3" strokeWidth={2.5} />
+        <XIcon className="size-3.5" strokeWidth={2} />
       </button>
-    </span>
+    </div>
   );
 }

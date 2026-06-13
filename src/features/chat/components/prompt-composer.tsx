@@ -751,15 +751,7 @@ export function PromptComposer({
   );
 
   return (
-    <div className={cn("flex w-full max-w-3xl flex-col gap-1.5", className)}>
-      {isEditing && onCancelEdit ? (
-        <ComposerEditTag
-          dismissLabel={t("chat.cancelEdit")}
-          label={t("chat.editingMessage")}
-          onDismiss={onCancelEdit}
-        />
-      ) : null}
-
+    <div className={cn("flex w-full max-w-3xl flex-col", className)}>
       <div
         ref={dropTargetRef}
         className={cn(
@@ -773,10 +765,28 @@ export function PromptComposer({
       >
         {showWorkspaceControls ? (
           <div className="relative z-1 rounded-3xl bg-card text-card-foreground shadow-[0_6px_12px_-4px_rgb(0_0_0/0.08)] dark:shadow-[0_8px_16px_-4px_rgb(0_0_0/0.45)]">
-            <div className="overflow-hidden rounded-3xl">{composerInput}</div>
+            <div className="overflow-hidden rounded-3xl">
+              {isEditing && onCancelEdit ? (
+                <ComposerEditTag
+                  dismissLabel={t("chat.cancelEdit")}
+                  label={t("chat.editingMessage")}
+                  onDismiss={onCancelEdit}
+                />
+              ) : null}
+              {composerInput}
+            </div>
           </div>
         ) : (
-          composerInput
+          <>
+            {isEditing && onCancelEdit ? (
+              <ComposerEditTag
+                dismissLabel={t("chat.cancelEdit")}
+                label={t("chat.editingMessage")}
+                onDismiss={onCancelEdit}
+              />
+            ) : null}
+            {composerInput}
+          </>
         )}
 
         {showWorkspaceControls ? (
