@@ -7,8 +7,8 @@ use super::text_file::{guess_image_mime_type, read_binary_sample, TextFileToolEr
 
 const MAX_LOCAL_IMAGE_BYTES: u64 = 10 * 1024 * 1024;
 use super::workspace_path::{
-    format_absolute_path, resolve_workspace_path, resolve_workspace_write_path,
-    workspace_relative_path,
+    format_absolute_path, format_error_path, normalize_raw_path, resolve_workspace_path,
+    resolve_workspace_write_path, workspace_relative_path,
 };
 
 #[derive(Debug, Serialize)]
@@ -151,15 +151,22 @@ pub fn tool_delete_path(
 ) -> Result<PathOperationResult, TextFileToolError> {
     let workspace = parse_workspace(&workspace_dir)?;
     let canonical_workspace = canonical_workspace(&workspace)?;
-    let target = resolve_workspace_path(&workspace, &path)
-        .map_err(|error| TextFileToolError::new("invalid_path", error))?;
+    let target = if path.trim() == "." {
+        canonical_workspace.clone()
+    } else {
+        resolve_workspace_write_path(&workspace, &path)
+            .map_err(|error| TextFileToolError::new("invalid_path", error))?
+    };
 
     ensure_not_workspace_root(&canonical_workspace, &target)?;
 
     if !target.exists() {
         return Err(TextFileToolError::new(
             "not_found",
-            format!("Path does not exist: {}", target.display()),
+            format!(
+                "Path does not exist: {}",
+                format_error_path(&canonical_workspace, &target, &path)
+            ),
         ));
     }
 
@@ -182,7 +189,7 @@ pub fn tool_rename_path(
 
     let workspace = parse_workspace(&workspace_dir)?;
     let canonical_workspace = canonical_workspace(&workspace)?;
-    let source = resolve_workspace_path(&workspace, &path)
+    let source = resolve_workspace_write_path(&workspace, &path)
         .map_err(|error| TextFileToolError::new("invalid_path", error))?;
 
     ensure_not_workspace_root(&canonical_workspace, &source)?;
@@ -195,7 +202,10 @@ pub fn tool_rename_path(
     if dest.exists() {
         return Err(TextFileToolError::new(
             "already_exists",
-            format!("Path already exists: {}", dest.display()),
+            format!(
+                "Path already exists: {}",
+                workspace_relative_path(&canonical_workspace, &dest)
+            ),
         ));
     }
 
@@ -224,7 +234,10 @@ pub fn tool_create_dir(
     if target.exists() {
         return Err(TextFileToolError::new(
             "already_exists",
-            format!("Path already exists: {}", target.display()),
+            format!(
+                "Path already exists: {}",
+                format_error_path(&canonical_workspace, &target, &path)
+            ),
         ));
     }
 
@@ -246,7 +259,7 @@ pub fn tool_copy_path(
 ) -> Result<PathOperationResult, TextFileToolError> {
     let workspace = parse_workspace(&workspace_dir)?;
     let canonical_workspace = canonical_workspace(&workspace)?;
-    let source = resolve_workspace_path(&workspace, &source_path)
+    let source = resolve_workspace_write_path(&workspace, &source_path)
         .map_err(|error| TextFileToolError::new("invalid_path", error))?;
     let dest = resolve_workspace_write_path(&workspace, &dest_path)
         .map_err(|error| TextFileToolError::new("invalid_path", error))?;
@@ -254,14 +267,20 @@ pub fn tool_copy_path(
     if !source.exists() {
         return Err(TextFileToolError::new(
             "not_found",
-            format!("Source path does not exist: {}", source.display()),
+            format!(
+                "Source path does not exist: {}",
+                format_error_path(&canonical_workspace, &source, &source_path)
+            ),
         ));
     }
 
     if dest.exists() {
         return Err(TextFileToolError::new(
             "already_exists",
-            format!("Destination already exists: {}", dest.display()),
+            format!(
+                "Destination already exists: {}",
+                format_error_path(&canonical_workspace, &dest, &dest_path)
+            ),
         ));
     }
 
@@ -288,7 +307,7 @@ pub fn tool_move_path(
 ) -> Result<PathOperationResult, TextFileToolError> {
     let workspace = parse_workspace(&workspace_dir)?;
     let canonical_workspace = canonical_workspace(&workspace)?;
-    let source = resolve_workspace_path(&workspace, &source_path)
+    let source = resolve_workspace_write_path(&workspace, &source_path)
         .map_err(|error| TextFileToolError::new("invalid_path", error))?;
     let dest = resolve_workspace_write_path(&workspace, &dest_path)
         .map_err(|error| TextFileToolError::new("invalid_path", error))?;
@@ -298,14 +317,20 @@ pub fn tool_move_path(
     if !source.exists() {
         return Err(TextFileToolError::new(
             "not_found",
-            format!("Source path does not exist: {}", source.display()),
+            format!(
+                "Source path does not exist: {}",
+                format_error_path(&canonical_workspace, &source, &source_path)
+            ),
         ));
     }
 
     if dest.exists() {
         return Err(TextFileToolError::new(
             "already_exists",
-            format!("Destination already exists: {}", dest.display()),
+            format!(
+                "Destination already exists: {}",
+                format_error_path(&canonical_workspace, &dest, &dest_path)
+            ),
         ));
     }
 
@@ -360,8 +385,11 @@ pub fn tool_normalize_external_path(
         return Err(TextFileToolError::new("invalid_path", "path is required"));
     }
 
-    let target = PathBuf::from(trimmed).canonicalize().map_err(|error| {
-        TextFileToolError::new("invalid_path", format!("Invalid path: {error}"))
+    let target = PathBuf::from(trimmed).canonicalize().map_err(|_| {
+        TextFileToolError::new(
+            "invalid_path",
+            format!("Invalid path: {}", normalize_raw_path(trimmed)),
+        )
     })?;
 
     let name = target
@@ -401,21 +429,27 @@ pub fn tool_read_local_image_bytes(path: String) -> Result<LocalImageBytes, Text
         return Err(TextFileToolError::new("invalid_path", "path is required"));
     }
 
-    let target = PathBuf::from(trimmed).canonicalize().map_err(|error| {
-        TextFileToolError::new("invalid_path", format!("Invalid path: {error}"))
+    let target = PathBuf::from(trimmed).canonicalize().map_err(|_| {
+        TextFileToolError::new(
+            "invalid_path",
+            format!("Invalid path: {}", normalize_raw_path(trimmed)),
+        )
     })?;
 
     if !target.exists() {
         return Err(TextFileToolError::new(
             "path_not_found",
-            format!("Path not found: {}", target.display()),
+            format!("Path not found: {}", format_absolute_path(&target)),
         ));
     }
 
     if target.is_dir() {
         return Err(TextFileToolError::new(
             "is_directory",
-            format!("Path is a directory, not a file: {}", target.display()),
+            format!(
+                "Path is a directory, not a file: {}",
+                format_absolute_path(&target)
+            ),
         ));
     }
 

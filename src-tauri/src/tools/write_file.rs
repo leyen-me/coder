@@ -7,7 +7,7 @@ use super::text_file::{
     atomic_write_bytes, count_lines, encode_text, is_sensitive_path, sha256_hex, TextFileToolError,
     MAX_WRITE_BYTES,
 };
-use super::workspace_path::{resolve_workspace_write_path, workspace_relative_path};
+use super::workspace_path::{format_error_path, resolve_workspace_write_path, workspace_relative_path};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,7 +50,10 @@ pub fn tool_write_file(
     if target.exists() {
         return Err(TextFileToolError::new(
             "file_already_exists",
-            format!("File already exists: {}", target.display()),
+            format!(
+                "File already exists: {}",
+                format_error_path(&canonical_workspace, &target, &path)
+            ),
         ));
     }
 
@@ -74,7 +77,10 @@ pub fn tool_write_file(
         if !parent.exists() {
             return Err(TextFileToolError::new(
                 "parent_not_found",
-                format!("Parent directory does not exist: {}", parent.display()),
+                format!(
+                    "Parent directory does not exist: {}",
+                    format_error_path(&canonical_workspace, parent, &path)
+                ),
             ));
         }
     }

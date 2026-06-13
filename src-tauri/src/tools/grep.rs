@@ -13,7 +13,7 @@ use super::text_file::{
     MAX_READ_BYTES,
 };
 use super::workspace_path::{
-    format_absolute_path, resolve_workspace_path, workspace_relative_path,
+    format_absolute_path, format_error_path, resolve_workspace_write_path, workspace_relative_path,
 };
 
 const DEFAULT_HEAD_LIMIT: u32 = 200;
@@ -115,12 +115,20 @@ pub fn tool_grep(
     let canonical_workspace = workspace
         .canonicalize()
         .map_err(|error| format!("Invalid workspaceDir: {error}"))?;
-    let target = resolve_workspace_path(&workspace, search_path.trim())?;
-    let target_display = format_absolute_path(&target);
+    let search_path_trimmed = search_path.trim();
+    let target = if search_path_trimmed == "." {
+        canonical_workspace.clone()
+    } else {
+        resolve_workspace_write_path(&workspace, search_path_trimmed)?
+    };
 
     if !target.exists() {
-        return Err(format!("Path not found: {}", target.display()));
+        return Err(format!(
+            "Path not found: {}",
+            format_error_path(&canonical_workspace, &target, search_path_trimmed)
+        ));
     }
+    let target_display = format_absolute_path(&target);
 
     if respect_gitignore && is_gitignored(&workspace, &target).unwrap_or(false) {
         return Err("Path is ignored by .gitignore".to_string());

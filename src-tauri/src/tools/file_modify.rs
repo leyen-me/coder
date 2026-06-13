@@ -8,7 +8,7 @@ use super::text_file::{
     is_gitignored, is_sensitive_path, normalize_line_endings, read_binary_sample, sha256_hex,
     LineEnding, TextFileToolError, MAX_READ_BYTES, MAX_WRITE_BYTES,
 };
-use super::workspace_path::{resolve_workspace_path, workspace_relative_path};
+use super::workspace_path::{format_error_path, resolve_workspace_write_path, workspace_relative_path};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,19 +42,25 @@ pub fn load_existing_text_file(
         .canonicalize()
         .map_err(|error| TextFileToolError::new("invalid_workspace", error.to_string()))?;
 
-    let target = resolve_workspace_path(workspace, raw_path)
+    let target = resolve_workspace_write_path(workspace, raw_path)
         .map_err(|error| TextFileToolError::new("invalid_path", error))?;
 
     if !target.exists() {
         return Err(TextFileToolError::new(
             "path_not_found",
-            format!("Path not found: {}", target.display()),
+            format!(
+                "Path not found: {}",
+                format_error_path(&canonical_workspace, &target, raw_path)
+            ),
         ));
     }
     if target.is_dir() {
         return Err(TextFileToolError::new(
             "is_directory",
-            format!("Path is a directory, not a file: {}", target.display()),
+            format!(
+                "Path is a directory, not a file: {}",
+                format_error_path(&canonical_workspace, &target, raw_path)
+            ),
         ));
     }
 

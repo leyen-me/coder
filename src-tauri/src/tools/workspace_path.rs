@@ -27,7 +27,7 @@ pub fn resolve_workspace_path(workspace: &Path, raw_path: &str) -> Result<PathBu
 
     let canonical_target = candidate
         .canonicalize()
-        .map_err(|error| format!("Invalid path: {error}"))?;
+        .map_err(|_| format!("Invalid path: {}", normalize_raw_path(trimmed)))?;
 
     if !is_within_workspace(&canonical_target, &canonical_workspace) {
         return Err("Path must stay within the workspace".to_string());
@@ -62,7 +62,7 @@ pub fn resolve_workspace_write_path(workspace: &Path, raw_path: &str) -> Result<
         }
     };
 
-    let resolved = resolve_with_missing_suffix(&candidate)?;
+    let resolved = resolve_with_missing_suffix(&candidate, trimmed)?;
 
     if !is_within_workspace(&resolved, &canonical_workspace) {
         return Err("Path must stay within the workspace".to_string());
@@ -71,11 +71,11 @@ pub fn resolve_workspace_write_path(workspace: &Path, raw_path: &str) -> Result<
     Ok(resolved)
 }
 
-fn resolve_with_missing_suffix(path: &Path) -> Result<PathBuf, String> {
+fn resolve_with_missing_suffix(path: &Path, raw_path: &str) -> Result<PathBuf, String> {
     if path.exists() {
         return path
             .canonicalize()
-            .map_err(|error| format!("Invalid path: {error}"));
+            .map_err(|_| format!("Invalid path: {}", normalize_raw_path(raw_path)));
     }
 
     let mut suffix: Vec<std::ffi::OsString> = Vec::new();
@@ -95,7 +95,7 @@ fn resolve_with_missing_suffix(path: &Path) -> Result<PathBuf, String> {
 
     let canonical_base = current
         .canonicalize()
-        .map_err(|error| format!("Invalid path: {error}"))?;
+        .map_err(|_| format!("Invalid path: {}", normalize_raw_path(raw_path)))?;
 
     let mut resolved = canonical_base;
     while let Some(component) = suffix.pop() {
@@ -119,6 +119,31 @@ pub fn workspace_relative_path(workspace: &Path, absolute_path: &Path) -> String
         .unwrap_or(absolute_path)
         .to_string_lossy()
         .replace('\\', "/")
+}
+
+/// Normalizes a raw tool path input for display in error messages.
+pub fn normalize_raw_path(raw_path: &str) -> String {
+    raw_path.trim().replace('\\', "/")
+}
+
+/// Formats a resolved path for model-facing error messages.
+///
+/// Prefers workspace-relative paths so models are not steered toward absolute
+/// Windows paths (including `\\?\` verbatim prefixes from `canonicalize()`).
+pub fn format_error_path(
+    canonical_workspace: &Path,
+    resolved: &Path,
+    raw_fallback: &str,
+) -> String {
+    if resolved.starts_with(canonical_workspace) {
+        let relative = workspace_relative_path(canonical_workspace, resolved);
+        if relative.is_empty() {
+            return ".".to_string();
+        }
+        return relative;
+    }
+
+    normalize_raw_path(raw_fallback)
 }
 
 /// Returns a human-readable absolute path using forward slashes.
@@ -228,6 +253,34 @@ mod tests {
         let temp = temp_workspace("empty");
         let error = resolve_workspace_path(&temp, "   ").expect_err("empty path");
         assert!(error.contains("required"));
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn format_error_path_prefers_workspace_relative() {
+        use super::{format_error_path, normalize_raw_path};
+
+        let temp = temp_workspace("error-path");
+        let canonical_workspace = temp.canonicalize().expect("canonical workspace");
+        let child = temp.join("src/missing.ts");
+        assert_eq!(
+            format_error_path(&canonical_workspace, &child, "src/missing.ts"),
+            "src/missing.ts"
+        );
+        assert_eq!(normalize_raw_path(r"src\foo.rs"), "src/foo.rs");
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn format_error_path_uses_dot_for_workspace_root() {
+        use super::format_error_path;
+
+        let temp = temp_workspace("error-root");
+        let canonical_workspace = temp.canonicalize().expect("canonical workspace");
+        assert_eq!(
+            format_error_path(&canonical_workspace, &canonical_workspace, "."),
+            "."
+        );
         let _ = fs::remove_dir_all(temp);
     }
 

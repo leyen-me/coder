@@ -6,7 +6,7 @@ use super::search::{
     build_workspace_walker, is_hidden_path, relative_file_path, WorkspaceWalkOptions,
 };
 use super::text_file::is_gitignored;
-use super::workspace_path::resolve_workspace_path;
+use super::workspace_path::{format_error_path, resolve_workspace_path};
 
 const DEFAULT_HEAD_LIMIT: u32 = 50;
 const MAX_HEAD_LIMIT: u32 = 200;
@@ -46,11 +46,14 @@ pub fn tool_search_workspace_paths(
         .clamp(1, MAX_HEAD_LIMIT);
     let respect_gitignore = respect_gitignore.unwrap_or(true);
 
+    let canonical_workspace = workspace
+        .canonicalize()
+        .map_err(|error| format!("Invalid workspaceDir: {error}"))?;
     let search_root = resolve_workspace_path(&workspace, ".")?;
     if !search_root.is_dir() {
         return Err(format!(
             "Path is not a directory: {}",
-            search_root.display()
+            format_error_path(&canonical_workspace, &search_root, ".")
         ));
     }
 

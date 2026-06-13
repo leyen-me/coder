@@ -7,7 +7,7 @@ use super::text_file::{
     decode_text, detect_binary, detect_secrets, guess_text_mime_type, is_gitignored,
     read_binary_sample, sha256_hex, TextFileToolError, MAX_READ_BYTES,
 };
-use super::workspace_path::{resolve_workspace_path, workspace_relative_path};
+use super::workspace_path::{format_error_path, resolve_workspace_write_path, workspace_relative_path};
 
 const DEFAULT_MAX_LINES: u32 = 500;
 const ABSOLUTE_MAX_LINES: u32 = 1000;
@@ -57,19 +57,25 @@ pub fn tool_read_file(
     let canonical_workspace = workspace
         .canonicalize()
         .map_err(|error| ReadFileToolError::new("invalid_workspace", error.to_string()))?;
-    let target = resolve_workspace_path(&workspace, &path)
+    let target = resolve_workspace_write_path(&workspace, &path)
         .map_err(|error| ReadFileToolError::new("invalid_path", error))?;
 
     if !target.exists() {
         return Err(ReadFileToolError::new(
             "path_not_found",
-            format!("Path not found: {}", target.display()),
+            format!(
+                "Path not found: {}",
+                format_error_path(&canonical_workspace, &target, &path)
+            ),
         ));
     }
     if target.is_dir() {
         return Err(ReadFileToolError::new(
             "is_directory",
-            format!("Path is a directory, not a file: {}", target.display()),
+            format!(
+                "Path is a directory, not a file: {}",
+                format_error_path(&canonical_workspace, &target, &path)
+            ),
         ));
     }
 
@@ -216,6 +222,24 @@ mod tests {
         ));
         fs::create_dir_all(&temp).expect("create temp dir");
         temp
+    }
+
+    #[test]
+    fn reports_workspace_relative_path_when_file_missing() {
+        let temp = temp_workspace("missing");
+        let error = tool_read_file(
+            temp.to_string_lossy().into_owned(),
+            "missing.txt".to_string(),
+            None,
+            None,
+            Some(false),
+            None,
+        )
+        .expect_err("missing file");
+
+        assert_eq!(error.code, "path_not_found");
+        assert_eq!(error.message, "Path not found: missing.txt");
+        let _ = fs::remove_dir_all(temp);
     }
 
     #[test]

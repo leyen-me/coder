@@ -4,7 +4,7 @@ use globset::{GlobBuilder, GlobSetBuilder};
 use serde::Serialize;
 
 use super::search::{collect_walk_files, WorkspaceWalkOptions};
-use super::workspace_path::{format_absolute_path, resolve_workspace_path};
+use super::workspace_path::{format_absolute_path, format_error_path, resolve_workspace_path};
 
 const DEFAULT_HEAD_LIMIT: u32 = 100;
 const MAX_HEAD_LIMIT: u32 = 1000;
@@ -46,11 +46,14 @@ pub fn tool_glob(
         .clamp(1, MAX_HEAD_LIMIT);
     let respect_gitignore = respect_gitignore.unwrap_or(true);
 
+    let canonical_workspace = workspace
+        .canonicalize()
+        .map_err(|error| format!("Invalid workspaceDir: {error}"))?;
     let search_root = resolve_workspace_path(&workspace, &target)?;
     if !search_root.is_dir() {
         return Err(format!(
             "Path is not a directory: {}",
-            search_root.display()
+            format_error_path(&canonical_workspace, &search_root, &target)
         ));
     }
 
