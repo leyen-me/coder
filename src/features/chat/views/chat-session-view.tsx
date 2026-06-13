@@ -519,24 +519,9 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
                 <p className="min-w-0 flex-1 text-foreground text-sm">
                   {handoffStatus.label}
                 </p>
-              </div>
-              <div className="mt-2 flex gap-1.5">
-                {[1, 2, 3].map((step) => (
-                  <div
-                    key={step}
-                    className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"
-                  >
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        step < handoffStatus.step
-                          ? "w-full bg-foreground/70"
-                          : step === handoffStatus.step
-                            ? "w-2/3 animate-pulse bg-foreground/85"
-                            : "w-0 bg-foreground/30"
-                      }`}
-                    />
-                  </div>
-                ))}
+                <span className="shrink-0 tabular-nums text-muted-foreground text-xs">
+                  {handoffStatus.step}/3
+                </span>
               </div>
             </div>
           ) : null}

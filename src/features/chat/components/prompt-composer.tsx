@@ -191,10 +191,9 @@ function ComposerSubmit({
 
   return (
     <div className="flex shrink-0 items-center gap-1.5">
-      {isRunning ? (
+      {isRunning && canSend ? (
         <Button
           className="h-9 rounded-full px-3"
-          disabled={!canSend}
           type="submit"
           variant="secondary"
         >
