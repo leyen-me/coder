@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { AlertCircle, Check, ChevronsUpDown } from "lucide-react";
+import { AlertCircle, Check, ChevronsUpDown, MailIcon } from "lucide-react";
 
 import type { AgentMode } from "@/features/agent/types";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { resolveDefaultThinkingEnabled } from "@/features/agent/thinking-preference";
 import { resolveInitialSessionWorkspaceDir } from "@/features/workspace/resolve-session-workspace";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -67,6 +68,7 @@ export function AutomationDialog({
   const [model, setModel] = useState(() => resolveDefaultModel(resolved));
   const [agentMode, setAgentMode] = useState<AgentMode>("agent");
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
+  const [enableEmail, setEnableEmail] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [presetOpen, setPresetOpen] = useState(false);
@@ -95,6 +97,7 @@ export function AutomationDialog({
         setModel(runConfig.model);
         setAgentMode(runConfig.agentMode);
         setThinkingEnabled(runConfig.thinkingEnabled);
+        setEnableEmail(editItem.enableEmail);
       } else {
         const defaultModel = resolveDefaultModel(resolved);
         setName("");
@@ -109,6 +112,7 @@ export function AutomationDialog({
             findModelDefinition(resolved.models, defaultModel)
           )
         );
+        setEnableEmail(false);
       }
       setError(null);
       setSaving(false);
@@ -147,6 +151,7 @@ export function AutomationDialog({
       model: trimmedModel,
       agentMode,
       thinkingEnabled,
+      enableEmail,
     };
 
     setSaving(true);
@@ -313,6 +318,22 @@ export function AutomationDialog({
             models={resolved.models}
             disabled={saving}
           />
+
+          <div className="flex items-center gap-2 rounded-lg border border-border/60 px-3 py-2.5">
+            <Checkbox
+              id="automation-enable-email"
+              checked={enableEmail}
+              onCheckedChange={(checked) => setEnableEmail(checked === true)}
+              disabled={saving}
+            />
+            <Label
+              htmlFor="automation-enable-email"
+              className="flex cursor-pointer items-center gap-2 text-sm font-normal"
+            >
+              <MailIcon className="size-4 text-muted-foreground" />
+              <span>{t("automations.fieldEnableEmail")}</span>
+            </Label>
+          </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="automation-prompt">{t("automations.fieldPrompt")}</Label>

@@ -30,6 +30,8 @@ export {
   TODO_READ_TOOL_NAME,
   TODO_WRITE_TOOL,
   TODO_WRITE_TOOL_NAME,
+  SEND_EMAIL_TOOL,
+  SEND_EMAIL_TOOL_NAME,
 } from "./definitions";
 export { toApiToolCall, toApiToolCalls, type ApiToolCall } from "./api-tool-call";
 export { executeToolCall, getAgentToolDefinitions, getToolHandler } from "./registry";

@@ -624,6 +624,7 @@ export const enMessages = {
     formModelRequired: "Please select a model",
     formPromptRequired: "Prompt is required",
     thinkingEnabledBadge: "Deep thinking",
+    fieldEnableEmail: "Enable email notifications",
     deleteConfirmTitle: "Delete Automation",
     deleteConfirmDescription: 'Are you sure you want to delete <strong>{name}</strong>? This action cannot be undone.',
     saving: "Saving…",

@@ -26,6 +26,8 @@ export const PLAN_DELETE_TOOL_NAME = "plan_delete";
 export const PLAN_LIST_TOOL_NAME = "plan_list";
 export const ASK_QUESTION_TOOL_NAME = "ask_question";
 
+export const SEND_EMAIL_TOOL_NAME = "send_email";
+
 export const LIST_DIR_TOOL: AgentToolDefinition = {
   type: "function",
   function: {
@@ -822,6 +824,34 @@ export const UPDATE_SKILL_TOOL: AgentToolDefinition = {
   },
 };
 
+export const SEND_EMAIL_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: SEND_EMAIL_TOOL_NAME,
+    description:
+      "Send an email to a recipient. Requires email settings to be configured in Settings > Email. The agent decides when to use this based on the user's instructions.",
+    parameters: {
+      type: "object",
+      properties: {
+        to: {
+          type: "string",
+          description: "Recipient email address.",
+        },
+        subject: {
+          type: "string",
+          description: "Email subject line.",
+        },
+        body: {
+          type: "string",
+          description: "Plain text email body content.",
+        },
+      },
+      required: ["to", "subject", "body"],
+      additionalProperties: false,
+    },
+  },
+};
+
 export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   LIST_DIR_TOOL,
   READ_FILE_TOOL,
@@ -848,4 +878,5 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   PLAN_UPDATE_TOOL,
   PLAN_DELETE_TOOL,
   PLAN_LIST_TOOL,
+  SEND_EMAIL_TOOL,
 ];

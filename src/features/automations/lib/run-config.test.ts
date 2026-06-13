@@ -18,6 +18,7 @@ function createAutomation(
     model: "custom-model",
     agentMode: "ask",
     thinkingEnabled: true,
+    enableEmail: false,
     enabled: true,
     runs: [],
     createdAt: 0,

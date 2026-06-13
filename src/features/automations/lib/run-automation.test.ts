@@ -27,6 +27,7 @@ const automation: AutomationRecord = {
   model: "default-model",
   agentMode: "agent",
   thinkingEnabled: false,
+  enableEmail: false,
   enabled: true,
   runs: [],
   createdAt: 0,

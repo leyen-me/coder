@@ -17,6 +17,7 @@ function createAutomation(
     model: "gpt-test",
     agentMode: "agent",
     thinkingEnabled: false,
+    enableEmail: false,
     enabled: true,
     runs: [],
     createdAt: 0,

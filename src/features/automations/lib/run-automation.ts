@@ -4,6 +4,10 @@ import { resolveAgentEnvironment } from "@/features/agent/environment/resolve-en
 import { resolveApiKey, resolveApiKeyEnvVar } from "@/features/agent/model-preference";
 import { buildThinkingRequestExtensions } from "@/features/agent/thinking-preference";
 import {
+  getAgentToolDefinitions,
+  SEND_EMAIL_TOOL,
+} from "@/features/agent/tools";
+import {
   DEFAULT_MODEL_CONTEXT_WINDOW,
   findModelDefinition,
 } from "@/lib/model-provider/model-definition";
@@ -117,6 +121,10 @@ export async function executeAutomation(
     let assistantContent = "";
     let assistantThinking = "";
 
+    const tools = automation.enableEmail
+      ? [...getAgentToolDefinitions(runConfig.agentMode), SEND_EMAIL_TOOL]
+      : undefined;
+
     await runAgentWithTools(
       {
         taskId,
@@ -126,6 +134,7 @@ export async function executeAutomation(
         apiKeyEnvVar,
         model: runConfig.model,
         messages,
+        tools,
         requestExtensions: buildThinkingRequestExtensions({
           models: resolved.models,
           modelId: runConfig.model,

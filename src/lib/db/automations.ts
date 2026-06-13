@@ -40,6 +40,7 @@ export type CreateAutomationInput = {
   model: string;
   agentMode: AutomationAgentMode;
   thinkingEnabled: boolean;
+  enableEmail: boolean;
 };
 
 export async function createAutomation(
@@ -56,6 +57,7 @@ export async function createAutomation(
     model: input.model.trim(),
     agentMode: input.agentMode,
     thinkingEnabled: input.thinkingEnabled,
+    enableEmail: input.enableEmail,
     enabled: true,
     runs: [],
     createdAt: now,
@@ -79,6 +81,7 @@ export type UpdateAutomationInput = Partial<
     | "model"
     | "agentMode"
     | "thinkingEnabled"
+    | "enableEmail"
     | "enabled"
   >
 >;

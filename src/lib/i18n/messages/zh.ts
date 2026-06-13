@@ -610,6 +610,7 @@ export const zhMessages = {
     formModelRequired: "请选择模型",
     formPromptRequired: "请输入提示词",
     thinkingEnabledBadge: "深度思考",
+    fieldEnableEmail: "启用邮件通知",
     deleteConfirmTitle: "删除自动化",
     deleteConfirmDescription: "确定要删除 <strong>{name}</strong> 吗？此操作不可撤销。",
     saving: "保存中…",

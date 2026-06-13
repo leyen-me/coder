@@ -525,6 +525,7 @@ export type Messages = {
     formModelRequired: string;
     formPromptRequired: string;
     thinkingEnabledBadge: string;
+    fieldEnableEmail: string;
     deleteConfirmTitle: string;
     deleteConfirmDescription: string;
     saving: string;

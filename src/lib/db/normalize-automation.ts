@@ -51,6 +51,7 @@ export function normalizeAutomationRecord(
     model: record.model?.trim() ?? "",
     agentMode: record.agentMode === "ask" ? "ask" : "agent",
     thinkingEnabled: record.thinkingEnabled ?? false,
+    enableEmail: record.enableEmail ?? false,
     runs: trimAutomationRuns(migrateLegacyRuns(record)),
   };
 }

@@ -155,6 +155,7 @@ export type AutomationRecord = {
   agentMode: AutomationAgentMode;
   thinkingEnabled: boolean;
   enabled: boolean;
+  enableEmail: boolean;
   /** Newest first. */
   runs: AutomationRunRecord[];
   createdAt: number;

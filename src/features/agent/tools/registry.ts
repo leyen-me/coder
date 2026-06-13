@@ -20,6 +20,7 @@ import {
   READ_FILE_TOOL_NAME,
   READ_SKILL_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
+  SEND_EMAIL_TOOL_NAME,
   SHELL_TOOL_NAME,
   TODO_WRITE_TOOL_NAME,
   UPDATE_SKILL_TOOL_NAME,
@@ -47,6 +48,7 @@ import {
 import { readFileHandler } from "./read-file";
 import { readSkillHandler } from "./read-skill";
 import { replaceFileHandler } from "./replace-file";
+import { sendEmailHandler } from "./send-email";
 import { shellHandler } from "./shell";
 import { todoReadHandler } from "./todo-read";
 import { todoWriteHandler } from "./todo-write";
@@ -89,11 +91,15 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [PLAN_UPDATE_TOOL_NAME]: planUpdateHandler,
   [PLAN_DELETE_TOOL_NAME]: planDeleteHandler,
   [PLAN_LIST_TOOL_NAME]: planListHandler,
+  [SEND_EMAIL_TOOL_NAME]: sendEmailHandler,
 };
 
 const ASK_MODE_TOOL_NAMES_SET = new Set(ASK_MODE_TOOL_NAMES);
 const PLAN_MODE_TOOL_NAMES_SET = new Set(PLAN_MODE_TOOL_NAMES);
-const AGENT_MODE_EXCLUDED_TOOL_NAMES_SET = new Set([ASK_QUESTION_TOOL_NAME]);
+const AGENT_MODE_EXCLUDED_TOOL_NAMES_SET = new Set([
+  ASK_QUESTION_TOOL_NAME,
+  SEND_EMAIL_TOOL_NAME,
+]);
 
 /**
  * Returns tool definitions for the given mode.
