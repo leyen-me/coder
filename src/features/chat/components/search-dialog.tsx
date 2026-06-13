@@ -12,6 +12,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { HighlightText } from "@/components/ui/highlight-text";
 import { Spinner } from "@/components/ui/spinner";
 import { useChatSearch } from "@/features/chat/hooks/use-chat-search";
 import { formatRelativeTime, type ChatSearchResult } from "@/lib/db";
@@ -22,7 +23,7 @@ type SearchDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-function SearchResultItem({ result }: { result: ChatSearchResult }) {
+function SearchResultItem({ result, query }: { result: ChatSearchResult; query: string }) {
   const { t } = useTranslation();
   const relativeTime = formatRelativeTime(result.updatedAt, Date.now(), {
     justNow: t("time.justNow"),
@@ -36,10 +37,12 @@ function SearchResultItem({ result }: { result: ChatSearchResult }) {
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate font-medium">{result.title}</span>
+        <span className="truncate font-medium">
+          <HighlightText text={result.title} query={query} />
+        </span>
         {result.snippet ? (
           <span className="truncate text-xs text-muted-foreground">
-            {result.snippet}
+            <HighlightText text={result.snippet} query={query} />
           </span>
         ) : null}
       </div>
@@ -111,7 +114,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
                     }}
                   >
                     <MessageSquare className="size-4 shrink-0 text-muted-foreground" />
-                    <SearchResultItem result={result} />
+                    <SearchResultItem result={result} query={query} />
                   </CommandItem>
                 ))}
               </CommandGroup>
