@@ -30,7 +30,6 @@ import { cn } from "@/lib/utils";
 import { useGit } from "../git-provider";
 import type { GitFileStatus, GitStatusEntry } from "../types";
 import { CommitBox } from "./commit-box";
-import { EmptyState } from "./empty-state";
 
 const STATUS_ICONS: Record<GitFileStatus, React.ComponentType<{ className?: string }>> = {
   modified: FileIcon,
@@ -222,13 +221,9 @@ export function ChangesView() {
   if (statusEntries.length === 0) {
     return (
       <div className="flex h-full flex-col bg-muted/10">
-        <div className="flex flex-1 items-center justify-center p-4">
-          <div className="w-full rounded-xl border border-dashed bg-background/80">
-            <EmptyState
-              icon={<InboxIcon className="size-8 text-muted-foreground/40" />}
-              message={t("git.noChanges")}
-            />
-          </div>
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6">
+          <InboxIcon className="size-10 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground">{t("git.noChanges")}</p>
         </div>
         <CommitBox />
       </div>
