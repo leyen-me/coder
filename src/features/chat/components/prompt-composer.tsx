@@ -624,50 +624,50 @@ export function PromptComposer({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                disabled={isRunning || !onSessionKindChange}
-                className={cn(
-                  composerFooterControlClassName,
-                  sessionKind === "long_task" &&
-                    composerFooterControlActiveClassName,
-                  "inline-flex items-center gap-1.5",
-                  "data-[state=open]:bg-accent data-[state=open]:text-foreground data-[state=open]:dark:bg-input/50"
-                )}
-                title={
-                  sessionKind === "long_task"
-                    ? t("chat.sessionTypeLongTaskLabel")
-                    : t("chat.sessionTypeStandardLabel")
-                }
-              >
-                <span className="truncate">
-                  {sessionKind === "long_task"
-                    ? t("chat.sessionTypeLongTask")
-                    : t("chat.sessionTypeStandard")}
-                </span>
-                {onSessionKindChange ? (
+          {onSessionKindChange ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  disabled={isRunning}
+                  className={cn(
+                    composerFooterControlClassName,
+                    sessionKind === "long_task" &&
+                      composerFooterControlActiveClassName,
+                    "inline-flex items-center gap-1.5",
+                    "data-[state=open]:bg-accent data-[state=open]:text-foreground data-[state=open]:dark:bg-input/50"
+                  )}
+                  title={
+                    sessionKind === "long_task"
+                      ? t("chat.sessionTypeLongTaskLabel")
+                      : t("chat.sessionTypeStandardLabel")
+                  }
+                >
+                  <span className="truncate">
+                    {sessionKind === "long_task"
+                      ? t("chat.sessionTypeLongTask")
+                      : t("chat.sessionTypeStandard")}
+                  </span>
                   <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
-                ) : null}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-44">
-              <DropdownMenuRadioGroup
-                value={sessionKind}
-                onValueChange={(value) => {
-                  onSessionKindChange?.(value as SessionKind);
-                }}
-              >
-                <DropdownMenuRadioItem value="standard">
-                  <span>{t("chat.sessionTypeStandard")}</span>
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="long_task">
-                  <span>{t("chat.sessionTypeLongTask")}</span>
-                </DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-44">
+                <DropdownMenuRadioGroup
+                  value={sessionKind}
+                  onValueChange={(value) => {
+                    onSessionKindChange(value as SessionKind);
+                  }}
+                >
+                  <DropdownMenuRadioItem value="standard">
+                    <span>{t("chat.sessionTypeStandard")}</span>
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="long_task">
+                    <span>{t("chat.sessionTypeLongTask")}</span>
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
 
           {/* Model selector */}
           <DropdownMenu>

@@ -55,11 +55,17 @@ export function parseLabSettings(value: unknown): LabSettings {
       ? value.promptRefineSystemPrompt
       : DEFAULT_REFINE_PROMPT_SYSTEM_PROMPT;
 
+  const longTaskEnabled =
+    typeof value.longTaskEnabled === "boolean"
+      ? value.longTaskEnabled
+      : DEFAULT_LAB_SETTINGS.longTaskEnabled;
+
   const responseStyle = parseResponseStyle(value.responseStyle);
 
   return {
     promptRefineEnabled,
     promptRefineSystemPrompt,
+    longTaskEnabled,
     responseStyle,
   };
 }

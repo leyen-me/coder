@@ -32,6 +32,20 @@ export function LabSettingsPanel() {
   return (
     <section className="divide-y">
       <SettingRow
+        label={t("settings.lab.longTaskLabel")}
+        description={t("settings.lab.longTaskDescription")}
+        control={
+          <Switch
+            checked={settings.longTaskEnabled}
+            onCheckedChange={(checked) => {
+              updateSettings({ longTaskEnabled: checked });
+            }}
+            aria-label={t("settings.lab.longTaskAriaLabel")}
+          />
+        }
+      />
+
+      <SettingRow
         label={t("settings.lab.promptRefineLabel")}
         description={t("settings.lab.promptRefineDescription")}
         control={
@@ -45,29 +59,31 @@ export function LabSettingsPanel() {
         }
       />
 
-      <SettingField
-        label={t("settings.lab.promptRefineSystemPromptLabel")}
-        description={t("settings.lab.promptRefineSystemPromptDescription")}
-      >
-        <Textarea
-          aria-label={t("settings.lab.promptRefineSystemPromptAriaLabel")}
-          className="min-h-48 font-mono text-sm"
-          onChange={(event) => {
-            updateSettings({ promptRefineSystemPrompt: event.target.value });
-          }}
-          value={settings.promptRefineSystemPrompt}
-        />
-        <div className="flex justify-end pt-2">
-          <Button
-            size="sm"
-            type="button"
-            variant="ghost"
-            onClick={resetPromptRefineSystemPrompt}
-          >
-            {t("settings.lab.promptRefineSystemPromptReset")}
-          </Button>
-        </div>
-      </SettingField>
+      {settings.promptRefineEnabled && (
+        <SettingField
+          label={t("settings.lab.promptRefineSystemPromptLabel")}
+          description={t("settings.lab.promptRefineSystemPromptDescription")}
+        >
+          <Textarea
+            aria-label={t("settings.lab.promptRefineSystemPromptAriaLabel")}
+            className="min-h-48 font-mono text-sm"
+            onChange={(event) => {
+              updateSettings({ promptRefineSystemPrompt: event.target.value });
+            }}
+            value={settings.promptRefineSystemPrompt}
+          />
+          <div className="flex justify-end pt-2">
+            <Button
+              size="sm"
+              type="button"
+              variant="ghost"
+              onClick={resetPromptRefineSystemPrompt}
+            >
+              {t("settings.lab.promptRefineSystemPromptReset")}
+            </Button>
+          </div>
+        </SettingField>
+      )}
 
       {/* Response Style Section */}
       <SettingRow

@@ -1,12 +1,13 @@
 import type { AgentMode } from "@/features/agent/types";
 import type { FileUIPart } from "ai";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { paths } from "@/app/paths";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
 import { usePromptRefiner } from "@/features/lab/prompt-refine-provider";
+import { useLabSettings } from "@/features/lab/use-lab-settings";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { createSession, type SessionKind } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
@@ -26,6 +27,8 @@ export function NewChatView() {
   const { resolved } = useModelProvider();
   const { sendMessage } = useAgentStore();
   const { refineIfEnabled } = usePromptRefiner();
+  const { settings: labSettings } = useLabSettings();
+  const longTaskEnabled = labSettings.longTaskEnabled;
   const { workspaceDir, pickWorkspace, clearWorkspace } = useNewChatWorkspace();
   const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState(() => resolveDefaultModel(resolved));
@@ -36,6 +39,12 @@ export function NewChatView() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [agentMode, setAgentMode] = useState<AgentMode>("agent");
   const [sessionKind, setSessionKind] = useState<SessionKind>("standard");
+
+  useEffect(() => {
+    if (!longTaskEnabled && sessionKind === "long_task") {
+      setSessionKind("standard");
+    }
+  }, [longTaskEnabled, sessionKind]);
 
   const gitControls = useWorkspaceGitControls({
     workspaceDir,
@@ -59,13 +68,14 @@ export function NewChatView() {
       const finalText =
         refineResult === "original" ? trimmed : refineResult.text;
 
+      const effectiveSessionKind = longTaskEnabled ? sessionKind : "standard";
       const session = await createSession({
         title: t("session.newChat"),
         model,
         workspaceDir,
-        sessionKind,
+        sessionKind: effectiveSessionKind,
         autonomyMode:
-          sessionKind === "long_task" ? "unattended" : "interactive",
+          effectiveSessionKind === "long_task" ? "unattended" : "interactive",
         decisionModel: model,
       });
       navigate(paths.chat(session.id), { state: { agentMode } });
@@ -129,10 +139,10 @@ export function NewChatView() {
           isRunning={isSubmitting}
           agentMode={agentMode}
           onAgentModeChange={setAgentMode}
-          sessionKind={sessionKind}
-          onSessionKindChange={setSessionKind}
+          sessionKind={longTaskEnabled ? sessionKind : "standard"}
+          onSessionKindChange={longTaskEnabled ? setSessionKind : undefined}
         />
-        {sessionKind === "long_task" ? (
+        {longTaskEnabled && sessionKind === "long_task" ? (
           <p className="max-w-3xl px-2 text-center text-muted-foreground text-sm">
             {t("chat.sessionTypeLongTaskHint")}
           </p>

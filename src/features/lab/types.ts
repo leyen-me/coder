@@ -7,5 +7,6 @@ export type ResponseStyleConfig = {
 export type LabSettings = {
   promptRefineEnabled: boolean;
   promptRefineSystemPrompt: string;
+  longTaskEnabled: boolean;
   responseStyle: ResponseStyleConfig;
 };

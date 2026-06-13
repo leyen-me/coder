@@ -53,5 +53,6 @@ export const DEFAULT_RESPONSE_STYLE_CONFIG: ResponseStyleConfig = {
 export const DEFAULT_LAB_SETTINGS: LabSettings = {
   promptRefineEnabled: false,
   promptRefineSystemPrompt: DEFAULT_REFINE_PROMPT_SYSTEM_PROMPT,
+  longTaskEnabled: false,
   responseStyle: DEFAULT_RESPONSE_STYLE_CONFIG,
 };

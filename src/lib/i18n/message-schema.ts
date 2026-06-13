@@ -375,6 +375,9 @@ export type Messages = {
       promptRefineLabel: string;
       promptRefineDescription: string;
       promptRefineAriaLabel: string;
+      longTaskLabel: string;
+      longTaskDescription: string;
+      longTaskAriaLabel: string;
       promptRefineSystemPromptLabel: string;
       promptRefineSystemPromptDescription: string;
       promptRefineSystemPromptAriaLabel: string;
