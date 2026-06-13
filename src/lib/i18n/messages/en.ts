@@ -563,6 +563,8 @@ export const enMessages = {
     hint: "Search chat history",
     recent: "Recent chats",
     results: "Results",
+    sessionResults: "Sessions",
+    messageResults: "Messages",
     empty: "No chats found",
     loading: "Searching…",
   },

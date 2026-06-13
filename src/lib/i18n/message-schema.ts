@@ -465,6 +465,8 @@ export type Messages = {
     hint: string;
     recent: string;
     results: string;
+    sessionResults: string;
+    messageResults: string;
     empty: string;
     loading: string;
   };

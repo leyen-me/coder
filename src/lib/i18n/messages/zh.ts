@@ -550,6 +550,8 @@ export const zhMessages = {
     hint: "搜索聊天记录",
     recent: "最近聊天",
     results: "搜索结果",
+    sessionResults: "会话",
+    messageResults: "消息",
     empty: "未找到相关聊天",
     loading: "搜索中…",
   },
