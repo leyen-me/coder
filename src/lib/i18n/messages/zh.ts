@@ -171,6 +171,7 @@ export const zhMessages = {
     decisionStatusRequested: "评估中",
     decisionStatusResolved: "已决策",
     decisionOutcomeContinue: "继续执行",
+    decisionOutcomeComplete: "任务完成",
     decisionOutcomeAskUser: "等待真人确认",
     decisionOutcomeStopPath: "停止当前路径",
     decisionRiskLow: "低风险",

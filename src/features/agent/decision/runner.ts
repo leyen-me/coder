@@ -38,6 +38,7 @@ function normalizeDecisionResponse(raw: unknown): DecisionResponse {
 
   if (
     outcome !== "continue" &&
+    outcome !== "complete" &&
     outcome !== "ask_user" &&
     outcome !== "stop_path"
   ) {

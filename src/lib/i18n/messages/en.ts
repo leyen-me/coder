@@ -180,6 +180,7 @@ export const enMessages = {
     decisionStatusRequested: "Evaluating",
     decisionStatusResolved: "Resolved",
     decisionOutcomeContinue: "Continue",
+    decisionOutcomeComplete: "Complete",
     decisionOutcomeAskUser: "Ask the user",
     decisionOutcomeStopPath: "Stop this path",
     decisionRiskLow: "Low risk",

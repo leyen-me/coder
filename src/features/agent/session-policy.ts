@@ -55,8 +55,8 @@ export function buildSessionPolicySystemPrompt(
     `- decisionPolicyVersion: ${policy.decisionPolicyVersion}`,
     `- decisionModel: ${policy.decisionModel ?? "default"}`,
     "- This is a long-running unattended task session.",
-    "- Prefer autonomous continuation over pausing whenever a safe, conservative, and reversible path exists.",
-    "- Record assumptions explicitly and keep moving instead of asking the user low-risk continue/choose/confirm questions.",
-    "- Do not pause solely for tool-level risk confirmation; continue unless you truly need user input.",
+    "- Work autonomously until the task is genuinely complete.",
+    "- When your latest reply would normally hand control back to the user, a proxy agent will decide whether the task is complete or provide the next user-style continuation input.",
+    "- Do not stop for low-risk follow-up questions when you can continue making progress yourself.",
   ].join("\n");
 }

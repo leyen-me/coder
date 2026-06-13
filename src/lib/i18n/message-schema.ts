@@ -166,6 +166,7 @@ export type Messages = {
     decisionStatusRequested: string;
     decisionStatusResolved: string;
     decisionOutcomeContinue: string;
+    decisionOutcomeComplete: string;
     decisionOutcomeAskUser: string;
     decisionOutcomeStopPath: string;
     decisionRiskLow: string;

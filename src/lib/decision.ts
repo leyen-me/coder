@@ -1,6 +1,6 @@
 export type DecisionRiskLevel = "low" | "medium" | "high";
-export type DecisionOutcome = "continue" | "ask_user" | "stop_path";
-export type DecisionTrigger = "blocking_response";
+export type DecisionOutcome = "continue" | "complete" | "ask_user" | "stop_path";
+export type DecisionTrigger = "final_answer";
 
 export type DecisionOption = {
   id: string;

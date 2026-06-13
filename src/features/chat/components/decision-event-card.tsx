@@ -56,6 +56,8 @@ export function DecisionEventCard({
             <Badge variant="outline">
               {outcome === "continue"
                 ? t("chat.decisionOutcomeContinue")
+                : outcome === "complete"
+                  ? t("chat.decisionOutcomeComplete")
                 : outcome === "ask_user"
                   ? t("chat.decisionOutcomeAskUser")
                   : t("chat.decisionOutcomeStopPath")}

@@ -301,30 +301,45 @@ describe("runAgentWithTools", () => {
 
   it("uses proxy decisions to continue unattended long-task sessions", async () => {
     const events: Parameters<AgentEventHandler>[0][] = [];
-    requestProxyDecisionMock.mockResolvedValue({
-      outcome: "continue",
-      selectedOptionId: "continue_conservative",
-      reason: "Choose the conservative default and continue implementing.",
-      riskLevel: "medium",
-      recordAsAssumption: true,
-      requiresUserConfirmation: false,
-      assumption: "Proceed with the safest default.",
-      suggestedContinuation: "Continue with the conservative path.",
-    });
+    requestProxyDecisionMock
+      .mockResolvedValueOnce({
+        outcome: "continue",
+        selectedOptionId: "continue",
+        reason: "The task is not complete yet; send the next continuation input.",
+        riskLevel: "medium",
+        recordAsAssumption: true,
+        requiresUserConfirmation: false,
+        assumption: "The implementation still needs more work.",
+        suggestedContinuation: "继续，不要结束。请基于当前结果继续完成剩余实现。",
+      })
+      .mockResolvedValueOnce({
+        outcome: "complete",
+        selectedOptionId: "complete",
+        reason: "The follow-up answer completes the task.",
+        riskLevel: "low",
+        recordAsAssumption: false,
+        requiresUserConfirmation: false,
+        assumption: null,
+        suggestedContinuation: null,
+      });
 
     startAgentMock
       .mockImplementationOnce(async (_input, onEvent) => {
         onEvent({
           type: "content_delta",
           taskId: "task-1",
-          delta: "我现在需要你决定要不要继续吗？",
+          delta: "我已经完成了第一部分修改，接下来可以继续完善实现。",
         });
         onEvent({ type: "status", taskId: "task-1", status: "completed" });
       })
       .mockImplementationOnce(async (input, onEvent) => {
+        expect(input.messages.at(-2)).toEqual({
+          role: "assistant",
+          content: "我已经完成了第一部分修改，接下来可以继续完善实现。",
+        });
         expect(input.messages.at(-1)).toEqual({
-          role: "system",
-          content: expect.stringContaining("## Proxy decision result"),
+          role: "user",
+          content: "继续，不要结束。请基于当前结果继续完成剩余实现。",
         });
         onEvent({
           type: "content_delta",
@@ -354,19 +369,74 @@ describe("runAgentWithTools", () => {
       }
     );
 
-    expect(requestProxyDecisionMock).toHaveBeenCalledTimes(1);
+    expect(requestProxyDecisionMock).toHaveBeenCalledTimes(2);
     expect(startAgentMock).toHaveBeenCalledTimes(2);
     expect(events).toContainEqual(
       expect.objectContaining({
         type: "decision_requested",
         taskId: "task-1",
-        trigger: "blocking_response",
+        trigger: "final_answer",
       })
     );
     expect(events).toContainEqual(
       expect.objectContaining({
         type: "decision_resolved",
         taskId: "task-1",
+      })
+    );
+  });
+
+  it("uses proxy decisions to complete unattended long-task sessions", async () => {
+    const events: Parameters<AgentEventHandler>[0][] = [];
+    requestProxyDecisionMock.mockResolvedValue({
+      outcome: "complete",
+      selectedOptionId: "complete",
+      reason: "The latest assistant answer already completes the task.",
+      riskLevel: "low",
+      recordAsAssumption: false,
+      requiresUserConfirmation: false,
+      assumption: null,
+      suggestedContinuation: null,
+    });
+
+    startAgentMock.mockImplementationOnce(async (_input, onEvent) => {
+      onEvent({
+        type: "content_delta",
+        taskId: "task-1",
+        delta: "任务已经全部完成。",
+      });
+      onEvent({ type: "status", taskId: "task-1", status: "completed" });
+    });
+
+    await runAgentWithTools(
+      {
+        taskId: "task-1",
+        baseUrl: "https://api.example.com",
+        apiKey: "test-key",
+        apiKeySource: "manual",
+        apiKeyEnvVar: "TEST_API_KEY",
+        model: "deepseek-v4-pro",
+        messages: [{ role: "user", content: "继续这个长任务" }],
+        sessionKind: "long_task",
+        autonomyMode: "unattended",
+        decisionPolicyVersion: "mvp-v1",
+        decisionModel: "decision-model",
+      },
+      { workspaceDir: null, sessionId: "session-1", taskId: "task-1" },
+      (event) => {
+        events.push(event);
+      }
+    );
+
+    expect(requestProxyDecisionMock).toHaveBeenCalledTimes(1);
+    expect(startAgentMock).toHaveBeenCalledTimes(1);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "decision_resolved",
+        taskId: "task-1",
+        response: expect.objectContaining({
+          outcome: "complete",
+        }),
       })
     );
   });
@@ -418,6 +488,16 @@ describe("runAgentWithTools", () => {
       ok: true,
       tool: "shell",
       data: { command: "git push origin main", stdout: "pushed" },
+    });
+    requestProxyDecisionMock.mockResolvedValue({
+      outcome: "complete",
+      selectedOptionId: "complete",
+      reason: "The follow-up answer completes the task.",
+      riskLevel: "low",
+      recordAsAssumption: false,
+      requiresUserConfirmation: false,
+      assumption: null,
+      suggestedContinuation: null,
     });
 
     startAgentMock
@@ -483,7 +563,12 @@ describe("runAgentWithTools", () => {
         toolCallId: "call_1",
       })
     );
-    expect(events.some((event) => event.type === "decision_requested")).toBe(false);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "decision_requested",
+        trigger: "final_answer",
+      })
+    );
   });
 
   it("retries a chat turn after a transient API failure with no streamed output", async () => {

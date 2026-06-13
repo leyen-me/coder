@@ -25,7 +25,7 @@ import {
 } from "./tool-call-stall";
 import { shouldTriggerContextHandoff } from "./context-monitor";
 import {
-  buildBlockingDecisionRequest,
+  buildFinalAnswerDecisionRequest,
 } from "./decision/policy";
 import { requestProxyDecision } from "./decision/runner";
 import { isLongTaskSession } from "./session-policy";
@@ -91,7 +91,8 @@ export async function runAgentWithTools(
           autonomyMode: input.autonomyMode ?? "interactive",
         })
       ) {
-        const decisionRequest = buildBlockingDecisionRequest({
+        const assistantMessage = buildAssistantMessageFromTurn(turn);
+        const decisionRequest = buildFinalAnswerDecisionRequest({
           sessionId: context.sessionId,
           taskId: input.taskId,
           assistantResponse: turn.content,
@@ -101,70 +102,65 @@ export async function runAgentWithTools(
             input.decisionPolicyVersion?.trim() || "mvp-v1",
         });
 
-        if (decisionRequest) {
-          const decisionId = crypto.randomUUID();
-          onEvent({
-            type: "decision_requested",
+        const decisionId = crypto.randomUUID();
+        onEvent({
+          type: "decision_requested",
+          taskId: input.taskId,
+          decisionId,
+          trigger: decisionRequest.trigger,
+          summary: decisionRequest.summary,
+          question: decisionRequest.question,
+          options: decisionRequest.options,
+          riskLevel: "medium",
+          requiresUserConfirmation: false,
+        });
+
+        let decisionResponse: DecisionResponse;
+        try {
+          decisionResponse = await requestProxyDecision({
             taskId: input.taskId,
-            decisionId,
-            trigger: decisionRequest.trigger,
-            summary: decisionRequest.summary,
-            question: decisionRequest.question,
-            options: decisionRequest.options,
+            model: input.decisionModel?.trim() || input.model,
+            baseUrl: input.baseUrl,
+            apiKey: input.apiKey,
+            apiKeySource: input.apiKeySource,
+            apiKeyEnvVar: input.apiKeyEnvVar,
+            request: decisionRequest,
+            signal: context.signal,
+          });
+        } catch (error) {
+          decisionResponse = {
+            outcome: "complete",
+            selectedOptionId: "complete",
+            reason:
+              error instanceof Error
+                ? `Proxy decision failed, so the task was finalized with the current assistant answer: ${error.message}`
+                : "Proxy decision failed, so the task was finalized with the current assistant answer.",
             riskLevel: "medium",
+            recordAsAssumption: false,
             requiresUserConfirmation: false,
-          });
+            assumption: null,
+            suggestedContinuation: null,
+          };
+        }
 
-          let decisionResponse: DecisionResponse;
-          try {
-            decisionResponse = await requestProxyDecision({
-              taskId: input.taskId,
-              model: input.decisionModel?.trim() || input.model,
-              baseUrl: input.baseUrl,
-              apiKey: input.apiKey,
-              apiKeySource: input.apiKeySource,
-              apiKeyEnvVar: input.apiKeyEnvVar,
-              request: decisionRequest,
-              signal: context.signal,
-            });
-          } catch (error) {
-            decisionResponse = {
-              outcome: "ask_user",
-              selectedOptionId: "ask_user",
-              reason:
-                error instanceof Error
-                  ? `Proxy decision failed: ${error.message}`
-                  : "Proxy decision failed.",
-              riskLevel: "medium",
-              recordAsAssumption: false,
-              requiresUserConfirmation: true,
-              assumption: null,
-              suggestedContinuation: null,
-            };
-          }
+        onEvent({
+          type: "decision_resolved",
+          taskId: input.taskId,
+          decisionId,
+          trigger: decisionRequest.trigger,
+          summary: decisionRequest.summary,
+          question: decisionRequest.question,
+          options: decisionRequest.options,
+          response: decisionResponse,
+        });
 
-          onEvent({
-            type: "decision_resolved",
-            taskId: input.taskId,
-            decisionId,
-            trigger: decisionRequest.trigger,
-            summary: decisionRequest.summary,
-            question: decisionRequest.question,
-            options: decisionRequest.options,
-            response: decisionResponse,
-          });
-
-          if (decisionResponse.outcome === "continue") {
-            messages = [
-              ...messages,
-              buildAssistantMessageFromTurn(turn),
-              {
-                role: "system",
-                content: buildDecisionContinuationSystemMessage(decisionResponse),
-              },
-            ];
-            continue;
-          }
+        if (decisionResponse.outcome === "continue") {
+          messages = [
+            ...messages,
+            assistantMessage,
+            buildProxyContinuationUserMessage(decisionResponse),
+          ];
+          continue;
         }
       }
 
@@ -478,19 +474,14 @@ function buildAssistantMessageFromTurn(turn: {
   return message;
 }
 
-function buildDecisionContinuationSystemMessage(
+function buildProxyContinuationUserMessage(
   response: DecisionResponse
-): string {
-  return [
-    "## Proxy decision result",
-    `- outcome: ${response.outcome}`,
-    `- riskLevel: ${response.riskLevel}`,
-    `- reason: ${response.reason}`,
-    ...(response.assumption ? [`- assumption: ${response.assumption}`] : []),
-    ...(response.suggestedContinuation
-      ? [`- suggestedContinuation: ${response.suggestedContinuation}`]
-      : []),
-    "Continue the task using this decision as an explicit constraint.",
-  ].join("\n");
+): AgentChatMessage {
+  return {
+    role: "user",
+    content:
+      response.suggestedContinuation?.trim() ||
+      "继续，任务还没有完成。请基于当前上下文自行推进，直到真正完成为止。",
+  };
 }
 
