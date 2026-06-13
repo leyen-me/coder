@@ -270,29 +270,33 @@ function ComposerContextBar({
   return (
     <div className="relative z-0 -mt-3 flex items-center gap-1 bg-muted/50 px-3 pb-2 pt-5 dark:bg-[#1c1c1f]">
       {showClearWorkspace ? (
-        <span className="inline-flex h-8 max-w-44 min-w-0 shrink-0 items-center overflow-hidden rounded-xl text-sm font-medium">
-          <button
-            aria-label={workspacePickerLabel}
-            className="inline-flex h-full min-w-0 flex-1 items-center gap-1.5 px-2.5 transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-50 dark:hover:bg-muted/50"
-            disabled={isRunning || !onPickWorkspace}
-            onClick={onPickWorkspace}
-            title={workspacePickerLabel}
-            type="button"
-          >
-            <FolderOpenIcon className="size-4 shrink-0" />
-            <span className="truncate">{workspaceName}</span>
-          </button>
-          <button
-            aria-label={t("chat.clearWorkspace")}
-            className="inline-flex h-full shrink-0 items-center justify-center px-1.5 opacity-60 transition-all hover:bg-destructive/10 hover:text-destructive hover:opacity-100 disabled:pointer-events-none disabled:opacity-50"
-            disabled={isRunning}
-            onClick={onClearWorkspace}
-            title={t("chat.clearWorkspace")}
-            type="button"
-          >
-            <XIcon className="size-3.5" strokeWidth={2.5} />
-          </button>
-        </span>
+        <Button
+          aria-label={workspacePickerLabel}
+          className="h-8 max-w-44 min-w-0 shrink-0 rounded-xl px-2.5"
+          disabled={isRunning || !onPickWorkspace}
+          onClick={onPickWorkspace}
+          title={workspacePickerLabel}
+          type="button"
+          variant="ghost"
+        >
+          <FolderOpenIcon className="size-4 shrink-0" />
+          <span className="truncate">{workspaceName}</span>
+          {onClearWorkspace && (
+            <button
+              aria-label={t("chat.clearWorkspace")}
+              className="-mr-0.5 ml-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full opacity-50 transition-all hover:bg-foreground/10 hover:opacity-100"
+              disabled={isRunning}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClearWorkspace();
+              }}
+              title={t("chat.clearWorkspace")}
+              type="button"
+            >
+              <XIcon className="size-3" strokeWidth={2} />
+            </button>
+          )}
+        </Button>
       ) : (
         <Button
           aria-label={workspacePickerLabel}
