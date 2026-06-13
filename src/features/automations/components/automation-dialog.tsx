@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { AlertCircle, Check, ChevronsUpDown, MailIcon } from "lucide-react";
+import { AlertCircle, Check, ChevronsUpDown } from "lucide-react";
 
 import type { AgentMode } from "@/features/agent/types";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
@@ -328,9 +328,8 @@ export function AutomationDialog({
             />
             <Label
               htmlFor="automation-enable-email"
-              className="flex cursor-pointer items-center gap-2 text-sm font-normal"
+              className="cursor-pointer text-sm font-normal"
             >
-              <MailIcon className="size-4 text-muted-foreground" />
               <span>{t("automations.fieldEnableEmail")}</span>
             </Label>
           </div>
