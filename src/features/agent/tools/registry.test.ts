@@ -5,6 +5,11 @@ import { ASK_MODE_TOOL_NAMES } from "@/features/agent/tools/ask-tools";
 import { PLAN_MODE_TOOL_NAMES } from "@/features/agent/tools/plan-tools";
 import {
   ASK_QUESTION_TOOL_NAME,
+  PLAN_CREATE_TOOL_NAME,
+  PLAN_DELETE_TOOL_NAME,
+  PLAN_LIST_TOOL_NAME,
+  PLAN_READ_TOOL_NAME,
+  PLAN_UPDATE_TOOL_NAME,
   TODO_WRITE_TOOL_NAME,
 } from "@/features/agent/tools/definitions";
 
@@ -15,6 +20,16 @@ describe("getAgentToolDefinitions", () => {
     expect(tools.some((tool) => tool.function.name === ASK_QUESTION_TOOL_NAME)).toBe(
       false
     );
+  });
+
+  it("excludes plan-only tools from agent mode", () => {
+    const tools = getAgentToolDefinitions("agent");
+    const toolNames = tools.map((tool) => tool.function.name);
+    expect(toolNames).not.toContain(PLAN_CREATE_TOOL_NAME);
+    expect(toolNames).not.toContain(PLAN_READ_TOOL_NAME);
+    expect(toolNames).not.toContain(PLAN_UPDATE_TOOL_NAME);
+    expect(toolNames).not.toContain(PLAN_DELETE_TOOL_NAME);
+    expect(toolNames).not.toContain(PLAN_LIST_TOOL_NAME);
   });
 
   it("returns only ask tools for ask mode", () => {
