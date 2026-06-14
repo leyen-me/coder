@@ -10,7 +10,12 @@ import type { ListDirEntry } from "@/features/agent/tools/types";
 import { createFileTreePointerDragProps } from "@/lib/dnd/workspace-path-pointer";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
-import { FilesIcon, RefreshCwIcon } from "lucide-react";
+import {
+  EyeIcon,
+  EyeOffIcon,
+  FilesIcon,
+  RefreshCwIcon,
+} from "lucide-react";
 import { forwardRef, useCallback, useImperativeHandle } from "react";
 
 import {
@@ -196,9 +201,28 @@ export const WorkspaceFileTree = forwardRef<
             {t("rightPanel.explorer")}
           </span>
         </div>
-        <button
-          aria-label={t("rightPanel.menuRefresh")}
-          className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-foreground"
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            aria-label={t("rightPanel.menuShowHiddenFiles")}
+            className={cn(
+              "rounded-md p-1 transition-colors hover:bg-muted/30",
+              tree.showHidden
+                ? "text-foreground"
+                : "text-muted-foreground/60 hover:text-foreground"
+            )}
+            onClick={tree.toggleShowHidden}
+            title={t("rightPanel.menuShowHiddenFiles")}
+            type="button"
+          >
+            {tree.showHidden ? (
+              <EyeIcon className="size-3.5" />
+            ) : (
+              <EyeOffIcon className="size-3.5" />
+            )}
+          </button>
+          <button
+            aria-label={t("rightPanel.menuRefresh")}
+            className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-foreground"
           disabled={tree.loading}
           onClick={handleRefreshAll}
           title={t("rightPanel.menuRefresh")}
@@ -208,6 +232,7 @@ export const WorkspaceFileTree = forwardRef<
             className={cn("size-3.5", tree.loading && "animate-spin")}
           />
         </button>
+        </div>
       </div>
 
       <ScrollArea className={cn("flex-1", className)}>
