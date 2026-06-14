@@ -1,7 +1,21 @@
 "use client";
 
-import { ClipboardListIcon, FileIcon, FilesIcon, GitBranchIcon, XIcon } from "lucide-react";
+import {
+  ClipboardListIcon,
+  FileIcon,
+  FilesIcon,
+  GitBranchIcon,
+  XIcon,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
+
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import { useRegisterHotkeyAction } from "@/features/keyboard-shortcuts/hotkey-actions-context";
 
@@ -9,12 +23,13 @@ import { createFileTreePointerDragProps } from "@/lib/dnd/workspace-path-pointer
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 
 import { useFileEditorSessions } from "../hooks/use-file-editor-sessions";
 import { useFilePreviewTabs } from "../hooks/use-file-preview-tabs";
 import { useRightPanel } from "../right-panel-context";
 import { FilePreview } from "./file-preview";
+import { PanelHeader } from "./panel-header";
 import { PlanPreviewPanel } from "./plan-preview-panel";
 import { UnsavedFileCloseDialog } from "./unsaved-file-close-dialog";
 import { WorkspaceFileTree } from "./workspace-file-tree";
@@ -25,6 +40,42 @@ import { SourceControlPanel } from "@/features/git/components/source-control-pan
 type FileTreePanelProps = {
   workspaceDir: string | null;
 };
+
+/** A single icon button in the vertical navigation sidebar. */
+function NavButton({
+  icon,
+  isActive,
+  onClick,
+  tooltip,
+  className,
+}: {
+  icon: ReactNode;
+  isActive: boolean;
+  onClick: () => void;
+  tooltip: string;
+  className?: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          className={cn(
+            "relative flex h-9 w-9 items-center justify-center rounded-md transition-colors",
+            isActive
+              ? "text-foreground before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-foreground"
+              : "text-muted-foreground hover:bg-muted/30 hover:text-foreground",
+            className
+          )}
+          onClick={onClick}
+          type="button"
+        >
+          {icon}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right">{tooltip}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
   const { t } = useTranslation();
@@ -155,107 +206,112 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-row">
+      {/* ── Level 1: Vertical icon navigation bar ── */}
+      <div className="flex w-[42px] shrink-0 flex-col items-center border-r bg-muted/20 py-2">
+        <TooltipProvider delayDuration={300}>
+          <div className="flex flex-col items-center gap-0.5">
+            <NavButton
+              icon={<FilesIcon className="size-4" />}
+              isActive={mainTabValue === "explorer"}
+              onClick={() => handleMainTabChange("explorer")}
+              tooltip={t("rightPanel.explorer")}
+            />
+            <NavButton
+              icon={<GitBranchIcon className="size-4" />}
+              isActive={mainTabValue === "source-control"}
+              onClick={() => handleMainTabChange("source-control")}
+              tooltip={t("git.sourceControl")}
+            />
+            <NavButton
+              className={planTabPulse ? "animate-pulse text-primary" : undefined}
+              icon={<ClipboardListIcon className="size-4" />}
+              isActive={mainTabValue === "plan"}
+              onClick={() => handleMainTabChange("plan")}
+              tooltip={t("rightPanel.plan")}
+            />
+          </div>
+        </TooltipProvider>
+      </div>
+
+      {/* ── Content area ── */}
       <Tabs
-        className="flex min-h-0 flex-1 flex-col gap-0"
+        className="flex min-h-0 min-w-0 flex-1 flex-col gap-0"
         value={mainTabValue}
         onValueChange={handleMainTabChange}
       >
-        {/* ── Level 1: Underline-style tabs ── */}
-        <div className="shrink-0 border-b px-3 py-1.5">
-          <TabsList className="h-7 w-full" variant="line">
-            <TabsTrigger
-              className="h-7 flex-1 gap-1.5 px-2 text-xs"
-              value="explorer"
-            >
-              <FilesIcon className="size-3.5 shrink-0" />
-              {t("rightPanel.explorer")}
-            </TabsTrigger>
-            <TabsTrigger
-              className="h-7 flex-1 gap-1.5 px-2 text-xs"
-              value="source-control"
-            >
-              <GitBranchIcon className="size-3.5 shrink-0" />
-              {t("git.sourceControl")}
-            </TabsTrigger>
-            <TabsTrigger
-              className={cn(
-                "h-7 flex-1 gap-1.5 px-2 text-xs transition-colors duration-500",
-                planTabPulse && "text-primary"
-              )}
-              value="plan"
-            >
-              <ClipboardListIcon className="size-3.5 shrink-0" />
-              {t("rightPanel.plan")}
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
         {/* ── Explorer Panel ── */}
         <TabsContent
-          className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+          className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col data-[state=inactive]:hidden"
           value="explorer"
         >
-          {/* Level 2: File preview tabs (rounded rectangle) */}
-          <div className="flex items-center gap-1 overflow-x-auto border-b px-2 py-1.5">
-            {/* File tree tab — always visible, cannot close */}
-            <button
-              className={cn(
-                "inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-1.5 py-1 text-xs transition-colors",
-                activeTabPath === null
-                  ? "border-border/40 bg-muted/30 text-foreground/80"
-                  : "border-transparent text-muted-foreground/70 hover:bg-muted/20"
-              )}
-              onClick={showExplorer}
-              type="button"
-            >
-              <FilesIcon className="size-3" />
-              <span className="truncate">{t("rightPanel.fileTree")}</span>
-            </button>
+          <PanelHeader
+            icon={<FilesIcon className="size-4" />}
+            title={t("rightPanel.explorer")}
+          />
 
-            {tabs.map((tab) => {
-              const isActive = activeTabPath === tab.path;
-              const pointerDragProps = createFileTreePointerDragProps({
-                isDir: false,
-                name: tab.name,
-                path: tab.path,
-              });
+          {/* Level 2: File preview tabs (pill-style container) */}
+          <div className="flex items-center gap-1 overflow-x-auto border-b px-2 py-2">
+            <div className="flex items-center gap-0.5 rounded-lg bg-muted/50 p-0.5">
+              {/* File tree tab — always visible, cannot close */}
+              <button
+                className={cn(
+                  "inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs transition-colors",
+                  activeTabPath === null
+                    ? "bg-background text-foreground/80 shadow-sm"
+                    : "text-muted-foreground/70 hover:bg-muted/30 hover:text-foreground"
+                )}
+                onClick={showExplorer}
+                type="button"
+              >
+                <FilesIcon className="size-3" />
+                <span className="truncate">{t("rightPanel.fileTree")}</span>
+              </button>
 
-              return (
-                <div
-                  key={tab.path}
-                  className={cn(
-                    "group inline-flex h-7 shrink-0 cursor-grab items-center rounded-md border text-xs active:cursor-grabbing",
-                    isActive
-                      ? "border-border/40 bg-muted/30 text-foreground/80"
-                      : "border-transparent text-muted-foreground/70 hover:bg-muted/20"
-                  )}
-                  {...pointerDragProps}
-                >
-                  <button
-                    aria-label={t("rightPanel.closePreview")}
-                    className="rounded-l-md px-1.5 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
-                    onClick={() => requestCloseFile(tab.path, tab.name)}
-                    type="button"
+              {tabs.map((tab) => {
+                const isActive = activeTabPath === tab.path;
+                const pointerDragProps = createFileTreePointerDragProps({
+                  isDir: false,
+                  name: tab.name,
+                  path: tab.path,
+                });
+
+                return (
+                  <div
+                    key={tab.path}
+                    className={cn(
+                      "group inline-flex h-7 shrink-0 cursor-grab items-center rounded-md text-xs active:cursor-grabbing",
+                      isActive
+                        ? "bg-background text-foreground/80 shadow-sm"
+                        : "text-muted-foreground/70 hover:bg-muted/30 hover:text-foreground"
+                    )}
+                    {...pointerDragProps}
                   >
-                    <FileIcon className="size-3 group-hover:hidden" />
-                    <XIcon className="hidden size-3 group-hover:block" />
-                  </button>
-                  <button
-                    className="max-w-40 truncate px-2 py-1 font-mono"
-                    onClick={() => handleActivateFile(tab.path)}
-                    title={tab.path}
-                    type="button"
-                  >
-                    {tab.name}
-                  </button>
-                </div>
-              );
-            })}
+                    <button
+                      aria-label={t("rightPanel.closePreview")}
+                      className="rounded-l-md px-1.5 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
+                      onClick={() => requestCloseFile(tab.path, tab.name)}
+                      type="button"
+                    >
+                      <FileIcon className="size-3 group-hover:hidden" />
+                      <XIcon className="hidden size-3 group-hover:block" />
+                    </button>
+                    <button
+                      className="max-w-40 truncate px-2 py-1 font-mono"
+                      onClick={() => handleActivateFile(tab.path)}
+                      title={tab.path}
+                      type="button"
+                    >
+                      {tab.name}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* File tree or file preview */}
-          <div className="relative min-h-0 flex-1">
+          <div className="relative min-h-0 min-w-0 flex-1">
             <div className={cn("absolute inset-0", activeTabPath !== null && "hidden")}>
               <WorkspaceFileTree
                 onFileClose={requestCloseFile}
@@ -277,7 +333,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
 
         {/* ── Plan Panel ── */}
         <TabsContent
-          className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+          className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col data-[state=inactive]:hidden"
           value="plan"
         >
           <PlanPreviewPanel
@@ -288,7 +344,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
 
         {/* ── Source Control Panel ── */}
         <TabsContent
-          className="mt-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+          className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col data-[state=inactive]:hidden"
           value="source-control"
         >
           <GitProvider

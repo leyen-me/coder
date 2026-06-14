@@ -13,6 +13,7 @@ import { useCallback, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PanelHeader } from "@/features/right-panel/components/panel-header";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -91,25 +92,13 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
   }
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col bg-muted/10">
-      <div className="shrink-0 border-b bg-background/95 px-3 py-2.5 backdrop-blur">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <GitBranchIcon className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="truncate text-sm font-medium">{currentBranch ?? "—"}</span>
-            <span
-              className={cn(
-                "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                remoteUrl
-                  ? "bg-primary/10 text-primary"
-                  : "bg-muted text-muted-foreground",
-              )}
-              title={remoteUrl ? t("git.remoteConnected") : t("git.localOnly")}
-            >
-              {remoteUrl ? "R" : "L"}
-            </span>
-          </div>
-          <div className="flex shrink-0 items-center gap-0.5">
+    <div className="flex h-full min-h-0 min-w-0 flex-col">
+      {/* Unified header */}
+      <PanelHeader
+        icon={<GitBranchIcon className="size-4" />}
+        title={t("git.sourceControl")}
+        actions={
+          <>
             <BranchSelector />
             <RemoteActions />
             <Button
@@ -121,19 +110,40 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
               type="button"
               variant="ghost"
             >
-              <RefreshCwIcon className={cn("size-3", isLoading && "animate-spin")} />
+              <RefreshCwIcon className={cn("size-3.5", isLoading && "animate-spin")} />
             </Button>
-          </div>
-        </div>
-        <p className="mt-1 truncate pl-5 text-[11px] text-muted-foreground">{summaryText}</p>
-        {error ? (
-          <Alert className="mt-3" variant="destructive">
-            <AlertCircleIcon className="size-4" />
-            <AlertTitle>{t("git.error")}</AlertTitle>
-            <AlertDescription className="wrap-break-word">{error}</AlertDescription>
-          </Alert>
-        ) : null}
+          </>
+        }
+      />
+
+      {/* Branch info bar */}
+      <div className="flex shrink-0 items-center gap-2 border-b px-3 py-1.5">
+        <span className="truncate text-xs font-medium text-foreground/80">
+          {currentBranch ?? "—"}
+        </span>
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+            remoteUrl
+              ? "bg-primary/10 text-primary"
+              : "bg-muted text-muted-foreground",
+          )}
+          title={remoteUrl ? t("git.remoteConnected") : t("git.localOnly")}
+        >
+          {remoteUrl ? "R" : "L"}
+        </span>
+        <span className="ml-auto truncate text-[11px] text-muted-foreground">
+          {summaryText}
+        </span>
       </div>
+
+      {error ? (
+        <Alert className="mx-3 mt-3" variant="destructive">
+          <AlertCircleIcon className="size-4" />
+          <AlertTitle>{t("git.error")}</AlertTitle>
+          <AlertDescription className="wrap-break-word">{error}</AlertDescription>
+        </Alert>
+      ) : null}
 
       <Tabs
         className="flex min-h-0 min-w-0 flex-1 flex-col gap-0"
@@ -144,7 +154,7 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
         }}
         value={activeTab}
       >
-        <div className="shrink-0 border-b bg-background/80 px-3 py-2">
+        <div className="shrink-0 border-b px-3 py-2">
           <TabsList className="h-8 w-full rounded-lg bg-muted/70 p-0.5">
             <TabsTrigger className="h-7 flex-1 gap-1.5 rounded-md px-2 text-xs" value="changes">
               <InboxIcon className="size-3.5 shrink-0" />

@@ -688,6 +688,7 @@ export const enMessages = {
     panel: "Right panel",
     fileTree: "File Tree",
     plan: "Plan",
+    planManager: "Plan Manager",
     planBuild: "Build",
     planCopy: "Copy plan",
     planSaved: "Saved",

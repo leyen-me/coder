@@ -670,6 +670,7 @@ export const zhMessages = {
     panel: "右侧面板",
     fileTree: "文件树",
     plan: "计划",
+    planManager: "计划面板",
     planBuild: "执行",
     planCopy: "复制计划",
     planSaved: "已保存",

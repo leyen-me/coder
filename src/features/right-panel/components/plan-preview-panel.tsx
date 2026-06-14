@@ -10,6 +10,8 @@ import {
   CopyIcon,
   RefreshCwIcon,
 } from "lucide-react";
+
+import { PanelHeader } from "./panel-header";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { subscribePlanFileUpdated } from "@/features/plan/plan-events";
@@ -194,69 +196,71 @@ export function PlanPreviewPanel({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <ClipboardListIcon className="size-4 shrink-0 text-muted-foreground" />
-          <span className="truncate text-sm font-medium">
-            {resolvedName
-              ? formatPlanTabLabel(resolvedName)
-              : t("rightPanel.plan")}
-          </span>
-          {showUpdatedHint ? (
+    <div className="flex h-full min-h-0 min-w-0 flex-col">
+      <PanelHeader
+        icon={<ClipboardListIcon className="size-4" />}
+        title={
+          resolvedName
+            ? formatPlanTabLabel(resolvedName)
+            : t("rightPanel.planManager")
+        }
+        badge={
+          showUpdatedHint ? (
             <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
               {t("rightPanel.planSaved")}
             </span>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {canBuild ? (
+          ) : undefined
+        }
+        actions={
+          <>
+            {canBuild ? (
+              <button
+                aria-label={t("chat.buildWithAgent")}
+                className="inline-flex h-7 items-center gap-1 rounded-md bg-primary/10 px-2 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:pointer-events-none disabled:opacity-50"
+                disabled={planBuildActions?.isBuildPending || showSpinner}
+                onClick={() => planBuildActions?.onBuild()}
+                title={t("chat.buildWithAgent")}
+                type="button"
+              >
+                <BotIcon className="size-3.5 shrink-0" />
+                <span>{t("rightPanel.planBuild")}</span>
+              </button>
+            ) : null}
             <button
-              aria-label={t("chat.buildWithAgent")}
-              className="inline-flex h-7 items-center gap-1 rounded-md bg-primary/10 px-2 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:pointer-events-none disabled:opacity-50"
-              disabled={planBuildActions?.isBuildPending || showSpinner}
-              onClick={() => planBuildActions?.onBuild()}
-              title={t("chat.buildWithAgent")}
-              type="button"
-            >
-              <BotIcon className="size-3.5 shrink-0" />
-              <span>{t("rightPanel.planBuild")}</span>
-            </button>
-          ) : null}
-          <button
-            aria-label={t("rightPanel.menuRefresh")}
-            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
-            disabled={showSpinner}
-            onClick={() => {
-              void loadPlan({ refresh: true });
-            }}
-            title={t("rightPanel.menuRefresh")}
-            type="button"
-          >
-            <RefreshCwIcon className={cn("size-3.5", showSpinner && "animate-spin")} />
-          </button>
-          {content.trim() ? (
-            <button
-              aria-label={t("rightPanel.planCopy")}
+              aria-label={t("rightPanel.menuRefresh")}
               className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
-              onClick={handleCopy}
-              title={t("rightPanel.planCopy")}
+              disabled={showSpinner}
+              onClick={() => {
+                void loadPlan({ refresh: true });
+              }}
+              title={t("rightPanel.menuRefresh")}
               type="button"
             >
-              {isCopied ? (
-                <CheckIcon className="size-3.5 text-primary" />
-              ) : (
-                <CopyIcon className="size-3.5" />
-              )}
+              <RefreshCwIcon className={cn("size-3.5", showSpinner && "animate-spin")} />
             </button>
-          ) : null}
-        </div>
-      </div>
+            {content.trim() ? (
+              <button
+                aria-label={t("rightPanel.planCopy")}
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+                onClick={handleCopy}
+                title={t("rightPanel.planCopy")}
+                type="button"
+              >
+                {isCopied ? (
+                  <CheckIcon className="size-3.5 text-primary" />
+                ) : (
+                  <CopyIcon className="size-3.5" />
+                )}
+              </button>
+            ) : null}
+          </>
+        }
+      />
 
       <div
         ref={contentRef}
         className={cn(
-          "relative min-h-0 flex-1 overflow-y-auto px-4 py-3 transition-colors duration-700",
+          "relative min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-3 transition-colors duration-700",
           flashContent && "bg-primary/8"
         )}
       >
@@ -278,6 +282,7 @@ export function PlanPreviewPanel({
             {t("rightPanel.planEmpty")}
           </div>
         )}
+        <div className="h-8 shrink-0" />
       </div>
     </div>
   );
