@@ -22,6 +22,7 @@ export const TODO_WRITE_TOOL_NAME = "todo_write";
 export const PLAN_CREATE_TOOL_NAME = "plan_create";
 export const PLAN_READ_TOOL_NAME = "plan_read";
 export const PLAN_UPDATE_TOOL_NAME = "plan_update";
+export const PLAN_EDIT_TOOL_NAME = "plan_edit";
 export const PLAN_DELETE_TOOL_NAME = "plan_delete";
 export const PLAN_LIST_TOOL_NAME = "plan_list";
 export const ASK_QUESTION_TOOL_NAME = "ask_question";
@@ -756,6 +757,39 @@ export const PLAN_UPDATE_TOOL: AgentToolDefinition = {
   },
 };
 
+export const PLAN_EDIT_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: PLAN_EDIT_TOOL_NAME,
+    description:
+      "Apply a targeted search-and-replace edit to an existing plan file in the .plan/ directory. Prefer this over plan_update for small changes.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: 'Plan filename, e.g. "refactor-auth-plan.md".',
+        },
+        old_string: {
+          type: "string",
+          description: "Exact text to replace. Must match uniquely unless replace_all is true.",
+        },
+        new_string: {
+          type: "string",
+          description: "Replacement text.",
+        },
+        replace_all: {
+          type: "boolean",
+          description: "Whether to replace every occurrence of old_string.",
+          default: false,
+        },
+      },
+      required: ["name", "old_string", "new_string"],
+      additionalProperties: false,
+    },
+  },
+};
+
 export const PLAN_DELETE_TOOL: AgentToolDefinition = {
   type: "function",
   function: {
@@ -876,6 +910,7 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   PLAN_CREATE_TOOL,
   PLAN_READ_TOOL,
   PLAN_UPDATE_TOOL,
+  PLAN_EDIT_TOOL,
   PLAN_DELETE_TOOL,
   PLAN_LIST_TOOL,
   SEND_EMAIL_TOOL,

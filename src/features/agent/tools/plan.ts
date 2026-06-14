@@ -5,6 +5,7 @@ import { emitPlanFileUpdated } from "@/features/plan/plan-events";
 import {
   PLAN_CREATE_TOOL_NAME,
   PLAN_DELETE_TOOL_NAME,
+  PLAN_EDIT_TOOL_NAME,
   PLAN_LIST_TOOL_NAME,
   PLAN_READ_TOOL_NAME,
   PLAN_UPDATE_TOOL_NAME,
@@ -19,6 +20,13 @@ type PlanNameArgs = {
 type PlanCreateArgs = {
   name: string;
   content: string;
+};
+
+type PlanEditArgs = {
+  name: string;
+  old_string: string;
+  new_string: string;
+  replace_all?: boolean;
 };
 
 type PlanFileData = {
@@ -128,6 +136,42 @@ function parsePlanContentArgs(
     value: {
       name: name.trim(),
       content,
+    },
+  };
+}
+
+function parsePlanEditArgs(
+  rawArgs: unknown
+): { ok: true; value: PlanEditArgs } | { ok: false; message: string } {
+  if (typeof rawArgs !== "object" || rawArgs === null || Array.isArray(rawArgs)) {
+    return { ok: false, message: "Arguments must be a JSON object" };
+  }
+
+  const record = rawArgs as Record<string, unknown>;
+  const name = record.name;
+  const old_string = record.old_string;
+  const new_string = record.new_string;
+  const replace_all = record.replace_all;
+
+  if (typeof name !== "string" || !name.trim()) {
+    return { ok: false, message: "name is required and must be a non-empty string" };
+  }
+
+  if (typeof old_string !== "string") {
+    return { ok: false, message: "old_string is required and must be a string" };
+  }
+
+  if (typeof new_string !== "string") {
+    return { ok: false, message: "new_string is required and must be a string" };
+  }
+
+  return {
+    ok: true,
+    value: {
+      name: name.trim(),
+      old_string,
+      new_string,
+      replace_all: typeof replace_all === "boolean" ? replace_all : false,
     },
   };
 }
@@ -263,6 +307,40 @@ export const planUpdateHandler: ToolHandler = async (rawArgs, context) => {
     "tool_plan_update",
     workspace.workspaceDir,
     args.value
+  );
+
+  if (result.ok) {
+    emitPlanFileUpdated({
+      path: result.data.path,
+      name: result.data.name,
+      action: "updated",
+    });
+  }
+
+  return result;
+};
+
+export const planEditHandler: ToolHandler = async (rawArgs, context) => {
+  const workspace = requireWorkspace(PLAN_EDIT_TOOL_NAME, context.workspaceDir);
+  if (!workspace.ok) {
+    return workspace.result;
+  }
+
+  const args = parsePlanEditArgs(rawArgs);
+  if (!args.ok) {
+    return toolFailure(PLAN_EDIT_TOOL_NAME, "invalid_arguments", args.message);
+  }
+
+  const result = await invokePlanTool<PlanFileData>(
+    PLAN_EDIT_TOOL_NAME,
+    "tool_plan_edit",
+    workspace.workspaceDir,
+    {
+      name: args.value.name,
+      oldString: args.value.old_string,
+      newString: args.value.new_string,
+      replaceAll: args.value.replace_all,
+    }
   );
 
   if (result.ok) {

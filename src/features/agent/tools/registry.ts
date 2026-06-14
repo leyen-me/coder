@@ -14,6 +14,7 @@ import {
   TODO_READ_TOOL_NAME,
   PLAN_CREATE_TOOL_NAME,
   PLAN_DELETE_TOOL_NAME,
+  PLAN_EDIT_TOOL_NAME,
   PLAN_LIST_TOOL_NAME,
   PLAN_READ_TOOL_NAME,
   PLAN_UPDATE_TOOL_NAME,
@@ -41,6 +42,7 @@ import { listSkillsHandler } from "./list-skills";
 import {
   planCreateHandler,
   planDeleteHandler,
+  planEditHandler,
   planListHandler,
   planReadHandler,
   planUpdateHandler,
@@ -89,6 +91,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [PLAN_CREATE_TOOL_NAME]: planCreateHandler,
   [PLAN_READ_TOOL_NAME]: planReadHandler,
   [PLAN_UPDATE_TOOL_NAME]: planUpdateHandler,
+  [PLAN_EDIT_TOOL_NAME]: planEditHandler,
   [PLAN_DELETE_TOOL_NAME]: planDeleteHandler,
   [PLAN_LIST_TOOL_NAME]: planListHandler,
   [SEND_EMAIL_TOOL_NAME]: sendEmailHandler,
@@ -102,6 +105,7 @@ const AGENT_MODE_EXCLUDED_TOOL_NAMES_SET = new Set([
   PLAN_CREATE_TOOL_NAME,
   PLAN_READ_TOOL_NAME,
   PLAN_UPDATE_TOOL_NAME,
+  PLAN_EDIT_TOOL_NAME,
   PLAN_DELETE_TOOL_NAME,
   PLAN_LIST_TOOL_NAME,
 ]);

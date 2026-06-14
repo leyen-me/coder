@@ -5,8 +5,8 @@ use std::time::SystemTime;
 use serde::Serialize;
 
 use super::text_file::{
-    atomic_write_bytes, count_lines, decode_text, encode_text, sha256_hex, TextFileToolError,
-    MAX_WRITE_BYTES,
+    apply_text_replacement, atomic_write_bytes, count_lines, decode_text, encode_text, sha256_hex,
+    TextFileToolError, MAX_WRITE_BYTES,
 };
 use super::workspace_path::{resolve_workspace_path, resolve_workspace_write_path, workspace_relative_path};
 
@@ -290,6 +290,47 @@ pub fn tool_plan_update(
         &relative_path,
         &validated_name,
         &content,
+    )
+}
+
+/// Apply a targeted search-and-replace edit to an existing plan file.
+/// Prefer this over plan_update for small changes.
+#[tauri::command]
+pub fn tool_plan_edit(
+    workspace_dir: String,
+    name: String,
+    old_string: String,
+    new_string: String,
+    replace_all: Option<bool>,
+) -> Result<PlanFileResult, TextFileToolError> {
+    let workspace = PathBuf::from(workspace_dir.trim());
+    if workspace.as_os_str().is_empty() {
+        return Err(TextFileToolError::new(
+            "workspace_required",
+            "workspaceDir is required",
+        ));
+    }
+
+    let (target, relative_path, validated_name) = resolve_existing_plan(&workspace, &name)?;
+    let bytes = fs::read(&target).map_err(|error| {
+        TextFileToolError::new("io_error", format!("Failed to read plan file: {error}"))
+    })?;
+    let (content, _encoding) = decode_text(&bytes).ok_or_else(|| {
+        TextFileToolError::new(
+            "unsupported_encoding",
+            "Could not decode plan file with supported text encodings",
+        )
+    })?;
+
+    let replace_all = replace_all.unwrap_or(false);
+    let updated = apply_text_replacement(&content, &old_string, &new_string, replace_all)?;
+
+    write_plan_content(
+        &workspace,
+        &target,
+        &relative_path,
+        &validated_name,
+        &updated,
     )
 }
 
