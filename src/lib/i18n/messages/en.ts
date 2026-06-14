@@ -863,5 +863,9 @@ export const enMessages = {
     branchDeleted: "Branch deleted",
     confirmForceDelete: "Branch \"{branch}\" is not fully merged. Force delete anyway?",
     operationInProgress: "Operation in progress…",
+    revertConfirmTitle: "Revert commit?",
+    revertConfirmDescription:
+      'Revert commit "{shortHash}"? This creates a new commit that undoes the changes.',
+    revertButton: "Revert",
   },
 } satisfies Messages;

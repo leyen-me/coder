@@ -449,6 +449,20 @@ pub fn git_commit(workspace_dir: String, message: String) -> Result<(), String> 
     Ok(())
 }
 
+/// Revert a commit by creating an inverse commit.
+#[tauri::command]
+pub fn git_revert(workspace_dir: String, hash: String) -> Result<(), String> {
+    let workspace = validate_git_workspace(&workspace_dir)?;
+    let trimmed = hash.trim();
+    if trimmed.is_empty() {
+        return Err("Commit hash is required".to_string());
+    }
+
+    let output = run_git(workspace, &["revert", "--no-edit", trimmed])?;
+    git_success(output, "revert")?;
+    Ok(())
+}
+
 /// Get commit log.
 /// `max_count` defaults to 50 if not provided or 0.
 /// `skip` defaults to 0 when not provided.

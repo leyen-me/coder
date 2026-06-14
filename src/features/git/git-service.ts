@@ -93,6 +93,14 @@ export async function commit(
   await invoke("git_commit", { workspaceDir, message });
 }
 
+export async function revertCommit(
+  workspaceDir: string,
+  hash: string,
+): Promise<void> {
+  assertTauri();
+  await invoke("git_revert", { workspaceDir, hash });
+}
+
 // ---------------------------------------------------------------------------
 // Log
 // ---------------------------------------------------------------------------

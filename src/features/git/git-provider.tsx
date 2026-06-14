@@ -56,6 +56,8 @@ export type GitContextValue = {
   discardFiles: (entries: GitStatusEntry[]) => Promise<void>;
   /** Discard all working tree and index changes. */
   discardAll: () => Promise<void>;
+  /** Revert a commit by creating an inverse commit. */
+  revertCommit: (hash: string) => Promise<void>;
   /** Create a commit. */
   commit: (message: string) => Promise<void>;
   /** Switch branch. */
@@ -317,6 +319,21 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
     [workspaceDir, refresh],
   );
 
+  const revertCommit = useCallback(
+    async (hash: string) => {
+      if (!workspaceDir) return;
+      setError(null);
+      try {
+        await gitService.revertCommit(workspaceDir, hash);
+        await refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Revert failed");
+        throw err;
+      }
+    },
+    [workspaceDir, refresh],
+  );
+
   const checkoutBranch = useCallback(
     async (branch: string) => {
       if (!workspaceDir) return;
@@ -450,6 +467,7 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       discardFiles,
       discardAll,
       commit,
+      revertCommit,
       checkoutBranch,
       createBranch,
       deleteBranch,
@@ -481,6 +499,7 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
       discardFiles,
       discardAll,
       commit,
+      revertCommit,
       checkoutBranch,
       createBranch,
       deleteBranch,

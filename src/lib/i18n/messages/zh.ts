@@ -819,5 +819,8 @@ export const zhMessages = {
     branchDeleted: "分支已删除",
     confirmForceDelete: "分支 \"{branch}\" 未完全合并，强制删除？",
     operationInProgress: "操作进行中…",
+    revertConfirmTitle: "回滚提交？",
+    revertConfirmDescription: "回滚提交「{shortHash}」？这将创建一个新的提交来撤销更改。",
+    revertButton: "回滚",
   },
 } satisfies Messages;

@@ -721,6 +721,9 @@ export type Messages = {
     branchDeleted: string;
     confirmForceDelete: string;
     operationInProgress: string;
+    revertConfirmTitle: string;
+    revertConfirmDescription: string;
+    revertButton: string;
   };
 };
 

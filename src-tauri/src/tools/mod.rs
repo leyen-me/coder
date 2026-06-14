@@ -34,7 +34,7 @@ pub use git::{
     git_ahead_behind, git_checkout_branch, git_commit, git_create_branch, git_delete_branch,
     git_discard_all, git_discard_files, git_delete_branch_force, git_diff, git_fetch,
     git_get_current_branch, git_get_remote_url, git_init, git_list_branches, git_log, git_pull,
-    git_push, git_stage_all, git_stage_files, git_status, git_unstage_all, git_unstage_files,
+    git_push, git_revert, git_stage_all, git_stage_files, git_status, git_unstage_all, git_unstage_files,
 };
 pub use glob::tool_glob;
 pub use grep::tool_grep;
