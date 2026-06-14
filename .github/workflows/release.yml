@@ -120,8 +120,8 @@ jobs:
           # version = YYYY.MMDD.HHMM  (each segment ≤ 65535, WiX-compatible)
           TS="${TAG#release-}"           # YYYYMMDD-HHMMSS
           YEAR="${TS:0:4}"              # YYYY
-          MMDD="${TS:4:4}"              # MMDD  (e.g. 0614, max 1231)
-          HHMM="${TS:9:4}"              # HHMM  (e.g. 1200, max 2359)
+          MMDD="$((10#${TS:4:4}))"      # MMDD  (strip leading zero: 0614→614)
+          HHMM="$((10#${TS:9:4}))"      # HHMM  (strip leading zero: 0000→0)
           VERSION="${YEAR}.${MMDD}.${HHMM}"
           echo "Setting app version to $VERSION"
 
