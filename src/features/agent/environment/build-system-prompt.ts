@@ -23,9 +23,9 @@ export function buildSystemPrompt(
 
   const modeLine =
     agentMode === "ask"
-      ? "ask (read-only: can read files, search code, browse the web, and list skills â€” cannot modify files or run shell commands)"
+      ? "ask (read-only: can read files, search code, browse the web, and list skills â€?cannot modify files or run shell commands)"
       : agentMode === "plan"
-        ? "plan (planning: can read files, search, browse, manage .plan/ files and todos â€” cannot modify project files or run shell commands)"
+        ? "plan (planning: can read files, search, browse, manage .plan/ files and todos â€?cannot modify project files or run shell commands)"
         : "agent (full tool access)";
 
   const modeGuidance =
@@ -33,7 +33,7 @@ export function buildSystemPrompt(
       ? [
           "",
           "## Mode Guidance",
-          "You are in Ask mode â€” you can only read files, search, and browse.",
+          "You are in Ask mode â€?you can only read files, search, and browse.",
           "When the user asks you to modify files, run commands, or perform any write operation:",
           "  - Explain that the task requires write access.",
           "  - Tell the user they can switch to Agent mode (click \"Agent\" next to the input) to give you full tool access.",
@@ -66,7 +66,7 @@ export function buildSystemPrompt(
     `- mode: ${modeLine}`,
     ...(isWindows ? buildWindowsGuidanceSections() : [""]),
     ...buildSystemPromptSections(environment.enabledSystemSkills),
-    ...buildUserSkillsSection(),
+    ...buildUserSkillsSection(agentMode),
     ...buildProjectInstructionsSection(environment.agentsMd),
     ...modeGuidance,
   ].join("\n");
@@ -79,7 +79,7 @@ function buildWindowsGuidanceSections(): string[] {
     "",
     "### CMD Quoting",
     "When using git commit with a message, or any command containing spaces, quotes, or special characters (& | > < ^ %):",
-    "  - DO NOT pass the command string directly through CMD â€” it will be mangled.",
+    "  - DO NOT pass the command string directly through CMD â€?it will be mangled.",
     "  - ALWAYS write the command to a temporary .ps1 file first, then execute via:",
     "    powershell -NoProfile -File temp.ps1",
     "  - After execution, delete the temp .ps1 file.",
@@ -97,7 +97,7 @@ function buildPlanModeGuidance(workspaceDir: string | null): string[] {
   const lines = [
     "",
     "## Mode Guidance",
-    "You are in Plan mode â€” research, analyze, and write a structured Markdown plan to the .plan/ directory.",
+    "You are in Plan mode â€?research, analyze, and write a structured Markdown plan to the .plan/ directory.",
     "The plan file is the source of truth. The user reviews it in the right panel Plan tab.",
     "",
     "### Plan file workflow",
@@ -170,15 +170,21 @@ function stripLeadingMarkdownH1(content: string): string {
   return content.replace(/^#\s+[^\n]+\n+/, "").trim();
 }
 
-function buildUserSkillsSection(): string[] {
+function buildUserSkillsSection(agentMode?: AgentMode): string[] {
+  const canWriteSkills = agentMode !== "plan" && agentMode !== "ask";
+
   return [
     "## User skills",
     "Custom user skills must be enabled by the user before they become available.",
     "They are NOT included in this prompt by default.",
     "- Call list_skills to browse enabled user skills (slug, name, description).",
     "- Call read_skill with a slug to load full instructions before following them.",
-    "- Call create_skill to persist new custom skills when the user wants reusable instructions.",
-    "- Call update_skill to modify an existing user skill (name, description, or content).",
+    ...(canWriteSkills
+      ? [
+          "- Call create_skill to persist new custom skills when the user wants reusable instructions.",
+          "- Call update_skill to modify an existing user skill (name, description, or content).",
+        ]
+      : []),
     "- New skills are disabled until the user enables them on the Skills page.",
     "- The user may also reference an enabled user skill via /slug in their message.",
     "",
