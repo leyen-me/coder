@@ -117,9 +117,12 @@ jobs:
         run: |
           TAG="${{ needs.prepare-tag.outputs.tag_name }}"
           # tag = release-YYYYMMDD-HHMMSS
-          # version = 0.0.YYYYMMDDHHMMSS
-          TS="${TAG#release-}"
-          VERSION="0.0.${TS//-/}"
+          # version = YYYY.MMDD.HHMM  (each segment ≤ 65535, WiX-compatible)
+          TS="${TAG#release-}"           # YYYYMMDD-HHMMSS
+          YEAR="${TS:0:4}"              # YYYY
+          MMDD="${TS:4:4}"              # MMDD  (e.g. 0614, max 1231)
+          HHMM="${TS:9:4}"              # HHMM  (e.g. 1200, max 2359)
+          VERSION="${YEAR}.${MMDD}.${HHMM}"
           echo "Setting app version to $VERSION"
 
           # Update tauri.conf.json (read by getVersion() at runtime)

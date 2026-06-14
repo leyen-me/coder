@@ -6,12 +6,8 @@ const REPO = "coder";
 const CACHE_KEY = "coder-github-release-cache";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-/**
- * Fallback version used outside Tauri (dev / browser).
- * Must be ≤ the oldest possible CI build version so dev mode never suppresses
- * a real update notification.  Using a zero timestamp achieves this.
- */
-const FALLBACK_VERSION = "0.0.00000000000000";
+/** Fallback version used outside Tauri (dev / browser). */
+const FALLBACK_VERSION = "0.0.0";
 
 type ReleaseInfo = {
   /** GitHub release ID (unique, monotonically increasing). */
@@ -49,28 +45,37 @@ function writeCachedRelease(data: ReleaseInfo): void {
 /**
  * Compare a GitHub release tag against the currently installed app version.
  *
- * The CI workflow publishes releases with tags like `release-20250614-120000`
- * and bumps the app version to `0.0.YYYYMMDDHHMMSS`.  This function extracts
- * the embedded timestamp from both sides and compares them numerically.
+ * CI publishes tags like `release-20250614-120000` and sets the app version
+ * to `YYYY.MMDD.HHMM` (each segment ≤ 65535 for WiX/MSI compatibility).
  *
- * For backward compatibility with plain semver tags (e.g. `v0.1.0`) it falls
- * back to a standard semver comparison.
+ * For backward compatibility with old semver versions (e.g. `0.1.0`) it falls
+ * back to a standard segment-by-segment comparison.
  */
 function isNewerRelease(releaseTag: string, currentVersion: string): boolean {
-  // ── Timestamp-based comparison (current CI format) ──
-  const tagMatch = releaseTag.match(/^release-(\d{8})-(\d{6})$/);
-  const verMatch = currentVersion.match(/^0\.0\.(\d{14})$/);
+  // ── Timestamp-based tag format (current CI) ──
+  //   releaseTag:  release-20250614-120000
+  //   appVersion:  2025.614.1200  (YYYY.MMDD.HHMM)
+  const tagMatch = releaseTag.match(
+    /^release-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/
+  );
 
   if (tagMatch) {
-    const releaseTs = tagMatch[1] + tagMatch[2]; // e.g. "20250614120000"
-    if (verMatch) {
-      return releaseTs > verMatch[1];
-    }
-    // Running an older build that wasn't timestamp-versioned → new release exists
-    return true;
+    const [, year, month, day, hour, minute] = tagMatch;
+    const tagMajor = Number(year);
+    const tagMinor = Number(month + day);   // MMDD, e.g. 614
+    const tagPatch = Number(hour + minute); // HHMM, e.g. 1200
+
+    const parts = currentVersion.replace(/^v/i, "").split(".").map(Number);
+    const curMajor = parts[0] ?? 0;
+    const curMinor = parts[1] ?? 0;
+    const curPatch = parts[2] ?? 0;
+
+    if (tagMajor !== curMajor) return tagMajor > curMajor;
+    if (tagMinor !== curMinor) return tagMinor > curMinor;
+    return tagPatch > curPatch;
   }
 
-  // ── Legacy plain-semver fallback ──
+  // ── Legacy plain-semver fallback (e.g. v0.1.0) ──
   const a = releaseTag.replace(/^v/i, "").split(".").map(Number);
   const b = currentVersion.replace(/^v/i, "").split(".").map(Number);
 
