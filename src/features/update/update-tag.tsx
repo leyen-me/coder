@@ -1,16 +1,17 @@
 import { useCallback } from "react";
 
+import { openUrl } from "@tauri-apps/plugin-opener";
+
 import { useGitHubRelease } from "./use-github-release";
 
 export function UpdateTag() {
-  const { hasUpdate, tag, url, markSeen } = useGitHubRelease();
+  const { hasUpdate, tag, url } = useGitHubRelease();
 
   const handleClick = useCallback(() => {
     if (url) {
-      markSeen();
-      window.open(url, "_blank");
+      void openUrl(url);
     }
-  }, [url, markSeen]);
+  }, [url]);
 
   if (!hasUpdate || !url) return null;
 

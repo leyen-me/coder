@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from "react";
 const OWNER = "leyen-me";
 const REPO = "coder";
 const CACHE_KEY = "coder-github-release-cache";
-const SEEN_KEY = "coder-github-release-seen";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 type ReleaseInfo = {
@@ -39,34 +38,14 @@ function writeCachedRelease(data: ReleaseInfo): void {
   }
 }
 
-/** The last release ID the user has already seen (clicked). */
-function readSeenReleaseId(): number | null {
-  try {
-    const raw = localStorage.getItem(SEEN_KEY);
-    return raw ? Number(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeSeenReleaseId(id: number): void {
-  try {
-    localStorage.setItem(SEEN_KEY, String(id));
-  } catch {
-    // ignore
-  }
-}
-
 export function useGitHubRelease() {
   const [releaseInfo, setReleaseInfo] = useState<ReleaseInfo | null>(
     readCachedRelease
   );
   const [loading, setLoading] = useState(false);
 
-  const seenId = readSeenReleaseId();
-  // New if we have a release and its ID differs from the last seen one
-  const hasUpdate =
-    releaseInfo !== null && releaseInfo.id !== seenId;
+  // Show the tag whenever we have a release
+  const hasUpdate = releaseInfo !== null;
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -97,15 +76,6 @@ export function useGitHubRelease() {
     }
   }, []);
 
-  /** Mark the current release as seen (user clicked the tag). */
-  const markSeen = useCallback(() => {
-    if (releaseInfo) {
-      writeSeenReleaseId(releaseInfo.id);
-      // Trigger re-render so hasUpdate becomes false immediately
-      setReleaseInfo({ ...releaseInfo });
-    }
-  }, [releaseInfo]);
-
   useEffect(() => {
     if (!releaseInfo && !loading) {
       void refresh();
@@ -117,7 +87,6 @@ export function useGitHubRelease() {
     tag: releaseInfo?.tag ?? null,
     url: releaseInfo?.url ?? null,
     loading,
-    markSeen,
     refresh,
   };
 }
