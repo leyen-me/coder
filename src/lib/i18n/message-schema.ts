@@ -44,6 +44,7 @@ export type Messages = {
     splitLayout: string;
     workbench: string;
     terminal: string;
+    bottomPanel: string;
     agentProcesses: string;
     agentProcessesRunning: string;
   };
@@ -581,6 +582,7 @@ export type Messages = {
   };
   rightPanel: {
     explorer: string;
+    panel: string;
     fileTree: string;
     plan: string;
     planBuild: string;

@@ -1,4 +1,4 @@
-import { FolderTree, SquareTerminal } from "lucide-react";
+import { PanelBottom, PanelRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,8 +15,8 @@ import { cn } from "@/lib/utils";
 
 export function SessionToolbar() {
   const { t } = useTranslation();
-  const { isOpen, activeTab, toggleTab } = useBottomPanel();
-  const isTerminalActive = isOpen && activeTab === "terminal";
+  const { isOpen, toggleTab } = useBottomPanel();
+  const isBottomActive = isOpen;
   const {
     isOpen: isRightPanelOpen,
     toggleExplorer: toggleExplorerPanel,
@@ -35,16 +35,16 @@ export function SessionToolbar() {
             size="icon-sm"
             className={cn(
               "text-muted-foreground",
-              isTerminalActive && "bg-muted text-foreground"
+              isBottomActive && "bg-muted text-foreground"
             )}
-            aria-label={t("session.terminal")}
-            aria-pressed={isTerminalActive}
+            aria-label={t("session.bottomPanel")}
+            aria-pressed={isBottomActive}
             onClick={() => toggleTab("terminal")}
           >
-            <SquareTerminal className="size-4" />
+            <PanelBottom className="size-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>{t("session.terminal")}</TooltipContent>
+        <TooltipContent>{t("session.bottomPanel")}</TooltipContent>
       </Tooltip>
 
       <Tooltip>
@@ -57,14 +57,14 @@ export function SessionToolbar() {
               "text-muted-foreground",
               isRightPanelOpen && "bg-muted text-foreground"
             )}
-            aria-label={t("rightPanel.explorer")}
+            aria-label={t("rightPanel.panel")}
             aria-pressed={isRightPanelOpen}
             onClick={toggleExplorerPanel}
           >
-            <FolderTree className="size-4" />
+            <PanelRight className="size-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>{t("rightPanel.explorer")}</TooltipContent>
+        <TooltipContent>{t("rightPanel.panel")}</TooltipContent>
       </Tooltip>
     </div>
   );

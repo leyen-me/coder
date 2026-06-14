@@ -45,6 +45,7 @@ export const zhMessages = {
     shareLink: "分享链接",
     splitLayout: "分屏布局",
     terminal: "终端",
+    bottomPanel: "底部面板",
     agentProcesses: "进程",
     agentProcessesRunning: "进程（{count} 个运行中）",
     workbench: "工作台",
@@ -666,6 +667,7 @@ export const zhMessages = {
   },
   rightPanel: {
     explorer: "资源管理器",
+    panel: "右侧面板",
     fileTree: "文件树",
     plan: "计划",
     planBuild: "执行",

@@ -45,6 +45,7 @@ export const enMessages = {
     shareLink: "Share link",
     splitLayout: "Split layout",
     terminal: "Terminal",
+    bottomPanel: "Bottom panel",
     agentProcesses: "Processes",
     agentProcessesRunning: "Processes ({count} running)",
     workbench: "Workbench",
@@ -684,6 +685,7 @@ export const enMessages = {
   },
   rightPanel: {
     explorer: "Explorer",
+    panel: "Right panel",
     fileTree: "File Tree",
     plan: "Plan",
     planBuild: "Build",
