@@ -112,6 +112,23 @@ jobs:
             pkg-config \
             libgtk-3-dev
 
+      - name: Bump version from release tag
+        shell: bash
+        run: |
+          TAG="${{ needs.prepare-tag.outputs.tag_name }}"
+          # tag = release-YYYYMMDD-HHMMSS
+          # version = 0.0.YYYYMMDDHHMMSS
+          TS="${TAG#release-}"
+          VERSION="0.0.${TS//-/}"
+          echo "Setting app version to $VERSION"
+
+          # Update tauri.conf.json (read by getVersion() at runtime)
+          jq ".version = \"$VERSION\"" src-tauri/tauri.conf.json > tmp.json \
+            && mv tmp.json src-tauri/tauri.conf.json
+
+          # Update package.json for Vite consistency
+          npm version --no-git-tag-version "$VERSION"
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
