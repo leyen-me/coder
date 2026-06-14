@@ -188,6 +188,14 @@ export const EDIT_FILE_TOOL: AgentToolDefinition = {
           type: "string",
           description: "Replacement text.",
         },
+        old_string_hex: {
+          type: "string",
+          description:
+            "Alternative to old_string. Space-separated hex bytes that encode the text to replace. " +
+            "Use this when the text contains special characters (quotes, backslashes) that are hard to " +
+            "escape correctly via old_string. Takes precedence over old_string when provided. " +
+            "Example: '68 65 6c 6c 6f' for 'hello'.",
+        },
         expected_sha256: {
           type: "string",
           description: "SHA256 hash from read_file. Rejects the edit if the file changed.",

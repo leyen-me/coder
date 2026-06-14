@@ -67,6 +67,8 @@ pub fn tool_write_file(
             ),
             mime_type: None,
             size: Some(content_bytes.len() as u64),
+            old_string_hex: None,
+            file_snippet_hex: None,
         });
     }
 

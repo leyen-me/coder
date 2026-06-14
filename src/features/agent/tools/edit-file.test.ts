@@ -29,7 +29,12 @@ describe("editFileHandler", () => {
   it("returns structured failures for missing matches", async () => {
     vi.mocked(invoke).mockRejectedValueOnce({
       code: "string_not_found",
-      message: "old_string was not found in the file",
+      message:
+        "old_string was not found in the file. " +
+        "Searched for (hex): 6d69 7373 696e 67. " +
+        "File start (hex): 61 6c 70 68 61 0a. " +
+        "Tip: use old_string_hex to bypass JSON escaping issues; " +
+        "copy the hex bytes from 'Searched for (hex)' above directly.",
     });
 
     const result = await editFileHandler(
@@ -45,7 +50,11 @@ describe("editFileHandler", () => {
       toolFailure(
         EDIT_FILE_TOOL_NAME,
         "string_not_found",
-        "old_string was not found in the file"
+        "old_string was not found in the file. " +
+          "Searched for (hex): 6d69 7373 696e 67. " +
+          "File start (hex): 61 6c 70 68 61 0a. " +
+          "Tip: use old_string_hex to bypass JSON escaping issues; " +
+          "copy the hex bytes from 'Searched for (hex)' above directly."
       )
     );
   });
@@ -84,6 +93,7 @@ describe("editFileHandler", () => {
       path: "src/main.ts",
       oldString: "const a = 1;",
       newString: "const a = 2;",
+      oldStringHex: null,
       expectedSha256: undefined,
       replaceAll: false,
       createBackup: false,

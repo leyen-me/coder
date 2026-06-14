@@ -28,6 +28,10 @@ pub struct TextFileToolError {
     pub mime_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub old_string_hex: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_snippet_hex: Option<String>,
 }
 
 impl TextFileToolError {
@@ -37,8 +41,67 @@ impl TextFileToolError {
             message: message.into(),
             mime_type: None,
             size: None,
+            old_string_hex: None,
+            file_snippet_hex: None,
         }
     }
+
+    /// Construct a `string_not_found` error with diagnostic hex fields.
+    pub fn string_not_found(old_string: &str, file_content: &str) -> Self {
+        let old_hex = bytes_to_hex_str(old_string.as_bytes());
+
+        // Take a prefix of the file for diagnostic display.
+        let snippet = if file_content.len() > 120 {
+            format!("{}...", &file_content[..120])
+        } else {
+            file_content.to_string()
+        };
+        let snippet_hex = bytes_to_hex_str(snippet.as_bytes());
+
+        Self {
+            code: "string_not_found".to_string(),
+            message: format!(
+                "old_string was not found in the file. \
+                 Searched for (hex): {old_hex}. \
+                 File start (hex): {snippet_hex}. \
+                 Tip: use old_string_hex to bypass JSON escaping issues; \
+                 copy the hex bytes from 'Searched for (hex)' above directly."
+            ),
+            mime_type: None,
+            size: None,
+            old_string_hex: Some(old_hex),
+            file_snippet_hex: Some(snippet_hex),
+        }
+    }
+}
+
+/// Encode bytes as a hex string with space separation.
+/// Example: `bytes_to_hex_str(b"hello")` → `"68 65 6c 6c 6f"`
+pub fn bytes_to_hex_str(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Decode a hex string (with optional whitespace) to bytes.
+/// Returns an error message on invalid input.
+pub fn hex_str_to_bytes(hex: &str) -> Result<Vec<u8>, String> {
+    let compact: String = hex
+        .chars()
+        .filter(|c| !c.is_ascii_whitespace())
+        .collect();
+    if compact.len() % 2 != 0 {
+        return Err("hex string must have an even number of hex digits".into());
+    }
+    (0..compact.len())
+        .step_by(2)
+        .map(|i| {
+            u8::from_str_radix(&compact[i..i + 2], 16)
+                .map_err(|_| format!("invalid hex digits: {}", &compact[i..i + 2]))
+        })
+        .collect()
 }
 
 pub fn read_binary_sample(path: &Path) -> Result<Vec<u8>, TextFileToolError> {
@@ -471,10 +534,7 @@ pub fn apply_text_replacement(
 
     let count = content_lf.matches(&old_lf).count();
     if count == 0 {
-        return Err(TextFileToolError::new(
-            "string_not_found",
-            "old_string was not found in the file",
-        ));
+        return Err(TextFileToolError::string_not_found(old_string, content));
     }
     if !replace_all && count > 1 {
         return Err(TextFileToolError::new(

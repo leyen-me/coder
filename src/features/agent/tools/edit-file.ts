@@ -8,6 +8,7 @@ type EditFileArgs = {
   path: string;
   old_string: string;
   new_string: string;
+  old_string_hex?: string;
   expected_sha256?: string;
   replace_all?: boolean;
   create_backup?: boolean;
@@ -42,6 +43,7 @@ export const editFileHandler: ToolHandler = async (rawArgs, context) => {
       path: args.value.path,
       oldString: args.value.old_string,
       newString: args.value.new_string,
+      oldStringHex: args.value.old_string_hex ?? null,
       expectedSha256: args.value.expected_sha256,
       replaceAll: args.value.replace_all ?? false,
       // Default off: .history rollback is not implemented yet (see text_file::create_backup).
@@ -88,6 +90,11 @@ function parseEditFileArgs(
     return { ok: false, message: "new_string is required and must be a string" };
   }
 
+  const oldStringHex = record.old_string_hex;
+  if (oldStringHex !== undefined && typeof oldStringHex !== "string") {
+    return { ok: false, message: "old_string_hex must be a string" };
+  }
+
   const expectedSha256 = record.expected_sha256;
   if (expectedSha256 !== undefined && typeof expectedSha256 !== "string") {
     return { ok: false, message: "expected_sha256 must be a string" };
@@ -114,6 +121,7 @@ function parseEditFileArgs(
       path,
       old_string: oldString,
       new_string: newString,
+      old_string_hex: oldStringHex,
       expected_sha256: expectedSha256,
       replace_all: replaceAll,
       create_backup: createBackup,

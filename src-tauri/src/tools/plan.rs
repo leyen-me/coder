@@ -173,6 +173,8 @@ fn write_plan_content(
             ),
             mime_type: None,
             size: Some(content.len() as u64),
+            old_string_hex: None,
+            file_snippet_hex: None,
         });
     }
 
