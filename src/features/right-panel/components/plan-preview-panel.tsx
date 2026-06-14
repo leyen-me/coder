@@ -3,7 +3,13 @@
 import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
-import { BotIcon, ClipboardListIcon, RefreshCwIcon } from "lucide-react";
+import {
+  BotIcon,
+  CheckIcon,
+  ClipboardListIcon,
+  CopyIcon,
+  RefreshCwIcon,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { subscribePlanFileUpdated } from "@/features/plan/plan-events";
@@ -38,6 +44,7 @@ export function PlanPreviewPanel({
   const [showUpdatedHint, setShowUpdatedHint] = useState(false);
   const [flashContent, setFlashContent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const lastHandledUpdateTick = useRef(0);
 
@@ -119,6 +126,22 @@ export function PlanPreviewPanel({
     }, FLASH_MS);
   }, []);
 
+  const handleCopy = useCallback(async () => {
+    if (typeof window === "undefined" || !navigator?.clipboard?.writeText) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(content);
+      setIsCopied(true);
+      window.setTimeout(() => {
+        setIsCopied(false);
+      }, 2000);
+    } catch {
+      // silently fail
+    }
+  }, [content]);
+
   useEffect(() => {
     void loadPlan();
   }, [loadPlan]);
@@ -190,7 +213,7 @@ export function PlanPreviewPanel({
           {canBuild ? (
             <button
               aria-label={t("chat.buildWithAgent")}
-              className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+              className="inline-flex h-7 items-center gap-1 rounded-md bg-primary/10 px-2 text-xs font-medium text-primary transition-colors hover:bg-primary/20 disabled:pointer-events-none disabled:opacity-50"
               disabled={planBuildActions?.isBuildPending || showSpinner}
               onClick={() => planBuildActions?.onBuild()}
               title={t("chat.buildWithAgent")}
@@ -212,6 +235,21 @@ export function PlanPreviewPanel({
           >
             <RefreshCwIcon className={cn("size-3.5", showSpinner && "animate-spin")} />
           </button>
+          {content.trim() ? (
+            <button
+              aria-label={t("rightPanel.planCopy")}
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+              onClick={handleCopy}
+              title={t("rightPanel.planCopy")}
+              type="button"
+            >
+              {isCopied ? (
+                <CheckIcon className="size-3.5 text-primary" />
+              ) : (
+                <CopyIcon className="size-3.5" />
+              )}
+            </button>
+          ) : null}
         </div>
       </div>
 

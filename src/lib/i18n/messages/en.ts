@@ -687,6 +687,7 @@ export const enMessages = {
     fileTree: "File Tree",
     plan: "Plan",
     planBuild: "Build",
+    planCopy: "Copy plan",
     planSaved: "Saved",
     planLoading: "Loading plan…",
     planEmpty: "No plan file yet. Switch to Plan mode and ask the assistant to create one.",

@@ -669,6 +669,7 @@ export const zhMessages = {
     fileTree: "文件树",
     plan: "计划",
     planBuild: "执行",
+    planCopy: "复制计划",
     planSaved: "已保存",
     planLoading: "正在加载计划…",
     planEmpty: "尚无计划文件。切换到 Plan 模式后，请让助手创建计划。",

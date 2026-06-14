@@ -584,6 +584,7 @@ export type Messages = {
     fileTree: string;
     plan: string;
     planBuild: string;
+    planCopy: string;
     planSaved: string;
     planLoading: string;
     planEmpty: string;
