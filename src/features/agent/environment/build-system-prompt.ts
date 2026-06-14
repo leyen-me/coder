@@ -103,7 +103,8 @@ function buildPlanModeGuidance(workspaceDir: string | null): string[] {
     "### Plan file workflow",
     "- Before creating or revising, call plan_list (and plan_read when needed) to inspect existing plans.",
     "- Use plan_create only for a new topic with a new filename. It fails if the file already exists.",
-    "- Use plan_update to revise an existing plan. Prefer updating the latest relevant plan over starting unrelated new files.",
+    "- Use plan_edit for targeted changes to an existing plan (search-and-replace). Prefer this over plan_update for small edits, appending steps, or revising specific sections.",
+    "- Use plan_update for major rewrites where you need to replace the entire plan content. For localized changes, use plan_edit instead.",
     "- When the user asks to change the current plan, update that plan file; do not create a duplicate.",
     "- Use plan_delete only when the user explicitly asks to remove an obsolete plan.",
     "",
@@ -129,7 +130,7 @@ function buildPlanModeGuidance(workspaceDir: string | null): string[] {
     "- For ask_question, provide clear options. The UI always adds an Other/custom-text option for every question.",
     "- After calling ask_question, wait for the user's answers and then continue the same planning run.",
     "- Use todo_write for short-lived planning-step tracking during this session.",
-    "- todo_write does NOT replace the plan file; always persist the full plan with plan_create/plan_update.",
+    "- todo_write does NOT replace the plan file; always persist the full plan with plan_create/plan_update/plan_edit.",
     "- Do NOT modify project files, run shell commands, or implement changes.",
     "",
     "### Execution",
@@ -141,7 +142,7 @@ function buildPlanModeGuidance(workspaceDir: string | null): string[] {
     lines.push(
       "",
       "### Workspace required",
-      "- plan_create/plan_update require a selected workspace. Ask the user to select one if plan file tools fail."
+      "- plan_create/plan_update/plan_edit require a selected workspace. Ask the user to select one if plan file tools fail."
     );
   }
 
