@@ -137,12 +137,14 @@ export type FileTreeFolderProps = Omit<
 > & {
   path: string;
   name: string;
+  dimmed?: boolean;
   onPointerDown?: PointerEventHandler<HTMLElement>;
 };
 
 export const FileTreeFolder = ({
   path,
   name,
+  dimmed = false,
   className,
   children,
   onPointerDown,
@@ -171,7 +173,7 @@ export const FileTreeFolder = ({
     <FileTreeFolderContext.Provider value={folderContextValue}>
       <Collapsible onOpenChange={handleOpenChange} open={isExpanded}>
         <div
-          className={cn("", className)}
+          className={cn(dimmed && "opacity-50", className)}
           role="treeitem"
           tabIndex={0}
           {...props}
@@ -235,12 +237,14 @@ const FileTreeFileContext = createContext<FileTreeFileContextType>({
 export type FileTreeFileProps = HTMLAttributes<HTMLDivElement> & {
   path: string;
   name: string;
+  dimmed?: boolean;
   icon?: ReactNode;
 };
 
 export const FileTreeFile = ({
   path,
   name,
+  dimmed = false,
   icon,
   className,
   children,
@@ -278,6 +282,7 @@ export const FileTreeFile = ({
         className={cn(
           "flex cursor-pointer items-center gap-1 rounded px-2 py-1 transition-colors hover:bg-muted/50",
           isSelected && "bg-muted",
+          dimmed && "opacity-50",
           className
         )}
         onClick={handleClick}

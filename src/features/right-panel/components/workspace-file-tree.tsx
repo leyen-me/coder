@@ -16,7 +16,7 @@ import {
   FilesIcon,
   RefreshCwIcon,
 } from "lucide-react";
-import { forwardRef, useCallback, useImperativeHandle } from "react";
+import { forwardRef, useCallback, useImperativeHandle, useState } from "react";
 
 import {
   FileTreeDeleteDialog,
@@ -28,6 +28,7 @@ import {
 } from "./file-tree-context-menu";
 import type { FilePreviewTab } from "../hooks/use-file-preview-tabs";
 import { useFileTreeActions } from "../hooks/use-file-tree-actions";
+import { useGitignore } from "../hooks/use-gitignore";
 import { useWorkspaceFileTree } from "../hooks/use-workspace-file-tree";
 import { ROOT_PATH } from "../lib/workspace-path-utils";
 
@@ -65,6 +66,7 @@ type RenderTreeEntriesOptions = {
   isExpanded: (path: string) => boolean;
   toggleExpanded: (path: string) => void;
   onRefresh: () => void;
+  isFileIgnored: (relativePath: string, isDir: boolean) => boolean;
 };
 
 function renderTreeEntries({
@@ -74,6 +76,7 @@ function renderTreeEntries({
   isExpanded,
   toggleExpanded,
   onRefresh,
+  isFileIgnored,
 }: RenderTreeEntriesOptions) {
   return entries.map((entry) => {
     const pointerDragProps = createFileTreePointerDragProps({
@@ -81,6 +84,8 @@ function renderTreeEntries({
       name: entry.name,
       path: entry.path,
     });
+
+    const isIgnored = isFileIgnored(entry.path, entry.isDir);
 
     if (entry.isDir) {
       const children = entriesByPath.get(entry.path) ?? [];
@@ -94,7 +99,12 @@ function renderTreeEntries({
           onRefresh={onRefresh}
           onToggleExpanded={() => toggleExpanded(entry.path)}
         >
-          <FileTreeFolder name={entry.name} path={entry.path} {...pointerDragProps}>
+          <FileTreeFolder
+            dimmed={isIgnored}
+            name={entry.name}
+            path={entry.path}
+            {...pointerDragProps}
+          >
             {children.length > 0
               ? renderTreeEntries({
                   entries: children,
@@ -103,6 +113,7 @@ function renderTreeEntries({
                   isExpanded,
                   toggleExpanded,
                   onRefresh,
+                  isFileIgnored,
                 })
               : null}
           </FileTreeFolder>
@@ -119,6 +130,7 @@ function renderTreeEntries({
         onToggleExpanded={() => {}}
       >
         <FileTreeFile
+          dimmed={isIgnored}
           className="cursor-grab active:cursor-grabbing"
           name={entry.name}
           path={entry.path}
@@ -145,6 +157,9 @@ export const WorkspaceFileTree = forwardRef<
 ) {
   const { t } = useTranslation();
   const tree = useWorkspaceFileTree(workspaceDir);
+  const [gitignoreRefreshTick, setGitignoreRefreshTick] = useState(0);
+  const { isIgnored } = useGitignore(workspaceDir, gitignoreRefreshTick);
+
   const actions = useFileTreeActions({
     workspaceDir,
     tree,
@@ -165,6 +180,7 @@ export const WorkspaceFileTree = forwardRef<
 
   const handleRefreshAll = useCallback(() => {
     tree.refresh({ preserveExpanded: true });
+    setGitignoreRefreshTick((c) => c + 1);
   }, [tree]);
 
   useImperativeHandle(
@@ -270,6 +286,7 @@ export const WorkspaceFileTree = forwardRef<
                   isExpanded: tree.isExpanded,
                   toggleExpanded: tree.toggleExpanded,
                   onRefresh: handleRefreshAll,
+                  isFileIgnored: isIgnored,
                 })}
               </FileTree>
             )}
