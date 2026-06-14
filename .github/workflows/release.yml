@@ -1,5 +1,5 @@
-# push 到指定分支后自动构建 Tauri 安装包并发布到 GitHub Release。
-# 每次发布使用「时间戳」作为 tag / 发布名，避免与 package 版本号冲突、且按时间唯一排序。
+# push 到 main 后自动构建 Tauri 安装包并发布到 GitHub Release。
+# 使用 GitHub Actions run_number 作为版本号（天然递增，≤ 65535，WiX 兼容）。
 name: Build and release
 
 on:
@@ -20,24 +20,27 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag_name: ${{ steps.tag.outputs.TAG }}
+      version: ${{ steps.tag.outputs.VERSION }}
       changelog: ${{ steps.changelog.outputs.CHANGELOG }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: 生成按时间的 release 标签（UTC）
+      - name: 生成 release 标签
         id: tag
         run: |
-          TAG="release-$(date -u +'%Y%m%d-%H%M%S')"
+          VERSION="0.0.${{ github.run_number }}"
+          TAG="v${VERSION}"
           echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
-          echo "本次发布标签: $TAG"
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "本次发布: $TAG"
 
       - name: 生成上次发布以来的变更日志
         id: changelog
         run: |
-          # 取最后一个 release tag，如果没有则从项目开始算
-          LAST_TAG=$(git tag --list 'release-*' --sort=-creatordate | head -1 || true)
+          # 取最后一个 tag（兼容新旧格式），如果没有则从项目开始算
+          LAST_TAG=$(git tag --list 'v0.0.*' 'release-*' --sort=-creatordate | head -1 || true)
           if [ -z "$LAST_TAG" ]; then
             RANGE="HEAD"
             echo "首个发布，无历史 tag"
@@ -112,24 +115,15 @@ jobs:
             pkg-config \
             libgtk-3-dev
 
-      - name: Bump version from release tag
+      - name: Write version to tauri.conf.json and package.json
         shell: bash
         run: |
-          TAG="${{ needs.prepare-tag.outputs.tag_name }}"
-          # tag = release-YYYYMMDD-HHMMSS
-          # version = YYYY.MMDD.HHMM  (each segment ≤ 65535, WiX-compatible)
-          TS="${TAG#release-}"           # YYYYMMDD-HHMMSS
-          YEAR="${TS:0:4}"              # YYYY
-          MMDD="$((10#${TS:4:4}))"      # MMDD  (strip leading zero: 0614→614)
-          HHMM="$((10#${TS:9:4}))"      # HHMM  (strip leading zero: 0000→0)
-          VERSION="${YEAR}.${MMDD}.${HHMM}"
+          VERSION="${{ needs.prepare-tag.outputs.version }}"
           echo "Setting app version to $VERSION"
 
-          # Update tauri.conf.json (read by getVersion() at runtime)
           jq ".version = \"$VERSION\"" src-tauri/tauri.conf.json > tmp.json \
             && mv tmp.json src-tauri/tauri.conf.json
 
-          # Update package.json for Vite consistency
           npm version --no-git-tag-version "$VERSION"
 
       - uses: tauri-apps/tauri-action@v0

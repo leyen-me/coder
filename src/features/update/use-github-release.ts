@@ -45,16 +45,17 @@ function writeCachedRelease(data: ReleaseInfo): void {
 /**
  * Compare a GitHub release tag against the currently installed app version.
  *
- * CI publishes tags like `release-20250614-120000` and sets the app version
- * to `YYYY.MMDD.HHMM` (each segment ≤ 65535 for WiX/MSI compatibility).
+ * Current CI publishes tags like `v0.0.<run_number>` and sets the app version
+ * to `0.0.<run_number>`.  Older releases used `release-YYYYMMDD-HHMMSS` tags
+ * with timestamp-based versions like `2025.614.1200`.
  *
- * For backward compatibility with old semver versions (e.g. `0.1.0`) it falls
- * back to a standard segment-by-segment comparison.
+ * This function handles both formats and the cross-format transition so that
+ * users on an old timestamp build still see new semver-format releases.
  */
 function isNewerRelease(releaseTag: string, currentVersion: string): boolean {
-  // ── Timestamp-based tag format (current CI) ──
-  //   releaseTag:  release-20250614-120000
-  //   appVersion:  2025.614.1200  (YYYY.MMDD.HHMM)
+  // ── Timestamp-based release tag (historical) ──
+  //   tag:  release-20250614-120000
+  //   ver:  2025.614.1200
   const tagMatch = releaseTag.match(
     /^release-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/
   );
@@ -62,23 +63,33 @@ function isNewerRelease(releaseTag: string, currentVersion: string): boolean {
   if (tagMatch) {
     const [, year, month, day, hour, minute] = tagMatch;
     const tagMajor = Number(year);
-    const tagMinor = Number(month + day);   // MMDD, e.g. 614
-    const tagPatch = Number(hour + minute); // HHMM, e.g. 1200
+    const tagMinor = Number(month + day);
+    const tagPatch = Number(hour + minute);
 
     const parts = currentVersion.replace(/^v/i, "").split(".").map(Number);
     const curMajor = parts[0] ?? 0;
+
+    // Cross-format: app is new semver (≤255 major) but release is old timestamp
+    // → can't compare, the on-disk version supersedes the cached old release
+    if (curMajor <= 255) return false;
+
+    // Same format: direct comparison
     const curMinor = parts[1] ?? 0;
     const curPatch = parts[2] ?? 0;
-
     if (tagMajor !== curMajor) return tagMajor > curMajor;
     if (tagMinor !== curMinor) return tagMinor > curMinor;
     return tagPatch > curPatch;
   }
 
-  // ── Legacy plain-semver fallback (e.g. v0.1.0) ──
+  // ── Semver tag (e.g. v0.0.N) ──
   const a = releaseTag.replace(/^v/i, "").split(".").map(Number);
   const b = currentVersion.replace(/^v/i, "").split(".").map(Number);
 
+  // Cross-format: app is old timestamp build (major > 255) but release is semver
+  // → the release is always newer
+  if ((b[0] ?? 0) > 255) return true;
+
+  // Standard semver comparison
   const len = Math.max(a.length, b.length);
   for (let i = 0; i < len; i++) {
     const an = a[i] ?? 0;
