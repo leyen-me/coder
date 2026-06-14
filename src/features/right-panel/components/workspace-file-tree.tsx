@@ -235,7 +235,7 @@ export const WorkspaceFileTree = forwardRef<
         </div>
       </div>
 
-      <ScrollArea className={cn("flex-1", className)}>
+      <ScrollArea className={cn("min-h-0 flex-1", className)}>
         <FileTreeBlankContextMenu
           actions={actions}
           onCollapseAll={tree.collapseAll}
