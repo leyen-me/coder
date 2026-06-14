@@ -256,13 +256,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
 
           {/* File tree or file preview */}
           <div className="relative min-h-0 flex-1">
-            {activeTabPath !== null ? (
-              <FilePreview
-                onSessionChange={setSession}
-                path={activeTabPath}
-                workspaceDir={workspaceDir}
-              />
-            ) : (
+            <div className={cn("absolute inset-0", activeTabPath !== null && "hidden")}>
               <WorkspaceFileTree
                 onFileClose={requestCloseFile}
                 onFileOpen={handleOpenFile}
@@ -270,7 +264,14 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
                 openPreviewPaths={openPreviewPaths}
                 workspaceDir={workspaceDir}
               />
-            )}
+            </div>
+            {activeTabPath !== null ? (
+              <FilePreview
+                onSessionChange={setSession}
+                path={activeTabPath}
+                workspaceDir={workspaceDir}
+              />
+            ) : null}
           </div>
         </TabsContent>
 

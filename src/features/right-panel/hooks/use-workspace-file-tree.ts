@@ -256,7 +256,11 @@ export function useWorkspaceFileTree(
   }, []);
 
   const toggleShowHidden = useCallback(() => {
-    setShowHidden((current) => !current);
+    setShowHidden((current) => {
+      const next = !current;
+      showHiddenRef.current = next;
+      return next;
+    });
     setEntriesByPath(new Map());
     if (workspaceDir) {
       void loadDirectory(ROOT_PATH);
