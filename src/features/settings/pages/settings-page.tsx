@@ -8,6 +8,7 @@ import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { DEFAULT_SETTINGS_CATEGORY } from "../constants";
 import { AppearanceSettingsPanel } from "../components/appearance-settings-panel";
+import { AboutSettingsPanel } from "../components/about-settings-panel";
 import { DataSettingsPanel } from "../components/data-settings-panel";
 import { EmailSettingsPanel } from "../components/email-settings-panel";
 import { GeneralSettingsPanel } from "../components/general-settings-panel";
@@ -27,6 +28,7 @@ const SETTINGS_PANELS: Record<SettingsCategoryId, ComponentType> = {
   data: DataSettingsPanel,
   lab: LabSettingsPanel,
   email: EmailSettingsPanel,
+  about: AboutSettingsPanel,
 };
 
 export function SettingsPage() {

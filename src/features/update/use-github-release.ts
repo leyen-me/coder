@@ -104,12 +104,20 @@ function isNewerRelease(releaseTag: string, currentVersion: string): boolean {
 /**
  * Load the current app version.
  * In Tauri runtime this reads the real version from the app metadata;
- * outside Tauri it falls back to the package.json version.
+ * outside Tauri it falls back to the fallback version.
+ * In dev mode, always returns the fallback version so that the real
+ * published release (e.g. v0.0.58) is detected as newer.
  */
 let cachedCurrentVersion: string | null = null;
 
 async function loadCurrentVersion(): Promise<string> {
   if (cachedCurrentVersion) return cachedCurrentVersion;
+
+  // In dev mode, use fallback so update detection works against real releases
+  if (import.meta.env.DEV) {
+    cachedCurrentVersion = FALLBACK_VERSION;
+    return cachedCurrentVersion;
+  }
 
   try {
     cachedCurrentVersion = await getVersion();
@@ -126,6 +134,7 @@ export function useGitHubRelease() {
   );
   const [loading, setLoading] = useState(false);
   const currentVersionRef = useRef<string | null>(null);
+  const fetchedRef = useRef(false);
 
   // Bootstrap the current version once
   useEffect(() => {
@@ -169,8 +178,10 @@ export function useGitHubRelease() {
     }
   }, []);
 
+  // Auto-fetch on mount when there is no cached release, but only once
   useEffect(() => {
-    if (!releaseInfo && !loading) {
+    if (!releaseInfo && !loading && !fetchedRef.current) {
+      fetchedRef.current = true;
       void refresh();
     }
   }, [refresh, releaseInfo, loading]);

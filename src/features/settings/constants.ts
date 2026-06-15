@@ -3,6 +3,7 @@ import {
   Database,
   FlaskConical,
   Globe,
+  Info,
   Keyboard,
   Mail,
   Palette,
@@ -43,6 +44,7 @@ export const SETTINGS_CATEGORY_GROUPS: SettingsCategoryGroup[] = [
     items: [
       { id: "data", icon: Database },
       { id: "lab", icon: FlaskConical },
+      { id: "about", icon: Info },
     ],
   },
 ];

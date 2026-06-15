@@ -228,6 +228,7 @@ export type Messages = {
       data: string;
       lab: string;
       email: string;
+      about: string;
     };
     general: {
       languageLabel: string;
@@ -444,6 +445,14 @@ export type Messages = {
       sending: string;
       testSubject: string;
       testBody: string;
+    };
+    about: {
+      currentVersion: string;
+      latestVersion: string;
+      checkUpdate: string;
+      checking: string;
+      upToDate: string;
+      viewRelease: string;
     };
   };
   lab: {
