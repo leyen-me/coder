@@ -659,7 +659,7 @@ export type Messages = {
     noProcesses: string;
     killProcess: string;
     closeSession: string;
-    closePanel: string;
+    hidePanel: string;
     addSession: string;
     loading: string;
     unavailable: string;

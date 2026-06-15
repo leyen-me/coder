@@ -1,6 +1,6 @@
 "use client";
 
-import { CpuIcon, SquareTerminal, XIcon } from "lucide-react";
+import { CpuIcon, Minus, SquareTerminal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -51,17 +51,17 @@ export function BottomPanel({ workspaceDir }: BottomPanelProps) {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                aria-label={t("terminal.closePanel")}
+                aria-label={t("terminal.hidePanel")}
                 className="ml-auto size-7 shrink-0 text-muted-foreground"
                 onClick={() => setOpen(false)}
                 size="icon-sm"
                 type="button"
                 variant="ghost"
               >
-                <XIcon className="size-3.5" />
+                <Minus className="size-3.5" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>{t("terminal.closePanel")}</TooltipContent>
+            <TooltipContent>{t("terminal.hidePanel")}</TooltipContent>
           </Tooltip>
         </div>
 

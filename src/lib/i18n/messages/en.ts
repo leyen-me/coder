@@ -765,7 +765,7 @@ export const enMessages = {
     noProcesses: "No background processes",
     killProcess: "Kill",
     closeSession: "Close terminal",
-    closePanel: "Close panel",
+    hidePanel: "Hide panel",
     addSession: "New terminal",
     loading: "Opening terminal…",
     unavailable: "Terminal is unavailable in this environment",
