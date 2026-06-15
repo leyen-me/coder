@@ -52,7 +52,13 @@ export function formatShellOutputForDisplay(output: unknown): string | null {
   }
 
   if (!data.stdout && !data.stderr) {
-    parts.push("(no output)");
+    const exitInfo =
+      data.exitCode != null ? `exit code ${data.exitCode}` : null;
+    const reason =
+      exitInfo
+        ? `no output, ${exitInfo}`
+        : "no output";
+    parts.push(`(${reason})`);
   }
 
   return parts.join("\n\n");

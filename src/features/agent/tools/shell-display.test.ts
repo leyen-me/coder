@@ -99,6 +99,75 @@ describe("shell-display", () => {
     expect(label).toBe("kill_shell: shell-123");
   });
 
+  it('shows "(no output, exit code 1)" when stdout and stderr are empty with known exit code', () => {
+    const output = formatShellOutputForDisplay({
+      ok: true,
+      tool: "shell",
+      data: {
+        command: "findstr /i \"something\"",
+        workingDirectory: "/workspace",
+        stdout: "",
+        stderr: "",
+        stdoutTruncated: false,
+        stderrTruncated: false,
+        stdoutTotalBytes: 0,
+        stderrTotalBytes: 0,
+        exitCode: 1,
+        durationMs: 500,
+        status: "failed",
+      },
+    });
+
+    expect(output).toContain("$ findstr");
+    expect(output).toContain("status: failed (exit 1)");
+    expect(output).toContain("(no output, exit code 1)");
+  });
+
+  it('shows "(no output, exit code 0)" when completed with no output', () => {
+    const output = formatShellOutputForDisplay({
+      ok: true,
+      tool: "shell",
+      data: {
+        command: "mkdir -p existing-dir",
+        workingDirectory: "/workspace",
+        stdout: "",
+        stderr: "",
+        stdoutTruncated: false,
+        stderrTruncated: false,
+        stdoutTotalBytes: 0,
+        stderrTotalBytes: 0,
+        exitCode: 0,
+        durationMs: 10,
+        status: "completed",
+      },
+    });
+
+    expect(output).toContain("(no output, exit code 0)");
+  });
+
+  it('shows "(no output)" when exit code is unknown', () => {
+    const output = formatShellOutputForDisplay({
+      ok: true,
+      tool: "shell",
+      data: {
+        command: "some-command",
+        workingDirectory: "/workspace",
+        stdout: "",
+        stderr: "",
+        stdoutTruncated: false,
+        stderrTruncated: false,
+        stdoutTotalBytes: 0,
+        stderrTotalBytes: 0,
+        exitCode: null,
+        durationMs: 5000,
+        status: "timeout",
+      },
+    });
+
+    expect(output).toContain("(no output)");
+    expect(output).not.toContain("exit code");
+  });
+
   it("formats timed-out shell output so AI and UI can read partial stdout", () => {
     const output = formatShellOutputForDisplay({
       ok: true,
