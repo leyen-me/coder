@@ -35,6 +35,13 @@ export const zhMessages = {
     clearChatFilters: "清除筛选",
     noMatchingChats: "没有符合筛选条件的聊天",
     agentRunning: "Agent 运行中",
+    exportChat: "导出",
+    deleteChat: "删除",
+    deleteChatConfirmTitle: "删除聊天？",
+    deleteChatConfirmDescription:
+      "此操作将永久删除该聊天及其所有消息，且无法恢复。",
+    exportChatSuccess: "聊天已导出成功",
+    deleteChatSuccess: "聊天已删除",
   },
   session: {
     newChat: "新建聊天",

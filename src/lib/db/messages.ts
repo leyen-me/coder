@@ -128,6 +128,20 @@ export async function setMessageStatus(
   return updateMessage(messageId, { status, error });
 }
 
+export async function deleteMessagesBySession(
+  sessionId: string
+): Promise<void> {
+  const db = await getDb();
+  const messages = await db.getAllFromIndex(
+    MESSAGES_STORE,
+    "by-sessionId",
+    sessionId
+  );
+  await Promise.all(
+    messages.map((message) => db.delete(MESSAGES_STORE, message.id))
+  );
+}
+
 export async function deleteMessagesAfter(
   sessionId: string,
   messageId: string

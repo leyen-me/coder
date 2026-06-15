@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import {
   Plus,
   Search,
@@ -6,6 +7,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { useMatch } from "react-router-dom";
+import { toast } from "sonner";
 
 import { paths } from "@/app/paths";
 import { APP_SIDEBAR_WIDTH_PX } from "@/components/layout/constants";
@@ -14,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { useGeneratingSessionTitles } from "@/features/agent/session-title-store";
 import { useRunningSessionIds } from "@/features/agent/store/agent-store";
 import { useChatSessions } from "@/features/chat/hooks/use-chat-sessions";
+import { deleteSession, getMessagesBySession, getSession } from "@/lib/db";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -27,9 +30,78 @@ type AppSidebarProps = {
   open: boolean;
 };
 
+function formatDate(timestamp: number): string {
+  return new Date(timestamp).toISOString().replace("T", " ").slice(0, 19);
+}
+
+function formatRole(role: string): string {
+  return role === "user" ? "User" : "Assistant";
+}
+
+async function exportSessionAsMarkdown(sessionId: string): Promise<void> {
+  const session = await getSession(sessionId);
+  if (!session) return;
+
+  const messages = await getMessagesBySession(sessionId);
+
+  const lines: string[] = [];
+
+  // Title
+  lines.push(`# ${session.title}`);
+  lines.push("");
+
+  // Metadata
+  lines.push(`- **Model**: ${session.model}`);
+  lines.push(`- **Created**: ${formatDate(session.createdAt)}`);
+  lines.push(`- **Messages**: ${messages.length}`);
+  if (session.workspaceDir) {
+    lines.push(`- **Workspace**: \`${session.workspaceDir}\``);
+  }
+  lines.push("");
+
+  // Messages
+  for (const message of messages) {
+    lines.push("---");
+    lines.push("");
+    lines.push(`## ${formatRole(message.role)}`);
+    lines.push("");
+
+    if (message.content) {
+      lines.push(message.content);
+      lines.push("");
+    }
+
+    if (message.thinking) {
+      lines.push("> **Thinking**");
+      lines.push(">");
+      lines.push(`> ${message.thinking.replace(/\n/g, "\n> ")}`);
+      lines.push("");
+    }
+
+    if (message.toolInvocations && message.toolInvocations.length > 0) {
+      lines.push("### Tool Calls");
+      for (const tool of message.toolInvocations) {
+        lines.push(`- \`${tool.name}\` (${tool.state})`);
+      }
+      lines.push("");
+    }
+  }
+
+  const markdown = lines.join("\n");
+  const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${session.title || sessionId}.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export function AppSidebar({ open }: AppSidebarProps) {
   const { t } = useLocale();
-  const { sessions } = useChatSessions();
+  const { sessions, refresh } = useChatSessions();
   const generatingTitleIds = useGeneratingSessionTitles();
   const runningSessionIds = useRunningSessionIds();
   const { open: openSearch } = useSearchDialog();
@@ -39,6 +111,27 @@ export function AppSidebar({ open }: AppSidebarProps) {
     chatMatch?.params.chatId && chatMatch.params.chatId !== "new"
       ? chatMatch.params.chatId
       : null;
+
+  const handleDeleteSession = useCallback(
+    async (sessionId: string) => {
+      await deleteSession(sessionId);
+      await refresh();
+      toast.success(t("sidebar.deleteChatSuccess"));
+    },
+    [refresh, t]
+  );
+
+  const handleExportSession = useCallback(
+    async (sessionId: string) => {
+      try {
+        await exportSessionAsMarkdown(sessionId);
+        toast.success(t("sidebar.exportChatSuccess"));
+      } catch (error) {
+        console.error("Failed to export session:", error);
+      }
+    },
+    [t]
+  );
 
   return (
     <>
@@ -94,6 +187,8 @@ export function AppSidebar({ open }: AppSidebarProps) {
             selectedId={selectedChatId}
             generatingTitleIds={generatingTitleIds}
             runningSessionIds={runningSessionIds}
+            onDeleteSession={handleDeleteSession}
+            onExportSession={handleExportSession}
           />
 
           <div className="flex shrink-0 flex-col gap-0.5 border-t border-sidebar-border p-2">
@@ -107,7 +202,6 @@ export function AppSidebar({ open }: AppSidebarProps) {
           </div>
         </aside>
       </div>
-
     </>
   );
 }

@@ -33,6 +33,12 @@ export type Messages = {
     clearChatFilters: string;
     noMatchingChats: string;
     agentRunning: string;
+    exportChat: string;
+    deleteChat: string;
+    deleteChatConfirmTitle: string;
+    deleteChatConfirmDescription: string;
+    exportChatSuccess: string;
+    deleteChatSuccess: string;
   };
   session: {
     newChat: string;

@@ -35,6 +35,13 @@ export const enMessages = {
     clearChatFilters: "Clear filters",
     noMatchingChats: "No chats match these filters",
     agentRunning: "Agent running",
+    exportChat: "Export",
+    deleteChat: "Delete",
+    deleteChatConfirmTitle: "Delete chat?",
+    deleteChatConfirmDescription:
+      "This will permanently delete this chat and all its messages. This cannot be undone.",
+    exportChatSuccess: "Chat exported successfully",
+    deleteChatSuccess: "Chat deleted",
   },
   session: {
     newChat: "New chat",

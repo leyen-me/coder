@@ -1,5 +1,6 @@
 import { getDb } from "./client";
 import { SESSIONS_STORE } from "./constants";
+import { deleteMessagesBySession } from "./messages";
 import { normalizeSessionRecord } from "./normalize-session";
 import { notifyDbChange } from "./subscriptions";
 import type {
@@ -128,6 +129,16 @@ export async function listSessions(limit = 50): Promise<SessionRecord[]> {
     .reverse()
     .slice(0, limit)
     .map((session) => normalizeSessionRecord(session));
+}
+
+export async function deleteSession(
+  sessionId: string
+): Promise<void> {
+  const db = await getDb();
+  await db.delete(SESSIONS_STORE, sessionId);
+  // Also delete all messages belonging to this session
+  await deleteMessagesBySession(sessionId);
+  notifyDbChange();
 }
 
 export async function searchSessions(query: string, limit = 20): Promise<SessionRecord[]> {
