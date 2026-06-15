@@ -478,6 +478,10 @@ export const zhMessages = {
       responseStyleMemeName: "玩梗",
       responseStyleRoastName: "嘴臭",
       responseStyleFunnyName: "搞笑",
+      providerUsageLabel: "Provider 用量",
+      providerUsageDescription:
+        "在标题栏显示当前 provider 的 API 用量和余额",
+      providerUsageAriaLabel: "启用 Provider 用量显示",
     },
     email: {
       providerLabel: "邮件服务商",

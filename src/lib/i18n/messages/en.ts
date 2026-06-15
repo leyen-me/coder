@@ -491,6 +491,10 @@ export const enMessages = {
       responseStyleMemeName: "Meme",
       responseStyleRoastName: "Roast",
       responseStyleFunnyName: "Funny",
+      providerUsageLabel: "Provider usage",
+      providerUsageDescription:
+        "Show the current provider's API usage and balance in the title bar",
+      providerUsageAriaLabel: "Enable provider usage display",
     },
     email: {
       providerLabel: "Email provider",

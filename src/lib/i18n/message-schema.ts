@@ -400,6 +400,9 @@ export type Messages = {
       responseStyleMemeName: string;
       responseStyleRoastName: string;
       responseStyleFunnyName: string;
+      providerUsageLabel: string;
+      providerUsageDescription: string;
+      providerUsageAriaLabel: string;
     };
     email: {
       providerLabel: string;
