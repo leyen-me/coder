@@ -53,6 +53,11 @@ fn cleanup_background_shells(app: &tauri::AppHandle) {
     }
 }
 
+#[tauri::command]
+fn write_text_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(&path, &content).map_err(|e| format!("Failed to write file: {e}"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -134,6 +139,7 @@ pub fn run() {
             git_fetch,
             git_get_remote_url,
             send_email,
+            write_text_file,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
