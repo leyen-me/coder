@@ -494,6 +494,15 @@ pub fn atomic_write_bytes(
         })?;
     }
 
+    // On Windows, std::fs::rename does not atomically overwrite the destination
+    // (depends on Rust/Windows version). Removing the target first ensures the
+    // rename always succeeds, preventing crashes on the second consecutive write
+    // to the same file (e.g. plan_edit called twice in plan mode).
+    #[cfg(windows)]
+    {
+        let _ = fs::remove_file(path);
+    }
+
     fs::rename(&tmp_path, path).map_err(|error| {
         let _ = fs::remove_file(&tmp_path);
         TextFileToolError::new("io_error", format!("Failed to replace file: {error}"))
@@ -507,11 +516,14 @@ fn temporary_write_path(path: &Path) -> PathBuf {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
         .unwrap_or(0);
+    let pid = std::process::id();
     let file_name = path
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("file");
-    path.with_file_name(format!("{file_name}.{nanos}.tmp"))
+    // Include process ID to prevent collisions when two calls fall within the
+    // same system-time-resolution window (~100ns on Windows).
+    path.with_file_name(format!("{file_name}.{nanos}.{pid}.tmp"))
 }
 
 pub fn apply_text_replacement(
