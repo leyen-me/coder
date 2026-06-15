@@ -5,6 +5,7 @@ const OWNER = "leyen-me";
 const REPO = "coder";
 const CACHE_KEY = "coder-github-release-cache";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const RELEASES_URL = `https://github.com/${OWNER}/${REPO}/releases`;
 
 /** Fallback version used outside Tauri (dev / browser). */
 const FALLBACK_VERSION = "0.0.0";
@@ -157,7 +158,7 @@ export function useGitHubRelease() {
       const info: ReleaseInfo = {
         id: json.id,
         tag: json.tag_name,
-        url: json.html_url,
+        url: RELEASES_URL,
       };
       setReleaseInfo(info);
       writeCachedRelease(info);
