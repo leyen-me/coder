@@ -20,7 +20,7 @@ export function SessionToolbar() {
   const isBottomActive = isOpen;
   const {
     isOpen: isRightPanelOpen,
-    toggleExplorer: toggleExplorerPanel,
+    toggle: toggleRightPanel,
   } = useRightPanel();
 
   return (
@@ -61,7 +61,7 @@ export function SessionToolbar() {
             )}
             aria-label={t("rightPanel.panel")}
             aria-pressed={isRightPanelOpen}
-            onClick={toggleExplorerPanel}
+            onClick={toggleRightPanel}
           >
             <PanelRight className="size-4" />
           </Button>
