@@ -30,6 +30,7 @@ import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { useWebTools } from "@/lib/web-tools/web-tools-provider";
 import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
+import { appEventBus } from "@/lib/event-bus";
 import { runAgentWithTools } from "../agent-loop";
 import { buildAgentMessages } from "../build-agent-messages";
 import { isAgentCancellationError } from "../cancellation";
@@ -121,7 +122,7 @@ type AgentStoreProviderProps = {
   children: ReactNode;
 };
 
-function isTerminalStatus(status: AgentStatus): boolean {
+function isTerminalStatus(status: AgentStatus): status is "completed" | "failed" | "cancelled" {
   return (
     status === "completed" ||
     status === "cancelled" ||
@@ -583,6 +584,11 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
                 })();
               }, TERMINAL_STATUS_SETTLE_DELAY_MS)
             );
+
+            appEventBus.emit("agent:task_completed", {
+              taskId: event.taskId,
+              status: event.status,
+            });
           }
 
           emit();

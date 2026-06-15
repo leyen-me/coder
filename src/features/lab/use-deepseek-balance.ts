@@ -5,6 +5,7 @@ import { PRESET_PROVIDERS } from "@/lib/model-provider/constants";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
 import { fetchDeepSeekBalance, type DeepSeekBalanceResponse } from "./deepseek-balance";
+import { appEventBus } from "@/lib/event-bus";
 
 type BalanceCondition =
   | { type: "loading" }
@@ -81,6 +82,14 @@ export function useDeepSeekBalance() {
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  // Auto-refresh after each agent task completes
+  useEffect(() => {
+    const unsubscribe = appEventBus.on("agent:task_completed", () => {
+      void refresh();
+    });
+    return unsubscribe;
   }, [refresh]);
 
   return { condition, refresh };
