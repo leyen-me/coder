@@ -152,7 +152,6 @@ export function ChatHistoryList({
                         <Pencil className="size-4" />
                         {t("sidebar.editChat")}
                       </ContextMenuItem>
-                      <ContextMenuSeparator />
                       <ContextMenuItem onClick={() => onExportSession(item.id)}>
                         <Download className="size-4" />
                         {t("sidebar.exportChat")}
