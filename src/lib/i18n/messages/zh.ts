@@ -419,7 +419,7 @@ export const zhMessages = {
       thinkingDisabledParamsAriaLabel: "关闭思考时的 API 参数",
       thinkingDefaultEnabledLabel: "默认开启深度思考",
       showUsageLabel: "显示用量",
-      showUsageDescription: "在工具栏显示此 provider 的 API 用量和余额",
+      showUsageDescription: "在工具栏显示此提供商的 API 用量和余额",
       showUsageAriaLabel: "切换用量显示",
     },
     webTools: {
