@@ -269,6 +269,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
           model,
           thinkingEnabled,
           agentMode: "agent",
+          skillSlugs: [],
         });
       } catch (error) {
         notifySendMessageError(error, (key, params) =>
@@ -304,7 +305,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   }, [handleBuildFromPlan, isBuildPending, isRunning, setPlanBuildActions]);
 
   const handleSend = useCallback(
-    async (payload: { text: string; files: FileUIPart[] }) => {
+    async (payload: { text: string; files: FileUIPart[]; skillSlugs?: string[] }) => {
       const trimmed = payload.text.trim();
       const hasImages = payload.files.length > 0;
       if (!trimmed && !hasImages) {
@@ -364,6 +365,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         {
           text: finalText,
           files: payload.files,
+          skillSlugs: payload.skillSlugs,
         },
         {
           editMessageId: editingId ?? undefined,

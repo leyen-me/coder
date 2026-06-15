@@ -6,8 +6,6 @@ const WORKSPACE_REFERENCE_NODE = "workspaceReference";
 const SKILL_REFERENCE_NODE = "skillReference";
 const MENTION_PATTERN = /@([^\s@]+)/g;
 const SKILL_SLUG_PATTERN = /\/([a-z0-9]+(?:-[a-z0-9]+)*)/g;
-const INLINE_TOKEN_PATTERN =
-  /@([^\s@]+)|\/([a-z0-9]+(?:-[a-z0-9]+)*)/g;
 
 export type WorkspaceReferenceAttrs = {
   path: string;
@@ -161,46 +159,18 @@ export function editorHasWorkspaceReferences(editor: Editor): boolean {
 
 export function deserializeAgentTextToDoc(text: string): JSONContent {
   const paragraphContent: JSONContent[] = [];
-  let lastIndex = 0;
 
-  for (const match of text.matchAll(INLINE_TOKEN_PATTERN)) {
-    const index = match.index ?? 0;
-
-    if (index > lastIndex) {
-      paragraphContent.push({
-        type: "text",
-        text: text.slice(lastIndex, index),
-      });
-    }
-
-    if (match[1]) {
-      paragraphContent.push({
-        type: WORKSPACE_REFERENCE_NODE,
-        attrs: resolveWorkspaceReferenceAttrs(match[1]),
-      });
-    } else if (match[2]) {
-      paragraphContent.push({
-        type: SKILL_REFERENCE_NODE,
-        attrs: resolveSkillReferenceAttrs(match[2]),
-      });
-    }
-
-    lastIndex = index + match[0].length;
-  }
-
-  if (lastIndex < text.length) {
-    paragraphContent.push({
-      type: "text",
-      text: text.slice(lastIndex),
-    });
-  }
+  paragraphContent.push({
+    type: "text",
+    text,
+  });
 
   return {
     type: "doc",
     content: [
       {
         type: "paragraph",
-        content: paragraphContent.length > 0 ? paragraphContent : undefined,
+        content: paragraphContent,
       },
     ],
   };
