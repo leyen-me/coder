@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   type CompositionEvent,
+  type MutableRefObject,
 } from "react";
 
 import { usePromptInputAttachments } from "@/components/ai-elements/prompt-input";
@@ -52,6 +53,7 @@ export type ComposerRichInputProps = {
   disabled?: boolean;
   onCancelEdit?: () => void;
   workspaceDir?: string | null;
+  editorRef?: MutableRefObject<Editor | null>;
 };
 
 export function ComposerRichInput({
@@ -62,6 +64,7 @@ export function ComposerRichInput({
   disabled = false,
   onCancelEdit,
   workspaceDir,
+  editorRef: externalEditorRef,
 }: ComposerRichInputProps) {
   const attachments = usePromptInputAttachments();
   const isComposingRef = useRef(false);
@@ -420,7 +423,10 @@ export function ComposerRichInput({
 
   useEffect(() => {
     editorRef.current = editor ?? null;
-  }, [editor]);
+    if (externalEditorRef) {
+      externalEditorRef.current = editor ?? null;
+    }
+  }, [editor, externalEditorRef]);
 
   useEffect(() => {
     if (!editor) {

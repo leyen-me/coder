@@ -170,7 +170,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
   const sendPayload = useCallback(
     async (
-      payload: { text: string; files: FileUIPart[] },
+      payload: { text: string; files: FileUIPart[]; skillSlugs?: string[] },
       options?: {
         editMessageId?: string;
         restorePromptOnError?: boolean;
@@ -196,6 +196,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
           thinkingEnabled,
           editMessageId: options?.editMessageId,
           agentMode,
+          skillSlugs: payload.skillSlugs,
         });
         return true;
       } catch (error) {

@@ -115,6 +115,21 @@ export function serializeEditorToAgentText(editor: Editor): string {
   return lines.join("\n").trim();
 }
 
+export function extractSkillSlugsFromEditor(editor: Editor): string[] {
+  const slugs: string[] = [];
+
+  editor.state.doc.descendants((node) => {
+    if (node.type.name === SKILL_REFERENCE_NODE) {
+      const slug = node.attrs.slug as string | undefined;
+      if (typeof slug === "string" && slug.length > 0) {
+        slugs.push(slug);
+      }
+    }
+  });
+
+  return slugs;
+}
+
 export function editorHasInlineReferences(editor: Editor): boolean {
   let found = false;
 

@@ -34,7 +34,7 @@ import { runAgentWithTools } from "../agent-loop";
 import { buildAgentMessages } from "../build-agent-messages";
 import { isAgentCancellationError } from "../cancellation";
 import { SkillReferenceValidationError } from "@/features/skills/lib/skill-errors";
-import { validateSkillReferencesForSend } from "@/features/skills/lib/resolve-skills";
+import { resolveEnabledSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
 import { extractSkillSlugsFromText } from "@/features/skills/lib/parse-skill-references";
 import { mergeProcessSteps } from "../process-steps";
 import { createStreamingBufferManager } from "../streaming-buffer";
@@ -96,6 +96,7 @@ type AgentStoreValue = {
     images?: readonly FileUIPart[];
     editMessageId?: string;
     agentMode?: AgentMode;
+    skillSlugs?: string[];
   }) => Promise<{ userMessageId: string; assistantMessageId: string; taskId: string }>;
   regenerateMessage: (input: {
     sessionId: string;
@@ -1014,6 +1015,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       images?: readonly FileUIPart[];
       editMessageId?: string;
       agentMode?: AgentMode;
+      skillSlugs?: string[];
     }) => {
       const trimmed = input.content.trim();
       const storedImages = fileUIPartsToStoredImages(input.images ?? []);
@@ -1021,14 +1023,23 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         throw new Error("Message content is required");
       }
 
-      const skillValidation = await validateSkillReferencesForSend(trimmed);
-      if (!skillValidation.ok) {
-        throw new SkillReferenceValidationError(
-          skillValidation.error,
-          skillValidation.slug
-        );
+      // Prefer explicit skill slugs from the editor (derived from actual
+      // skillReference nodes) over regex-based extraction from text. This
+      // prevents plain-text /xxx from being falsely treated as skill references.
+      const skillSlugs =
+        input.skillSlugs ??
+        (trimmed ? extractSkillSlugsFromText(trimmed) : []);
+
+      if (skillSlugs.length > 0) {
+        const skillValidation = await resolveEnabledSkillsBySlugs(skillSlugs);
+        if (!skillValidation.ok) {
+          throw new SkillReferenceValidationError(
+            skillValidation.error,
+            skillValidation.slug
+          );
+        }
       }
-      const referencedSkills = extractSkillSlugsFromText(trimmed);
+      const referencedSkillsToStore = skillSlugs.length > 0 ? skillSlugs : undefined;
 
       writeLastSelectedModel(input.model);
 
@@ -1073,8 +1084,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         const updated = await updateMessage(input.editMessageId, {
           content: trimmed,
           images: storedImages.length > 0 ? storedImages : undefined,
-          referencedSkills:
-            referencedSkills.length > 0 ? referencedSkills : undefined,
+          referencedSkills: referencedSkillsToStore,
         });
         if (!updated) {
           throw new Error(`Message not found: ${input.editMessageId}`);
@@ -1089,8 +1099,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           role: "user",
           content: trimmed,
           images: storedImages.length > 0 ? storedImages : undefined,
-          referencedSkills:
-            referencedSkills.length > 0 ? referencedSkills : undefined,
+          referencedSkills: referencedSkillsToStore,
           thinking: "",
           processSteps: [],
           toolInvocations: [],

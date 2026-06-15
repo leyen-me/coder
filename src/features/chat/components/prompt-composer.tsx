@@ -1,4 +1,5 @@
 import type { ChatStatus, FileUIPart } from "ai";
+import type { Editor } from "@tiptap/core";
 import { BrainIcon, BotIcon, ChevronDownIcon, ClipboardListIcon, FileQuestionIcon, FolderOpenIcon, GitBranchIcon, XIcon } from "lucide-react";
 import {
   useCallback,
@@ -53,6 +54,7 @@ import { useRegisterHotkeyAction } from "@/features/keyboard-shortcuts/hotkey-ac
 import { ComposerContextUsage } from "./composer-context-usage";
 import { ComposerEditTag } from "./composer-edit-tag";
 import { ComposerRichInput } from "./composer-rich-input";
+import { extractSkillSlugsFromEditor } from "../lib/composer-serialize";
 import {
   composerFooterControlActiveClassName,
   composerFooterControlClassName,
@@ -73,7 +75,7 @@ type PromptInputAttachmentError = {
 type PromptComposerProps = {
   value: string;
   onChange: (value: string) => void;
-  onSend?: (payload: { text: string; files: FileUIPart[] }) => void;
+  onSend?: (payload: { text: string; files: FileUIPart[]; skillSlugs?: string[] }) => void;
   onStop?: () => void;
   model: string;
   models: readonly ModelDefinition[];
@@ -389,6 +391,7 @@ export function PromptComposer({
   const { t } = useTranslation();
   const isCompact = variant === "compact";
   const isEditing = Boolean(onCancelEdit);
+  const editorRef = useRef<Editor | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const submitStatus = resolveSubmitStatus(isRunning, Boolean(onStop));
   const showBranch =
@@ -494,10 +497,18 @@ export function PromptComposer({
         return;
       }
 
+      // Extract skill slugs from the editor document tree (actual skillReference
+      // nodes) rather than regex-matching the serialized text. This prevents
+      // plain-text /xxx from being falsely treated as skill references.
+      const skillSlugs = editorRef.current
+        ? extractSkillSlugsFromEditor(editorRef.current)
+        : [];
+
       onChange("");
       onSend?.({
         text,
         files: supportsMultimodal ? message.files : [],
+        skillSlugs,
       });
     },
     [onChange, onSend, supportsMultimodal, value]
@@ -550,6 +561,7 @@ export function PromptComposer({
 
       <PromptInputBody>
         <ComposerRichInput
+          editorRef={editorRef}
           onCancelEdit={onCancelEdit}
           onChange={onChange}
           placeholder={

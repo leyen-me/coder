@@ -51,7 +51,7 @@ export function NewChatView() {
     enabled: true,
   });
 
-  const handleSend = async (payload: { text: string; files: FileUIPart[] }) => {
+  const handleSend = async (payload: { text: string; files: FileUIPart[]; skillSlugs?: string[] }) => {
     const trimmed = payload.text.trim();
     const hasImages = payload.files.length > 0;
     if ((!trimmed && !hasImages) || isSubmitting) {
@@ -87,6 +87,7 @@ export function NewChatView() {
         model,
         thinkingEnabled,
         agentMode,
+        skillSlugs: payload.skillSlugs,
       });
     } catch (error) {
       notifySendMessageError(error, (key, params) =>
