@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 import { PRESET_PROVIDERS } from "@/lib/model-provider/constants";
+import { resolveProviderConfig } from "@/lib/model-provider/resolve-provider-config";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
 import { fetchDeepSeekBalance, type DeepSeekBalanceResponse } from "./deepseek-balance";
@@ -39,27 +40,28 @@ async function resolveApiKey(
 }
 
 export function useDeepSeekBalance() {
-  const { resolved } = useModelProvider();
+  const { settings } = useModelProvider();
   const [condition, setCondition] = useState<BalanceCondition>({
     type: "loading",
   });
 
   const refresh = useCallback(async () => {
-    if (resolved.provider !== "deepseek") {
+    const deepseekConfig = resolveProviderConfig(settings, "deepseek");
+    if (deepseekConfig.provider !== "deepseek") {
       setCondition({
         type: "no_deepseek",
-        reason: `Active provider is ${resolved.provider}, not deepseek`,
+        reason: `Active provider is ${deepseekConfig.provider}, not deepseek`,
       });
       return;
     }
 
-    const apiKey = await resolveApiKey(resolved);
+    const apiKey = await resolveApiKey(deepseekConfig);
 
     if (!apiKey) {
-      if (resolved.apiKeySource === "env") {
+      if (deepseekConfig.apiKeySource === "env") {
         setCondition({
           type: "env_key",
-          envVar: resolved.apiKeyEnvVar.trim() || PRESET_PROVIDERS.deepseek.defaultApiKeyEnvVar,
+          envVar: deepseekConfig.apiKeyEnvVar.trim() || PRESET_PROVIDERS.deepseek.defaultApiKeyEnvVar,
         });
       } else {
         setCondition({ type: "no_key" });
@@ -78,7 +80,7 @@ export function useDeepSeekBalance() {
         message: err instanceof Error ? err.message : "Failed to fetch balance",
       });
     }
-  }, [resolved]);
+  }, [settings]);
 
   useEffect(() => {
     void refresh();
