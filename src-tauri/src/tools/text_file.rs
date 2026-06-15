@@ -46,47 +46,25 @@ impl TextFileToolError {
         }
     }
 
-    /// Construct a `string_not_found` error with diagnostic hex fields.
-    pub fn string_not_found(old_string: &str, file_content: &str) -> Self {
-        let old_hex = bytes_to_hex_str(old_string.as_bytes());
-
-        // Take a prefix of the file for diagnostic display.
-        let snippet = if file_content.len() > 120 {
-            format!("{}...", &file_content[..120])
-        } else {
-            file_content.to_string()
-        };
-        let snippet_hex = bytes_to_hex_str(snippet.as_bytes());
-
+    /// Construct a `string_not_found` error for an unmatched edit target.
+    pub fn string_not_found(_old_string: &str, _file_content: &str) -> Self {
         Self {
             code: "string_not_found".to_string(),
             message: format!(
                 "old_string was not found in the file. \
-                 Searched for (hex): {old_hex}. \
-                 File start (hex): {snippet_hex}. \
-                 Tip: use old_string_hex to bypass JSON escaping issues; \
-                 copy the hex bytes from 'Searched for (hex)' above directly."
+                 This is likely because double quotes or backslashes inside \
+                 the string were incorrectly escaped during JSON serialization. \
+                 Re-read the file and try again, ensuring characters like \
+                 `\"` and `\\` are escaped only once."
             ),
             mime_type: None,
             size: None,
-            old_string_hex: Some(old_hex),
-            file_snippet_hex: Some(snippet_hex),
+            old_string_hex: None,
+            file_snippet_hex: None,
         }
     }
 }
 
-/// Encode bytes as a hex string with space separation.
-/// Example: `bytes_to_hex_str(b"hello")` → `"68 65 6c 6c 6f"`
-pub fn bytes_to_hex_str(bytes: &[u8]) -> String {
-    bytes
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-/// Decode a hex string (with optional whitespace) to bytes.
-/// Returns an error message on invalid input.
 pub fn hex_str_to_bytes(hex: &str) -> Result<Vec<u8>, String> {
     let compact: String = hex
         .chars()
@@ -534,6 +512,24 @@ pub fn apply_text_replacement(
 
     let count = content_lf.matches(&old_lf).count();
     if count == 0 {
+        // Fallback: if old_string contains JSON escape sequences (e.g. \")
+        // that likely resulted from double-escaping in the LLM tool call,
+        // try unescaping once and match again.
+        let unescaped = unescape_json_string(&old_lf);
+        let fallback_count = if unescaped != old_lf {
+            content_lf.matches(&unescaped).count()
+        } else {
+            0
+        };
+        if fallback_count > 0 {
+            // Use the unescaped version for replacement.
+            let updated_lf = if replace_all {
+                content_lf.replace(&unescaped, &new_lf)
+            } else {
+                content_lf.replacen(&unescaped, &new_lf, 1)
+            };
+            return Ok(normalize_line_endings(&updated_lf, ending));
+        }
         return Err(TextFileToolError::string_not_found(old_string, content));
     }
     if !replace_all && count > 1 {
@@ -552,6 +548,33 @@ pub fn apply_text_replacement(
     };
 
     Ok(normalize_line_endings(&updated_lf, ending))
+}
+
+/// Apply single-level JSON unescaping to recover from double-escaped
+/// LLM tool-call arguments. Only handles the common cases:
+///   `\"` → `"`,  `\\` → `\`,  `\n` → newline,  `\t` → tab,  `\/` → `/`
+fn unescape_json_string(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('"') => result.push('"'),
+                Some('\\') => result.push('\\'),
+                Some('n') => result.push('\n'),
+                Some('t') => result.push('\t'),
+                Some('/') => result.push('/'),
+                Some(other) => {
+                    result.push('\\');
+                    result.push(other);
+                }
+                None => result.push('\\'),
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
 }
 
 /// Copies the file into `.history/` before a write. Reserved for future rollback/undo;
@@ -687,5 +710,50 @@ mod tests {
         atomic_write_bytes(&target, b"hello", None).expect("write");
         assert_eq!(fs::read(&target).expect("read"), b"hello");
         let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn unescapes_json_double_quotes() {
+        assert_eq!(super::unescape_json_string(r#"foo \"bar\""#), "foo \"bar\"");
+    }
+
+    #[test]
+    fn unescapes_json_backslashes() {
+        assert_eq!(super::unescape_json_string(r#"a\\b"#), "a\\b");
+    }
+
+    #[test]
+    fn unescapes_json_newlines() {
+        assert_eq!(super::unescape_json_string("line1\\nline2"), "line1\nline2");
+    }
+
+    #[test]
+    fn unescapes_json_tabs() {
+        assert_eq!(super::unescape_json_string("col1\\tcol2"), "col1\tcol2");
+    }
+
+    #[test]
+    fn unescapes_noop_for_plain_text() {
+        assert_eq!(super::unescape_json_string("hello world"), "hello world");
+    }
+
+    #[test]
+    fn fallback_handles_double_escaped_quotes() {
+        // old_string contains \" (double-escaped), file has " (just quote)
+        let updated = apply_text_replacement(
+            r#"let msg = "hello";"#,
+            r#"let msg = \"hello\";"#,
+            "let msg = \"hi\";",
+            false,
+        )
+        .expect("fallback should match");
+        assert_eq!(updated, "let msg = \"hi\";");
+    }
+
+    #[test]
+    fn fallback_passes_through_exact_match() {
+        // When old_string matches exactly, fallback is not needed
+        let updated = apply_text_replacement("foo bar", "bar", "baz", false).expect("exact match");
+        assert_eq!(updated, "foo baz");
     }
 }

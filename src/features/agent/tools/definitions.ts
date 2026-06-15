@@ -182,7 +182,10 @@ export const EDIT_FILE_TOOL: AgentToolDefinition = {
         },
         old_string: {
           type: "string",
-          description: "Exact text to replace. Must match uniquely unless replace_all is true.",
+          description:
+            "Exact text to replace. Must match uniquely unless replace_all is true. " +
+            "JSON escaping: use \\\" for a literal double quote. " +
+            "Do NOT double-escape — the value is parsed once before matching.",
         },
         new_string: {
           type: "string",

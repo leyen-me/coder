@@ -190,9 +190,6 @@ mod tests {
         .expect_err("missing");
 
         assert_eq!(error.code, "string_not_found");
-        // Check that hex diagnostics are populated.
-        assert!(error.old_string_hex.is_some());
-        assert!(error.file_snippet_hex.is_some());
         let _ = fs::remove_dir_all(temp);
     }
 

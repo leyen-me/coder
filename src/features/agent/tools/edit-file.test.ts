@@ -31,10 +31,8 @@ describe("editFileHandler", () => {
       code: "string_not_found",
       message:
         "old_string was not found in the file. " +
-        "Searched for (hex): 6d69 7373 696e 67. " +
-        "File start (hex): 61 6c 70 68 61 0a. " +
-        "Tip: use old_string_hex to bypass JSON escaping issues; " +
-        "copy the hex bytes from 'Searched for (hex)' above directly.",
+        "This is likely because double quotes or backslashes inside " +
+        "the string were incorrectly escaped during JSON serialization.",
     });
 
     const result = await editFileHandler(
@@ -51,10 +49,8 @@ describe("editFileHandler", () => {
         EDIT_FILE_TOOL_NAME,
         "string_not_found",
         "old_string was not found in the file. " +
-          "Searched for (hex): 6d69 7373 696e 67. " +
-          "File start (hex): 61 6c 70 68 61 0a. " +
-          "Tip: use old_string_hex to bypass JSON escaping issues; " +
-          "copy the hex bytes from 'Searched for (hex)' above directly."
+          "This is likely because double quotes or backslashes inside " +
+          "the string were incorrectly escaped during JSON serialization."
       )
     );
   });
