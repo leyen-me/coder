@@ -45,6 +45,6 @@ export function useSessionTitleBarSlots(pathname: string) {
         variant="header"
       />
     ),
-    trailing: <SessionToolbar />,
+    trailing: <SessionToolbar sessionProvider={session?.provider ?? null} />,
   };
 }

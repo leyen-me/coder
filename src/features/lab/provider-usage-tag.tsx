@@ -3,19 +3,35 @@ import { RefreshCw } from "lucide-react";
 
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { useDeepSeekBalance } from "./use-deepseek-balance";
+import type { ProviderId } from "@/lib/model-provider/types";
 
-export function ProviderUsageTag() {
+type ProviderUsageTagProps = {
+  /** Show balance for this provider. Currently only "deepseek" is supported. */
+  providerId?: ProviderId | null;
+};
+
+export function ProviderUsageTag({ providerId }: ProviderUsageTagProps) {
   const { settings } = useModelProvider();
+
+  // Only DeepSeek balance is implemented; show nothing for other providers
+  if (providerId !== "deepseek") {
+    return null;
+  }
+
   const deepseekSettings = settings.providers.deepseek;
+  if (!deepseekSettings.showUsage) {
+    return null;
+  }
+
+  return <DeepSeekBalanceTag />;
+}
+
+function DeepSeekBalanceTag() {
   const { condition, refresh } = useDeepSeekBalance();
 
   const handleRefresh = useCallback(() => {
     void refresh();
   }, [refresh]);
-
-  if (!deepseekSettings.showUsage) {
-    return null;
-  }
 
   // State: initial loading
   if (condition.type === "loading") {
@@ -31,7 +47,7 @@ export function ProviderUsageTag() {
     );
   }
 
-  // State: active provider is not DeepSeek — not yet supported
+  // State: DeepSeek not available (should not happen since parent guards this)
   if (condition.type === "no_deepseek") {
     return null;
   }

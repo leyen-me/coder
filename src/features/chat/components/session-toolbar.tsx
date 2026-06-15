@@ -13,8 +13,13 @@ import { UpdateTag } from "@/features/update/update-tag";
 import { useBottomPanel } from "@/features/terminal/bottom-panel-context";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
+import type { ProviderId } from "@/lib/model-provider/types";
 
-export function SessionToolbar() {
+type SessionToolbarProps = {
+  sessionProvider?: ProviderId | null;
+};
+
+export function SessionToolbar({ sessionProvider }: SessionToolbarProps) {
   const { t } = useTranslation();
   const { isOpen, toggleTab } = useBottomPanel();
   const isBottomActive = isOpen;
@@ -26,7 +31,7 @@ export function SessionToolbar() {
   return (
     <div className="flex shrink-0 items-center gap-1">
       <UpdateTag />
-      <ProviderUsageTag />
+      <ProviderUsageTag providerId={sessionProvider} />
       <AgentProcessesToolbarButton />
 
       <Tooltip>
