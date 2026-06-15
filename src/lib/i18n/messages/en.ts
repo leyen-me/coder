@@ -36,6 +36,10 @@ export const enMessages = {
     noMatchingChats: "No chats match these filters",
     agentRunning: "Agent running",
     exportChat: "Export",
+    editChat: "Rename",
+    editChatTitle: "Rename chat",
+    editChatTitleLabel: "Chat name",
+    editChatTitleSave: "Save",
     deleteChat: "Delete",
     deleteChatConfirmTitle: "Delete chat?",
     deleteChatConfirmDescription:

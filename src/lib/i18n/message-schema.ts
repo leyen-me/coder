@@ -34,6 +34,10 @@ export type Messages = {
     noMatchingChats: string;
     agentRunning: string;
     exportChat: string;
+    editChat: string;
+    editChatTitle: string;
+    editChatTitleLabel: string;
+    editChatTitleSave: string;
     deleteChat: string;
     deleteChatConfirmTitle: string;
     deleteChatConfirmDescription: string;

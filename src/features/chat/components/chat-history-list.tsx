@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Trash2 } from "lucide-react";
+import { Download, Pencil, Trash2 } from "lucide-react";
 
 import { paths } from "@/app/paths";
 import {
@@ -20,6 +20,14 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "@/lib/i18n/locale-provider";
@@ -27,6 +35,7 @@ import { cn } from "@/lib/utils";
 
 import { SessionTitleLabel } from "@/features/chat/components/session-title-label";
 import type { ChatHistoryItem } from "@/lib/db";
+import type { MessageKey } from "@/lib/i18n/message-schema";
 
 import { ChatHistoryFilterPopover } from "./chat-history-filter-popover";
 import {
@@ -42,6 +51,12 @@ type ChatHistoryListProps = {
   runningSessionIds?: ReadonlySet<string>;
   onDeleteSession: (sessionId: string) => void;
   onExportSession: (sessionId: string) => void;
+  onRenameSession: (sessionId: string, title: string) => void;
+};
+
+type RenameState = {
+  sessionId: string;
+  title: string;
 };
 
 export function ChatHistoryList({
@@ -51,10 +66,12 @@ export function ChatHistoryList({
   runningSessionIds,
   onDeleteSession,
   onExportSession,
+  onRenameSession,
 }: ChatHistoryListProps) {
   const { t } = useTranslation();
   const [filters, setFilters] = useState(DEFAULT_CHAT_HISTORY_FILTERS);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+  const [renameState, setRenameState] = useState<RenameState | null>(null);
 
   const filteredItems = useMemo(
     () => filterChatHistoryItems(items, filters),
@@ -124,6 +141,18 @@ export function ChatHistoryList({
                       </li>
                     </ContextMenuTrigger>
                     <ContextMenuContent side="right">
+                      <ContextMenuItem
+                        onClick={() =>
+                          setRenameState({
+                            sessionId: item.id,
+                            title: item.title,
+                          })
+                        }
+                      >
+                        <Pencil className="size-4" />
+                        {t("sidebar.editChat")}
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
                       <ContextMenuItem onClick={() => onExportSession(item.id)}>
                         <Download className="size-4" />
                         {t("sidebar.exportChat")}
@@ -145,6 +174,18 @@ export function ChatHistoryList({
         </ScrollArea>
       </div>
 
+      {/* Rename dialog */}
+      <RenameDialog
+        renameState={renameState}
+        onClose={() => setRenameState(null)}
+        onSave={(sessionId, title) => {
+          onRenameSession(sessionId, title);
+          setRenameState(null);
+        }}
+        t={t}
+      />
+
+      {/* Delete confirmation */}
       <AlertDialog
         open={sessionToDelete !== null}
         onOpenChange={(open) => {
@@ -179,5 +220,80 @@ export function ChatHistoryList({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+function RenameDialog({
+  renameState,
+  onClose,
+  onSave,
+  t,
+}: {
+  renameState: RenameState | null;
+  onClose: () => void;
+  onSave: (sessionId: string, title: string) => void;
+  t: (key: MessageKey) => string;
+}) {
+  const [value, setValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (renameState) {
+      setValue(renameState.title);
+      // Focus the input after the dialog opens
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [renameState]);
+
+  const handleSave = () => {
+    const trimmed = value.trim();
+    if (trimmed && renameState) {
+      onSave(renameState.sessionId, trimmed);
+    }
+  };
+
+  return (
+    <Dialog
+      open={renameState !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("sidebar.editChatTitle")}</DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSave();
+          }}
+        >
+          <Input
+            ref={inputRef}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            aria-label={t("sidebar.editChatTitleLabel")}
+            className="mb-4"
+          />
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center justify-center rounded-2xl border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+            >
+              {t("automations.cancel")}
+            </button>
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center rounded-2xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              disabled={!value.trim()}
+            >
+              {t("sidebar.editChatTitleSave")}
+            </button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

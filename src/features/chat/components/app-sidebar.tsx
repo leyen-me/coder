@@ -18,7 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { useGeneratingSessionTitles } from "@/features/agent/session-title-store";
 import { useRunningSessionIds } from "@/features/agent/store/agent-store";
 import { useChatSessions } from "@/features/chat/hooks/use-chat-sessions";
-import { deleteSession, getMessagesBySession, getSession } from "@/lib/db";
+import { deleteSession, getMessagesBySession, getSession, updateSessionTitle } from "@/lib/db";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -136,6 +136,14 @@ export function AppSidebar({ open }: AppSidebarProps) {
     [t]
   );
 
+  const handleRenameSession = useCallback(
+    async (sessionId: string, title: string) => {
+      await updateSessionTitle(sessionId, title);
+      await refresh();
+    },
+    [refresh]
+  );
+
   return (
     <>
       <div
@@ -192,6 +200,7 @@ export function AppSidebar({ open }: AppSidebarProps) {
             runningSessionIds={runningSessionIds}
             onDeleteSession={handleDeleteSession}
             onExportSession={handleExportSession}
+            onRenameSession={handleRenameSession}
           />
 
           <div className="flex shrink-0 flex-col gap-0.5 border-t border-sidebar-border p-2">

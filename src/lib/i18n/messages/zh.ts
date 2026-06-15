@@ -36,6 +36,10 @@ export const zhMessages = {
     noMatchingChats: "没有符合筛选条件的聊天",
     agentRunning: "Agent 运行中",
     exportChat: "导出",
+    editChat: "编辑标题",
+    editChatTitle: "编辑聊天标题",
+    editChatTitleLabel: "聊天名称",
+    editChatTitleSave: "保存",
     deleteChat: "删除",
     deleteChatConfirmTitle: "删除聊天？",
     deleteChatConfirmDescription:
