@@ -418,6 +418,9 @@ export const zhMessages = {
       thinkingDisabledParamsLabel: "关闭思考时的 API 参数",
       thinkingDisabledParamsAriaLabel: "关闭思考时的 API 参数",
       thinkingDefaultEnabledLabel: "默认开启深度思考",
+      showUsageLabel: "显示用量",
+      showUsageDescription: "在工具栏显示此 provider 的 API 用量和余额",
+      showUsageAriaLabel: "切换用量显示",
     },
     webTools: {
       tavilyApiKeySourceLabel: "Tavily API Key 获取方式",
@@ -478,10 +481,6 @@ export const zhMessages = {
       responseStyleMemeName: "玩梗",
       responseStyleRoastName: "嘴臭",
       responseStyleFunnyName: "搞笑",
-      providerUsageLabel: "Provider 用量",
-      providerUsageDescription:
-        "在标题栏显示当前 provider 的 API 用量和余额",
-      providerUsageAriaLabel: "启用 Provider 用量显示",
     },
     email: {
       providerLabel: "邮件服务商",

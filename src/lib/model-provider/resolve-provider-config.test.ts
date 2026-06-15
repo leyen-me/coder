@@ -82,6 +82,7 @@ describe("resolveProviderConfig", () => {
             apiKeyEnvVar: "",
             customBaseUrl: "https://example.com/v1",
             customModels,
+            showUsage: false,
           },
         },
       })

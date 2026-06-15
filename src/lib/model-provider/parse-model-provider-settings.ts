@@ -47,6 +47,10 @@ function parseProviderSettings(
         ? raw.customBaseUrl
         : defaults.customBaseUrl,
     customModels: parseModelDefinitions(raw.customModels),
+    showUsage:
+      typeof raw.showUsage === "boolean"
+        ? raw.showUsage
+        : defaults.showUsage,
   };
 }
 

@@ -62,16 +62,10 @@ export function parseLabSettings(value: unknown): LabSettings {
 
   const responseStyle = parseResponseStyle(value.responseStyle);
 
-  const providerUsageEnabled =
-    typeof value.providerUsageEnabled === "boolean"
-      ? value.providerUsageEnabled
-      : DEFAULT_LAB_SETTINGS.providerUsageEnabled;
-
   return {
     promptRefineEnabled,
     promptRefineSystemPrompt,
     longTaskEnabled,
     responseStyle,
-    providerUsageEnabled,
   };
 }

@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
+import { Switch } from "@/components/ui/switch";
 import {
   PROVIDER_IDS,
   usesUserManagedModels,
@@ -152,6 +153,22 @@ export function ModelProviderSettingsPanel() {
         >
           <PresetModelsList models={resolved.models} />
         </SettingField>
+      )}
+
+      {activeProvider === "deepseek" && (
+        <SettingRow
+          label={t("settings.modelProvider.showUsageLabel")}
+          description={t("settings.modelProvider.showUsageDescription")}
+          control={
+            <Switch
+              checked={activeProviderSettings.showUsage}
+              onCheckedChange={(checked) => {
+                updateActiveProviderSettings({ showUsage: checked });
+              }}
+              aria-label={t("settings.modelProvider.showUsageAriaLabel")}
+            />
+          }
+        />
       )}
     </section>
   );

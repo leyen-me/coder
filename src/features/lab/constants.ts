@@ -55,5 +55,4 @@ export const DEFAULT_LAB_SETTINGS: LabSettings = {
   promptRefineSystemPrompt: DEFAULT_REFINE_PROMPT_SYSTEM_PROMPT,
   longTaskEnabled: false,
   responseStyle: DEFAULT_RESPONSE_STYLE_CONFIG,
-  providerUsageEnabled: false,
 };

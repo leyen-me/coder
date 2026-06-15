@@ -9,5 +9,4 @@ export type LabSettings = {
   promptRefineSystemPrompt: string;
   longTaskEnabled: boolean;
   responseStyle: ResponseStyleConfig;
-  providerUsageEnabled: boolean;
 };

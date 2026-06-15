@@ -10,6 +10,7 @@ export type ProviderSettings = {
   apiKeyEnvVar: string;
   customBaseUrl: string;
   customModels: ModelDefinition[];
+  showUsage: boolean;
 };
 
 export type ModelProviderSettings = {

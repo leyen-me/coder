@@ -161,19 +161,6 @@ export function LabSettingsPanel() {
         </SettingField>
       )}
 
-      <SettingRow
-        label={t("settings.lab.providerUsageLabel")}
-        description={t("settings.lab.providerUsageDescription")}
-        control={
-          <Switch
-            checked={settings.providerUsageEnabled}
-            onCheckedChange={(checked) => {
-              updateSettings({ providerUsageEnabled: checked });
-            }}
-            aria-label={t("settings.lab.providerUsageAriaLabel")}
-          />
-        }
-      />
     </section>
   );
 }

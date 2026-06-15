@@ -1,18 +1,18 @@
 import { useCallback } from "react";
 import { RefreshCw } from "lucide-react";
 
-import { useLabSettings } from "./use-lab-settings";
+import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { useDeepSeekBalance } from "./use-deepseek-balance";
 
 export function ProviderUsageTag() {
-  const { settings } = useLabSettings();
+  const { activeProviderSettings } = useModelProvider();
   const { condition, refresh } = useDeepSeekBalance();
 
   const handleRefresh = useCallback(() => {
     void refresh();
   }, [refresh]);
 
-  if (!settings.providerUsageEnabled) {
+  if (!activeProviderSettings.showUsage) {
     return null;
   }
 

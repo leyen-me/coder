@@ -348,6 +348,9 @@ export type Messages = {
       thinkingDisabledParamsLabel: string;
       thinkingDisabledParamsAriaLabel: string;
       thinkingDefaultEnabledLabel: string;
+      showUsageLabel: string;
+      showUsageDescription: string;
+      showUsageAriaLabel: string;
     };
     webTools: {
       tavilyApiKeySourceLabel: string;
@@ -400,9 +403,6 @@ export type Messages = {
       responseStyleMemeName: string;
       responseStyleRoastName: string;
       responseStyleFunnyName: string;
-      providerUsageLabel: string;
-      providerUsageDescription: string;
-      providerUsageAriaLabel: string;
     };
     email: {
       providerLabel: string;

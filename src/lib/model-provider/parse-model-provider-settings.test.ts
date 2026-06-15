@@ -44,6 +44,7 @@ describe("parseModelProviderSettings", () => {
             createModelDefinition("model-a", { supportsThinking: true }),
             createModelDefinition("model-b"),
           ],
+          showUsage: false,
         },
       },
     });
@@ -99,6 +100,7 @@ describe("parseModelProviderSettings", () => {
           apiKeyEnvVar: "GLM_API_KEY",
           customBaseUrl: "https://legacy.example.com/v1",
           customModels: [createModelDefinition("legacy-model")],
+          showUsage: false,
         },
       },
     });

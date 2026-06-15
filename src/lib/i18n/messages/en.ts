@@ -428,6 +428,9 @@ export const enMessages = {
       thinkingDisabledParamsLabel: "API params when thinking is disabled",
       thinkingDisabledParamsAriaLabel: "API params when thinking is disabled",
       thinkingDefaultEnabledLabel: "Enable deep thinking by default",
+      showUsageLabel: "Show usage",
+      showUsageDescription: "Show API usage and balance for this provider in the toolbar",
+      showUsageAriaLabel: "Toggle usage display",
     },
     webTools: {
       tavilyApiKeySourceLabel: "Tavily API key source",
@@ -491,10 +494,6 @@ export const enMessages = {
       responseStyleMemeName: "Meme",
       responseStyleRoastName: "Roast",
       responseStyleFunnyName: "Funny",
-      providerUsageLabel: "Provider usage",
-      providerUsageDescription:
-        "Show the current provider's API usage and balance in the title bar",
-      providerUsageAriaLabel: "Enable provider usage display",
     },
     email: {
       providerLabel: "Email provider",

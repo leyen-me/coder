@@ -141,6 +141,7 @@ export function createDefaultProviderSettings(
     apiKeyEnvVar: getDefaultApiKeyEnvVar(provider),
     customBaseUrl: "",
     customModels: [],
+    showUsage: false,
   };
 }
 
