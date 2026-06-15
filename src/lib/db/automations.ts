@@ -2,7 +2,9 @@ import { inferAutomationRunStatus, trimAutomationRuns } from "./automation-runs"
 import { AUTOMATIONS_STORE } from "./constants";
 import { getDb } from "./client";
 import { normalizeAutomationRecord } from "./normalize-automation";
+import { inferProviderFromModel } from "./normalize-session";
 import { notifyDbChange } from "./subscriptions";
+import type { ProviderId } from "@/lib/model-provider/types";
 import type {
   AutomationAgentMode,
   AutomationRecord,
@@ -38,6 +40,7 @@ export type CreateAutomationInput = {
   prompt: string;
   workspaceDir: string | null;
   model: string;
+  provider?: ProviderId;
   agentMode: AutomationAgentMode;
   thinkingEnabled: boolean;
   enableEmail: boolean;
@@ -55,6 +58,7 @@ export async function createAutomation(
     prompt: input.prompt,
     workspaceDir: input.workspaceDir?.trim() || null,
     model: input.model.trim(),
+    provider: input.provider ?? inferProviderFromModel(null, input.model),
     agentMode: input.agentMode,
     thinkingEnabled: input.thinkingEnabled,
     enableEmail: input.enableEmail,

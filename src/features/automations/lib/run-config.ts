@@ -6,6 +6,7 @@ import type { AutomationRecord } from "@/lib/db";
 export type ResolvedAutomationRunConfig = {
   workspaceDir: string | null;
   model: string;
+  provider: string;
   agentMode: AutomationRecord["agentMode"];
   thinkingEnabled: boolean;
 };
@@ -28,6 +29,7 @@ export function resolveAutomationRunConfig(
   return {
     workspaceDir: automation.workspaceDir?.trim() || null,
     model,
+    provider: automation.provider,
     agentMode: automation.agentMode,
     thinkingEnabled,
   };

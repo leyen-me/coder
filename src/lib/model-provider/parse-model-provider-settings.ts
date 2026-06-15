@@ -94,6 +94,21 @@ function isLegacySettingsFormat(record: Record<string, unknown>): boolean {
   );
 }
 
+function parseEnabledProviders(
+  record: Record<string, unknown>
+): ProviderId[] {
+  // New format: explicit enabledProviders array
+  if (
+    Array.isArray(record.enabledProviders) &&
+    record.enabledProviders.every(isProviderId)
+  ) {
+    return record.enabledProviders as ProviderId[];
+  }
+
+  // Legacy format: only the activeProvider was in use
+  return [...PROVIDER_IDS];
+}
+
 function parseActiveProvider(record: Record<string, unknown>): ProviderId {
   if (isProviderId(record.activeProvider)) {
     return record.activeProvider;
@@ -103,7 +118,7 @@ function parseActiveProvider(record: Record<string, unknown>): ProviderId {
     return record.provider;
   }
 
-  return DEFAULT_MODEL_PROVIDER_SETTINGS.activeProvider;
+  return "deepseek";
 }
 
 export function parseModelProviderSettings(
@@ -120,11 +135,14 @@ export function parseModelProviderSettings(
     const providers = createDefaultProvidersMap();
     providers[activeProvider] = parseProviderSettings(record, activeProvider);
 
-    return { activeProvider, providers };
+    return {
+      enabledProviders: [...PROVIDER_IDS],
+      providers,
+    };
   }
 
   return {
-    activeProvider: parseActiveProvider(record),
+    enabledProviders: parseEnabledProviders(record),
     providers: parseProvidersMap(record.providers),
   };
 }

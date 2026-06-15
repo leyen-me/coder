@@ -14,7 +14,7 @@ export type ProviderSettings = {
 };
 
 export type ModelProviderSettings = {
-  activeProvider: ProviderId;
+  enabledProviders: ProviderId[];
   providers: Record<ProviderId, ProviderSettings>;
 };
 

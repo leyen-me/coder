@@ -1,5 +1,5 @@
 export const DB_NAME = "coder";
-export const DB_VERSION = 10;
+export const DB_VERSION = 11;
 
 export const SESSIONS_STORE = "sessions";
 export const MESSAGES_STORE = "messages";

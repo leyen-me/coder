@@ -7,12 +7,13 @@ import {
   type ReactNode,
 } from "react";
 
-import { resolveProviderConfig } from "./resolve-provider-config";
+import { resolveProviderConfig, resolveProviderForModel, mergeAllModels } from "./resolve-provider-config";
 import {
   readModelProviderSettings,
   writeModelProviderSettings,
 } from "./storage";
 import type {
+  ModelDefinition,
   ModelProviderSettings,
   ProviderId,
   ProviderSettings,
@@ -21,11 +22,20 @@ import type {
 
 type ModelProviderContextValue = {
   settings: ModelProviderSettings;
-  activeProvider: ProviderId;
-  activeProviderSettings: ProviderSettings;
+  /** Resolved config for the first enabled provider (backward compat). */
   resolved: ResolvedProviderConfig;
-  setActiveProvider: (provider: ProviderId) => void;
-  updateActiveProviderSettings: (patch: Partial<ProviderSettings>) => void;
+  /** All enabled provider IDs. */
+  enabledProviders: ProviderId[];
+  /** Flat list of all models from all enabled providers. */
+  allModels: ModelDefinition[];
+  /** Maps model ID → owning provider ID. */
+  modelProviders: Map<string, ProviderId>;
+  /** Resolve config for a specific model across all enabled providers. */
+  resolveProviderForModel: (modelId: string) => ResolvedProviderConfig | null;
+  /** Update settings for a specific provider. */
+  updateProviderSettings: (providerId: ProviderId, patch: Partial<ProviderSettings>) => void;
+  /** Toggle provider enabled/disabled. */
+  setProviderEnabled: (providerId: ProviderId, enabled: boolean) => void;
   setSettings: (settings: ModelProviderSettings) => void;
 };
 
@@ -47,23 +57,15 @@ export function ModelProviderProvider({ children }: ModelProviderProviderProps) 
     writeModelProviderSettings(nextSettings);
   }, []);
 
-  const setActiveProvider = useCallback((provider: ProviderId) => {
-    setSettingsState((current) => {
-      const next = { ...current, activeProvider: provider };
-      writeModelProviderSettings(next);
-      return next;
-    });
-  }, []);
-
-  const updateActiveProviderSettings = useCallback(
-    (patch: Partial<ProviderSettings>) => {
+  const updateProviderSettings = useCallback(
+    (providerId: ProviderId, patch: Partial<ProviderSettings>) => {
       setSettingsState((current) => {
         const next = {
           ...current,
           providers: {
             ...current.providers,
-            [current.activeProvider]: {
-              ...current.providers[current.activeProvider],
+            [providerId]: {
+              ...current.providers[providerId],
               ...patch,
             },
           },
@@ -75,31 +77,61 @@ export function ModelProviderProvider({ children }: ModelProviderProviderProps) 
     []
   );
 
-  const activeProvider = settings.activeProvider;
-  const activeProviderSettings = settings.providers[activeProvider];
+  const setProviderEnabled = useCallback(
+    (providerId: ProviderId, enabled: boolean) => {
+      setSettingsState((current) => {
+        const next = {
+          ...current,
+          enabledProviders: enabled
+            ? [...new Set([...current.enabledProviders, providerId])]
+            : current.enabledProviders.filter((id) => id !== providerId),
+        };
+        writeModelProviderSettings(next);
+        return next;
+      });
+    },
+    []
+  );
 
-  const resolved = useMemo(
-    () => resolveProviderConfig(settings),
+  /** Resolved config for the first enabled provider (backward compat for existing code). */
+  const resolved = useMemo(() => {
+    const firstEnabled = settings.enabledProviders[0] ?? "deepseek";
+    return resolveProviderConfig(settings, firstEnabled);
+  }, [settings]);
+
+  const enabledProviders = settings.enabledProviders;
+
+  const { models: allModels, modelProviders } = useMemo(
+    () => mergeAllModels(settings),
+    [settings]
+  );
+
+  const resolveForModel = useCallback(
+    (modelId: string) => resolveProviderForModel(settings, modelId),
     [settings]
   );
 
   const value = useMemo(
     () => ({
       settings,
-      activeProvider,
-      activeProviderSettings,
       resolved,
-      setActiveProvider,
-      updateActiveProviderSettings,
+      enabledProviders,
+      allModels,
+      modelProviders,
+      resolveProviderForModel: resolveForModel,
+      updateProviderSettings,
+      setProviderEnabled,
       setSettings,
     }),
     [
       settings,
-      activeProvider,
-      activeProviderSettings,
       resolved,
-      setActiveProvider,
-      updateActiveProviderSettings,
+      enabledProviders,
+      allModels,
+      modelProviders,
+      resolveForModel,
+      updateProviderSettings,
+      setProviderEnabled,
       setSettings,
     ]
   );

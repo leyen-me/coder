@@ -18,6 +18,7 @@ function createAutomation(
     prompt: "Review changes",
     workspaceDir: null,
     model: "gpt-test",
+    provider: "custom",
     agentMode: "agent",
     thinkingEnabled: false,
     enableEmail: false,

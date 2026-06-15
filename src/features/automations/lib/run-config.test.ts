@@ -16,6 +16,7 @@ function createAutomation(
     prompt: "Review changes",
     workspaceDir: "/tmp/project",
     model: "custom-model",
+    provider: "custom",
     agentMode: "ask",
     thinkingEnabled: true,
     enableEmail: false,
@@ -45,6 +46,7 @@ describe("resolveAutomationRunConfig", () => {
     ).toEqual({
       workspaceDir: "/tmp/project",
       model: "custom-model",
+      provider: "custom",
       agentMode: "ask",
       thinkingEnabled: false,
     });

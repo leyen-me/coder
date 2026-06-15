@@ -3,8 +3,25 @@ import {
   trimAutomationRuns,
 } from "./automation-runs";
 import type { AutomationRecord, AutomationRunRecord } from "./types";
+import { inferProviderFromModel } from "./normalize-session";
+import type { ProviderId } from "@/lib/model-provider/types";
 
-type LegacyAutomationRecord = AutomationRecord & {
+type LegacyAutomationRecord = {
+  id: string;
+  name: string;
+  description: string;
+  cronExpression: string;
+  prompt: string;
+  workspaceDir?: string | null;
+  model?: string;
+  provider?: string | null;
+  agentMode?: AutomationRecord["agentMode"];
+  thinkingEnabled?: boolean;
+  enabled?: boolean;
+  enableEmail?: boolean;
+  runs?: AutomationRunRecord[];
+  createdAt: number;
+  updatedAt: number;
   lastRunAt?: number | null;
   lastResultSummary?: string | null;
   lastSessionId?: string | null;
@@ -47,11 +64,23 @@ export function normalizeAutomationRecord(
 
   return {
     ...rest,
+    provider: normalizeProviderField(record.provider, record.model ?? ""),
     workspaceDir: record.workspaceDir ?? null,
     model: record.model?.trim() ?? "",
     agentMode: record.agentMode === "ask" ? "ask" : "agent",
     thinkingEnabled: record.thinkingEnabled ?? false,
+    enabled: record.enabled ?? true,
     enableEmail: record.enableEmail ?? false,
     runs: trimAutomationRuns(migrateLegacyRuns(record)),
   };
+}
+
+function normalizeProviderField(
+  provider: string | null | undefined,
+  modelId: string
+): ProviderId {
+  if (!provider) {
+    return inferProviderFromModel(null, modelId);
+  }
+  return provider as ProviderId;
 }

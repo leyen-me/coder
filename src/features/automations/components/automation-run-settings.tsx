@@ -19,8 +19,11 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
@@ -31,7 +34,63 @@ import {
   getModelDisplayName,
   type ModelDefinition,
 } from "@/lib/model-provider/model-definition";
+import type { ProviderId } from "@/lib/model-provider/types";
 import { cn } from "@/lib/utils";
+
+const PROVIDER_LABELS: Record<ProviderId, string> = {
+  deepseek: "DeepSeek",
+  glm: "GLM",
+  agnes: "Agnes",
+  nvidia: "NVIDIA",
+  custom: "Custom",
+};
+
+function renderModelOptions(
+  models: readonly ModelDefinition[],
+  modelProviders?: Map<string, ProviderId>
+) {
+  if (!modelProviders) {
+    return models.map((item) => (
+      <DropdownMenuRadioItem key={item.id} value={item.id}>
+        {getModelDisplayName(item)}
+      </DropdownMenuRadioItem>
+    ));
+  }
+
+  const groups = new Map<ProviderId, ModelDefinition[]>();
+  for (const model of models) {
+    const provider = modelProviders.get(model.id) ?? "custom";
+    const group = groups.get(provider);
+    if (group) {
+      group.push(model);
+    } else {
+      groups.set(provider, [model]);
+    }
+  }
+
+  const items: React.ReactElement[] = [];
+  let groupIndex = 0;
+  for (const [providerId, providerModels] of groups) {
+    if (groupIndex > 0) {
+      items.push(<DropdownMenuSeparator key={`sep-${providerId}`} />);
+    }
+    items.push(
+      <DropdownMenuGroup key={providerId}>
+        <DropdownMenuLabel className="text-xs text-muted-foreground">
+          {PROVIDER_LABELS[providerId] ?? providerId}
+        </DropdownMenuLabel>
+        {providerModels.map((item) => (
+          <DropdownMenuRadioItem key={item.id} value={item.id}>
+            {getModelDisplayName(item)}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuGroup>
+    );
+    groupIndex++;
+  }
+
+  return items;
+}
 
 type AutomationRunSettingsProps = {
   workspaceDir: string | null;
@@ -43,6 +102,7 @@ type AutomationRunSettingsProps = {
   thinkingEnabled: boolean;
   onThinkingEnabledChange: (thinkingEnabled: boolean) => void;
   models: readonly ModelDefinition[];
+  modelProviders?: Map<string, ProviderId>;
   disabled?: boolean;
 };
 
@@ -56,6 +116,7 @@ export function AutomationRunSettings({
   thinkingEnabled,
   onThinkingEnabledChange,
   models,
+  modelProviders,
   disabled = false,
 }: AutomationRunSettingsProps) {
   const { t } = useTranslation();
@@ -179,11 +240,7 @@ export function AutomationRunSettings({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="max-w-sm">
             <DropdownMenuRadioGroup value={model} onValueChange={onModelChange}>
-              {models.map((item) => (
-                <DropdownMenuRadioItem key={item.id} value={item.id}>
-                  {getModelDisplayName(item)}
-                </DropdownMenuRadioItem>
-              ))}
+              {renderModelOptions(models, modelProviders)}
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>

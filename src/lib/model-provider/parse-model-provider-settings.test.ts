@@ -12,7 +12,7 @@ describe("parseModelProviderSettings", () => {
   it("accepts valid per-provider settings", () => {
     expect(
       parseModelProviderSettings({
-        activeProvider: "glm",
+        enabledProviders: ["deepseek", "glm", "agnes", "nvidia", "custom"],
         providers: {
           glm: {
             apiKeySource: "manual",
@@ -27,7 +27,7 @@ describe("parseModelProviderSettings", () => {
         },
       })
     ).toEqual({
-      activeProvider: "glm",
+      enabledProviders: ["deepseek", "glm", "agnes", "nvidia", "custom"],
       providers: {
         ...Object.fromEntries(
           PROVIDER_IDS.filter((id) => id !== "glm").map((id) => [
@@ -54,15 +54,18 @@ describe("parseModelProviderSettings", () => {
     expect(parseModelProviderSettings(null)).toEqual(
       DEFAULT_MODEL_PROVIDER_SETTINGS
     );
-    expect(parseModelProviderSettings({ activeProvider: "invalid" })).toEqual({
+    expect(
+      parseModelProviderSettings({ enabledProviders: ["invalid"] })
+    ).toEqual({
       ...DEFAULT_MODEL_PROVIDER_SETTINGS,
-      activeProvider: DEFAULT_MODEL_PROVIDER_SETTINGS.activeProvider,
+      enabledProviders: [...PROVIDER_IDS],
     });
   });
 
   it("filters invalid custom model entries", () => {
     expect(
       parseModelProviderSettings({
+        enabledProviders: ["deepseek", "glm", "agnes", "nvidia", "custom"],
         providers: {
           custom: {
             customModels: ["valid", "", 42, "  trimmed  "],
@@ -75,7 +78,7 @@ describe("parseModelProviderSettings", () => {
     ]);
   });
 
-  it("migrates legacy flat settings into the active provider config", () => {
+  it("migrates legacy flat settings into per-provider config with all providers enabled", () => {
     expect(
       parseModelProviderSettings({
         provider: "glm",
@@ -86,7 +89,7 @@ describe("parseModelProviderSettings", () => {
         customModels: [createModelDefinition("legacy-model")],
       })
     ).toEqual({
-      activeProvider: "glm",
+      enabledProviders: [...PROVIDER_IDS],
       providers: {
         ...Object.fromEntries(
           PROVIDER_IDS.filter((id) => id !== "glm").map((id) => [

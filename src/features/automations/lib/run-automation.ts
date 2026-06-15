@@ -63,7 +63,7 @@ export async function executeAutomation(
 
   try {
     const modelSettings = readModelProviderSettings();
-    const resolved = resolveProviderConfig(modelSettings);
+    const resolved = resolveProviderConfig(modelSettings, automation.provider);
     const runConfig = resolveAutomationRunConfig(automation, resolved);
     const apiKey = resolveApiKey(resolved);
     const apiKeySource = resolved.apiKeySource;
@@ -77,6 +77,7 @@ export async function executeAutomation(
       id: sessionId,
       title,
       model: runConfig.model,
+      provider: runConfig.provider,
       workspaceDir: runConfig.workspaceDir,
     });
 

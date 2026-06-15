@@ -10,16 +10,19 @@ import { resolveProviderConfig } from "./resolve-provider-config";
 describe("resolveProviderConfig", () => {
   it("resolves preset provider configuration", () => {
     expect(
-      resolveProviderConfig({
-        activeProvider: "deepseek",
-        providers: {
-          ...DEFAULT_MODEL_PROVIDER_SETTINGS.providers,
-          deepseek: {
-            ...createDefaultProviderSettings("deepseek"),
-            apiKeyEnvVar: "DEEPSEEK_API_KEY",
+      resolveProviderConfig(
+        {
+          enabledProviders: ["deepseek", "glm", "agnes", "nvidia", "custom"],
+          providers: {
+            ...DEFAULT_MODEL_PROVIDER_SETTINGS.providers,
+            deepseek: {
+              ...createDefaultProviderSettings("deepseek"),
+              apiKeyEnvVar: "DEEPSEEK_API_KEY",
+            },
           },
         },
-      })
+        "deepseek"
+      )
     ).toEqual({
       provider: "deepseek",
       baseUrl: PRESET_PROVIDERS.deepseek.baseUrl,
@@ -41,16 +44,19 @@ describe("resolveProviderConfig", () => {
     ];
 
     expect(
-      resolveProviderConfig({
-        activeProvider: "nvidia",
-        providers: {
-          ...DEFAULT_MODEL_PROVIDER_SETTINGS.providers,
-          nvidia: {
-            ...createDefaultProviderSettings("nvidia"),
-            customModels,
+      resolveProviderConfig(
+        {
+          enabledProviders: ["deepseek", "glm", "agnes", "nvidia", "custom"],
+          providers: {
+            ...DEFAULT_MODEL_PROVIDER_SETTINGS.providers,
+            nvidia: {
+              ...createDefaultProviderSettings("nvidia"),
+              customModels,
+            },
           },
         },
-      })
+        "nvidia"
+      )
     ).toEqual({
       provider: "nvidia",
       baseUrl: PRESET_PROVIDERS.nvidia.baseUrl,
@@ -72,20 +78,23 @@ describe("resolveProviderConfig", () => {
     ];
 
     expect(
-      resolveProviderConfig({
-        activeProvider: "custom",
-        providers: {
-          ...DEFAULT_MODEL_PROVIDER_SETTINGS.providers,
-          custom: {
-            apiKeySource: "manual",
-            apiKey: "sk-custom",
-            apiKeyEnvVar: "",
-            customBaseUrl: "https://example.com/v1",
-            customModels,
-            showUsage: false,
+      resolveProviderConfig(
+        {
+          enabledProviders: ["deepseek", "glm", "agnes", "nvidia", "custom"],
+          providers: {
+            ...DEFAULT_MODEL_PROVIDER_SETTINGS.providers,
+            custom: {
+              apiKeySource: "manual",
+              apiKey: "sk-custom",
+              apiKeyEnvVar: "",
+              customBaseUrl: "https://example.com/v1",
+              customModels,
+              showUsage: false,
+            },
           },
         },
-      })
+        "custom"
+      )
     ).toEqual({
       provider: "custom",
       baseUrl: "https://example.com/v1",

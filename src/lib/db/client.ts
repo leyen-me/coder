@@ -154,6 +154,21 @@ async function openCoderDb(repairAttempted = false): Promise<IDBPDatabase<CoderD
           await store.put(normalizeSessionRecord(session));
         }
       }
+
+      // v11: add provider field to existing sessions and automations
+      if (oldVersion > 0 && oldVersion < 11) {
+        const sessionStore = transaction.objectStore(SESSIONS_STORE);
+        const sessions = await sessionStore.getAll();
+        for (const session of sessions) {
+          await sessionStore.put(normalizeSessionRecord(session));
+        }
+
+        const automationStore = transaction.objectStore(AUTOMATIONS_STORE);
+        const automations = await automationStore.getAll();
+        for (const automation of automations) {
+          await automationStore.put(normalizeAutomationRecord(automation));
+        }
+      }
     },
   });
 

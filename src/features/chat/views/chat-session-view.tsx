@@ -58,7 +58,7 @@ type ChatSessionViewProps = {
 
 export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const { t } = useTranslation();
-  const { resolved } = useModelProvider();
+  const { allModels, modelProviders } = useModelProvider();
   const {
     sendMessage,
     regenerateMessage,
@@ -104,10 +104,10 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const [editInitialFiles, setEditInitialFiles] = useState<FileUIPart[]>([]);
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
   const queueDispatchingRef = useRef(false);
-  const [model, setModel] = useState(() => resolveDefaultModel(resolved));
+  const [model, setModel] = useState(() => resolveDefaultModel({ models: allModels }));
   const { thinkingEnabled, onThinkingEnabledChange } = useComposerThinking(
     model,
-    resolved.models
+    allModels
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBuildPending, setIsBuildPending] = useState(false);
@@ -509,14 +509,14 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         messages: displayMessages,
         systemPrompt,
         modelId: model,
-        models: resolved.models,
+        models: allModels,
         editingMessageId,
       }),
     [
       displayMessages,
       editingMessageId,
       model,
-      resolved.models,
+      allModels,
       systemPrompt,
     ]
   );
@@ -599,7 +599,8 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             }}
             onStop={activeTask ? handleStop : undefined}
             model={model}
-            models={resolved.models}
+            models={allModels}
+            modelProviders={modelProviders}
             onModelChange={setModel}
             thinkingEnabled={thinkingEnabled}
             onThinkingEnabledChange={onThinkingEnabledChange}

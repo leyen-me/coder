@@ -5,14 +5,15 @@ import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { useDeepSeekBalance } from "./use-deepseek-balance";
 
 export function ProviderUsageTag() {
-  const { activeProviderSettings } = useModelProvider();
+  const { settings } = useModelProvider();
+  const deepseekSettings = settings.providers.deepseek;
   const { condition, refresh } = useDeepSeekBalance();
 
   const handleRefresh = useCallback(() => {
     void refresh();
   }, [refresh]);
 
-  if (!activeProviderSettings.showUsage) {
+  if (!deepseekSettings.showUsage) {
     return null;
   }
 

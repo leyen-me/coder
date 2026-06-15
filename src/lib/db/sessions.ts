@@ -25,6 +25,7 @@ export type CreateSessionInput = {
   id?: string;
   title: string;
   model: string;
+  provider: string;
   workspaceDir?: string | null;
   sessionKind?: SessionKind;
   autonomyMode?: SessionAutonomyMode;
@@ -41,6 +42,7 @@ export async function createSession(input: CreateSessionInput): Promise<SessionR
     id: input.id ?? createSessionId(),
     title: input.title,
     model: input.model,
+    provider: input.provider,
     workspaceDir: input.workspaceDir ?? null,
     sessionKind: input.sessionKind,
     autonomyMode: input.autonomyMode,
@@ -70,6 +72,7 @@ export type SessionPatch = Partial<
     SessionRecord,
     | "title"
     | "model"
+    | "provider"
     | "workspaceDir"
     | "sessionKind"
     | "autonomyMode"

@@ -24,8 +24,11 @@ import { PromptComposerAttachmentsHeader } from "./prompt-composer-attachments";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTranslation } from "@/lib/i18n/locale-provider";
@@ -34,6 +37,7 @@ import {
   getModelDisplayName,
   type ModelDefinition,
 } from "@/lib/model-provider/model-definition";
+import type { ProviderId } from "@/lib/model-provider/types";
 import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { cn } from "@/lib/utils";
 import type { AgentMode } from "@/features/agent/types";
@@ -79,6 +83,8 @@ type PromptComposerProps = {
   onStop?: () => void;
   model: string;
   models: readonly ModelDefinition[];
+  /** Maps model ID → provider ID for grouping models in the dropdown. */
+  modelProviders?: Map<string, ProviderId>;
   onModelChange: (model: string) => void;
   agentMode?: AgentMode;
   onAgentModeChange?: (mode: AgentMode) => void;
@@ -356,6 +362,68 @@ function ComposerContextBar({
   );
 }
 
+const PROVIDER_LABELS: Record<ProviderId, string> = {
+  deepseek: "DeepSeek",
+  glm: "GLM",
+  agnes: "Agnes",
+  nvidia: "NVIDIA",
+  custom: "Custom",
+};
+
+/**
+ * Renders model dropdown items grouped by provider when modelProviders is provided.
+ */
+function renderModelOptions(
+  models: readonly ModelDefinition[],
+  modelProviders?: Map<string, ProviderId>
+) {
+  if (!modelProviders) {
+    // Flat list (backward compat)
+    return models.map((item) => (
+      <DropdownMenuRadioItem key={item.id} value={item.id}>
+        {getModelDisplayName(item)}
+      </DropdownMenuRadioItem>
+    ));
+  }
+
+  // Group models by provider
+  const groups = new Map<ProviderId, ModelDefinition[]>();
+  for (const model of models) {
+    const provider = modelProviders.get(model.id) ?? "custom";
+    const group = groups.get(provider);
+    if (group) {
+      group.push(model);
+    } else {
+      groups.set(provider, [model]);
+    }
+  }
+
+  const items: React.ReactElement[] = [];
+  let groupIndex = 0;
+  for (const [providerId, providerModels] of groups) {
+    if (groupIndex > 0) {
+      items.push(
+        <DropdownMenuSeparator key={`sep-${providerId}`} />
+      );
+    }
+    items.push(
+      <DropdownMenuGroup key={providerId}>
+        <DropdownMenuLabel className="text-xs text-muted-foreground">
+          {PROVIDER_LABELS[providerId] ?? providerId}
+        </DropdownMenuLabel>
+        {providerModels.map((item) => (
+          <DropdownMenuRadioItem key={item.id} value={item.id}>
+            {getModelDisplayName(item)}
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuGroup>
+    );
+    groupIndex++;
+  }
+
+  return items;
+}
+
 export function PromptComposer({
   value,
   onChange,
@@ -387,6 +455,7 @@ export function PromptComposer({
   onAgentModeChange,
   sessionKind = "standard",
   onSessionKindChange,
+  modelProviders,
 }: PromptComposerProps) {
   const { t } = useTranslation();
   const isCompact = variant === "compact";
@@ -711,11 +780,7 @@ export function PromptComposer({
                 value={model}
                 onValueChange={onModelChange}
               >
-                {models.map((item) => (
-                  <DropdownMenuRadioItem key={item.id} value={item.id}>
-                    {getModelDisplayName(item)}
-                  </DropdownMenuRadioItem>
-                ))}
+                {renderModelOptions(models, modelProviders)}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>

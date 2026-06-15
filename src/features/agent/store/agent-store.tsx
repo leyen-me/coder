@@ -20,6 +20,7 @@ import {
   getMessage,
   getMessagesBySession,
   getSession,
+  inferProviderFromModel,
   setMessageStatus,
   updateMessage,
   updateSession,
@@ -181,7 +182,7 @@ function navigateToSession(sessionId: string): void {
 }
 
 export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
-  const { resolved } = useModelProvider();
+  const { resolved, resolveProviderForModel } = useModelProvider();
   const { tavilyConfig, settings: webToolsSettings } = useWebTools();
   const resolvedRef = useRef(resolved);
   resolvedRef.current = resolved;
@@ -637,6 +638,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       autonomyMode: ActiveTaskState["autonomyMode"];
       decisionPolicyVersion: ActiveTaskState["decisionPolicyVersion"];
       decisionModel: ActiveTaskState["decisionModel"];
+      resolvedConfig: ResolvedProviderConfig;
     }) => {
       const taskId = createTaskId();
       const assistantMessage = await createMessage({
@@ -679,18 +681,18 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       void runAgentWithTools(
         {
           taskId,
-          baseUrl: resolved.baseUrl,
-          apiKey: resolveApiKey(resolved),
-          apiKeySource: resolved.apiKeySource,
-          apiKeyEnvVar: resolveApiKeyEnvVar(resolved),
+          baseUrl: input.resolvedConfig.baseUrl,
+          apiKey: resolveApiKey(input.resolvedConfig),
+          apiKeySource: input.resolvedConfig.apiKeySource,
+          apiKeyEnvVar: resolveApiKeyEnvVar(input.resolvedConfig),
           model: input.model,
           messages: input.history,
           requestExtensions: buildThinkingRequestExtensions({
-            models: resolved.models,
+            models: input.resolvedConfig.models,
             modelId: input.model,
             thinkingEnabled: input.thinkingEnabled,
           }),
-          maxContextTokens: resolveContextWindowForModel(resolved, input.model),
+          maxContextTokens: resolveContextWindowForModel(input.resolvedConfig, input.model),
           handoffTriggerThreshold: readAgentHandoffThreshold(),
           agentMode: input.agentMode,
           sessionKind: input.sessionKind,
@@ -742,7 +744,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     [
       dispatchAgentEvent,
       emit,
-      resolved,
       tavilyConfig,
       webToolsSettings.allowPrivateNetworkAccess,
     ]
@@ -797,23 +798,24 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       let handoffError: string | null = null;
 
       try {
+        const handoffResolved = resolveProviderForModel(input.model) ?? resolvedRef.current;
         await new Promise<void>((resolve, reject) => {
           void startAgent(
             {
               taskId: handoffTaskId,
-              baseUrl: resolvedRef.current.baseUrl,
-              apiKey: resolveApiKey(resolvedRef.current),
-              apiKeySource: resolvedRef.current.apiKeySource,
-              apiKeyEnvVar: resolveApiKeyEnvVar(resolvedRef.current),
+              baseUrl: handoffResolved.baseUrl,
+              apiKey: resolveApiKey(handoffResolved),
+              apiKeySource: handoffResolved.apiKeySource,
+              apiKeyEnvVar: resolveApiKeyEnvVar(handoffResolved),
               model: input.model,
               messages: handoffMessages,
               requestExtensions: buildThinkingRequestExtensions({
-                models: resolvedRef.current.models,
+                models: handoffResolved.models,
                 modelId: input.model,
                 thinkingEnabled: false,
               }),
               maxContextTokens: resolveContextWindowForModel(
-                resolvedRef.current,
+                handoffResolved,
                 input.model
               ),
             },
@@ -862,7 +864,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         })
       );
     },
-    []
+    [resolveProviderForModel]
   );
 
   const continueTaskFromHandoff = useCallback(
@@ -891,6 +893,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             deriveContinuationSessionTitle(sourceSession.title)
           ),
           model: input.model,
+          provider: inferProviderFromModel(null, input.model),
           workspaceDir: sourceSession.workspaceDir,
           sessionKind: input.sessionKind,
           autonomyMode: input.autonomyMode,
@@ -967,6 +970,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         );
 
         setSessionHandoffState(input.sessionId, "starting_new_session");
+        const handoffResolved = resolveProviderForModel(input.model) ?? resolvedRef.current;
         await startAgentTask({
           sessionId: nextSession.id,
           model: input.model,
@@ -981,6 +985,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           autonomyMode: input.autonomyMode,
           decisionPolicyVersion: input.decisionPolicyVersion,
           decisionModel: input.decisionModel,
+          resolvedConfig: handoffResolved as ResolvedProviderConfig,
         });
 
         clearSessionHandoffState(input.sessionId);
@@ -1005,6 +1010,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     [
       clearSessionHandoffState,
       generateHandoffDocument,
+      resolveProviderForModel,
       setSessionHandoffState,
       startAgentTask,
     ]
@@ -1118,6 +1124,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const session = await ensureSessionWorkspaceForAgent(input.sessionId);
       const workspaceDir = session.workspaceDir?.trim() || null;
       const sessionPolicy = resolveAgentSessionPolicy(session);
+      const sessionResolved = resolveProviderForModel(input.model) ?? resolved;
       const historyMessages = await getMessagesBySession(input.sessionId);
       const environment = await resolveAgentEnvironment(workspaceDir);
       const history = await buildAgentMessages(
@@ -1128,7 +1135,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         sessionPolicy
       );
       const thinkingEnabled = resolveThinkingEnabledForRequest(
-        resolved,
+        sessionResolved,
         input.model,
         input.thinkingEnabled
       );
@@ -1148,6 +1155,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         autonomyMode: sessionPolicy.autonomyMode,
         decisionPolicyVersion: sessionPolicy.decisionPolicyVersion,
         decisionModel: sessionPolicy.decisionModel,
+        resolvedConfig: sessionResolved,
       });
 
       return {
@@ -1156,7 +1164,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         taskId,
       };
     },
-    [emit, resolved, startAgentTask]
+    [emit, resolved, resolveProviderForModel, startAgentTask]
   );
 
   const regenerateMessage = useCallback(
@@ -1221,6 +1229,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const session = await ensureSessionWorkspaceForAgent(input.sessionId);
       const workspaceDir = session.workspaceDir?.trim() || null;
       const sessionPolicy = resolveAgentSessionPolicy(session);
+      const sessionResolved = resolveProviderForModel(input.model) ?? resolved;
       const historyMessages = await getMessagesBySession(input.sessionId);
       const environment = await resolveAgentEnvironment(workspaceDir);
       const history = await buildAgentMessages(
@@ -1232,7 +1241,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       );
       const storedImages = userMessage.images ?? [];
       const thinkingEnabled = resolveThinkingEnabledForRequest(
-        resolved,
+        sessionResolved,
         input.model,
         input.thinkingEnabled
       );
@@ -1252,6 +1261,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         autonomyMode: sessionPolicy.autonomyMode,
         decisionPolicyVersion: sessionPolicy.decisionPolicyVersion,
         decisionModel: sessionPolicy.decisionModel,
+        resolvedConfig: sessionResolved,
       });
 
       return {
@@ -1260,7 +1270,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         taskId,
       };
     },
-    [emit, resolved, startAgentTask]
+    [emit, resolved, resolveProviderForModel, startAgentTask]
   );
 
   const cancelTask = useCallback(

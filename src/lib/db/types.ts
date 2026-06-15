@@ -4,6 +4,7 @@ import type {
   DecisionRiskLevel,
   DecisionTrigger,
 } from "@/lib/decision";
+import type { ProviderId } from "@/lib/model-provider/types";
 
 export type MessageRole = "user" | "assistant";
 
@@ -28,6 +29,8 @@ export type SessionRecord = {
   id: string;
   title: string;
   model: string;
+  /** The provider that owns this session's model. */
+  provider: ProviderId;
   /** Absolute path; owned by this session after the first message. */
   workspaceDir: string | null;
   sessionKind: SessionKind;
@@ -152,6 +155,8 @@ export type AutomationRecord = {
   workspaceDir: string | null;
   /** Model id from the active provider configuration. */
   model: string;
+  /** The provider that owns this automation's model. */
+  provider: ProviderId;
   agentMode: AutomationAgentMode;
   thinkingEnabled: boolean;
   enabled: boolean;

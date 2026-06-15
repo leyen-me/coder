@@ -146,7 +146,7 @@ export function createDefaultProviderSettings(
 }
 
 export const DEFAULT_MODEL_PROVIDER_SETTINGS: ModelProviderSettings = {
-  activeProvider: "deepseek",
+  enabledProviders: [...PROVIDER_IDS],
   providers: Object.fromEntries(
     PROVIDER_IDS.map((id) => [id, createDefaultProviderSettings(id)])
   ) as Record<ProviderId, ProviderSettings>,

@@ -1,3 +1,4 @@
+import type { ProviderId } from "@/lib/model-provider/types";
 import {
   DEFAULT_DECISION_POLICY_VERSION,
   DEFAULT_SESSION_AUTONOMY_MODE,
@@ -9,6 +10,7 @@ type LegacySessionRecord = {
   id: string;
   title: string;
   model: string;
+  provider?: string | null;
   workspaceDir?: string | null;
   parentSessionId?: string | null;
   handoffFromSessionId?: string | null;
@@ -30,6 +32,7 @@ export function normalizeSessionRecord(
     id: session.id,
     title: session.title,
     model: session.model,
+    provider: inferProviderFromModel(session.provider, session.model),
     workspaceDir: session.workspaceDir?.trim() || null,
     sessionKind:
       session.sessionKind === "long_task" ? "long_task" : DEFAULT_SESSION_KIND,
@@ -46,4 +49,34 @@ export function normalizeSessionRecord(
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   };
+}
+
+/**
+ * Infers the provider from a model ID when the stored provider is missing
+ * (backward compatibility for records created before the provider field existed).
+ */
+export function inferProviderFromModel(
+  storedProvider: string | null | undefined,
+  modelId: string
+): ProviderId {
+  if (
+    storedProvider &&
+    storedProvider !== "deepseek" &&
+    storedProvider !== "glm" &&
+    storedProvider !== "agnes" &&
+    storedProvider !== "nvidia" &&
+    storedProvider !== "custom"
+  ) {
+    return "custom";
+  }
+  if (storedProvider) {
+    return storedProvider as ProviderId;
+  }
+
+  // Fall back to prefix-based inference for legacy records
+  const model = modelId.toLowerCase();
+  if (model.startsWith("deepseek")) return "deepseek";
+  if (model.startsWith("glm")) return "glm";
+  if (model.startsWith("agnes")) return "agnes";
+  return "custom";
 }

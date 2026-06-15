@@ -58,14 +58,14 @@ export function AutomationDialog({
   onSave,
 }: AutomationDialogProps) {
   const { t } = useTranslation();
-  const { resolved } = useModelProvider();
+  const { allModels, modelProviders } = useModelProvider();
   const isEditing = editItem !== null;
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [cronExpression, setCronExpression] = useState("");
   const [prompt, setPrompt] = useState("");
   const [workspaceDir, setWorkspaceDir] = useState<string | null>(null);
-  const [model, setModel] = useState(() => resolveDefaultModel(resolved));
+  const [model, setModel] = useState(() => resolveDefaultModel({ models: allModels }));
   const [agentMode, setAgentMode] = useState<AgentMode>("agent");
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [enableEmail, setEnableEmail] = useState(false);
@@ -78,17 +78,17 @@ export function AutomationDialog({
       setModel(nextModel);
       setThinkingEnabled(
         resolveDefaultThinkingEnabled(
-          findModelDefinition(resolved.models, nextModel)
+          findModelDefinition(allModels, nextModel)
         )
       );
     },
-    [resolved.models]
+    [allModels]
   );
 
   useEffect(() => {
     if (open) {
       if (editItem) {
-        const runConfig = resolveAutomationRunConfig(editItem, resolved);
+        const runConfig = resolveAutomationRunConfig(editItem, { models: allModels });
         setName(editItem.name);
         setDescription(editItem.description);
         setCronExpression(editItem.cronExpression);
@@ -99,7 +99,7 @@ export function AutomationDialog({
         setThinkingEnabled(runConfig.thinkingEnabled);
         setEnableEmail(editItem.enableEmail);
       } else {
-        const defaultModel = resolveDefaultModel(resolved);
+        const defaultModel = resolveDefaultModel({ models: allModels });
         setName("");
         setDescription("");
         setCronExpression("0 * * * *");
@@ -109,7 +109,7 @@ export function AutomationDialog({
         setAgentMode("agent");
         setThinkingEnabled(
           resolveDefaultThinkingEnabled(
-            findModelDefinition(resolved.models, defaultModel)
+            findModelDefinition(allModels, defaultModel)
           )
         );
         setEnableEmail(false);
@@ -117,7 +117,7 @@ export function AutomationDialog({
       setError(null);
       setSaving(false);
     }
-  }, [open, editItem, resolved]);
+  }, [open, editItem, allModels]);
 
   const handleSave = useCallback(async () => {
     setError(null);
@@ -141,14 +141,17 @@ export function AutomationDialog({
     }
 
     const trimmedModel = model.trim();
-    if (!trimmedModel || !findModelDefinition(resolved.models, trimmedModel)) {
+    if (!trimmedModel || !findModelDefinition(allModels, trimmedModel)) {
       setError(t("automations.formModelRequired"));
       return;
     }
 
+    const inferredProvider = modelProviders?.get(trimmedModel) ?? "custom";
+
     const runSettings = {
       workspaceDir: workspaceDir?.trim() || null,
       model: trimmedModel,
+      provider: inferredProvider,
       agentMode,
       thinkingEnabled,
       enableEmail,
@@ -189,12 +192,14 @@ export function AutomationDialog({
     model,
     agentMode,
     thinkingEnabled,
-    resolved.models,
+    enableEmail,
+    allModels,
     isEditing,
     editItem,
     onSave,
     onOpenChange,
     t,
+    modelProviders,
   ]);
 
   const cronValid = cronExpression.trim() === "" || isValidCronExpression(cronExpression.trim());
@@ -315,7 +320,8 @@ export function AutomationDialog({
             onModelChange={handleModelChange}
             thinkingEnabled={thinkingEnabled}
             onThinkingEnabledChange={setThinkingEnabled}
-            models={resolved.models}
+            models={allModels}
+            modelProviders={modelProviders}
             disabled={saving}
           />
 

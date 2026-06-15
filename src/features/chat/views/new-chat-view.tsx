@@ -9,7 +9,7 @@ import { useAgentStore } from "@/features/agent/store/agent-store";
 import { usePromptRefiner } from "@/features/lab/prompt-refine-provider";
 import { useLabSettings } from "@/features/lab/use-lab-settings";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
-import { createSession, type SessionKind } from "@/lib/db";
+import { createSession, inferProviderFromModel, type SessionKind } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
@@ -24,17 +24,17 @@ import { DEFAULT_PROJECT_NAME } from "../data/mock-chats";
 export function NewChatView() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { resolved } = useModelProvider();
+  const { allModels, modelProviders } = useModelProvider();
   const { sendMessage } = useAgentStore();
   const { refineIfEnabled } = usePromptRefiner();
   const { settings: labSettings } = useLabSettings();
   const longTaskEnabled = labSettings.longTaskEnabled;
   const { workspaceDir, pickWorkspace, clearWorkspace } = useNewChatWorkspace();
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState(() => resolveDefaultModel(resolved));
+  const [model, setModel] = useState(() => resolveDefaultModel({ models: allModels }));
   const { thinkingEnabled, onThinkingEnabledChange } = useComposerThinking(
     model,
-    resolved.models
+    allModels
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [agentMode, setAgentMode] = useState<AgentMode>("agent");
@@ -69,9 +69,11 @@ export function NewChatView() {
         refineResult === "original" ? trimmed : refineResult.text;
 
       const effectiveSessionKind = longTaskEnabled ? sessionKind : "standard";
+      const provider = inferProviderFromModel(null, model);
       const session = await createSession({
         title: t("session.newChat"),
         model,
+        provider,
         workspaceDir,
         sessionKind: effectiveSessionKind,
         autonomyMode:
@@ -118,7 +120,8 @@ export function NewChatView() {
             void handleSend(payload);
           }}
           model={model}
-          models={resolved.models}
+          models={allModels}
+          modelProviders={modelProviders}
           onModelChange={setModel}
           thinkingEnabled={thinkingEnabled}
           onThinkingEnabledChange={onThinkingEnabledChange}

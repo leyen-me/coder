@@ -25,6 +25,7 @@ const automation: AutomationRecord = {
   prompt: "Review changes",
   workspaceDir: null,
   model: "default-model",
+  provider: "custom",
   agentMode: "agent",
   thinkingEnabled: false,
   enableEmail: false,
