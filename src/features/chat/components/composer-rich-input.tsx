@@ -469,6 +469,15 @@ export function ComposerRichInput({
     syncMentionState(editor);
   }, [editor, syncMentionState, value]);
 
+  // Auto-focus the editor when the component mounts
+  const hasFocused = useRef(false);
+  useEffect(() => {
+    if (editor && !hasFocused.current) {
+      hasFocused.current = true;
+      editor.commands.focus();
+    }
+  }, [editor]);
+
   useEffect(() => {
     skillResultsRef.current = skillResults;
   }, [skillResults]);
