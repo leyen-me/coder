@@ -57,16 +57,18 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
 
-  // Build unified session list: human sessions + agent processes
+  // Build unified session list: human sessions + agent processes (exclude human PTY entries)
   const unifiedSessions: UnifiedSession[] = [
     ...sessions,
-    ...processes.map(
-      (process): AgentSession => ({
-        id: process.shellId,
-        process,
-        source: "agent",
-      })
-    ),
+    ...processes
+      .filter((process) => process.source !== "human")
+      .map(
+        (process): AgentSession => ({
+          id: process.shellId,
+          process,
+          source: "agent",
+        })
+      ),
   ];
 
   const activeSession =

@@ -35,6 +35,7 @@ struct RunningShell {
     pid: Option<u32>,
     killed: Arc<AtomicBool>,
     child_killer: Option<Box<dyn portable_pty::ChildKiller + Send + Sync>>,
+    source: String,
 }
 
 pub struct ShellRegistry {
@@ -73,7 +74,7 @@ impl ShellRegistry {
                 task_id: shell.task_id.clone(),
                 stdout: shell.stdout.clone(),
                 stderr: shell.stderr.clone(),
-                source: "agent".to_string(),
+                source: shell.source.clone(),
             })
             .collect()
     }
@@ -173,7 +174,7 @@ impl ShellRegistry {
             shell.started_at,
             shell.status,
             Some(shell_id.to_string()),
-            "agent".to_string(),
+            shell.source.clone(),
         ))
     }
 
@@ -364,6 +365,7 @@ impl ShellRegistry {
                     pid: None,
                     killed,
                     child_killer: None,
+                    source: "agent".to_string(),
                 },
             );
         }
@@ -470,6 +472,7 @@ impl ShellRegistry {
                 pid: None,
                 killed: Arc::new(AtomicBool::new(false)),
                 child_killer: Some(child_killer),
+                source: "human".to_string(),
             },
         );
     }
@@ -675,6 +678,7 @@ mod tests {
             pid: None,
             killed: Arc::new(AtomicBool::new(false)),
             child_killer: None,
+            source: "agent".to_string(),
         }
     }
 
