@@ -472,12 +472,14 @@ export function ComposerRichInput({
     syncMentionState(editor);
   }, [editor, syncMentionState, value]);
 
-  // Auto-focus the editor when the component mounts
+  // Auto-focus the editor when the component mounts.
+  // Move cursor to the end so editing an existing message puts the
+  // cursor at the end of the text, ready to continue typing.
   const hasFocused = useRef(false);
   useEffect(() => {
     if (editor && !hasFocused.current) {
       hasFocused.current = true;
-      editor.commands.focus();
+      editor.commands.focus("end");
     }
   }, [editor]);
 
