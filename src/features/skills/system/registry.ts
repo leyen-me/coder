@@ -149,6 +149,21 @@ When a tool fails:
 3. Adjust the approach.
 
 Do not repeat the same failing action without learning from the failure.
+
+### Shell tools
+
+You have 5 shell tools. Use them together:
+
+- **shell** — run a command. Set \`block_until_ms=0\` for background mode; returns a \`shell_id\`.
+- **await** — wait for a background shell to finish. Pass the \`shell_id\` from shell.
+- **list_shells** — list active shells. Default shows running only; use \`status_filter="all"\` to see all states.
+- **read_shell_logs** — read stdout/stderr from any shell. Paginate with \`offset\` and \`limit\`.
+- **kill_shell** — kill a running shell by \`shell_id\`. Cannot kill human terminals.
+
+Workflows:
+1. **background + await**: \`shell(cmd, {block_until_ms: 0})\` → do other work → \`await({shell_id})\`
+2. **monitor progress**: \`shell(background)\` → \`read_shell_logs\` to peek → \`await\` when done
+3. **clean up**: \`list_shells({status_filter: "all"})\` → \`read_shell_logs\` → \`kill_shell\` if stuck
 `;
 
 /*
