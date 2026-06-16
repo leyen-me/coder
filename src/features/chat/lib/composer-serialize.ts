@@ -169,7 +169,41 @@ const WORKSPACE_REF_PATTERN = /(?:^|\s)@([^\s@]+)/g;
  */
 const SKILL_REF_PATTERN = /(?:^|\s)\/([a-z0-9]+(?:-[a-z0-9]+)*)/g;
 
-export function deserializeAgentTextToDoc(text: string): JSONContent {
+/**
+ * Heuristic: returns true when the text looks like a file path.
+ * A valid file path either contains a directory separator (`/`) or has
+ * a file extension (e.g. `.ts`, `.json`, `Makefile`-style names without
+ * extension are ambiguous and are left as plain text to avoid false
+ * positives like `@随便` or `@random`).
+ *
+ * This is intentionally conservative — it handles the common case
+ * without requiring asynchronous filesystem access.  The filtering
+ * can be tightened later with a proper async validation step.
+ */
+export function looksLikeFilePath(path: string): boolean {
+  return path.includes("/") || /\.[a-zA-Z0-9]+$/.test(path);
+}
+
+export type DeserializeOptions = {
+  /**
+   * Optional predicate that returns true when a slug corresponds to an
+   * enabled skill.  When omitted (or when the predicate returns false) the
+   * pattern is left as plain text instead of being upgraded to a
+   * skillReference node.
+   */
+  isEnabledSkill?: (slug: string) => boolean;
+  /**
+   * Optional predicate for validating workspace paths.  When omitted (or
+   * when the predicate returns false) the pattern is left as plain text.
+   */
+  isValidWorkspacePath?: (path: string) => boolean;
+};
+
+export function deserializeAgentTextToDoc(
+  text: string,
+  options?: DeserializeOptions
+): JSONContent {
+  const { isEnabledSkill, isValidWorkspacePath } = options ?? {};
   const paragraphContent: JSONContent[] = [];
 
   // Collect all reference tokens with their positions.
@@ -183,9 +217,13 @@ export function deserializeAgentTextToDoc(text: string): JSONContent {
 
   WORKSPACE_REF_PATTERN.lastIndex = 0;
   while ((match = WORKSPACE_REF_PATTERN.exec(text)) !== null) {
+    const path = match[1];
+    if (isValidWorkspacePath && !isValidWorkspacePath(path)) {
+      continue;
+    }
     tokens.push({
       type: "workspace",
-      value: match[1],
+      value: path,
       start: match.index,
       end: match.index + match[0].length,
     });
@@ -193,9 +231,13 @@ export function deserializeAgentTextToDoc(text: string): JSONContent {
 
   SKILL_REF_PATTERN.lastIndex = 0;
   while ((match = SKILL_REF_PATTERN.exec(text)) !== null) {
+    const slug = match[1];
+    if (isEnabledSkill && !isEnabledSkill(slug)) {
+      continue;
+    }
     tokens.push({
       type: "skill",
-      value: match[1],
+      value: slug,
       start: match.index,
       end: match.index + match[0].length,
     });

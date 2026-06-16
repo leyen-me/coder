@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   deserializeAgentTextToDoc,
+  looksLikeFilePath,
   resolveSkillReferenceAttrs,
   resolveWorkspaceReferenceAttrs,
   serializeDocToAgentText,
@@ -161,5 +162,60 @@ describe("deserializeAgentTextToDoc", () => {
         },
       ],
     });
+  });
+
+  it("only creates skillReference nodes for enabled skills", () => {
+    const isEnabledSkill = (slug: string) => slug === "code-review";
+
+    const doc = deserializeAgentTextToDoc(
+      "try /code-review and /blog",
+      { isEnabledSkill }
+    );
+
+    const content = doc.content?.[0]?.content ?? [];
+    const refNodes = content.filter((n) => n.type === "skillReference");
+
+    // Only /code-review matches the filter, /blog stays as plain text
+    expect(refNodes).toHaveLength(1);
+    expect(refNodes[0].attrs).toEqual(
+      resolveSkillReferenceAttrs("code-review")
+    );
+  });
+
+  it("treats unmatched skill patterns as plain text", () => {
+    const isEnabledSkill = () => false;
+
+    const doc = deserializeAgentTextToDoc("text /unknown-slug more", {
+      isEnabledSkill,
+    });
+
+    // No skillReference nodes should be created
+    const refNodes =
+      doc.content?.[0]?.content?.filter((n) => n.type === "skillReference") ??
+      [];
+    expect(refNodes).toHaveLength(0);
+  });
+});
+
+describe("looksLikeFilePath", () => {
+  it("accepts paths with directory separators", () => {
+    expect(looksLikeFilePath("src/main.ts")).toBe(true);
+    expect(looksLikeFilePath("a/b/c")).toBe(true);
+  });
+
+  it("accepts paths with file extensions", () => {
+    expect(looksLikeFilePath("main.ts")).toBe(true);
+    expect(looksLikeFilePath("Dockerfile.dev")).toBe(true);
+    expect(looksLikeFilePath("Makefile")).toBe(false);
+  });
+
+  it("rejects bare words without separators or extensions", () => {
+    expect(looksLikeFilePath("随便")).toBe(false);
+    expect(looksLikeFilePath("random")).toBe(false);
+    expect(looksLikeFilePath("john")).toBe(false);
+  });
+
+  it("accepts paths with both separator and extension", () => {
+    expect(looksLikeFilePath("src/components/Button.tsx")).toBe(true);
   });
 });

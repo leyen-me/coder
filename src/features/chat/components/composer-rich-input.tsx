@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CompositionEvent,
@@ -25,6 +26,7 @@ import {
 import {
   deserializeAgentTextToDoc,
   editorHasInlineReferences,
+  looksLikeFilePath,
   resolveSkillReferenceAttrs,
   resolveWorkspaceReferenceAttrs,
   serializeEditorToAgentText,
@@ -88,12 +90,21 @@ export function ComposerRichInput({
     mention?.query ?? "",
     Boolean(mention)
   );
-  const { skills: enabledSkills, loading: skillsLoading } = useEnabledSkills(
-    Boolean(skillMention)
-  );
+  const { skills: enabledSkills, loading: skillsLoading } = useEnabledSkills(true);
   const skillResults = filterEnabledSkills(
     enabledSkills,
     skillMention?.query ?? ""
+  );
+  const enabledSkillSlugs = useMemo(
+    () => new Set(enabledSkills.map((s) => s.slug)),
+    [enabledSkills]
+  );
+  const deserializeOptions = useMemo(
+    () => ({
+      isEnabledSkill: (slug: string) => enabledSkillSlugs.has(slug),
+      isValidWorkspacePath: hasWorkspace ? looksLikeFilePath : undefined,
+    }),
+    [enabledSkillSlugs, hasWorkspace]
   );
 
   const updateSelectedIndex = useCallback((nextIndex: number) => {
@@ -207,7 +218,7 @@ export function ComposerRichInput({
       WorkspaceReferenceExtension,
       SkillReferenceExtension,
     ],
-    content: deserializeAgentTextToDoc(value),
+    content: deserializeAgentTextToDoc(value, deserializeOptions),
     editorProps: {
       attributes: {
         class: cn(
@@ -463,14 +474,34 @@ export function ComposerRichInput({
       return;
     }
 
-    editor.commands.setContent(deserializeAgentTextToDoc(value), {
-      emitUpdate: false,
-    });
+    editor.commands.setContent(
+      deserializeAgentTextToDoc(value, deserializeOptions),
+      {
+        emitUpdate: false,
+      }
+    );
     // Move cursor to the end when loading content into the editor (e.g.
     // when editing a message), so the user can continue typing immediately.
     editor.commands.focus("end");
     syncMentionState(editor);
-  }, [editor, syncMentionState, value]);
+  }, [editor, syncMentionState, value, enabledSkillSlugs, deserializeOptions]);
+
+  // Re-process editor content once enabled skills become available, so
+  // patterns matching real skills are upgraded to skillReference nodes.
+  const processedWithSkillsRef = useRef(false);
+  useEffect(() => {
+    if (!editor || enabledSkillSlugs.size === 0 || processedWithSkillsRef.current) {
+      return;
+    }
+    processedWithSkillsRef.current = true;
+
+    editor.commands.setContent(
+      deserializeAgentTextToDoc(value, deserializeOptions),
+      { emitUpdate: false }
+    );
+    editor.commands.focus("end");
+    syncMentionState(editor);
+  }, [editor, enabledSkillSlugs, value, syncMentionState]);
 
   // Auto-focus the editor when the component mounts.
   // Move cursor to the end so editing an existing message puts the
