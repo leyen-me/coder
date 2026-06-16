@@ -176,6 +176,18 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
 
   const renderSessionLabel = (session: UnifiedSession) => {
     if (session.source === "human") {
+      const formatted = formatTerminalTabPath(session.cwd, homeDirectory);
+      // Show only the last path component (directory name)
+      return formatted.split("/").filter(Boolean).pop() ?? formatted;
+    }
+    return (
+      session.process.description ??
+      (session.process.command || session.process.shellId)
+    );
+  };
+
+  const renderSessionTitle = (session: UnifiedSession): string | undefined => {
+    if (session.source === "human") {
       return formatTerminalTabPath(session.cwd, homeDirectory);
     }
     return (
@@ -250,12 +262,12 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
                   <XIcon className="hidden size-3 group-hover:block" />
                 </button>
                 <button
-                  className="flex max-w-56 items-center gap-1 truncate px-2 py-1 font-mono"
+                  className="flex min-w-0 items-center gap-1 px-2 py-1 font-mono"
                   onClick={() => setActiveId(session.id)}
-                  title={typeof label === "string" ? label : undefined}
+                  title={renderSessionTitle(session)}
                   type="button"
                 >
-                  {label}
+                  <span className="truncate">{label}</span>
                   {renderSessionBadge(session)}
                 </button>
               </div>
