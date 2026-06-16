@@ -157,13 +157,101 @@ export function editorHasWorkspaceReferences(editor: Editor): boolean {
   return found;
 }
 
+/**
+ * Pattern matching workspace references (`@path`) at word boundaries.
+ * A path may contain `/` but must not contain spaces or `@`.
+ */
+const WORKSPACE_REF_PATTERN = /(?:^|\s)@([^\s@]+)/g;
+
+/**
+ * Pattern matching skill references (`/slug`) at word boundaries.
+ * A slug is kebab-case: lowercase letters, digits, and hyphens.
+ */
+const SKILL_REF_PATTERN = /(?:^|\s)\/([a-z0-9]+(?:-[a-z0-9]+)*)/g;
+
 export function deserializeAgentTextToDoc(text: string): JSONContent {
   const paragraphContent: JSONContent[] = [];
 
-  paragraphContent.push({
-    type: "text",
-    text,
-  });
+  // Collect all reference tokens with their positions.
+  type Token =
+    | { type: "workspace"; value: string; start: number; end: number }
+    | { type: "skill"; value: string; start: number; end: number };
+
+  const tokens: Token[] = [];
+
+  let match: RegExpExecArray | null;
+
+  WORKSPACE_REF_PATTERN.lastIndex = 0;
+  while ((match = WORKSPACE_REF_PATTERN.exec(text)) !== null) {
+    tokens.push({
+      type: "workspace",
+      value: match[1],
+      start: match.index,
+      end: match.index + match[0].length,
+    });
+  }
+
+  SKILL_REF_PATTERN.lastIndex = 0;
+  while ((match = SKILL_REF_PATTERN.exec(text)) !== null) {
+    tokens.push({
+      type: "skill",
+      value: match[1],
+      start: match.index,
+      end: match.index + match[0].length,
+    });
+  }
+
+  // Sort by start position, then prefer workspace over skill when overlapping
+  // (e.g. path `@src/plan` also matches `/plan` as a skill reference).
+  tokens.sort((a, b) => a.start - b.start || (a.type === "workspace" ? -1 : 1));
+
+  const merged: Token[] = [];
+  for (const token of tokens) {
+    const prev = merged.at(-1);
+    if (prev && token.start < prev.end) {
+      continue; // overlap — keep the earlier token
+    }
+    merged.push(token);
+  }
+
+  let cursor = 0;
+  for (const token of merged) {
+    // Text before this token's boundary character
+    if (token.start > cursor) {
+      paragraphContent.push({ type: "text", text: text.slice(cursor, token.start) });
+    }
+
+    // The leading boundary character (whitespace) before the reference sigil
+    // Non-capturing group (?:^|\s) consumed it as part of match[0].
+    if (token.start > 0) {
+      paragraphContent.push({ type: "text", text: text[token.start] });
+    }
+
+    // The reference node
+    if (token.type === "workspace") {
+      paragraphContent.push({
+        type: WORKSPACE_REFERENCE_NODE,
+        attrs: resolveWorkspaceReferenceAttrs(token.value),
+      });
+    } else {
+      paragraphContent.push({
+        type: SKILL_REFERENCE_NODE,
+        attrs: resolveSkillReferenceAttrs(token.value),
+      });
+    }
+
+    cursor = token.end;
+  }
+
+  // Remaining text after the last token
+  if (cursor < text.length) {
+    paragraphContent.push({ type: "text", text: text.slice(cursor) });
+  }
+
+  // Empty text still produces an empty paragraph so the editor is editable
+  if (paragraphContent.length === 0) {
+    paragraphContent.push({ type: "text", text: "" });
+  }
 
   return {
     type: "doc",
