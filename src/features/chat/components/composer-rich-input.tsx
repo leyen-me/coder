@@ -466,6 +466,9 @@ export function ComposerRichInput({
     editor.commands.setContent(deserializeAgentTextToDoc(value), {
       emitUpdate: false,
     });
+    // Move cursor to the end when loading content into the editor (e.g.
+    // when editing a message), so the user can continue typing immediately.
+    editor.commands.focus("end");
     syncMentionState(editor);
   }, [editor, syncMentionState, value]);
 
