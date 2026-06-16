@@ -11,6 +11,7 @@ export const SHELL_TOOL_NAME = "shell";
 export const AWAIT_TOOL_NAME = "await";
 export const LIST_SHELLS_TOOL_NAME = "list_shells";
 export const KILL_SHELL_TOOL_NAME = "kill_shell";
+export const READ_SHELL_LOGS_TOOL_NAME = "read_shell_logs";
 export const WEB_SEARCH_TOOL_NAME = "web_search";
 export const BROWSE_PAGE_TOOL_NAME = "browse_page";
 export const LIST_SKILLS_TOOL_NAME = "list_skills";
@@ -430,6 +431,43 @@ export const KILL_SHELL_TOOL: AgentToolDefinition = {
         shell_id: {
           type: "string",
           description: "The shell_id to terminate.",
+        },
+      },
+      required: ["shell_id"],
+      additionalProperties: false,
+    },
+  },
+};
+
+export const READ_SHELL_LOGS_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: READ_SHELL_LOGS_TOOL_NAME,
+    description:
+      "Read logs from a shell process (human terminal or AI background shell) in batches. " +
+      "Use list_shells first to find shell IDs. " +
+      "Returns a chunk of stdout or stderr starting at the given offset.",
+    parameters: {
+      type: "object",
+      properties: {
+        shell_id: {
+          type: "string",
+          description: "The shell_id to read logs from.",
+        },
+        stream: {
+          type: "string",
+          description: 'Which stream to read: "stdout" or "stderr". Defaults to "stdout".',
+          enum: ["stdout", "stderr"],
+        },
+        offset: {
+          type: "integer",
+          description:
+            "Byte offset to start reading from. Default 0. Use the returned offset + data.length to paginate.",
+        },
+        limit: {
+          type: "integer",
+          description: "Maximum bytes to return (default 4096, max 65536).",
+          default: 4096,
         },
       },
       required: ["shell_id"],
@@ -909,6 +947,7 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   AWAIT_TOOL,
   LIST_SHELLS_TOOL,
   KILL_SHELL_TOOL,
+  READ_SHELL_LOGS_TOOL,
   WEB_SEARCH_TOOL,
   BROWSE_PAGE_TOOL,
   LIST_SKILLS_TOOL,

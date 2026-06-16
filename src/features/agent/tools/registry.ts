@@ -7,6 +7,7 @@ import {
   GREP_TOOL_NAME,
   BROWSE_PAGE_TOOL_NAME,
   KILL_SHELL_TOOL_NAME,
+  READ_SHELL_LOGS_TOOL_NAME,
   LIST_DIR_TOOL_NAME,
   LIST_SHELLS_TOOL_NAME,
   CREATE_SKILL_TOOL_NAME,
@@ -48,6 +49,7 @@ import {
   planUpdateHandler,
 } from "./plan";
 import { readFileHandler } from "./read-file";
+import { readShellLogsHandler } from "./read-shell-logs";
 import { readSkillHandler } from "./read-skill";
 import { replaceFileHandler } from "./replace-file";
 import { sendEmailHandler } from "./send-email";
@@ -80,6 +82,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [AWAIT_TOOL_NAME]: awaitShellHandler,
   [LIST_SHELLS_TOOL_NAME]: listShellsHandler,
   [KILL_SHELL_TOOL_NAME]: killShellHandler,
+  [READ_SHELL_LOGS_TOOL_NAME]: readShellLogsHandler,
   [WEB_SEARCH_TOOL_NAME]: webSearchHandler,
   [BROWSE_PAGE_TOOL_NAME]: browsePageHandler,
   [LIST_SKILLS_TOOL_NAME]: listSkillsHandler,

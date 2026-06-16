@@ -195,6 +195,15 @@ export type KillShellData = {
   killed: boolean;
 };
 
+export type ReadShellLogsData = {
+  shellId: string;
+  stream: string;
+  data: string;
+  offset: number;
+  totalBytes: number;
+  truncated: boolean;
+};
+
 export type TavilyConfig = {
   apiKeySource: "manual" | "env";
   apiKey: string;

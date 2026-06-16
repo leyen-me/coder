@@ -17,8 +17,8 @@ const POST_KILL_WAIT_MS: u64 = 3_000;
 
 use super::shell::{
     build_shell_output, normalize_block_until_ms, resolve_command_shell, resolve_working_directory,
-    shell_command_builder, ShellInfo, ShellOutput, ShellOutputEvent, ShellStatus,
-    ShellStatusFilter,
+    shell_command_builder, ReadShellLogsResponse, ShellInfo, ShellOutput, ShellOutputEvent,
+    ShellStatus, ShellStatusFilter,
 };
 
 #[derive(Debug)]
@@ -34,6 +34,7 @@ struct RunningShell {
     task_id: Option<String>,
     pid: Option<u32>,
     killed: Arc<AtomicBool>,
+    child_killer: Option<Box<dyn portable_pty::ChildKiller + Send + Sync>>,
 }
 
 pub struct ShellRegistry {
@@ -362,6 +363,7 @@ impl ShellRegistry {
                     task_id,
                     pid: None,
                     killed,
+                    child_killer: None,
                 },
             );
         }
@@ -444,6 +446,91 @@ impl ShellRegistry {
             "agent".to_string(),
         ))
     }
+
+    /// Register a human PTY session in the shell registry so it appears in list_shells.
+    pub fn register_pty(
+        &mut self,
+        shell_id: String,
+        command: String,
+        working_directory: String,
+        child_killer: Box<dyn portable_pty::ChildKiller + Send + Sync>,
+    ) {
+        self.shells.insert(
+            shell_id,
+            RunningShell {
+                command,
+                description: Some("Human terminal".to_string()),
+                working_directory,
+                stdout: String::new(),
+                stderr: String::new(),
+                status: ShellStatus::Running,
+                exit_code: None,
+                started_at: Instant::now(),
+                task_id: None,
+                pid: None,
+                killed: Arc::new(AtomicBool::new(false)),
+                child_killer: Some(child_killer),
+            },
+        );
+    }
+
+    /// Append output to a shell's stdout (used by PTY reader threads).
+    pub fn append_pty_output(&mut self, shell_id: &str, data: &str) {
+        if let Some(shell) = self.shells.get_mut(shell_id) {
+            shell.stdout.push_str(data);
+        }
+    }
+
+    /// Mark a PTY shell as finished (used by PTY reader threads on EOF).
+    pub fn finish_pty(&mut self, shell_id: &str, status: ShellStatus, exit_code: Option<i32>) {
+        if let Some(shell) = self.shells.get_mut(shell_id) {
+            if shell.status == ShellStatus::Running {
+                shell.status = status;
+                shell.exit_code = exit_code;
+            }
+        }
+    }
+
+    /// Read a portion of a shell's stdout/stderr.
+    pub fn read_shell_logs(
+        &self,
+        shell_id: &str,
+        stream: Option<String>,
+        offset: Option<usize>,
+        limit: Option<usize>,
+    ) -> Result<super::shell::ReadShellLogsResponse, String> {
+        let shell = self
+            .shells
+            .get(shell_id)
+            .ok_or_else(|| format!("Unknown shell_id: {shell_id}"))?;
+
+        let stream = stream.unwrap_or_else(|| "stdout".to_string());
+        let offset = offset.unwrap_or(0);
+        let max_limit = 65536;
+        let limit = limit.unwrap_or(4096).min(max_limit);
+
+        let content = if stream == "stderr" {
+            &shell.stderr
+        } else {
+            &shell.stdout
+        };
+        let total_bytes = content.len();
+        let data = if offset >= total_bytes {
+            String::new()
+        } else {
+            let end = (offset + limit).min(total_bytes);
+            content[offset..end].to_string()
+        };
+
+        Ok(super::shell::ReadShellLogsResponse {
+            shell_id: shell_id.to_string(),
+            stream,
+            data,
+            offset,
+            total_bytes,
+            truncated: offset + limit < total_bytes,
+        })
+    }
 }
 
 fn matches_status_filter(status: ShellStatus, status_filter: ShellStatusFilter) -> bool {
@@ -470,6 +557,11 @@ fn shell_status_label(status: ShellStatus) -> &'static str {
 
 fn kill_running_shell(shell: &mut RunningShell) {
     shell.killed.store(true, Ordering::SeqCst);
+
+    // Use child_killer first if available (e.g. human PTY sessions)
+    if let Some(killer) = shell.child_killer.as_mut() {
+        let _ = killer.kill();
+    }
 
     if let Some(pid) = shell.pid {
         kill_process_tree(pid);
@@ -553,6 +645,18 @@ pub fn shell_list(
     Ok(registry.list(status_filter.unwrap_or(ShellStatusFilter::Running)))
 }
 
+#[tauri::command]
+pub fn shell_read_logs(
+    state: State<'_, ShellState>,
+    shell_id: String,
+    stream: Option<String>,
+    offset: Option<usize>,
+    limit: Option<usize>,
+) -> Result<ReadShellLogsResponse, String> {
+    let registry = state.0.lock().map_err(|_| "Shell registry lock poisoned")?;
+    registry.read_shell_logs(&shell_id, stream, offset, limit)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -570,6 +674,7 @@ mod tests {
             task_id: Some("task-1".to_string()),
             pid: None,
             killed: Arc::new(AtomicBool::new(false)),
+            child_killer: None,
         }
     }
 

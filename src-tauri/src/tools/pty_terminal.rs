@@ -7,6 +7,9 @@ use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
+use super::shell_registry::{ShellRegistry, ShellState};
+use super::shell::ShellOutputEvent;
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PtySessionInfo {
@@ -24,7 +27,6 @@ pub struct PtyOutputEvent {
 struct PtySession {
     master: Box<dyn portable_pty::MasterPty + Send>,
     writer: Box<dyn Write + Send>,
-    child_killer: Box<dyn portable_pty::ChildKiller + Send + Sync>,
 }
 
 pub struct PtyRegistry {
@@ -51,6 +53,7 @@ impl PtyRegistry {
     pub fn create(
         &mut self,
         app: AppHandle,
+        shell_reg: Arc<Mutex<ShellRegistry>>,
         cwd: String,
         cols: u16,
         rows: u16,
@@ -92,12 +95,22 @@ impl PtyRegistry {
             PtySession {
                 master,
                 writer,
-                child_killer: killer,
             },
         );
 
+        // Register in ShellRegistry so it appears in list_shells
+        {
+            let mut reg = shell_reg
+                .lock()
+                .map_err(|_| "Shell registry lock poisoned")?;
+            let shell_id = pty_id.clone();
+            let dir = cwd.clone();
+            reg.register_pty(shell_id, format!("login shell ({dir})"), dir, killer);
+        }
+
         let app_reader = app.clone();
         let pty_id_reader = pty_id.clone();
+        let shell_reg_reader = shell_reg.clone();
         thread::spawn(move || {
             let mut buffer = [0u8; 4096];
             loop {
@@ -109,14 +122,46 @@ impl PtyRegistry {
                             "pty-output",
                             PtyOutputEvent {
                                 pty_id: pty_id_reader.clone(),
-                                data,
+                                data: data.clone(),
                             },
                         );
+                        // Also emit shell-output so the ShellProcess store picks it up
+                        let _ = app_reader.emit(
+                            "shell-output",
+                            ShellOutputEvent {
+                                shell_id: pty_id_reader.clone(),
+                                stream: "stdout".to_string(),
+                                data: data.clone(),
+                            },
+                        );
+                        // Accumulate in ShellRegistry for read_shell_logs
+                        if let Ok(mut reg) = shell_reg_reader.lock() {
+                            reg.append_pty_output(&pty_id_reader, &data);
+                        }
                     }
                     Err(_) => break,
                 }
             }
-            let _ = app_reader.emit("pty-closed", serde_json::json!({ "ptyId": pty_id_reader }));
+            // Mark as finished
+            if let Ok(mut reg) = shell_reg_reader.lock() {
+                reg.finish_pty(
+                    &pty_id_reader,
+                    super::shell::ShellStatus::Completed,
+                    Some(0),
+                );
+            }
+            let _ = app_reader.emit(
+                "pty-closed",
+                serde_json::json!({ "ptyId": pty_id_reader.clone() }),
+            );
+            let _ = app_reader.emit(
+                "shell-finished",
+                serde_json::json!({
+                    "shellId": pty_id_reader,
+                    "exitCode": 0,
+                    "status": "completed",
+                }),
+            );
         });
 
         Ok(PtySessionInfo { pty_id, cwd })
@@ -154,7 +199,9 @@ impl PtyRegistry {
             .sessions
             .remove(pty_id)
             .ok_or_else(|| format!("Unknown pty_id: {pty_id}"))?;
-        let _ = session.child_killer.kill();
+        // Drop session — master is closed, writer is dropped,
+        // the PTY reader thread will detect EOF and update ShellRegistry.
+        drop(session);
         Ok(())
     }
 }
@@ -164,13 +211,23 @@ pub struct PtyState(pub Arc<Mutex<PtyRegistry>>);
 #[tauri::command]
 pub fn pty_create(
     app: AppHandle,
-    state: State<'_, PtyState>,
+    pty_state: State<'_, PtyState>,
+    shell_state: State<'_, ShellState>,
     cwd: String,
     cols: Option<u16>,
     rows: Option<u16>,
 ) -> Result<PtySessionInfo, String> {
-    let mut registry = state.0.lock().map_err(|_| "PTY registry lock poisoned")?;
-    registry.create(app, cwd, cols.unwrap_or(80), rows.unwrap_or(24))
+    let mut registry = pty_state
+        .0
+        .lock()
+        .map_err(|_| "PTY registry lock poisoned")?;
+    registry.create(
+        app,
+        shell_state.0.clone(),
+        cwd,
+        cols.unwrap_or(80),
+        rows.unwrap_or(24),
+    )
 }
 
 #[tauri::command]

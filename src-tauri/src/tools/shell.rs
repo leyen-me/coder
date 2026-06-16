@@ -61,6 +61,17 @@ pub struct ShellOutputEvent {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ReadShellLogsResponse {
+    pub shell_id: String,
+    pub stream: String,
+    pub data: String,
+    pub offset: usize,
+    pub total_bytes: usize,
+    pub truncated: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ShellInfo {
     pub shell_id: String,
     pub command: String,
