@@ -33,7 +33,6 @@ export function KeyboardShortcuts() {
   const {
     isOpen: isBottomPanelOpen,
     toggle: toggleBottomPanel,
-    toggleTab,
   } = useBottomPanel();
 
   const runBuiltinAction = useCallback(
@@ -64,10 +63,8 @@ export function KeyboardShortcuts() {
           toggleBottomPanel();
           return true;
         case "panel.bottomTerminal":
-          toggleTab("terminal");
-          return true;
         case "panel.bottomProcesses":
-          toggleTab("processes");
+          toggleBottomPanel();
           return true;
         case "panel.toggleRight":
           toggleRightPanel();
@@ -82,7 +79,6 @@ export function KeyboardShortcuts() {
       toggleBottomPanel,
       toggleRightPanel,
       toggleSidebar,
-      toggleTab,
     ]
   );
 

@@ -211,6 +211,7 @@ function appendStream(
         startedAtMs: 0,
         stdout: stream === "stdout" ? data : "",
         stderr: stream === "stderr" ? data : "",
+        source: "agent",
       },
     ];
   }

@@ -26,6 +26,7 @@ const sampleShells: ShellInfo[] = [
     taskId: "task-a",
     stdout: "ready",
     stderr: "",
+    source: "agent",
   },
   {
     shellId: "shell-2",
@@ -37,6 +38,7 @@ const sampleShells: ShellInfo[] = [
     taskId: "task-b",
     stdout: "passed",
     stderr: "",
+    source: "agent",
   },
 ];
 
@@ -89,6 +91,7 @@ describe("listShellsHandler", () => {
             stderr: "",
             stdoutTruncated: false,
             stderrTruncated: false,
+            source: "agent",
           },
         ],
         total: 1,
@@ -122,6 +125,7 @@ describe("listShellsHandler", () => {
             stderr: "",
             stdoutTruncated: false,
             stderrTruncated: false,
+            source: "agent",
           },
         ],
         total: 1,

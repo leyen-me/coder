@@ -3,13 +3,22 @@
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
-import { PlusIcon, TerminalIcon, XIcon } from "lucide-react";
+import {
+  CpuIcon,
+  PlusIcon,
+  TerminalIcon,
+  XIcon,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { Badge } from "@/components/ui/badge";
+import { getShellStatusBadgeVariant } from "@/features/agent/tools/shell-display";
 import { formatTerminalTabPath } from "../format-terminal-tab-path";
 import { useBottomPanel } from "../bottom-panel-context";
 import { resolveHomeDirectory, resolveTerminalCwd } from "../resolve-terminal-cwd";
+import { useShellProcesses, type ShellProcess } from "../use-shell-processes";
 import { InteractiveTerminal } from "./interactive-terminal";
+import { ProcessLogViewer } from "./process-log-viewer";
 
 type TerminalTabProps = {
   workspaceDir: string | null;
@@ -18,29 +27,52 @@ type TerminalTabProps = {
 type TerminalSession = {
   id: string;
   cwd: string;
+  source: "human";
 };
+
+type AgentSession = {
+  id: string;
+  process: ShellProcess;
+  source: "agent";
+};
+
+type UnifiedSession = TerminalSession | AgentSession;
 
 function createTerminalSession(cwd: string): TerminalSession {
   return {
     id: `term-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     cwd,
+    source: "human",
   };
 }
 
 export function TerminalTab({ workspaceDir }: TerminalTabProps) {
   const { t } = useTranslation();
-  const { isOpen: isBottomPanelOpen, activeTab, setOpen: setBottomPanelOpen } =
+  const { isOpen: isBottomPanelOpen, setOpen: setBottomPanelOpen } =
     useBottomPanel();
-  const isTerminalTabActive =
-    isBottomPanelOpen && activeTab === "terminal";
+  const { processes, killProcess } = useShellProcesses();
   const [homeDirectory, setHomeDirectory] = useState<string | null>(null);
   const [defaultCwd, setDefaultCwd] = useState<string | null>(null);
   const [sessions, setSessions] = useState<TerminalSession[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
 
+  // Build unified session list: human sessions + agent processes
+  const unifiedSessions: UnifiedSession[] = [
+    ...sessions,
+    ...processes.map(
+      (process): AgentSession => ({
+        id: process.shellId,
+        process,
+        source: "agent",
+      })
+    ),
+  ];
+
   const activeSession =
-    sessions.find((session) => session.id === activeId) ?? sessions[0] ?? null;
+    unifiedSessions.find((session) => session.id === activeId) ??
+    unifiedSessions[0] ??
+    null;
 
   useEffect(() => {
     let cancelled = false;
@@ -76,14 +108,26 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
   }, [t, workspaceDir]);
 
   useEffect(() => {
-    if (!isTerminalTabActive || !defaultCwd || sessions.length > 0) {
+    if (!isBottomPanelOpen || !defaultCwd || sessions.length > 0) {
       return;
     }
 
     const session = createTerminalSession(defaultCwd);
     setSessions([session]);
     setActiveId(session.id);
-  }, [defaultCwd, isTerminalTabActive, sessions.length]);
+  }, [defaultCwd, isBottomPanelOpen, sessions.length]);
+
+  // Auto-select new agent processes if nothing else is selected
+  useEffect(() => {
+    if (unifiedSessions.length === 0) {
+      setActiveId(null);
+      return;
+    }
+
+    if (!activeId || !unifiedSessions.some((s) => s.id === activeId)) {
+      setActiveId(unifiedSessions[0]?.id ?? null);
+    }
+  }, [unifiedSessions, activeId]);
 
   const handleNewTerminal = () => {
     if (!defaultCwd) {
@@ -96,35 +140,91 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
   };
 
   const handleCloseSession = (sessionId: string) => {
-    const index = sessions.findIndex((session) => session.id === sessionId);
-    if (index === -1) {
+    const session = unifiedSessions.find((s) => s.id === sessionId);
+    if (!session) {
       return;
     }
 
-    const nextSessions = sessions.filter((session) => session.id !== sessionId);
+    if (session.source === "human") {
+      // Close human terminal
+      const index = sessions.findIndex((s) => s.id === sessionId);
+      if (index === -1) {
+        return;
+      }
 
-    if (nextSessions.length === 0) {
-      setSessions([]);
-      setActiveId(null);
-      setBottomPanelOpen(false);
-      return;
-    }
+      const nextSessions = sessions.filter((s) => s.id !== sessionId);
 
-    setSessions(nextSessions);
+      if (nextSessions.length === 0) {
+        setSessions([]);
+        setActiveId(null);
+        setBottomPanelOpen(false);
+        return;
+      }
 
-    if (activeId === sessionId) {
-      const fallback = nextSessions[index] ?? nextSessions[index - 1] ?? null;
-      setActiveId(fallback?.id ?? null);
+      setSessions(nextSessions);
+
+      if (activeId === sessionId) {
+        const fallback =
+          nextSessions[index] ?? nextSessions[index - 1] ?? null;
+        setActiveId(fallback?.id ?? null);
+      }
+    } else if (session.source === "agent") {
+      // Kill agent process
+      void killProcess(sessionId);
     }
   };
+
+  const renderSessionLabel = (session: UnifiedSession) => {
+    if (session.source === "human") {
+      return formatTerminalTabPath(session.cwd, homeDirectory);
+    }
+    return (
+      session.process.description ??
+      (session.process.command || session.process.shellId)
+    );
+  };
+
+  const renderSessionIcon = (session: UnifiedSession) => {
+    if (session.source === "human") {
+      return <TerminalIcon className="size-3 shrink-0" />;
+    }
+    return <CpuIcon className="size-3 shrink-0" />;
+  };
+
+  const renderSessionBadge = (session: UnifiedSession) => {
+    if (session.source === "human") {
+      return (
+        <Badge className="h-3.5 px-1 text-[9px] font-normal" variant="secondary">
+          {t("terminal.humanSession")}
+        </Badge>
+      );
+    }
+
+    const badgeVariant = getShellStatusBadgeVariant(session.process.status);
+    return (
+      <Badge
+        className={cn(
+          "h-3.5 px-1 text-[9px] font-normal",
+          session.process.status === "timeout" &&
+            "border-amber-500/40 text-amber-600 dark:text-amber-400"
+        )}
+        variant={badgeVariant}
+      >
+        {t(`terminal.processStatus.${session.process.status}` as const)}
+      </Badge>
+    );
+  };
+
+  const noSessions = unifiedSessions.length === 0;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 px-3 py-1.5">
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-          {sessions.map((session) => {
+          {unifiedSessions.map((session) => {
             const isActive = activeSession?.id === session.id;
-            const tabLabel = formatTerminalTabPath(session.cwd, homeDirectory);
+            const label = renderSessionLabel(session);
+            const icon = renderSessionIcon(session);
 
             return (
               <div
@@ -137,21 +237,26 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
                 )}
               >
                 <button
-                  aria-label={t("terminal.closeSession")}
+                  aria-label={
+                    session.source === "human"
+                      ? t("terminal.closeSession")
+                      : t("terminal.killProcess")
+                  }
                   className="rounded-l-md px-1.5 py-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
                   onClick={() => handleCloseSession(session.id)}
                   type="button"
                 >
-                  <TerminalIcon className="size-3 group-hover:hidden" />
+                  <span className="group-hover:hidden">{icon}</span>
                   <XIcon className="hidden size-3 group-hover:block" />
                 </button>
                 <button
-                  className="max-w-56 truncate px-2 py-1 font-mono"
+                  className="flex max-w-56 items-center gap-1 truncate px-2 py-1 font-mono"
                   onClick={() => setActiveId(session.id)}
-                  title={session.cwd}
+                  title={typeof label === "string" ? label : undefined}
                   type="button"
                 >
-                  {tabLabel}
+                  {label}
+                  {renderSessionBadge(session)}
                 </button>
               </div>
             );
@@ -172,12 +277,12 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
       </div>
 
       <div className="relative min-h-0 flex-1 p-2">
-        {sessions.length === 0 ? (
+        {noSessions ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             {initError ?? t("terminal.loading")}
           </div>
         ) : (
-          sessions.map((session) => (
+          unifiedSessions.map((session) => (
             <div
               key={session.id}
               className={cn(
@@ -187,13 +292,21 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
                   : "pointer-events-none z-0 opacity-0"
               )}
             >
-              <InteractiveTerminal
-                className="h-full w-full"
-                cwd={session.cwd}
-                isActive={
-                  isTerminalTabActive && activeSession?.id === session.id
-                }
-              />
+              {session.source === "human" ? (
+                <InteractiveTerminal
+                  className="h-full w-full"
+                  cwd={session.cwd}
+                  isActive={
+                    isBottomPanelOpen && activeSession?.id === session.id
+                  }
+                />
+              ) : (
+                <ProcessLogViewer
+                  className="h-full"
+                  stdout={session.process.stdout}
+                  stderr={session.process.stderr}
+                />
+              )}
             </div>
           ))
         )}

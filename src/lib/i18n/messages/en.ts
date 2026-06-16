@@ -788,6 +788,8 @@ export const enMessages = {
     addSession: "New terminal",
     loading: "Opening terminal…",
     unavailable: "Terminal is unavailable in this environment",
+    humanSession: "Human",
+    agentSession: "AI",
     processStatus: {
       running: "Running",
       completed: "Completed",

@@ -769,6 +769,8 @@ export const zhMessages = {
     addSession: "新建终端",
     loading: "正在打开终端…",
     unavailable: "当前环境无法打开终端",
+    humanSession: "人类",
+    agentSession: "AI",
     processStatus: {
       running: "运行中",
       completed: "已完成",

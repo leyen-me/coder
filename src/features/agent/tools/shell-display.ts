@@ -191,6 +191,7 @@ function extractShellData(output: unknown): ShellData | null {
       ? record.status
       : "completed") as ShellStatus,
     shellId: typeof record.shellId === "string" ? record.shellId : undefined,
+    source: "agent",
   };
 }
 

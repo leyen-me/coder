@@ -97,6 +97,7 @@ function toListShellEntry(shell: ShellInfo): ListShellsData["shells"][number] {
     stderr: stderr.text,
     stdoutTruncated: stdout.truncated,
     stderrTruncated: stderr.truncated,
+    source: shell.source ?? "agent",
   };
 }
 

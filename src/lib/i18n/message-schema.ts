@@ -682,6 +682,8 @@ export type Messages = {
     addSession: string;
     loading: string;
     unavailable: string;
+    humanSession: string;
+    agentSession: string;
     processStatus: {
       running: string;
       completed: string;

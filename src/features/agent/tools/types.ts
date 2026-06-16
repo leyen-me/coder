@@ -136,6 +136,8 @@ export type ShellStatus =
   | "timeout"
   | "cancelled";
 
+export type SessionSource = "human" | "agent";
+
 export type ShellData = {
   command: string;
   description?: string;
@@ -150,6 +152,7 @@ export type ShellData = {
   durationMs: number;
   status: ShellStatus;
   shellId?: string;
+  source: SessionSource;
 };
 
 export type ShellInfo = {
@@ -163,6 +166,7 @@ export type ShellInfo = {
   taskId?: string;
   stdout?: string;
   stderr?: string;
+  source: SessionSource;
 };
 
 export type ListShellsEntry = {
@@ -178,6 +182,7 @@ export type ListShellsEntry = {
   stderr: string;
   stdoutTruncated: boolean;
   stderrTruncated: boolean;
+  source: SessionSource;
 };
 
 export type ListShellsData = {

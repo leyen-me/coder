@@ -48,6 +48,7 @@ pub struct ShellOutput {
     pub duration_ms: u64,
     pub status: ShellStatus,
     pub shell_id: Option<String>,
+    pub source: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -71,6 +72,7 @@ pub struct ShellInfo {
     pub task_id: Option<String>,
     pub stdout: String,
     pub stderr: String,
+    pub source: String,
 }
 
 pub fn normalize_block_until_ms(block_until_ms: Option<u64>) -> u64 {
@@ -133,6 +135,7 @@ pub fn build_shell_output(
     started_at: Instant,
     status: ShellStatus,
     shell_id: Option<String>,
+    source: String,
 ) -> ShellOutput {
     let (stdout, stdout_truncated, stdout_total_bytes) = truncate_stream_for_llm(stdout_raw);
     let (stderr, stderr_truncated, stderr_total_bytes) = truncate_stream_for_llm(stderr_raw);
@@ -151,6 +154,7 @@ pub fn build_shell_output(
         duration_ms: started_at.elapsed().as_millis() as u64,
         status,
         shell_id,
+        source,
     }
 }
 
