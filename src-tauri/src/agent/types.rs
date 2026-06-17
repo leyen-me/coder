@@ -130,7 +130,6 @@ pub struct GenerateSessionTitleParams {
     pub api_key_env_var: String,
     pub model: String,
     pub user_message: String,
-    pub assistant_message: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

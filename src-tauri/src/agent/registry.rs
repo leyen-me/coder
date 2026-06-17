@@ -136,13 +136,8 @@ pub async fn generate_session_title(
         return Ok(None);
     }
 
-    let assistant_snippet: String = params.assistant_message.trim().chars().take(600).collect();
-
-    let user_prompt = if assistant_snippet.is_empty() {
-        format!("User message:\n{user_message}")
-    } else {
-        format!("User message:\n{user_message}\n\nAssistant reply (excerpt):\n{assistant_snippet}")
-    };
+    let user_prompt =
+        format!("Summarize this chat session based on the user's first message:\n\n{user_message}");
 
     let messages = vec![
         ChatMessage {

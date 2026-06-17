@@ -24,6 +24,7 @@ import {
   setMessageStatus,
   updateMessage,
   updateSession,
+  updateSessionTitle,
   type MessageRecord,
 } from "@/lib/db";
 import { paths } from "@/app/paths";
@@ -547,17 +548,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
                     task.error
                   );
 
-                  const shouldGenerateTitle =
-                    event.status === "completed" && task.isFirstTurn;
-                  const titleInput = shouldGenerateTitle
-                    ? {
-                        sessionId: task.sessionId,
-                        model: task.model,
-                        userMessage: task.userContent,
-                        assistantMessageId,
-                      }
-                    : null;
-
                   taskAbortControllersRef.current.delete(event.taskId);
                   tasksRef.current.delete(event.taskId);
                   if (pendingHandoff) {
@@ -571,13 +561,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
                   setTimeout(() => {
                     streamingBufferRef.current.clear(assistantMessageId);
                   }, TERMINAL_OVERLAY_CLEAR_DELAY_MS);
-
-                  if (titleInput) {
-                    void scheduleSessionTitleGeneration(
-                      titleInput,
-                      resolvedRef.current
-                    );
-                  }
 
                   if (pendingHandoff) {
                     void continueTaskFromHandoffRef.current(pendingHandoff);
@@ -1122,6 +1105,27 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         });
       }
 
+      // Set session title synchronously from user message on first turn,
+      // then fire-and-forget an LLM refinement
+      if (isFirstTurn) {
+        const derived = deriveSessionTitle(trimmed);
+        if (derived) {
+          updateSessionTitle(input.sessionId, derived).catch(() => {});
+        }
+        const titleResolved = resolveProviderForModel(input.model) ?? resolved;
+        void applyGeneratedSessionTitle({
+          sessionId: input.sessionId,
+          baseUrl: titleResolved.baseUrl,
+          apiKey: resolveApiKey(titleResolved),
+          apiKeySource: titleResolved.apiKeySource,
+          apiKeyEnvVar: titleResolved.apiKeyEnvVar,
+          model: input.model,
+          userMessage: trimmed,
+        }).catch(() => {
+          // best-effort
+        });
+      }
+
       const session = await ensureSessionWorkspaceForAgent(input.sessionId);
       const workspaceDir = session.workspaceDir?.trim() || null;
       const sessionPolicy = resolveAgentSessionPolicy(session);
@@ -1408,27 +1412,4 @@ export function useChatRetryByMessageId(): ReadonlyMap<
     }
     return retries;
   }, [activeTasks]);
-}
-
-function scheduleSessionTitleGeneration(
-  input: {
-    sessionId: string;
-    model: string;
-    userMessage: string;
-    assistantMessageId: string;
-  },
-  provider: ResolvedProviderConfig
-): void {
-  void applyGeneratedSessionTitle({
-    sessionId: input.sessionId,
-    baseUrl: provider.baseUrl,
-    apiKey: resolveApiKey(provider),
-    apiKeySource: provider.apiKeySource,
-    apiKeyEnvVar: provider.apiKeyEnvVar,
-    model: input.model,
-    userMessage: input.userMessage,
-    assistantMessageId: input.assistantMessageId,
-  }).catch(() => {
-    // best-effort
-  });
 }

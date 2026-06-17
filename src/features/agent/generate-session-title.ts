@@ -1,6 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
-import { deriveSessionTitle, getMessage, updateSessionTitle } from "@/lib/db";
+import { updateSessionTitle } from "@/lib/db";
 
 import { chatCompletionsUrl } from "./openai-url";
 import {
@@ -20,7 +20,7 @@ export function normalizeSessionTitle(
 ): string {
   const unquoted = raw
     .trim()
-    .replace(/^["'`「『【]+|["'`」』】]+$/g, "")
+    .replace(/^[\"'`「『【]+|[\"'`」』】]+$/g, "")
     .replace(/\s+/g, " ");
   if (!unquoted) {
     return "";
@@ -48,7 +48,6 @@ type SessionTitleRequest = {
   apiKeyEnvVar: string;
   model: string;
   userMessage: string;
-  assistantMessage: string;
 };
 
 async function requestSessionTitle(
@@ -62,10 +61,7 @@ async function requestSessionTitle(
     return null;
   }
 
-  const snippet = input.assistantMessage.trim().slice(0, 600);
-  const userPrompt = snippet
-    ? `User message:\n${userMessage}\n\nAssistant reply (excerpt):\n${snippet}`
-    : `User message:\n${userMessage}`;
+  const userPrompt = `Summarize this chat session based on the user's first message:\n\n${userMessage}`;
 
   if (isTauri()) {
     try {
@@ -77,7 +73,6 @@ async function requestSessionTitle(
           apiKeyEnvVar: input.apiKeyEnvVar,
           model: input.model,
           userMessage: input.userMessage,
-          assistantMessage: input.assistantMessage,
         },
       });
       return raw ? normalizeSessionTitle(raw) || null : null;
@@ -123,26 +118,19 @@ export async function applyGeneratedSessionTitle(input: {
   apiKeyEnvVar: string;
   model: string;
   userMessage: string;
-  assistantMessageId: string;
 }): Promise<void> {
   markSessionTitleGenerating(input.sessionId);
 
   try {
-    const assistant = await getMessage(input.assistantMessageId);
-    const assistantText =
-      assistant?.content.trim() || assistant?.thinking.trim() || "";
-
-    const generated = await requestSessionTitle({
+    const title = await requestSessionTitle({
       baseUrl: input.baseUrl,
       apiKey: input.apiKey,
       apiKeySource: input.apiKeySource,
       apiKeyEnvVar: input.apiKeyEnvVar,
       model: input.model,
       userMessage: input.userMessage,
-      assistantMessage: assistantText,
     });
 
-    const title = generated ?? deriveSessionTitle(input.userMessage);
     if (!title) {
       return;
     }
