@@ -291,7 +291,7 @@ export function FileDiffToolOutput({
           splitView={false}
           useDarkTheme={isDark}
           disableWordDiff={true}
-          showDiffOnly={false}
+          showDiffOnly={true}
           extraLinesSurroundingDiff={3}
           styles={diffStyles}
         />
