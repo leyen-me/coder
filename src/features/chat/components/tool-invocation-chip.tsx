@@ -10,9 +10,13 @@ import {
 import {
   AWAIT_TOOL_NAME,
   BROWSE_PAGE_TOOL_NAME,
+  EDIT_FILE_TOOL_NAME,
+  REPLACE_FILE_TOOL_NAME,
   SHELL_TOOL_NAME,
+  WRITE_FILE_TOOL_NAME,
 } from "@/features/agent/tools/definitions";
 import { getBrowsePageChipLabel } from "@/features/agent/tools/browse-page-display";
+import { getFileDiffChipLabel } from "@/features/agent/tools/file-diff-display";
 import { getShellChipLabel } from "@/features/agent/tools/shell-display";
 import type { MessageToolInvocation } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
@@ -27,6 +31,7 @@ import {
 import { useState } from "react";
 
 import { BrowsePageToolOutput } from "./browse-page-tool-output";
+import { FileDiffToolOutput } from "./file-diff-tool-output";
 import { ShellToolOutput } from "./shell-tool-output";
 
 type ToolInvocationChipProps = {
@@ -47,10 +52,19 @@ export function ToolInvocationChip({
       invocation.input,
       invocation.output
     ) ??
+    getFileDiffChipLabel(
+      invocation.name,
+      invocation.input,
+      invocation.output
+    ) ??
     invocation.name;
   const isShellTool =
     invocation.name === SHELL_TOOL_NAME || invocation.name === AWAIT_TOOL_NAME;
   const isBrowsePageTool = invocation.name === BROWSE_PAGE_TOOL_NAME;
+  const isFileDiffTool =
+    invocation.name === WRITE_FILE_TOOL_NAME ||
+    invocation.name === REPLACE_FILE_TOOL_NAME ||
+    invocation.name === EDIT_FILE_TOOL_NAME;
 
   return (
     <>
@@ -81,10 +95,19 @@ export function ToolInvocationChip({
             {isBrowsePageTool && invocation.output ? (
               <BrowsePageToolOutput output={invocation.output} />
             ) : null}
+            {isFileDiffTool && invocation.output ? (
+              <FileDiffToolOutput
+                input={invocation.input}
+                output={invocation.output}
+                toolName={invocation.name}
+              />
+            ) : null}
             <ToolOutput
               errorText={invocation.errorText}
               output={
-                isShellTool || isBrowsePageTool ? undefined : invocation.output
+                isShellTool || isBrowsePageTool || isFileDiffTool
+                  ? undefined
+                  : invocation.output
               }
             />
           </div>

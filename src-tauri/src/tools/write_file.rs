@@ -19,6 +19,8 @@ pub struct WriteFileResult {
     pub lines_added: u32,
     pub lines_removed: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub old_content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub backup_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub warning: Option<String>,
@@ -111,6 +113,7 @@ pub fn tool_write_file(
         bytes_written: metadata.len(),
         lines_added: count_lines(&content),
         lines_removed: 0,
+        old_content: None,
         backup_path: None,
         warning,
     })

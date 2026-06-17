@@ -70,6 +70,7 @@ export type WriteFileData = {
   bytesWritten: number;
   linesAdded: number;
   linesRemoved: number;
+  oldContent?: string;
   backupPath?: string;
   warning?: string;
 };
@@ -87,6 +88,7 @@ export type FileModifyData = {
   bytesWritten: number;
   linesAdded: number;
   linesRemoved: number;
+  oldContent?: string;
   backupPath?: string;
   warning?: string;
 };

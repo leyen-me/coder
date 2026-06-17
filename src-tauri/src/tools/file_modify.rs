@@ -20,6 +20,8 @@ pub struct FileModifyResult {
     pub lines_added: u32,
     pub lines_removed: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub old_content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub backup_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub warning: Option<String>,
@@ -205,6 +207,7 @@ pub fn commit_text_modification(
         bytes_written: metadata.len(),
         lines_added,
         lines_removed,
+        old_content: Some(loaded.text.clone()),
         backup_path,
         warning,
     })
