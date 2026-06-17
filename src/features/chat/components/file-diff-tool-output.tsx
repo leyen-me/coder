@@ -18,9 +18,12 @@ import { cn } from "@/lib/utils";
 import {
   CheckCircle2Icon,
   CircleIcon,
+  ExternalLinkIcon,
   LoaderCircleIcon,
   XCircleIcon,
 } from "lucide-react";
+
+import { OPEN_FILE_IN_PREVIEW_EVENT } from "@/features/right-panel/lib/open-file-event";
 
 type FileDiffToolOutputProps = {
   output: unknown;
@@ -300,6 +303,24 @@ export function FileDiffToolOutput({
         {warning ? (
           <span className="font-mono text-warning">{warning}</span>
         ) : null}
+        <div className="ml-auto">
+          <button
+            aria-label="Open in preview"
+            className="flex size-4 items-center justify-center text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+            onClick={() => {
+              const name = filePath.split("/").pop() ?? filePath;
+              window.dispatchEvent(
+                new CustomEvent(OPEN_FILE_IN_PREVIEW_EVENT, {
+                  detail: { path: filePath, name },
+                }),
+              );
+            }}
+            title="Open file in preview"
+            type="button"
+          >
+            <ExternalLinkIcon className="size-3" />
+          </button>
+        </div>
       </div>
 
       {/* Content area */}

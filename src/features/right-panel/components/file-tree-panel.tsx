@@ -27,6 +27,7 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 
 import { useFileEditorSessions } from "../hooks/use-file-editor-sessions";
 import { useFilePreviewTabs } from "../hooks/use-file-preview-tabs";
+import { OPEN_FILE_IN_PREVIEW_EVENT } from "../lib/open-file-event";
 import { useRightPanel } from "../right-panel-context";
 import { FilePreview } from "./file-preview";
 import { PanelHeader } from "./panel-header";
@@ -89,6 +90,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     openSourceControlTab,
     deactivateSourceControlTab,
     isOpen: isRightPanelOpen,
+    setOpen: setIsRightPanelOpen,
   } = useRightPanel();
   const {
     tabs,
@@ -154,6 +156,19 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     },
     [deactivatePlanTab, deactivateSourceControlTab, openFile]
   );
+
+  // Listen for open-file events dispatched from outside the file tree
+  // (e.g., from file-diff tool output cards in chat messages).
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ path: string; name: string }>).detail;
+      handleOpenFile(detail);
+      setIsRightPanelOpen(true);
+    };
+
+    window.addEventListener(OPEN_FILE_IN_PREVIEW_EVENT, handler);
+    return () => window.removeEventListener(OPEN_FILE_IN_PREVIEW_EVENT, handler);
+  }, [handleOpenFile, setIsRightPanelOpen]);
 
   const handleActivateFile = useCallback(
     (path: string) => {
