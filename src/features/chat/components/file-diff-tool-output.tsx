@@ -295,17 +295,24 @@ export function FileDiffToolOutput({
       </div>
 
       {/* Content area */}
-      <ReactDiffViewer
-        oldValue={showMode === "single" ? "" : original}
-        newValue={modified}
-        splitView={false}
-        useDarkTheme={isDark}
-        disableWordDiff={true}
-        showDiffOnly={true}
-        extraLinesSurroundingDiff={3}
-        codeFoldMessageRenderer={() => null}
-        styles={diffStyles}
-      />
+      <div
+        className={cn(
+          showMode === "single" &&
+            "max-h-80 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent",
+        )}
+      >
+        <ReactDiffViewer
+          oldValue={showMode === "single" ? "" : original}
+          newValue={modified}
+          splitView={false}
+          useDarkTheme={isDark}
+          disableWordDiff={true}
+          showDiffOnly={true}
+          extraLinesSurroundingDiff={3}
+          codeFoldMessageRenderer={() => null}
+          styles={diffStyles}
+        />
+      </div>
     </div>
   );
 }
