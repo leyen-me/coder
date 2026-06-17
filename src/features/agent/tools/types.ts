@@ -240,6 +240,14 @@ export type TodoSnapshotItem = {
   status: "pending" | "in_progress" | "completed" | "cancelled";
 };
 
+export type WorkspaceTreeData = {
+  treeText: string;
+  totalLines: number;
+  startLine: number;
+  endLine: number;
+  truncated: boolean;
+};
+
 export type TodoReadData = {
   sessionId: string;
   todos: TodoSnapshotItem[];

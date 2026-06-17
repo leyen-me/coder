@@ -8,6 +8,7 @@ mod glob;
 mod grep;
 mod list_dir;
 mod mail;
+mod workspace_tree;
 mod network;
 mod plan;
 mod pty_terminal;
@@ -57,4 +58,5 @@ pub use shell_registry::{
     ShellRegistry, ShellState,
 };
 pub use web_search::tool_web_search;
+pub use workspace_tree::tool_get_workspace_tree;
 pub use write_file::tool_write_file;

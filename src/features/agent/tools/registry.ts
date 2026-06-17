@@ -28,11 +28,13 @@ import {
   UPDATE_SKILL_TOOL_NAME,
   WEB_SEARCH_TOOL_NAME,
   WRITE_FILE_TOOL_NAME,
+  GET_WORKSPACE_TREE_TOOL_NAME,
 } from "./definitions";
 import { awaitShellHandler } from "./await-shell";
 import { askQuestionHandler } from "./ask-question";
 import { browsePageHandler } from "./browse-page";
 import { editFileHandler } from "./edit-file";
+import { getWorkspaceTreeHandler } from "./get-workspace-tree";
 import { globHandler } from "./glob";
 import { grepHandler } from "./grep";
 import { killShellHandler } from "./kill-shell";
@@ -91,6 +93,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [UPDATE_SKILL_TOOL_NAME]: updateSkillHandler,
   [TODO_READ_TOOL_NAME]: todoReadHandler,
   [TODO_WRITE_TOOL_NAME]: todoWriteHandler,
+  [GET_WORKSPACE_TREE_TOOL_NAME]: getWorkspaceTreeHandler,
   [PLAN_CREATE_TOOL_NAME]: planCreateHandler,
   [PLAN_READ_TOOL_NAME]: planReadHandler,
   [PLAN_UPDATE_TOOL_NAME]: planUpdateHandler,

@@ -11,6 +11,7 @@ import {
   LIST_SKILLS_TOOL_NAME,
   LIST_SHELLS_TOOL_NAME,
   READ_SKILL_TOOL_NAME,
+  GET_WORKSPACE_TREE_TOOL_NAME,
 } from "./definitions";
 
 /**
@@ -28,4 +29,5 @@ export const ASK_MODE_TOOL_NAMES: readonly string[] = [
   LIST_SKILLS_TOOL_NAME,
   LIST_SHELLS_TOOL_NAME,
   READ_SKILL_TOOL_NAME,
+  GET_WORKSPACE_TREE_TOOL_NAME,
 ] as const;

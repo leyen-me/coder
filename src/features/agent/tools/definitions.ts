@@ -30,6 +30,8 @@ export const ASK_QUESTION_TOOL_NAME = "ask_question";
 
 export const SEND_EMAIL_TOOL_NAME = "send_email";
 
+export const GET_WORKSPACE_TREE_TOOL_NAME = "get_workspace_tree";
+
 export const LIST_DIR_TOOL: AgentToolDefinition = {
   type: "function",
   function: {
@@ -907,6 +909,34 @@ export const UPDATE_SKILL_TOOL: AgentToolDefinition = {
   },
 };
 
+export const GET_WORKSPACE_TREE_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: GET_WORKSPACE_TREE_TOOL_NAME,
+    description:
+      "Display the workspace directory tree structure with depth recursion. " +
+      "Respects .gitignore and automatically excludes large directories (node_modules, .git, dist, etc.). " +
+      "Scans from the workspace root — no path required. " +
+      "Results are paginated like read_file: use start_line (1-based) and max_lines to page through the tree.",
+    parameters: {
+      type: "object",
+      properties: {
+        start_line: {
+          type: "integer",
+          description: "First line to return (1-based).",
+          default: 1,
+        },
+        max_lines: {
+          type: "integer",
+          description: "Maximum number of lines to return.",
+          default: 500,
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+};
+
 export const SEND_EMAIL_TOOL: AgentToolDefinition = {
   type: "function",
   function: {
@@ -957,6 +987,7 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   TODO_READ_TOOL,
   TODO_WRITE_TOOL,
   ASK_QUESTION_TOOL,
+  GET_WORKSPACE_TREE_TOOL,
   PLAN_CREATE_TOOL,
   PLAN_READ_TOOL,
   PLAN_UPDATE_TOOL,

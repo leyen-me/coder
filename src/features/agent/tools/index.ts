@@ -32,6 +32,8 @@ export {
   TODO_READ_TOOL_NAME,
   TODO_WRITE_TOOL,
   TODO_WRITE_TOOL_NAME,
+  GET_WORKSPACE_TREE_TOOL,
+  GET_WORKSPACE_TREE_TOOL_NAME,
   SEND_EMAIL_TOOL,
   SEND_EMAIL_TOOL_NAME,
 } from "./definitions";
@@ -68,6 +70,7 @@ export type {
   BrowsePageData,
   TodoReadData,
   TodoSnapshotItem,
+  WorkspaceTreeData,
   WebSearchData,
   TavilyConfig,
   ToolExecutionContext,
