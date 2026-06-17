@@ -109,25 +109,29 @@ function resolveFilePath(output: unknown, input: unknown): string {
 type ShowMode = "diff" | "single" | "none";
 
 /**
- * Reads a CSS custom property value from :root / .dark.
- * Returns the raw computed value (e.g. "oklch(0.145 0 0)").
- */
-function readCssVar(name: string): string {
-  if (typeof document === "undefined") return "";
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
-
-/**
  * Builds the theme-aware `styles.variables` object for ReactDiffViewer.
  * Uses CSS color-mix to blend theme tokens so diff colors always match the app theme.
  */
 function buildDiffStyles(isDark: boolean): Record<string, unknown> {
-  // Read the shadcn CSS variables for the active theme.
-  const bg = readCssVar("--background") || (isDark ? "oklch(0.145 0 0)" : "oklch(1 0 0)");
-  const fg = readCssVar("--foreground") || (isDark ? "oklch(0.985 0 0)" : "oklch(0.145 0 0)");
-  const muted = readCssVar("--muted") || (isDark ? "oklch(0.269 0 0)" : "oklch(0.97 0 0)");
-  const mutedFg = readCssVar("--muted-foreground") || (isDark ? "oklch(0.708 0 0)" : "oklch(0.556 0 0)");
-  const border = readCssVar("--border") || (isDark ? "oklch(1 0 0 / 10%)" : "oklch(0.922 0 0)");
+  // Hardcoded shadcn theme colors — using isDark directly avoids DOM read
+  // timing issues when React hasn't committed the theme class yet.
+  const theme = isDark
+    ? {
+        bg: "oklch(0.145 0 0)",
+        fg: "oklch(0.985 0 0)",
+        muted: "oklch(0.269 0 0)",
+        mutedFg: "oklch(0.708 0 0)",
+        border: "oklch(1 0 0 / 10%)",
+      }
+    : {
+        bg: "oklch(1 0 0)",
+        fg: "oklch(0.145 0 0)",
+        muted: "oklch(0.97 0 0)",
+        mutedFg: "oklch(0.556 0 0)",
+        border: "oklch(0.922 0 0)",
+      };
+
+  const { bg, fg, muted, mutedFg, border } = theme;
 
   // Use clearly distinguishable green/red with alpha transparency.
   // These match Tailwind green-500 and red-500 for reliable diff coloring.
