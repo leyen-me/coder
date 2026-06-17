@@ -1,25 +1,20 @@
 "use client";
 
-import { DiffEditor, Editor, loader } from "@monaco-editor/react";
-import * as monaco from "monaco-editor";
+import ReactDiffViewer from "react-diff-viewer";
+
 import { useMemo } from "react";
 
-import { defineMonacoTheme } from "@/lib/monaco/get-monaco-theme";
-import "@/lib/monaco/setup-monaco-environment";
-import { useTheme } from "@/lib/theme/theme-provider";
-import { cn } from "@/lib/utils";
-
 import { extractFileDiffData } from "@/features/agent/tools/file-diff-display";
-import { guessLanguageFromPath } from "@/features/right-panel/lib/guess-language-from-path";
 import {
   EDIT_FILE_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
   WRITE_FILE_TOOL_NAME,
 } from "@/features/agent/tools/definitions";
 
-import { Badge } from "@/components/ui/badge";
+import { useTheme } from "@/lib/theme/theme-provider";
+import { cn } from "@/lib/utils";
 
-loader.config({ monaco });
+import { Badge } from "@/components/ui/badge";
 
 type FileDiffToolOutputProps = {
   output: unknown;
@@ -36,7 +31,7 @@ function applyReplacement(
   text: string,
   oldString: string,
   newString: string,
-  replaceAll: boolean
+  replaceAll: boolean,
 ): string {
   if (replaceAll) {
     return text.split(oldString).join(newString);
@@ -55,7 +50,7 @@ function applyReplacement(
 function resolveModifiedContent(
   toolName: string,
   oldContent: string | undefined,
-  input: unknown
+  input: unknown,
 ): string {
   const inputRecord = asRecord(input);
   if (!inputRecord) {
@@ -104,27 +99,6 @@ function resolveFilePath(output: unknown, input: unknown): string {
   return "file.txt";
 }
 
-/** Shared Monaco editor options for both diff and single-pane views. */
-const SHARED_EDITOR_OPTIONS: monaco.editor.IStandaloneEditorConstructionOptions = {
-  automaticLayout: true,
-  fontFamily:
-    "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-  fontSize: 12,
-  lineNumbers: "on",
-  minimap: { enabled: false },
-  scrollBeyondLastLine: false,
-  wordWrap: "off",
-  readOnly: true,
-  overviewRulerBorder: false,
-  overviewRulerLanes: 0,
-  padding: { top: 4, bottom: 4 },
-};
-
-/** Height formula that scales with line count up to a max. */
-function editorHeight(text: string): number {
-  return Math.min(text.split("\n").length * 20 + 40, 400);
-}
-
 type ShowMode = "diff" | "single" | "none";
 
 export function FileDiffToolOutput({
@@ -145,20 +119,11 @@ export function FileDiffToolOutput({
 
   const modified = useMemo(
     () => resolveModifiedContent(derivedToolName, data?.oldContent, input),
-    [derivedToolName, data?.oldContent, input]
+    [derivedToolName, data?.oldContent, input],
   );
 
   const filePath = resolveFilePath(output, input);
-  const language = guessLanguageFromPath(filePath);
-
-  const theme = useMemo(
-    () => defineMonacoTheme(monaco, resolved),
-    [resolved]
-  );
-
-  const handleBeforeMount = (monacoApi: typeof monaco) => {
-    defineMonacoTheme(monacoApi, resolved);
-  };
+  const isDark = resolved === "dark";
 
   // Decide what to show:
   // - "diff":  old content exists AND differs → side-by-side diff
@@ -214,37 +179,17 @@ export function FileDiffToolOutput({
       </div>
 
       {/* Content area */}
-      {showMode === "diff" ? (
-        <div className="overflow-hidden rounded-md border">
-          <DiffEditor
-            beforeMount={handleBeforeMount}
-            height={editorHeight(modified)}
-            language={language}
-            modified={modified}
-            original={original}
-            options={{
-              ...SHARED_EDITOR_OPTIONS,
-              enableSplitViewResizing: true,
-              renderSideBySide: true,
-              renderIndicators: false,
-            }}
-            theme={theme}
-          />
-        </div>
-      ) : null}
-
-      {showMode === "single" ? (
-        <div className="overflow-hidden rounded-md border">
-          <Editor
-            beforeMount={handleBeforeMount}
-            height={editorHeight(modified)}
-            language={language}
-            options={SHARED_EDITOR_OPTIONS}
-            theme={theme}
-            value={modified}
-          />
-        </div>
-      ) : null}
+      <div className="overflow-hidden rounded-md border">
+        <ReactDiffViewer
+          oldValue={showMode === "single" ? "" : original}
+          newValue={modified}
+          splitView={false}
+          useDarkTheme={isDark}
+          disableWordDiff={true}
+          showDiffOnly={false}
+          extraLinesSurroundingDiff={3}
+        />
+      </div>
     </div>
   );
 }

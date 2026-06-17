@@ -46,6 +46,7 @@
     "radix-ui": "^1.4.3",
     "react": "^19.1.0",
     "react-day-picker": "^10.0.1",
+    "react-diff-viewer": "3.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^4.11.2",
