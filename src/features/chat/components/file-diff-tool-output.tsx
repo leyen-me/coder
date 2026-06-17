@@ -253,7 +253,7 @@ export function FileDiffToolOutput({
   }
 
   return (
-    <div className={cn("overflow-hidden rounded-md border", className)}>
+    <div className={cn("w-full overflow-hidden rounded-md border", className)}>
       {/* Header bar — merges status + tool + path + stats */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/30 px-3 py-1.5 text-xs">
         <ToolStatusIcon state={state} />

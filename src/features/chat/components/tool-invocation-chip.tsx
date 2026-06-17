@@ -69,7 +69,7 @@ export function ToolInvocationChip({
   // File diff tools render inline directly in the message.
   if (isFileDiffTool) {
     return (
-      <div className={cn("not-prose my-2", className)}>
+      <div className={cn("not-prose my-2 w-full", className)}>
         {invocation.output ? (
           <FileDiffToolOutput
             input={invocation.input}
