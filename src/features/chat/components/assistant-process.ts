@@ -126,7 +126,7 @@ export function shouldShowAssistantProcessTimeline(input: {
       step.kind === "reasoning" ||
       step.kind === "tool" ||
       step.kind === "answer" ||
-      step.kind === "decision"
+      (step.kind === "decision" && step.status === "requested")
   );
 }
 

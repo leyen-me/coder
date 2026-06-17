@@ -213,6 +213,10 @@ export const zhMessages = {
     decisionReason: "决策原因",
     decisionAssumption: "记录假设",
     decisionRequiresUserConfirmation: "该决策需要真人确认后才能继续。",
+    proxyContinuationBadge: "代理",
+    proxyContinuationLoading: "决策代理中",
+    proxyContinuationHoverTitle: "代理决策详情",
+    proxyContinuationNoDetails: "无可用决策详情。",
   },
   time: {
     justNow: "刚刚",

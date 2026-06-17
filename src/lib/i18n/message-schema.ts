@@ -203,6 +203,10 @@ export type Messages = {
     decisionReason: string;
     decisionAssumption: string;
     decisionRequiresUserConfirmation: string;
+    proxyContinuationBadge: string;
+    proxyContinuationLoading: string;
+    proxyContinuationHoverTitle: string;
+    proxyContinuationNoDetails: string;
   };
   time: {
     justNow: string;

@@ -223,6 +223,10 @@ export const enMessages = {
     decisionAssumption: "Recorded assumption",
     decisionRequiresUserConfirmation:
       "This decision still requires real-user confirmation before continuing.",
+    proxyContinuationBadge: "Agent",
+    proxyContinuationLoading: "Making a proxy decision…",
+    proxyContinuationHoverTitle: "Proxy agent decision details",
+    proxyContinuationNoDetails: "No decision details available.",
   },
   time: {
     justNow: "Just now",

@@ -2,12 +2,24 @@
 
 import type { MessageToolInvocation } from "@/lib/db";
 import { ASK_QUESTION_TOOL_NAME } from "@/features/agent/tools/definitions";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
+import {
+  Message,
+  MessageContent,
+} from "@/components/ai-elements/message";
+import { Badge } from "@/components/ui/badge";
+import { BotIcon } from "lucide-react";
 
 import type { AssistantProcessStep } from "./assistant-process";
-import { DecisionEventCard } from "./decision-event-card";
 import { MessageToolItem } from "./message-tool-list";
+import { Spinner } from "@/components/ui/spinner";
 import { StreamingMessageContent } from "./streaming-message-content";
 import { ThinkingBlock } from "./thinking-block";
+import { useTranslation } from "@/lib/i18n/locale-provider";
 
 type AssistantProcessViewProps = {
   steps: AssistantProcessStep[];
@@ -23,6 +35,7 @@ type AssistantProcessGroup =
     };
 
 export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProps) {
+  const { t } = useTranslation();
   const groups = groupAssistantProcessSteps(steps);
 
   return (
@@ -81,19 +94,106 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
         }
 
         if (group.kind === "decision") {
-          return (
-            <DecisionEventCard
-              assumption={group.response?.assumption ?? null}
-              key={group.id}
-              outcome={group.response?.outcome ?? null}
-              question={group.question}
-              reason={group.response?.reason ?? null}
-              requiresUserConfirmation={group.requiresUserConfirmation}
-              riskLevel={group.riskLevel}
-              status={group.status}
-              summary={group.summary}
-            />
-          );
+          if (group.status === "requested") {
+            return (
+              <Message key={group.id} from="user">
+                <MessageContent className="gap-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Spinner className="size-4" />
+                    <span className="text-muted-foreground">
+                      {t("chat.proxyContinuationLoading")}
+                    </span>
+                  </div>
+                </MessageContent>
+              </Message>
+            );
+          }
+
+          // Show the proxy continuation as a user-message-like block
+          if (
+            group.status === "resolved" &&
+            group.response?.outcome === "continue" &&
+            group.response?.suggestedContinuation?.trim()
+          ) {
+            return (
+              <Message key={group.id} from="user">
+                <MessageContent className="gap-2">
+                  <HoverCard openDelay={200} closeDelay={100}>
+                    <HoverCardTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className="cursor-help gap-1 border-primary/30 text-xs text-primary/70 hover:text-primary"
+                      >
+                        <BotIcon className="size-3" />
+                        {t("chat.proxyContinuationBadge")}
+                      </Badge>
+                    </HoverCardTrigger>
+                    <HoverCardContent
+                      align="start"
+                      className="w-80 space-y-3"
+                      side="top"
+                    >
+                      <p className="font-medium text-sm">
+                        {t("chat.proxyContinuationHoverTitle")}
+                      </p>
+                      <div className="space-y-2 text-sm text-muted-foreground">
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge variant="secondary" className="text-xs">
+                            {group.response.outcome === "continue"
+                              ? t("chat.decisionOutcomeContinue")
+                              : group.response.outcome === "complete"
+                                ? t("chat.decisionOutcomeComplete")
+                                : group.response.outcome === "ask_user"
+                                  ? t("chat.decisionOutcomeAskUser")
+                                  : t("chat.decisionOutcomeStopPath")}
+                          </Badge>
+                          <Badge
+                            variant={
+                              group.response.riskLevel === "high"
+                                ? "destructive"
+                                : "outline"
+                            }
+                            className="text-xs"
+                          >
+                            {group.response.riskLevel === "high"
+                              ? t("chat.decisionRiskHigh")
+                              : group.response.riskLevel === "medium"
+                                ? t("chat.decisionRiskMedium")
+                                : t("chat.decisionRiskLow")}
+                          </Badge>
+                        </div>
+                        {group.response.reason ? (
+                          <div className="space-y-0.5">
+                            <p className="font-medium text-foreground text-xs">
+                              {t("chat.decisionReason")}
+                            </p>
+                            <p className="whitespace-pre-wrap text-xs">
+                              {group.response.reason}
+                            </p>
+                          </div>
+                        ) : null}
+                        {group.response.assumption ? (
+                          <div className="space-y-0.5">
+                            <p className="font-medium text-foreground text-xs">
+                              {t("chat.decisionAssumption")}
+                            </p>
+                            <p className="whitespace-pre-wrap text-xs">
+                              {group.response.assumption}
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                  <span className="whitespace-pre-wrap break-words">
+                    {group.response.suggestedContinuation.trim()}
+                  </span>
+                </MessageContent>
+              </Message>
+            );
+          }
+
+          return null;
         }
 
         return null;
