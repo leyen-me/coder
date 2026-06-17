@@ -209,6 +209,10 @@ function buildDiffStyles(isDark: boolean): Record<string, unknown> {
       fontSize: "12px",
       lineHeight: "1.5",
     },
+    // Smaller line numbers.
+    lineNumber: {
+      fontSize: "11px",
+    },
     // Hide code-fold rows entirely — no expand button, no layout gap.
     codeFold: {
       display: "none",
