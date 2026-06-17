@@ -101,6 +101,109 @@ function resolveFilePath(output: unknown, input: unknown): string {
 
 type ShowMode = "diff" | "single" | "none";
 
+/**
+ * Reads a CSS custom property value from :root / .dark.
+ * Returns the raw computed value (e.g. "oklch(0.145 0 0)").
+ */
+function readCssVar(name: string): string {
+  if (typeof document === "undefined") return "";
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+/**
+ * Builds the theme-aware `styles.variables` object for ReactDiffViewer.
+ * Uses CSS color-mix to blend theme tokens so diff colors always match the app theme.
+ */
+function buildDiffStyles(isDark: boolean): Record<string, unknown> {
+  // Read the shadcn CSS variables for the active theme.
+  const bg = readCssVar("--background") || (isDark ? "oklch(0.145 0 0)" : "oklch(1 0 0)");
+  const fg = readCssVar("--foreground") || (isDark ? "oklch(0.985 0 0)" : "oklch(0.145 0 0)");
+  const muted = readCssVar("--muted") || (isDark ? "oklch(0.269 0 0)" : "oklch(0.97 0 0)");
+  const mutedFg = readCssVar("--muted-foreground") || (isDark ? "oklch(0.708 0 0)" : "oklch(0.556 0 0)");
+  const border = readCssVar("--border") || (isDark ? "oklch(1 0 0 / 10%)" : "oklch(0.922 0 0)");
+  const success = readCssVar("--success") || (isDark ? "#22C55E" : "#16A34A");
+  const destructive = readCssVar("--destructive") || (isDark ? "oklch(0.704 0.191 22.216)" : "oklch(0.577 0.245 27.325)");
+
+  // Use clearly distinguishable green/red with alpha transparency.
+  // These match Tailwind green-500 and red-500 for reliable diff coloring.
+  const addedBg = "rgba(34, 197, 94, 0.15)";
+  const removedBg = "rgba(239, 68, 68, 0.15)";
+  const wordAddedBg = "rgba(34, 197, 94, 0.4)";
+  const wordRemovedBg = "rgba(239, 68, 68, 0.4)";
+  const addedGutterBg = "rgba(34, 197, 94, 0.25)";
+  const removedGutterBg = "rgba(239, 68, 68, 0.25)";
+  const gutterBgDark = `color-mix(in oklch, ${muted} 100%, #000 5%)`;
+
+  return {
+    variables: {
+      light: {
+        diffViewerBackground: bg,
+        diffViewerColor: fg,
+        addedBackground: addedBg,
+        addedColor: fg,
+        removedBackground: removedBg,
+        removedColor: fg,
+        wordAddedBackground: wordAddedBg,
+        wordRemovedBackground: wordRemovedBg,
+        addedGutterBackground: addedGutterBg,
+        removedGutterBackground: removedGutterBg,
+        gutterBackground: muted,
+        gutterBackgroundDark: gutterBgDark,
+        highlightBackground: "color-mix(in oklch, var(--warning) 20%, var(--background))",
+        highlightGutterBackground: "color-mix(in oklch, var(--warning) 30%, var(--background))",
+        codeFoldGutterBackground: muted,
+        codeFoldBackground: muted,
+        emptyLineBackground: bg,
+        gutterColor: mutedFg,
+        addedGutterColor: fg,
+        removedGutterColor: fg,
+        codeFoldContentColor: mutedFg,
+        diffViewerTitleBackground: muted,
+        diffViewerTitleColor: fg,
+        diffViewerTitleBorderColor: border,
+      },
+      dark: {
+        diffViewerBackground: bg,
+        diffViewerColor: fg,
+        addedBackground: addedBg,
+        addedColor: fg,
+        removedBackground: removedBg,
+        removedColor: fg,
+        wordAddedBackground: wordAddedBg,
+        wordRemovedBackground: wordRemovedBg,
+        addedGutterBackground: addedGutterBg,
+        removedGutterBackground: removedGutterBg,
+        gutterBackground: muted,
+        gutterBackgroundDark: gutterBgDark,
+        highlightBackground: "color-mix(in oklch, var(--warning) 20%, var(--background))",
+        highlightGutterBackground: "color-mix(in oklch, var(--warning) 30%, var(--background))",
+        codeFoldGutterBackground: muted,
+        codeFoldBackground: muted,
+        emptyLineBackground: bg,
+        gutterColor: mutedFg,
+        addedGutterColor: fg,
+        removedGutterColor: fg,
+        codeFoldContentColor: mutedFg,
+        diffViewerTitleBackground: muted,
+        diffViewerTitleColor: fg,
+        diffViewerTitleBorderColor: border,
+      },
+    },
+    // Subtle rounded corners on the diff container and gutters.
+    diffContainer: {
+      borderRadius: "calc(var(--radius) * 0.6)",
+    },
+    // Monospace font matching the app's code style.
+    contentText: {
+      fontFamily:
+        "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+      fontSize: "12px",
+      lineHeight: "1.5",
+    },
+
+  };
+}
+
 export function FileDiffToolOutput({
   output,
   input,
@@ -125,8 +228,10 @@ export function FileDiffToolOutput({
   const filePath = resolveFilePath(output, input);
   const isDark = resolved === "dark";
 
+  const diffStyles = useMemo(() => buildDiffStyles(isDark), [isDark]);
+
   // Decide what to show:
-  // - "diff":  old content exists AND differs → side-by-side diff
+  // - "diff":  old content exists AND differs → inline unified diff
   // - "single": no old content (new file) → just the modified content
   // - "none":  nothing changed and no warning → hidden
   const showMode: ShowMode = !hasOldContent
@@ -162,17 +267,17 @@ export function FileDiffToolOutput({
           </Badge>
         ) : null}
         {linesAdded > 0 ? (
-          <span className="font-mono text-xs text-green-600 dark:text-green-400">
+          <span className="font-mono text-xs text-success">
             +{linesAdded}
           </span>
         ) : null}
         {linesRemoved > 0 ? (
-          <span className="font-mono text-xs text-red-600 dark:text-red-400">
+          <span className="font-mono text-xs text-destructive">
             -{linesRemoved}
           </span>
         ) : null}
         {warning ? (
-          <span className="font-mono text-xs text-amber-600 dark:text-amber-400">
+          <span className="font-mono text-xs text-warning">
             {warning}
           </span>
         ) : null}
@@ -188,6 +293,7 @@ export function FileDiffToolOutput({
           disableWordDiff={true}
           showDiffOnly={false}
           extraLinesSurroundingDiff={3}
+          styles={diffStyles}
         />
       </div>
     </div>
