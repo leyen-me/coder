@@ -76,14 +76,7 @@ export function AskQuestionToolCard({
     setOtherTexts((current) => ({ ...current, [questionId]: value }));
     if (allowMultiple) {
       toggleMultiOption(questionId, ASK_QUESTION_OTHER_OPTION_ID, value.trim().length > 0);
-      return;
     }
-
-    setSingleSelections((current) => ({
-      ...current,
-      [questionId]:
-        value.trim().length > 0 ? ASK_QUESTION_OTHER_OPTION_ID : current[questionId] === ASK_QUESTION_OTHER_OPTION_ID ? "" : current[questionId] ?? "",
-    }));
   };
 
   const buildAnswers = (): {
