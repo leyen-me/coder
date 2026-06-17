@@ -4,7 +4,10 @@ use std::time::Instant;
 use serde::{Deserialize, Serialize};
 
 use super::runtime::resolve_shell_for_command;
+#[cfg(not(target_os = "windows"))]
 use super::workspace_path::resolve_workspace_path;
+#[cfg(target_os = "windows")]
+use super::workspace_path::resolve_workspace_path_for_shell;
 
 pub const DEFAULT_BLOCK_UNTIL_MS: u64 = 30_000;
 pub const MAX_BLOCK_UNTIL_MS: u64 = 600_000;
@@ -106,7 +109,14 @@ pub fn resolve_working_directory(
         .filter(|value| !value.is_empty())
         .unwrap_or(".");
 
-    resolve_workspace_path(workspace, raw)
+    #[cfg(target_os = "windows")]
+    {
+        resolve_workspace_path_for_shell(workspace, raw)
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        resolve_workspace_path(workspace, raw)
+    }
 }
 
 pub fn truncate_stream_for_llm(raw: &str) -> (String, bool, u64) {

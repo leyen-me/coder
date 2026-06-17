@@ -1,16 +1,15 @@
 use std::collections::HashMap;
-use std::io::Read;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use std::thread;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
-use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use tauri::{AppHandle, Emitter, State};
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::{Child, Command};
 use tokio::time::{sleep, Duration};
 
 const POST_KILL_WAIT_MS: u64 = 3_000;
@@ -34,6 +33,7 @@ struct RunningShell {
     task_id: Option<String>,
     pid: Option<u32>,
     killed: Arc<AtomicBool>,
+    child: Arc<Mutex<Option<Child>>>,
     child_killer: Option<Box<dyn portable_pty::ChildKiller + Send + Sync>>,
     source: String,
 }
@@ -318,33 +318,29 @@ impl ShellRegistry {
         let (program, args) = shell_command_builder(&shell, &command);
         let environment = crate::shell_env::command_environment();
 
-        // Create a PTY to run the command
-        let pty_system = native_pty_system();
-        let pair = pty_system
-            .openpty(PtySize {
-                rows: 100,
-                cols: 120,
-                pixel_width: 0,
-                pixel_height: 0,
-            })
-            .map_err(|error| format!("Failed to open PTY: {error}"))?;
-
-        let mut cmd = CommandBuilder::new(&program);
-        for arg in &args {
-            cmd.arg(arg);
-        }
-        cmd.cwd(&cwd);
+        // Agent shells use piped stdio instead of a PTY. On Windows, `cmd /C` inside a
+        // PTY often never closes the master read side, which leaves the shell stuck in
+        // Running until timeout and mixes terminal escape sequences into stdout.
+        let mut cmd = Command::new(&program);
+        cmd.args(args).current_dir(&cwd);
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
+        cmd.kill_on_drop(true);
         for (key, value) in &environment {
             cmd.env(key, value);
         }
 
-        let child = pair
-            .slave
-            .spawn_command(cmd)
-            .map_err(|error| format!("Failed to spawn command in PTY: {error}"))?;
+        #[cfg(target_os = "windows")]
+        cmd.as_std_mut().creation_flags(0x08000000);
 
+        let mut child = cmd
+            .spawn()
+            .map_err(|error| format!("Failed to spawn command: {error}"))?;
+
+        let stdout = child.stdout.take();
+        let stderr = child.stderr.take();
+        let child_slot = Arc::new(Mutex::new(Some(child)));
         let killed = Arc::new(AtomicBool::new(false));
-        let killed_reader = killed.clone();
 
         {
             let mut reg = registry
@@ -364,75 +360,51 @@ impl ShellRegistry {
                     task_id,
                     pid: None,
                     killed,
+                    child: child_slot.clone(),
                     child_killer: None,
                     source: "agent".to_string(),
                 },
             );
         }
 
-        let shell_id_reader = shell_id.clone();
-        let registry_reader = registry.clone();
-        let app_reader = app.clone();
-        let mut child_killer = child.clone_killer();
+        let shell_id_stdout = shell_id.clone();
+        let shell_id_stderr = shell_id.clone();
+        let registry_stdout = registry.clone();
+        let registry_stderr = registry.clone();
+        let app_stdout = app.clone();
+        let app_stderr = app.clone();
 
-        // Spawn a blocking thread to read from PTY master
-        thread::spawn(move || {
-            let mut reader = match pair.master.try_clone_reader() {
-                Ok(reader) => reader,
-                Err(_) => return,
-            };
+        if let Some(stdout) = stdout {
+            tokio::spawn(async move {
+                read_stream(
+                    stdout,
+                    "stdout",
+                    &shell_id_stdout,
+                    &app_stdout,
+                    registry_stdout,
+                )
+                .await;
+            });
+        }
 
-            let mut buf = [0u8; 4096];
-            loop {
-                if killed_reader.load(Ordering::SeqCst) {
-                    break;
-                }
+        if let Some(stderr) = stderr {
+            tokio::spawn(async move {
+                read_stream(
+                    stderr,
+                    "stderr",
+                    &shell_id_stderr,
+                    &app_stderr,
+                    registry_stderr,
+                )
+                .await;
+            });
+        }
 
-                match reader.read(&mut buf) {
-                    Ok(0) => break, // EOF — command finished
-                    Ok(count) => {
-                        let data = String::from_utf8_lossy(&buf[..count]).to_string();
-
-                        if let Ok(mut reg) = registry_reader.lock() {
-                            if let Some(shell) = reg.shells.get_mut(&shell_id_reader) {
-                                shell.stdout.push_str(&data);
-                            }
-                        }
-
-                        let _ = app_reader.emit(
-                            "shell-output",
-                            ShellOutputEvent {
-                                shell_id: shell_id_reader.clone(),
-                                stream: "stdout".to_string(),
-                                data,
-                            },
-                        );
-                    }
-                    Err(_) => break,
-                }
-            }
-
-            // Clean up child process
-            let _ = child_killer.kill();
-
-            // Mark as completed
-            if let Ok(mut reg) = registry_reader.lock() {
-                if let Some(shell) = reg.shells.get_mut(&shell_id_reader) {
-                    if shell.status == ShellStatus::Running {
-                        shell.status = ShellStatus::Completed;
-                        shell.exit_code = Some(0);
-                    }
-                }
-            }
-
-            let _ = app_reader.emit(
-                "shell-finished",
-                serde_json::json!({
-                    "shellId": shell_id_reader,
-                    "exitCode": 0,
-                    "status": "completed",
-                }),
-            );
+        let registry_wait = registry.clone();
+        let shell_id_wait = shell_id.clone();
+        let app_wait = app.clone();
+        tokio::spawn(async move {
+            wait_for_child(registry_wait, shell_id_wait, app_wait, child_slot).await;
         });
 
         Ok(build_shell_output(
@@ -471,6 +443,7 @@ impl ShellRegistry {
                 task_id: None,
                 pid: None,
                 killed: Arc::new(AtomicBool::new(false)),
+                child: Arc::new(Mutex::new(None)),
                 child_killer: Some(child_killer),
                 source: "human".to_string(),
             },
@@ -561,14 +534,114 @@ fn shell_status_label(status: ShellStatus) -> &'static str {
 fn kill_running_shell(shell: &mut RunningShell) {
     shell.killed.store(true, Ordering::SeqCst);
 
-    // Use child_killer first if available (e.g. human PTY sessions)
+    // Human PTY sessions
     if let Some(killer) = shell.child_killer.as_mut() {
         let _ = killer.kill();
+    }
+
+    // Agent piped processes
+    if let Ok(mut child_slot) = shell.child.lock() {
+        if let Some(child) = child_slot.as_mut() {
+            kill_child_tree(child);
+        }
     }
 
     if let Some(pid) = shell.pid {
         kill_process_tree(pid);
     }
+}
+
+fn kill_child_tree(child: &mut Child) {
+    #[cfg(target_os = "windows")]
+    if let Some(pid) = child.id() {
+        let _ = std::process::Command::new("taskkill")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .creation_flags(0x08000000)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+    }
+
+    let _ = child.start_kill();
+}
+
+async fn read_stream<R: tokio::io::AsyncRead + Unpin>(
+    reader: R,
+    stream: &'static str,
+    shell_id: &str,
+    app: &AppHandle,
+    registry: Arc<Mutex<ShellRegistry>>,
+) {
+    let mut lines = BufReader::new(reader).lines();
+    while let Ok(Some(line)) = lines.next_line().await {
+        let chunk = format!("{line}\n");
+        if let Ok(mut reg) = registry.lock() {
+            if let Some(shell) = reg.shells.get_mut(shell_id) {
+                if stream == "stdout" {
+                    shell.stdout.push_str(&chunk);
+                } else {
+                    shell.stderr.push_str(&chunk);
+                }
+            }
+        }
+
+        let _ = app.emit(
+            "shell-output",
+            ShellOutputEvent {
+                shell_id: shell_id.to_string(),
+                stream: stream.to_string(),
+                data: chunk,
+            },
+        );
+    }
+}
+
+async fn wait_for_child(
+    registry: Arc<Mutex<ShellRegistry>>,
+    shell_id: String,
+    app: AppHandle,
+    child_slot: Arc<Mutex<Option<Child>>>,
+) {
+    let child = {
+        let mut slot = child_slot.lock().expect("child slot lock");
+        slot.take()
+    };
+
+    let Some(mut child) = child else {
+        return;
+    };
+
+    let result = child.wait().await;
+    let (status, exit_code) = match result {
+        Ok(exit_status) => {
+            let code = exit_status.code();
+            let shell_status = if exit_status.success() {
+                ShellStatus::Completed
+            } else {
+                ShellStatus::Failed
+            };
+            (shell_status, code)
+        }
+        Err(_) => (ShellStatus::Failed, None),
+    };
+
+    if let Ok(mut reg) = registry.lock() {
+        if let Some(shell) = reg.shells.get_mut(&shell_id) {
+            if shell.status == ShellStatus::Running {
+                shell.status = status;
+                shell.exit_code = exit_code;
+            }
+        }
+    }
+
+    let _ = app.emit(
+        "shell-finished",
+        serde_json::json!({
+            "shellId": shell_id,
+            "exitCode": exit_code,
+            "status": shell_status_label(status),
+        }),
+    );
 }
 
 fn kill_process_tree(pid: u32) {
@@ -677,6 +750,7 @@ mod tests {
             task_id: Some("task-1".to_string()),
             pid: None,
             killed: Arc::new(AtomicBool::new(false)),
+            child: Arc::new(Mutex::new(None)),
             child_killer: None,
             source: "agent".to_string(),
         }

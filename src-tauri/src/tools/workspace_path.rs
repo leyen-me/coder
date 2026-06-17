@@ -153,7 +153,7 @@ pub fn format_absolute_path(path: &Path) -> String {
     strip_windows_verbatim_prefix(&path.to_string_lossy()).replace('\\', "/")
 }
 
-fn strip_windows_verbatim_prefix(path: &str) -> String {
+pub fn strip_windows_verbatim_prefix(path: &str) -> String {
     const VERBATIM_PREFIX: &str = r"\\?\";
     const VERBATIM_UNC_PREFIX: &str = r"\\?\UNC\";
 
@@ -166,6 +166,19 @@ fn strip_windows_verbatim_prefix(path: &str) -> String {
     }
 
     path.to_string()
+}
+
+/// Resolves a canonical workspace path without the Windows `\\?\` verbatim prefix.
+///
+/// On Windows, `Path::canonicalize()` returns paths prefixed with `\\?\`, which
+/// CMD.EXE does not support as a current-directory (`UNC 路径不受支持`). This
+/// function strips that prefix before returning the `PathBuf` so that child
+/// processes receive a plain `C:\...` path instead.
+#[cfg(target_os = "windows")]
+pub fn resolve_workspace_path_for_shell(workspace: &Path, raw_path: &str) -> Result<PathBuf, String> {
+    let resolved = resolve_workspace_path(workspace, raw_path)?;
+    let cleaned = strip_windows_verbatim_prefix(&resolved.to_string_lossy());
+    Ok(PathBuf::from(cleaned))
 }
 
 fn is_within_workspace(target: &Path, workspace: &Path) -> bool {
