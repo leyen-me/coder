@@ -126,7 +126,11 @@ export function shouldShowAssistantProcessTimeline(input: {
       step.kind === "reasoning" ||
       step.kind === "tool" ||
       step.kind === "answer" ||
-      (step.kind === "decision" && step.status === "requested")
+      (step.kind === "decision" &&
+        (step.status === "requested" ||
+          (step.status === "resolved" &&
+            step.response?.outcome === "continue" &&
+            step.response?.suggestedContinuation?.trim())))
   );
 }
 

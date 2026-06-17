@@ -80,6 +80,8 @@ export async function requestProxyDecision(input: {
   apiKeySource: "manual" | "env";
   apiKeyEnvVar: string;
   request: DecisionRequest;
+  /** Full conversation history for context-aware decisions. */
+  conversationMessages?: AgentChatMessage[];
   signal?: AbortSignal;
 }): Promise<DecisionResponse> {
   const decisionTaskId = `${input.taskId}:decision:${crypto.randomUUID()}`;
@@ -87,6 +89,9 @@ export async function requestProxyDecision(input: {
 
   const messages: AgentChatMessage[] = [
     { role: "system", content: PROXY_DECISION_SYSTEM_PROMPT },
+    // Include the full conversation so the decision model can evaluate
+    // whether the user's original request is genuinely complete.
+    ...(input.conversationMessages ?? []),
     { role: "user", content: buildProxyDecisionUserPrompt(input.request) },
   ];
 

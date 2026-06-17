@@ -126,6 +126,7 @@ export async function runAgentWithTools(
             apiKeySource: input.apiKeySource,
             apiKeyEnvVar: input.apiKeyEnvVar,
             request: decisionRequest,
+            conversationMessages: messages,
             signal: context.signal,
           });
         } catch (error) {
