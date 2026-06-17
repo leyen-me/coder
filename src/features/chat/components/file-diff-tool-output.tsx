@@ -1,5 +1,6 @@
 "use client";
 
+import type { ToolUIPart } from "ai";
 import ReactDiffViewer from "react-diff-viewer";
 
 import { useMemo } from "react";
@@ -14,12 +15,18 @@ import {
 import { useTheme } from "@/lib/theme/theme-provider";
 import { cn } from "@/lib/utils";
 
-import { Badge } from "@/components/ui/badge";
+import {
+  CheckCircle2Icon,
+  CircleIcon,
+  LoaderCircleIcon,
+  XCircleIcon,
+} from "lucide-react";
 
 type FileDiffToolOutputProps = {
   output: unknown;
   input: unknown;
-  toolName?: string;
+  toolName: string;
+  state: ToolUIPart["state"];
   className?: string;
 };
 
@@ -205,13 +212,11 @@ function buildDiffStyles(isDark: boolean): Record<string, unknown> {
 export function FileDiffToolOutput({
   output,
   input,
-  toolName = "",
+  toolName,
+  state,
   className,
 }: FileDiffToolOutputProps) {
   const { resolved } = useTheme();
-
-  const derivedToolName =
-    toolName || (extractOutputToolName(output) ?? "");
 
   const data = extractFileDiffData(output);
 
@@ -219,8 +224,8 @@ export function FileDiffToolOutput({
   const hasOldContent = data?.oldContent !== undefined;
 
   const modified = useMemo(
-    () => resolveModifiedContent(derivedToolName, data?.oldContent, input),
-    [derivedToolName, data?.oldContent, input],
+    () => resolveModifiedContent(toolName, data?.oldContent, input),
+    [toolName, data?.oldContent, input],
   );
 
   const filePath = resolveFilePath(output, input);
@@ -248,65 +253,71 @@ export function FileDiffToolOutput({
   }
 
   return (
-    <div className={cn("space-y-2", className)}>
-      {/* Summary bar */}
-      <div className="flex flex-wrap items-center gap-2">
-        {filePath ? (
-          <span className="font-mono text-xs font-medium text-foreground">
-            {filePath}
-          </span>
-        ) : null}
+    <div className={cn("overflow-hidden rounded-md border", className)}>
+      {/* Header bar — merges status + tool + path + stats */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/30 px-3 py-1.5 text-xs">
+        <ToolStatusIcon state={state} />
+        <span className="font-mono font-medium text-foreground">
+          {toolName}
+        </span>
+        <span className="text-muted-foreground">·</span>
+        <span className="font-mono text-muted-foreground">{filePath}</span>
         {action ? (
-          <Badge
-            className="rounded-full text-[10px]"
-            variant={action === "created" ? "default" : "secondary"}
+          <span
+            className={cn(
+              "rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium",
+              action === "created"
+                ? "bg-primary/10 text-primary"
+                : "bg-muted-foreground/10 text-muted-foreground",
+            )}
           >
             {action}
-          </Badge>
-        ) : null}
-        {linesAdded > 0 ? (
-          <span className="font-mono text-xs text-success">
-            +{linesAdded}
           </span>
         ) : null}
+        {linesAdded > 0 ? (
+          <span className="font-mono font-medium text-success">+{linesAdded}</span>
+        ) : null}
         {linesRemoved > 0 ? (
-          <span className="font-mono text-xs text-destructive">
+          <span className="font-mono font-medium text-destructive">
             -{linesRemoved}
           </span>
         ) : null}
         {warning ? (
-          <span className="font-mono text-xs text-warning">
-            {warning}
-          </span>
+          <span className="font-mono text-warning">{warning}</span>
         ) : null}
       </div>
 
       {/* Content area */}
-      <div className="overflow-hidden rounded-md border">
-        <ReactDiffViewer
-          oldValue={showMode === "single" ? "" : original}
-          newValue={modified}
-          splitView={false}
-          useDarkTheme={isDark}
-          disableWordDiff={true}
-          showDiffOnly={true}
-          extraLinesSurroundingDiff={3}
-          styles={diffStyles}
-        />
-      </div>
+      <ReactDiffViewer
+        oldValue={showMode === "single" ? "" : original}
+        newValue={modified}
+        splitView={false}
+        useDarkTheme={isDark}
+        disableWordDiff={true}
+        showDiffOnly={true}
+        extraLinesSurroundingDiff={3}
+        styles={diffStyles}
+      />
     </div>
   );
 }
 
-function extractOutputToolName(output: unknown): string | null {
-  if (typeof output !== "object" || output === null) {
-    return null;
+function ToolStatusIcon({ state }: { state: ToolUIPart["state"] }) {
+  switch (state) {
+    case "output-available":
+      return (
+        <CheckCircle2Icon className="size-3.5 shrink-0 text-green-600" />
+      );
+    case "output-error":
+      return <XCircleIcon className="size-3.5 shrink-0 text-destructive" />;
+    case "input-streaming":
+    case "input-available":
+      return (
+        <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+      );
+    default:
+      return <CircleIcon className="size-3.5 shrink-0 text-muted-foreground" />;
   }
-  const record = output as Record<string, unknown>;
-  if (typeof record.tool === "string") {
-    return record.tool;
-  }
-  return null;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

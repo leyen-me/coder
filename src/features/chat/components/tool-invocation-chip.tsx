@@ -69,18 +69,20 @@ export function ToolInvocationChip({
   // File diff tools render inline directly in the message.
   if (isFileDiffTool) {
     return (
-      <div className={cn("not-prose my-2 space-y-2", className)}>
-        <div className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/40 px-2 py-1 font-mono text-xs text-foreground">
-          <ToolStatusIcon state={invocation.state as ToolUIPart["state"]} />
-          <span>{chipLabel}</span>
-        </div>
+      <div className={cn("not-prose my-2", className)}>
         {invocation.output ? (
           <FileDiffToolOutput
             input={invocation.input}
             output={invocation.output}
             toolName={invocation.name}
+            state={invocation.state as ToolUIPart["state"]}
           />
-        ) : null}
+        ) : (
+          <div className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/40 px-2 py-1 font-mono text-xs text-foreground">
+            <ToolStatusIcon state={invocation.state as ToolUIPart["state"]} />
+            <span>{chipLabel}</span>
+          </div>
+        )}
       </div>
     );
   }
