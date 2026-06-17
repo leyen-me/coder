@@ -150,6 +150,19 @@ export function MessageList({
     };
   }, [messages, streamingMessageIds]);
 
+  // Listen for custom DOM event dispatched from the title bar.
+  useEffect(() => {
+    const handler = () => {
+      if (scrollContainerRef.current) {
+        scrollMessagesToBottom(scrollContainerRef.current, true);
+      }
+    };
+    window.addEventListener("chat:scroll-to-bottom", handler);
+    return () => {
+      window.removeEventListener("chat:scroll-to-bottom", handler);
+    };
+  }, []);
+
   return (
     <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-hidden">
       <ScrollArea className="h-full px-4 py-6">

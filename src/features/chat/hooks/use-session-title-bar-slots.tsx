@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useMatch } from "react-router-dom";
 
 import { isChatRoute, paths } from "@/app/paths";
@@ -17,6 +18,9 @@ export function useSessionTitleBarSlots(pathname: string) {
       : null;
   const { session } = useSessionMessages(chatId ?? "");
   const isGeneratingTitle = useIsSessionTitleGenerating(chatId);
+  const handleDoubleClick = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("chat:scroll-to-bottom"));
+  }, []);
 
   if (pathname === paths.skills) {
     return {
@@ -43,6 +47,7 @@ export function useSessionTitleBarSlots(pathname: string) {
         sessionKind={session?.sessionKind ?? "standard"}
         isGenerating={isGeneratingTitle}
         variant="header"
+        onDoubleClick={handleDoubleClick}
       />
     ),
     trailing: <SessionToolbar sessionProvider={session?.provider ?? null} />,

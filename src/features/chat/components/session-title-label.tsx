@@ -10,6 +10,8 @@ type SessionTitleLabelProps = {
   /** compact: sidebar row; header: top bar */
   variant?: "compact" | "header";
   className?: string;
+  /** Double-click handler, intended for header variant to scroll to bottom. */
+  onDoubleClick?: () => void;
 };
 
 export function SessionTitleLabel({
@@ -18,6 +20,7 @@ export function SessionTitleLabel({
   isGenerating = false,
   variant = "compact",
   className,
+  onDoubleClick,
 }: SessionTitleLabelProps) {
   const { t } = useTranslation();
 
@@ -29,7 +32,10 @@ export function SessionTitleLabel({
 
   if (variant === "header") {
     return (
-      <div className="flex min-w-0 items-center gap-2">
+      <div
+        className="flex min-w-0 cursor-default items-center gap-2"
+        onDoubleClick={onDoubleClick}
+      >
         <h1
           className={cn(classNames, className)}
           aria-busy={isGenerating || undefined}
