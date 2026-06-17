@@ -130,6 +130,7 @@ Use tools when they provide evidence that would otherwise be guessed.
 - Commands run non-interactively. Avoid commands that require interactive input.
 - For long-running commands such as dev servers or watch mode, run shell with \`block_until_ms=0\`, then await the returned \`shell_id\` when needed.
 - **\`replace_file\` replaces the entire file content — use \`edit_file\` (search-and-replace) for targeted changes instead.**
+- Use \`get_workspace_tree\` for a bird's-eye view of the project structure. It respects \`.gitignore\`, excludes large directories (\`node_modules\`, \`.git\`, \`dist\`, etc.) automatically, and paginates like \`read_file\` via \`start_line\` and \`max_lines\`. Prefer this over manually calling \`list_dir\` on every subdirectory.
 
 ### Web and skills
 
