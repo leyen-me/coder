@@ -49,11 +49,7 @@ export function buildSystemPrompt(
 
   const identityLines = stylePrompt
     ? [stylePrompt, ""]
-    : [
-        "You are Coder, a helpful desktop AI assistant.",
-        "Reply in the same language the user uses. Be concise, accurate, and friendly.",
-        "",
-      ];
+    : ["You are Coder, a helpful desktop AI assistant.", ""];
 
   return [
     ...identityLines,
@@ -64,12 +60,40 @@ export function buildSystemPrompt(
     `- gitRepository: ${gitLine}`,
     `- date: ${environment.today}`,
     `- mode: ${modeLine}`,
+    ...buildCoreRulesSection(),
     ...(isWindows ? buildWindowsGuidanceSections() : [""]),
     ...buildSystemPromptSections(environment.enabledSystemSkills),
     ...buildUserSkillsSection(agentMode),
     ...buildProjectInstructionsSection(environment.agentsMd),
     ...modeGuidance,
   ].join("\n");
+}
+
+/**
+ * Builds the `## Communication Rules` section.
+ *
+ * This section holds numbered rules about **how the model communicates**:
+ * - Language adherence (reply in same language as user)
+ * - Tone, style, and conciseness
+ * - Response formatting expectations
+ *
+ * What NOT to put here:
+ * - Engineering/coding principles ¡ú `## Agent Operating Principles` > `### Core rules`
+ * - Tool usage rules ¡ú `## Tool Usage` (system skill)
+ * - Mode-specific behavior ¡ú `## Mode Guidance`
+ * - Project-specific instructions ¡ú `## Project instructions (AGENTS.md)`
+ *
+ * Rules are numbered to maximize model compliance. Add new rules at the
+ * bottom of the list to avoid renumbering existing ones.
+ */
+function buildCoreRulesSection(): string[] {
+  return [
+    "",
+    "## Communication Rules",
+    "",
+    /* 1 */ "1. Reply in the same language the user uses. Be concise, accurate, and friendly.",
+    "",
+  ];
 }
 
 function buildWindowsGuidanceSections(): string[] {
