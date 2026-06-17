@@ -128,9 +128,7 @@ export function shouldShowAssistantProcessTimeline(input: {
       step.kind === "answer" ||
       (step.kind === "decision" &&
         (step.status === "requested" ||
-          (step.status === "resolved" &&
-            step.response?.outcome === "continue" &&
-            step.response?.suggestedContinuation?.trim())))
+          (step.status === "resolved" && step.response != null)))
   );
 }
 

@@ -193,6 +193,92 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
             );
           }
 
+          // Show resolved decision outcome (complete / ask_user / stop_path)
+          if (group.status === "resolved" && group.response) {
+            return (
+              <Message key={group.id} from="user">
+                <MessageContent className="gap-2">
+                  <HoverCard openDelay={200} closeDelay={100}>
+                    <HoverCardTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className="cursor-help gap-1 border-primary/30 text-xs text-primary/70 hover:text-primary"
+                      >
+                        <BotIcon className="size-3" />
+                        {t("chat.proxyContinuationBadge")}
+                      </Badge>
+                    </HoverCardTrigger>
+                    <HoverCardContent
+                      align="start"
+                      className="w-80 space-y-3"
+                      side="top"
+                    >
+                      <p className="font-medium text-sm">
+                        {t("chat.proxyContinuationHoverTitle")}
+                      </p>
+                      <div className="space-y-2 text-sm text-muted-foreground">
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge variant="secondary" className="text-xs">
+                            {group.response.outcome === "continue"
+                              ? t("chat.decisionOutcomeContinue")
+                              : group.response.outcome === "complete"
+                                ? t("chat.decisionOutcomeComplete")
+                                : group.response.outcome === "ask_user"
+                                  ? t("chat.decisionOutcomeAskUser")
+                                  : t("chat.decisionOutcomeStopPath")}
+                          </Badge>
+                          <Badge
+                            variant={
+                              group.response.riskLevel === "high"
+                                ? "destructive"
+                                : "outline"
+                            }
+                            className="text-xs"
+                          >
+                            {group.response.riskLevel === "high"
+                              ? t("chat.decisionRiskHigh")
+                              : group.response.riskLevel === "medium"
+                                ? t("chat.decisionRiskMedium")
+                                : t("chat.decisionRiskLow")}
+                          </Badge>
+                        </div>
+                        {group.response.reason ? (
+                          <div className="space-y-0.5">
+                            <p className="font-medium text-foreground text-xs">
+                              {t("chat.decisionReason")}
+                            </p>
+                            <p className="whitespace-pre-wrap text-xs">
+                              {group.response.reason}
+                            </p>
+                          </div>
+                        ) : null}
+                        {group.response.assumption ? (
+                          <div className="space-y-0.5">
+                            <p className="font-medium text-foreground text-xs">
+                              {t("chat.decisionAssumption")}
+                            </p>
+                            <p className="whitespace-pre-wrap text-xs">
+                              {group.response.assumption}
+                            </p>
+                          </div>
+                        ) : null}
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                  <span className="text-muted-foreground text-sm">
+                    {group.response.outcome === "complete"
+                      ? t("chat.decisionOutcomeComplete")
+                      : group.response.outcome === "ask_user"
+                        ? t("chat.decisionOutcomeAskUser")
+                        : group.response.outcome === "stop_path"
+                          ? t("chat.decisionOutcomeStopPath")
+                          : ""}
+                  </span>
+                </MessageContent>
+              </Message>
+            );
+          }
+
           return null;
         }
 
