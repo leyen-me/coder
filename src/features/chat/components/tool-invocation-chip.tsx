@@ -50,12 +50,12 @@ export function ToolInvocationChip({
     getBrowsePageChipLabel(
       invocation.name,
       invocation.input,
-      invocation.output
+      invocation.output,
     ) ??
     getFileDiffChipLabel(
       invocation.name,
       invocation.input,
-      invocation.output
+      invocation.output,
     ) ??
     invocation.name;
   const isShellTool =
@@ -66,13 +66,32 @@ export function ToolInvocationChip({
     invocation.name === REPLACE_FILE_TOOL_NAME ||
     invocation.name === EDIT_FILE_TOOL_NAME;
 
+  // File diff tools render inline directly in the message.
+  if (isFileDiffTool) {
+    return (
+      <div className={cn("not-prose my-2 space-y-2", className)}>
+        <div className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/40 px-2 py-1 font-mono text-xs text-foreground">
+          <ToolStatusIcon state={invocation.state as ToolUIPart["state"]} />
+          <span>{chipLabel}</span>
+        </div>
+        {invocation.output ? (
+          <FileDiffToolOutput
+            input={invocation.input}
+            output={invocation.output}
+            toolName={invocation.name}
+          />
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <>
       <button
         className={cn(
           "inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/40 px-2 py-1",
           "font-mono text-xs text-foreground transition-colors hover:bg-muted",
-          className
+          className,
         )}
         onClick={() => setOpen(true)}
         type="button"
@@ -95,17 +114,10 @@ export function ToolInvocationChip({
             {isBrowsePageTool && invocation.output ? (
               <BrowsePageToolOutput output={invocation.output} />
             ) : null}
-            {isFileDiffTool && invocation.output ? (
-              <FileDiffToolOutput
-                input={invocation.input}
-                output={invocation.output}
-                toolName={invocation.name}
-              />
-            ) : null}
             <ToolOutput
               errorText={invocation.errorText}
               output={
-                isShellTool || isBrowsePageTool || isFileDiffTool
+                isShellTool || isBrowsePageTool
                   ? undefined
                   : invocation.output
               }

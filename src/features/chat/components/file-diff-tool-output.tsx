@@ -121,8 +121,6 @@ function buildDiffStyles(isDark: boolean): Record<string, unknown> {
   const muted = readCssVar("--muted") || (isDark ? "oklch(0.269 0 0)" : "oklch(0.97 0 0)");
   const mutedFg = readCssVar("--muted-foreground") || (isDark ? "oklch(0.708 0 0)" : "oklch(0.556 0 0)");
   const border = readCssVar("--border") || (isDark ? "oklch(1 0 0 / 10%)" : "oklch(0.922 0 0)");
-  const success = readCssVar("--success") || (isDark ? "#22C55E" : "#16A34A");
-  const destructive = readCssVar("--destructive") || (isDark ? "oklch(0.704 0.191 22.216)" : "oklch(0.577 0.245 27.325)");
 
   // Use clearly distinguishable green/red with alpha transparency.
   // These match Tailwind green-500 and red-500 for reliable diff coloring.
