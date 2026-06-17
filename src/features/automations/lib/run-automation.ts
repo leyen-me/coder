@@ -153,6 +153,7 @@ export async function executeAutomation(
         signal: abortController.signal,
         tavilyConfig,
         allowPrivateNetworkAccess: webToolsSettings.allowPrivateNetworkAccess,
+        agentMode: runConfig.agentMode,
       },
       (event: AgentEvent) => {
         if (event.type === "content_delta") {

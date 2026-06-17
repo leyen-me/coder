@@ -143,6 +143,27 @@ export function getToolHandler(name: string): ToolHandler | null {
   return TOOL_HANDLERS[name] ?? null;
 }
 
+/**
+ * Checks whether the given tool name is allowed in the given mode.
+ * When mode is undefined, all tools are allowed (backward-compatible).
+ */
+function isToolAllowedInMode(toolName: string, mode?: AgentMode): boolean {
+  if (!mode) {
+    return true; // No mode constraint — allow all (e.g. legacy callers)
+  }
+
+  if (mode === "ask") {
+    return ASK_MODE_TOOL_NAMES_SET.has(toolName);
+  }
+
+  if (mode === "plan") {
+    return PLAN_MODE_TOOL_NAMES_SET.has(toolName);
+  }
+
+  // Agent mode: exclude plan-only tools
+  return !AGENT_MODE_EXCLUDED_TOOL_NAMES_SET.has(toolName);
+}
+
 export async function executeToolCall(
   name: string,
   rawArguments: string,
@@ -156,6 +177,19 @@ export async function executeToolCall(
       error: {
         code: "unknown_tool",
         message: `Unknown tool: ${name}`,
+      },
+    };
+  }
+
+  // Enforce mode-based permission at execution time.
+  if (!isToolAllowedInMode(name, context.agentMode)) {
+    const modeLabel = context.agentMode ?? "unknown";
+    return {
+      ok: false,
+      tool: name,
+      error: {
+        code: "tool_not_allowed_in_mode",
+        message: `Tool "${name}" is not allowed in ${modeLabel} mode.`,
       },
     };
   }

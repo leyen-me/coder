@@ -1,3 +1,4 @@
+import type { AgentMode } from "../types";
 import type { ToolResultEnvelope } from "./result";
 
 export type JsonSchemaObject = {
@@ -254,6 +255,8 @@ export type ToolExecutionContext = {
   signal?: AbortSignal;
   tavilyConfig?: TavilyConfig | null;
   allowPrivateNetworkAccess?: boolean;
+  /** Agent mode used to enforce tool permission at execution time. */
+  agentMode?: AgentMode;
 };
 
 export type ToolHandler = (

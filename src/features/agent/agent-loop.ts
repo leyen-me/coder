@@ -8,7 +8,7 @@ import { parseToolCallInput, toolResultToInvocationPatch } from "./tools/tool-di
 import { toApiToolCalls } from "./tools/api-tool-call";
 import type { AgentToolCall, TavilyConfig } from "./tools/types";
 import { startAgent } from "./runner";
-import type { AgentChatMessage, AgentEvent, AgentEventHandler, AgentStartInput } from "./types";
+import type { AgentChatMessage, AgentEvent, AgentEventHandler, AgentMode, AgentStartInput } from "./types";
 import {
   AgentChatTurnError,
   buildStreamIdleRecoveryMessages,
@@ -38,6 +38,7 @@ type ToolExecutionContextInput = {
   signal?: AbortSignal;
   tavilyConfig?: TavilyConfig | null;
   allowPrivateNetworkAccess?: boolean;
+  agentMode?: AgentMode;
 };
 
 export async function runAgentWithTools(
@@ -423,6 +424,7 @@ async function appendToolResults(
         signal: context.signal,
         tavilyConfig: context.tavilyConfig,
         allowPrivateNetworkAccess: context.allowPrivateNetworkAccess,
+        agentMode: context.agentMode,
       });
     } catch (error) {
       if (isAgentCancellationError(error)) {

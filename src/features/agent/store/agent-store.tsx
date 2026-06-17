@@ -707,6 +707,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           signal: abortController.signal,
           tavilyConfig,
           allowPrivateNetworkAccess: webToolsSettings.allowPrivateNetworkAccess,
+          agentMode: input.agentMode,
         },
         (event) => {
           dispatchAgentEvent(taskId, assistantMessage.id, event);
