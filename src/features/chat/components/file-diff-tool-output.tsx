@@ -205,6 +205,13 @@ function buildDiffStyles(isDark: boolean): Record<string, unknown> {
       fontSize: "12px",
       lineHeight: "1.5",
     },
+    // Hide code-fold rows entirely — no expand button, no layout gap.
+    codeFold: {
+      display: "none",
+    },
+    codeFoldGutter: {
+      display: "none",
+    },
 
   };
 }
@@ -296,6 +303,7 @@ export function FileDiffToolOutput({
         disableWordDiff={true}
         showDiffOnly={true}
         extraLinesSurroundingDiff={3}
+        codeFoldMessageRenderer={() => null}
         styles={diffStyles}
       />
     </div>
