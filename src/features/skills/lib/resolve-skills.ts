@@ -7,10 +7,7 @@ import {
 import {
   extractSkillSlugsFromText,
 } from "./parse-skill-references";
-import {
-  SYSTEM_SKILL_PROMPT_BUDGET_CHARS,
-  truncateSkillContent,
-} from "./estimate-skill-tokens";
+
 import {
   getAllSystemSkillSlugs,
   getSystemSkillBySlug,
@@ -44,38 +41,17 @@ export async function getEnabledSystemSkills(): Promise<ResolvedSkill[]> {
     preferences.map((preference) => [preference.skillId, preference.enabled])
   );
 
-  const enabled = SYSTEM_SKILLS.filter((skill) => {
+  return SYSTEM_SKILLS.filter((skill) => {
     const enabledValue = preferenceMap.get(skill.id);
     return enabledValue ?? skill.defaultEnabled;
-  });
-
-  let remainingBudget = SYSTEM_SKILL_PROMPT_BUDGET_CHARS;
-  const resolved: ResolvedSkill[] = [];
-
-  for (const skill of enabled) {
-    if (remainingBudget <= 0) {
-      break;
-    }
-
-    const { content, truncated } = truncateSkillContent(
-      skill.content,
-      remainingBudget
-    );
-    remainingBudget -= content.length;
-
-    resolved.push({
-      id: skill.id,
-      slug: skill.slug,
-      name: skill.name,
-      description: skill.description,
-      content: truncated
-        ? `${content}\n\nNote: This skill was truncated to fit the system prompt budget.`
-        : content,
-      source: "system",
-    });
-  }
-
-  return resolved;
+  }).map((skill) => ({
+    id: skill.id,
+    slug: skill.slug,
+    name: skill.name,
+    description: skill.description,
+    content: skill.content,
+    source: "system" as const,
+  }));
 }
 
 export async function getEnabledUserSkills(): Promise<ResolvedSkill[]> {
