@@ -252,7 +252,6 @@ export const enMessages = {
       data: "Data",
       lab: "Lab",
       email: "Email",
-      about: "About",
     },
     general: {
       languageLabel: "Language",
@@ -541,14 +540,6 @@ export const enMessages = {
       sending: "Sending…",
       testSubject: "Test email from Coder",
       testBody: "This is a test email. Your email configuration is working correctly.",
-    },
-    about: {
-      currentVersion: "Current version",
-      latestVersion: "Latest version",
-      checkUpdate: "Check for updates",
-      checking: "Checking\u2026",
-      upToDate: "Up to date",
-      viewRelease: "View release",
     },
   },
   lab: {

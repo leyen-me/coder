@@ -242,7 +242,6 @@ export const zhMessages = {
       data: "数据",
       lab: "实验室",
       email: "邮件",
-      about: "关于",
     },
     general: {
       languageLabel: "语言",
@@ -528,14 +527,6 @@ export const zhMessages = {
       sending: "发送中…",
       testSubject: "来自 Coder 的测试邮件",
       testBody: "这是一封测试邮件，您的邮件配置工作正常。",
-    },
-    about: {
-      currentVersion: "当前版本",
-      latestVersion: "最新版本",
-      checkUpdate: "检查更新",
-      checking: "检查中…",
-      upToDate: "已是最新版本",
-      viewRelease: "查看发布",
     },
   },
   lab: {

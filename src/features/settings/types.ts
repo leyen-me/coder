@@ -6,5 +6,4 @@ export type SettingsCategoryId =
   | "webTools"
   | "data"
   | "lab"
-  | "email"
-  | "about";
+  | "email";
