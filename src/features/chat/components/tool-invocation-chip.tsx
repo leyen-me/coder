@@ -11,6 +11,7 @@ import {
   AWAIT_TOOL_NAME,
   BROWSE_PAGE_TOOL_NAME,
   EDIT_FILE_TOOL_NAME,
+  GET_WORKSPACE_TREE_TOOL_NAME,
   READ_FILE_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
   SHELL_TOOL_NAME,
@@ -23,6 +24,7 @@ import {
   getReadFileChipLabel,
 } from "@/features/agent/tools/read-file-display";
 import { getShellChipLabel } from "@/features/agent/tools/shell-display";
+import { getWorkspaceTreeChipLabel } from "@/features/agent/tools/workspace-tree-display";
 import type { MessageToolInvocation } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -38,6 +40,7 @@ import { useState } from "react";
 import { BrowsePageToolOutput } from "./browse-page-tool-output";
 import { FileDiffToolOutput } from "./file-diff-tool-output";
 import { ShellToolOutput } from "./shell-tool-output";
+import { WorkspaceTreeToolOutput } from "./workspace-tree-tool-output";
 
 type ToolInvocationChipProps = {
   invocation: MessageToolInvocation;
@@ -63,6 +66,7 @@ export function ToolInvocationChip({
       invocation.output,
     ) ??
     getReadFileChipLabel(invocation.name, invocation.output) ??
+    getWorkspaceTreeChipLabel(invocation.name, invocation.output) ??
     invocation.name;
   const isShellTool =
     invocation.name === SHELL_TOOL_NAME || invocation.name === AWAIT_TOOL_NAME;
@@ -72,6 +76,8 @@ export function ToolInvocationChip({
     invocation.name === REPLACE_FILE_TOOL_NAME ||
     invocation.name === EDIT_FILE_TOOL_NAME;
   const isReadFileTool = invocation.name === READ_FILE_TOOL_NAME;
+  const isWorkspaceTreeTool =
+    invocation.name === GET_WORKSPACE_TREE_TOOL_NAME;
   const linesRead =
     isReadFileTool && invocation.output
       ? extractReadFileLinesRead(invocation.output)
@@ -132,10 +138,13 @@ export function ToolInvocationChip({
             {isBrowsePageTool && invocation.output ? (
               <BrowsePageToolOutput output={invocation.output} />
             ) : null}
+            {isWorkspaceTreeTool && invocation.output ? (
+              <WorkspaceTreeToolOutput output={invocation.output} />
+            ) : null}
             <ToolOutput
               errorText={invocation.errorText}
               output={
-                isShellTool || isBrowsePageTool
+                isShellTool || isBrowsePageTool || isWorkspaceTreeTool
                   ? undefined
                   : invocation.output
               }
