@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 
 import {
   useActiveStreamingMessageIds,
@@ -7,6 +7,8 @@ import {
 import { resolveContinuedSessionIdFromMessages } from "@/features/agent/handoff";
 import type { MessageRecord } from "@/lib/db";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { MessageItem } from "./message-item";
 import { SystemPromptBlock } from "./system-prompt-block";
@@ -60,6 +62,7 @@ export function MessageList({
   onEditUserMessage,
   onRegenerateAssistantMessage,
 }: MessageListProps) {
+  const { t } = useTranslation();
   const streamingMessageIds = useActiveStreamingMessageIds();
   const chatRetryByMessageId = useChatRetryByMessageId();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -75,6 +78,22 @@ export function MessageList({
         : resolveContinuedSessionIdFromMessages(messages),
     [handoffFromSessionId, messages]
   );
+
+  // Detect the build-from-plan boundary so a visual separator can be
+  // inserted between the planning conversation and the build phase.
+  const buildBoundaryIndex = useMemo(() => {
+    const BUILD_PROMPT_MARKER = "implement the following plan";
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const message = messages[i];
+      if (
+        message.role === "user" &&
+        message.content.includes(BUILD_PROMPT_MARKER)
+      ) {
+        return i;
+      }
+    }
+    return -1;
+  }, [messages]);
 
   useEffect(() => {
     isPinnedToBottomRef.current = true;
@@ -179,18 +198,29 @@ export function MessageList({
           {handoffContinuedSessionId ? (
             <HandoffSourceBanner continuedSessionId={handoffContinuedSessionId} />
           ) : null}
-          {messages.map((message) => (
-            <MessageItem
-              chatRetry={chatRetryByMessageId.get(message.id) ?? null}
-              editingMessageId={editingMessageId}
-              handoffFromSessionId={handoffFromSessionId}
-              isStreaming={streamingMessageIds.has(message.id)}
-              key={message.id}
-              message={message}
-              onEditUserMessage={onEditUserMessage}
-              onRegenerateAssistantMessage={onRegenerateAssistantMessage}
-              sessionTitle={sessionTitle}
-            />
+          {messages.map((message, index) => (
+            <React.Fragment key={message.id}>
+              {buildBoundaryIndex > 0 && index === buildBoundaryIndex ? (
+                <div className="-mx-4 flex items-center gap-3 px-4">
+                  <Separator className="flex-1" />
+                  <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                    {t("chat.planBuildStart")}
+                  </span>
+                  <Separator className="flex-1" />
+                </div>
+              ) : null}
+              <MessageItem
+                chatRetry={chatRetryByMessageId.get(message.id) ?? null}
+                editingMessageId={editingMessageId}
+                handoffFromSessionId={handoffFromSessionId}
+                isStreaming={streamingMessageIds.has(message.id)}
+                key={message.id}
+                message={message}
+                onEditUserMessage={onEditUserMessage}
+                onRegenerateAssistantMessage={onRegenerateAssistantMessage}
+                sessionTitle={sessionTitle}
+              />
+            </React.Fragment>
           ))}
         </div>
       </ScrollArea>

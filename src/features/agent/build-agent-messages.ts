@@ -26,7 +26,14 @@ export async function buildAgentMessages(
   const conversation = history.filter((message) => hasMessagePayload(message));
   assertValidToolCallChain(conversation);
 
-  const withSkillInjection = await applyReferencedSkillsToConversation(conversation);
+  // When building from a plan, truncate the conversation to only include
+  // messages from the build instruction onward. The planning conversation
+  // (user questions + plan responses) is irrelevant for execution and would
+  // waste context tokens and potentially confuse the agent with stale context.
+  // The plan content is already embedded in the build prompt message.
+  const trimmedConversation = trimToBuildBoundary(conversation);
+
+  const withSkillInjection = await applyReferencedSkillsToConversation(trimmedConversation);
   const todoSnapshotMessage = await buildTodoSnapshotSystemMessage(sessionId);
   const sessionPolicyPrompt = buildSessionPolicySystemPrompt(sessionPolicy);
 
@@ -143,4 +150,39 @@ function hasMessagePayload(message: AgentChatMessage): boolean {
   }
 
   return hasAgentMessageContent(message.content);
+}
+
+/**
+ * Detects the build-from-plan boundary and truncates history so only messages
+ * from the build instruction onward are sent to the model.
+ *
+ * When a user clicks "Build" on a plan, a special user message is created by
+ * buildPlanExecutionPrompt() that starts with "Please implement the following plan".
+ * Everything before that message is the planning conversation (user questions +
+ * plan responses) and should not be included in the LLM context during execution.
+ * The plan content is already embedded in the build prompt itself.
+ */
+function trimToBuildBoundary(messages: AgentChatMessage[]): AgentChatMessage[] {
+  const BUILD_PROMPT_MARKER = "implement the following plan";
+
+  // Scan from the end to find the last user message that matches the build prompt.
+  // Manual loop from the end to avoid relying on ES2023 Array.findLastIndex.
+  let buildBoundary = -1;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (
+      message.role === "user" &&
+      typeof message.content === "string" &&
+      message.content.includes(BUILD_PROMPT_MARKER)
+    ) {
+      buildBoundary = i;
+      break;
+    }
+  }
+
+  if (buildBoundary <= 0) {
+    return messages;
+  }
+
+  return messages.slice(buildBoundary);
 }

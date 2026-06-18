@@ -195,6 +195,7 @@ export const enMessages = {
     planFileName: "Plan",
     planGenerating: "Generating…",
     buildWithAgent: "Build with Agent",
+    planBuildStart: "Build started",
     askQuestionTitle: "Need your input",
     askQuestionDescription:
       "Answer these questions so the agent can continue planning with the right assumptions.",

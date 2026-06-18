@@ -179,6 +179,7 @@ export type Messages = {
     planFileName: string;
     planGenerating: string;
     buildWithAgent: string;
+    planBuildStart: string;
     askQuestionTitle: string;
     askQuestionDescription: string;
     askQuestionSingle: string;

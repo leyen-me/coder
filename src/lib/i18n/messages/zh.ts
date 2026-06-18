@@ -189,6 +189,7 @@ export const zhMessages = {
     planFileName: "计划",
     planGenerating: "生成中…",
     buildWithAgent: "使用 Agent 执行",
+    planBuildStart: "开始执行",
     askQuestionTitle: "需要你确认",
     askQuestionDescription: "请回答这些问题，智能体会据此继续生成计划。",
     askQuestionSingle: "单选",
