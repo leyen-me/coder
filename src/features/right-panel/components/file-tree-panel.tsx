@@ -296,16 +296,16 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
             }
           />
 
-          {/* Level 2: File preview tabs (pill-style container) */}
-          <div className="flex items-center gap-1 overflow-x-auto border-b px-2 py-2">
-            <div className="flex items-center gap-0.5 rounded-lg bg-muted/50 p-0.5">
+          {/* Level 2: File preview tabs (terminal-style tab bar) */}
+          <div className="flex items-center gap-1 overflow-x-auto border-b px-2 py-1.5">
+            <div className="flex min-w-0 flex-1 items-center gap-1">
               {/* File tree tab — always visible, cannot close */}
               <button
                 className={cn(
-                  "inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs transition-colors",
+                  "inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-1.5 py-1 text-xs transition-colors",
                   activeTabPath === null
-                    ? "bg-background text-foreground/80 shadow-sm"
-                    : "text-muted-foreground/70 hover:bg-muted/30 hover:text-foreground"
+                    ? "border-border/40 bg-muted/30 text-foreground/80"
+                    : "border-transparent text-muted-foreground/70 hover:bg-muted/20 hover:text-foreground/80"
                 )}
                 onClick={showExplorer}
                 type="button"
@@ -326,10 +326,10 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
                   <div
                     key={tab.path}
                     className={cn(
-                      "group inline-flex h-7 shrink-0 cursor-grab items-center rounded-md text-xs active:cursor-grabbing",
+                      "group inline-flex h-7 shrink-0 cursor-grab items-center rounded-md border text-xs active:cursor-grabbing",
                       isActive
-                        ? "bg-background text-foreground/80 shadow-sm"
-                        : "text-muted-foreground/70 hover:bg-muted/30 hover:text-foreground"
+                        ? "border-border/40 bg-muted/30 text-foreground/80"
+                        : "border-transparent text-muted-foreground/70 hover:bg-muted/20 hover:text-foreground/80"
                     )}
                     {...pointerDragProps}
                   >
@@ -339,7 +339,9 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
                       onClick={() => requestCloseFile(tab.path, tab.name)}
                       type="button"
                     >
-                      <FileIcon className="size-3 group-hover:hidden" />
+                      <span className="group-hover:hidden">
+                        <FileIcon className="size-3" />
+                      </span>
                       <XIcon className="hidden size-3 group-hover:block" />
                     </button>
                     <button
