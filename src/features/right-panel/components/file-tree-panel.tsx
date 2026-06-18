@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ClipboardListIcon,
   EyeIcon,
   EyeOffIcon,
   FileIcon,
@@ -38,7 +37,6 @@ import { OPEN_FILE_IN_PREVIEW_EVENT } from "../lib/open-file-event";
 import { useRightPanel } from "../right-panel-context";
 import { FilePreview } from "./file-preview";
 import { PanelHeader } from "./panel-header";
-import { PlanPreviewPanel } from "./plan-preview-panel";
 import { UnsavedFileCloseDialog } from "./unsaved-file-close-dialog";
 import { WorkspaceFileTree, type WorkspaceFileTreeHandle } from "./workspace-file-tree";
 
@@ -88,11 +86,6 @@ function NavButton({
 export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
   const { t } = useTranslation();
   const {
-    isPlanTabActive,
-    activePlanName,
-    openPlanPreview,
-    deactivatePlanTab,
-    planUpdateTick,
     isSourceControlTabActive,
     openSourceControlTab,
     deactivateSourceControlTab,
@@ -129,8 +122,6 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     () => new Set(tabs.map((tab) => tab.path)),
     [tabs]
   );
-  const [planTabPulse, setPlanTabPulse] = useState(false);
-  const lastPlanUpdateTick = useRef(planUpdateTick);
   const [showHidden, setShowHidden] = useState(false);
   const [fileTreeLoading, setFileTreeLoading] = useState(false);
   const [editorIsDirty, setEditorIsDirty] = useState(false);
@@ -176,37 +167,19 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     [setSession]
   );
 
-  useEffect(() => {
-    if (planUpdateTick === 0 || planUpdateTick === lastPlanUpdateTick.current) {
-      return;
-    }
-
-    lastPlanUpdateTick.current = planUpdateTick;
-    setPlanTabPulse(true);
-    const timer = window.setTimeout(() => {
-      setPlanTabPulse(false);
-    }, 1500);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [planUpdateTick]);
-
   const activeTab = tabs.find((tab) => tab.path === activeTabPath) ?? null;
 
   const handleShowExplorer = useCallback(() => {
-    deactivatePlanTab();
     deactivateSourceControlTab();
     showExplorer();
-  }, [deactivatePlanTab, deactivateSourceControlTab, showExplorer]);
+  }, [deactivateSourceControlTab, showExplorer]);
 
   const handleOpenFile = useCallback(
     (file: { path: string; name: string }) => {
-      deactivatePlanTab();
       deactivateSourceControlTab();
       openFile(file);
     },
-    [deactivatePlanTab, deactivateSourceControlTab, openFile]
+    [deactivateSourceControlTab, openFile]
   );
 
   // Listen for open-file events dispatched from outside the file tree
@@ -224,11 +197,10 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
 
   const handleActivateFile = useCallback(
     (path: string) => {
-      deactivatePlanTab();
       deactivateSourceControlTab();
       activateFile(path);
     },
-    [activateFile, deactivatePlanTab, deactivateSourceControlTab]
+    [activateFile, deactivateSourceControlTab]
   );
 
   const handleCloseActivePreview = useCallback(() => {
@@ -253,23 +225,19 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
   useRegisterHotkeyAction("file.save", handleSaveActivePreview);
 
   /** Derive the active main tab value from context state. */
-  const mainTabValue: string = isPlanTabActive
-    ? "plan"
-    : isSourceControlTabActive
-      ? "source-control"
-      : "explorer";
+  const mainTabValue: string = isSourceControlTabActive
+    ? "source-control"
+    : "explorer";
 
   const handleMainTabChange = useCallback(
     (value: string) => {
       if (value === "explorer") {
         handleShowExplorer();
-      } else if (value === "plan") {
-        openPlanPreview(activePlanName);
       } else if (value === "source-control") {
         openSourceControlTab();
       }
     },
-    [activePlanName, handleShowExplorer, openPlanPreview, openSourceControlTab]
+    [handleShowExplorer, openSourceControlTab]
   );
 
   return (
@@ -467,17 +435,6 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
           </div>
         </TabsContent>
 
-        {/* ── Plan Panel ── */}
-        <TabsContent
-          className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col data-[state=inactive]:hidden"
-          value="plan"
-        >
-          <PlanPreviewPanel
-            planName={activePlanName}
-            workspaceDir={workspaceDir}
-          />
-        </TabsContent>
-
         {/* ── Source Control Panel ── */}
         <TabsContent
           className="mt-0 flex min-h-0 min-w-0 flex-1 flex-col data-[state=inactive]:hidden"
@@ -507,13 +464,6 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
               isActive={mainTabValue === "source-control"}
               onClick={() => handleMainTabChange("source-control")}
               tooltip={t("git.sourceControl")}
-            />
-            <NavButton
-              className={planTabPulse ? "animate-pulse text-primary" : undefined}
-              icon={<ClipboardListIcon className="size-4.5" />}
-              isActive={mainTabValue === "plan"}
-              onClick={() => handleMainTabChange("plan")}
-              tooltip={t("rightPanel.plan")}
             />
           </div>
         </TooltipProvider>

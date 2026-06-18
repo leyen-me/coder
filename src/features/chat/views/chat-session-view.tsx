@@ -13,12 +13,12 @@ import { buildRefineContextMessages } from "@/features/lab/refine-prompt";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { useTranslation } from "@/lib/i18n/locale-provider";
-import { useRightPanel } from "@/features/right-panel/right-panel-context";
 
 import { ChatHotkeyActions } from "@/features/keyboard-shortcuts/chat-hotkey-actions";
 
 import { AgentStopConfirmBanner } from "../components/agent-stop-confirm-banner";
 import { AgentTodoList } from "../components/agent-todo-list";
+import { PlanSheet } from "../components/plan-sheet";
 import { useAgentStopConfirmation } from "../hooks/use-agent-stop-confirmation";
 import { ChatMessageList } from "../components/chat-message-list";
 import { PromptComposer } from "../components/prompt-composer";
@@ -138,7 +138,6 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const activeTask = getSessionTask(chatId);
   const handoffState = getSessionHandoffState(chatId);
   const isRunning = isSessionRunning(chatId) || isSubmitting || isBuildPending;
-  const { setPlanBuildActions } = useRightPanel();
 
   useEffect(() => {
     if (session?.model) {
@@ -279,20 +278,6 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       workspaceBinding.workspaceDir,
     ]
   );
-
-  useEffect(() => {
-    setPlanBuildActions({
-      isRunning,
-      isBuildPending,
-      onBuild: () => {
-        void handleBuildFromPlan("");
-      },
-    });
-
-    return () => {
-      setPlanBuildActions(null);
-    };
-  }, [handleBuildFromPlan, isBuildPending, isRunning, setPlanBuildActions]);
 
   const handleSend = useCallback(
     async (payload: { text: string; files: FileUIPart[]; skillSlugs?: string[] }): Promise<void> => {
@@ -570,6 +555,10 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
               </div>
             </div>
           ) : null}
+          <PlanSheet
+            workspaceDir={workspaceBinding.workspaceDir}
+            planBuildActions={{ isRunning, isBuildPending, onBuild: () => { void handleBuildFromPlan(""); } }}
+          />
           <PromptComposer
             key={editingMessageId ?? editingQueuedMessageId ?? "new"}
             composerKey={editingMessageId ?? editingQueuedMessageId ?? "new"}

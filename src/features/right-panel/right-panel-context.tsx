@@ -12,7 +12,6 @@ import {
 import { useLocation } from "react-router-dom";
 
 import { isChatRoute } from "@/app/paths";
-import { subscribePlanFileUpdated } from "@/features/plan/plan-events";
 
 export type PlanBuildActions = {
   isRunning: boolean;
@@ -25,14 +24,6 @@ type RightPanelContextValue = {
   toggle: () => void;
   toggleExplorer: () => void;
   setOpen: (open: boolean) => void;
-  /* Plan tab */
-  isPlanTabActive: boolean;
-  activePlanName: string | null;
-  openPlanPreview: (planName?: string | null) => void;
-  deactivatePlanTab: () => void;
-  planBuildActions: PlanBuildActions | null;
-  setPlanBuildActions: (actions: PlanBuildActions | null) => void;
-  planUpdateTick: number;
   /* Source Control tab */
   isSourceControlTabActive: boolean;
   openSourceControlTab: () => void;
@@ -47,41 +38,15 @@ const RightPanelContext = createContext<RightPanelContextValue | null>(null);
 export function RightPanelProvider({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-  const [isPlanTabActive, setIsPlanTabActive] = useState(false);
-  const [activePlanName, setActivePlanName] = useState<string | null>(null);
-  const [planBuildActions, setPlanBuildActions] = useState<PlanBuildActions | null>(
-    null
-  );
-  const [planUpdateTick, setPlanUpdateTick] = useState(0);
   const [isSourceControlTabActive, setIsSourceControlTabActive] = useState(false);
   const [gitRefreshTick, setGitRefreshTick] = useState(0);
 
   useEffect(() => {
     if (!isChatRoute(pathname)) {
       setIsOpen(false);
-      setIsPlanTabActive(false);
-      setActivePlanName(null);
-      setPlanBuildActions(null);
       setIsSourceControlTabActive(false);
     }
   }, [pathname]);
-
-  useEffect(() => {
-    return subscribePlanFileUpdated((detail) => {
-      if (detail.action === "deleted") {
-        setActivePlanName((current) =>
-          current === detail.name ? null : current
-        );
-        return;
-      }
-
-      setActivePlanName(detail.name);
-      setIsPlanTabActive(true);
-      setIsSourceControlTabActive(false);
-      setIsOpen(true);
-      setPlanUpdateTick((current) => current + 1);
-    });
-  }, []);
 
   const toggle = useCallback(() => {
     setIsOpen((current) => !current);
@@ -89,33 +54,17 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
 
   const toggleExplorer = useCallback(() => {
     setIsOpen((current) => {
-      const shouldClose = current && !isPlanTabActive && !isSourceControlTabActive;
-      if (shouldClose) {
+      if (current && !isSourceControlTabActive) {
         return false;
       }
 
-      setIsPlanTabActive(false);
       setIsSourceControlTabActive(false);
-      setActivePlanName(null);
       return true;
     });
-  }, [isPlanTabActive, isSourceControlTabActive]);
-
-  const openPlanPreview = useCallback((planName?: string | null) => {
-    setActivePlanName(planName ?? null);
-    setIsPlanTabActive(true);
-    setIsSourceControlTabActive(false);
-    setIsOpen(true);
-  }, []);
-
-  const deactivatePlanTab = useCallback(() => {
-    setIsPlanTabActive(false);
-  }, []);
+  }, [isSourceControlTabActive]);
 
   const openSourceControlTab = useCallback(() => {
     setIsSourceControlTabActive(true);
-    setIsPlanTabActive(false);
-    setActivePlanName(null);
     setIsOpen(true);
   }, []);
 
@@ -129,13 +78,6 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
       toggle,
       toggleExplorer,
       setOpen: setIsOpen,
-      isPlanTabActive,
-      activePlanName,
-      openPlanPreview,
-      deactivatePlanTab,
-      planBuildActions,
-      setPlanBuildActions,
-      planUpdateTick,
       isSourceControlTabActive,
       openSourceControlTab,
       deactivateSourceControlTab,
@@ -143,19 +85,13 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
       setGitRefreshTick,
     }),
     [
-      activePlanName,
-      deactivatePlanTab,
-      isOpen,
-      isPlanTabActive,
-      openPlanPreview,
-      planBuildActions,
-      planUpdateTick,
-      toggle,
-      toggleExplorer,
-      isSourceControlTabActive,
-      openSourceControlTab,
       deactivateSourceControlTab,
       gitRefreshTick,
+      isOpen,
+      isSourceControlTabActive,
+      openSourceControlTab,
+      toggle,
+      toggleExplorer,
     ]
   );
 
