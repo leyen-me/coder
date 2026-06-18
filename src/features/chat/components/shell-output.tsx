@@ -115,70 +115,82 @@ export function ShellOutput({
 
   return (
     <div className={cn("w-full overflow-hidden rounded-md border", className)}>
-      {/* Header bar */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/30 px-3 py-1.5 text-xs">
-        <ToolStatusIcon state={state} status={status} />
+      {/* Header bar — two-line layout */}
+      <div className="border-b bg-muted/30 px-3 py-2 text-xs">
+        {/* Row 1: core info */}
+        <div className="flex items-center gap-x-2">
+          <ToolStatusIcon state={state} status={status} />
 
-        <span className="font-mono font-medium text-foreground">
-          {toolName}
-        </span>
-
-        {description ? (
-          <>
-            <span className="text-muted-foreground">·</span>
-            <span className="font-mono text-muted-foreground">
-              {description}
-            </span>
-          </>
-        ) : null}
-
-        {workingDirectory ? (
-          <>
-            <span className="text-muted-foreground">·</span>
-            <span className="font-mono text-muted-foreground">
-              {truncatePath(workingDirectory)}
-            </span>
-          </>
-        ) : null}
-
-        {command ? (
-          <>
-            <span className="text-muted-foreground">·</span>
-            <span
-              className="max-w-[200px] truncate font-mono text-muted-foreground"
-              title={command}
-            >
-              {truncateCommand(command)}
-            </span>
-          </>
-        ) : null}
-
-        {status ? (
-          <span
-            className={cn(
-              "rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium",
-              getStatusBadgeStyle(status),
-            )}
-          >
-            {status}
+          <span className="font-mono font-medium text-foreground">
+            {toolName}
           </span>
-        ) : null}
 
-        {exitCode != null ? (
-          <span
-            className={cn(
-              "font-mono font-medium",
-              exitCode === 0 ? "text-success" : "text-destructive",
-            )}
-          >
-            exit {exitCode}
-          </span>
-        ) : null}
+          {command ? (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span
+                className="max-w-[240px] truncate font-mono font-medium text-foreground"
+                title={command}
+              >
+                {truncateCommand(command)}
+              </span>
+            </>
+          ) : null}
 
-        {durationMs != null && durationMs > 0 ? (
-          <span className="font-mono text-muted-foreground">
-            {formatDuration(durationMs)}
-          </span>
+          <div className="ml-auto flex items-center gap-x-2">
+            {status ? (
+              <span
+                className={cn(
+                  "rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium",
+                  getStatusBadgeStyle(status),
+                )}
+              >
+                {status}
+              </span>
+            ) : null}
+
+            {exitCode != null ? (
+              <span
+                className={cn(
+                  "font-mono font-medium",
+                  exitCode === 0 ? "text-success" : "text-destructive",
+                )}
+              >
+                exit {exitCode}
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Row 2: secondary info */}
+        {(description || workingDirectory || (durationMs != null && durationMs > 0)) ? (
+          <div className="mt-0.5 flex items-center gap-x-2 pl-5">
+            {description ? (
+              <span className="font-mono text-muted-foreground/70">
+                {description}
+              </span>
+            ) : null}
+
+            {workingDirectory ? (
+              <>
+                {description ? (
+                  <span className="text-muted-foreground/40">·</span>
+                ) : null}
+                <span className="font-mono text-muted-foreground/70">
+                  {truncatePath(workingDirectory)}
+                </span>
+              </>
+            ) : null}
+
+            {durationMs != null && durationMs > 0 ? (
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <span className="font-mono text-muted-foreground/70">
+                  {formatDuration(durationMs)}
+                </span>
+              </>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
