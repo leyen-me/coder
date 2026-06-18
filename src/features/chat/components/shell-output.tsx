@@ -60,6 +60,8 @@ export function ShellOutput({
   // Live-update state: when a background shell finishes on the Rust side,
   // the component receives the final output via Tauri events.
   const [liveOutput, setLiveOutput] = useState<unknown | null>(null);
+  // Streaming buffer: accumulates shell-output events before shell-finished.
+  const [liveStreamBuffer, setLiveStreamBuffer] = useState("");
 
   // Use the live event data when available, falling back to the stored output.
   const effectiveOutput = liveOutput ?? output;
@@ -82,13 +84,30 @@ export function ShellOutput({
   const stdoutTotalBytes = data?.stdoutTotalBytes ?? 0;
   const stderrTotalBytes = data?.stderrTotalBytes ?? 0;
 
-  // Subscribe to shell-finished events so background shells update in real time.
+  // Merge live streaming chunks into the display output.
+  const displayStdout = liveOutput ? stdout : stdout + liveStreamBuffer;
+
+  // Subscribe to shell events for real-time updates.
   useEffect(() => {
     if (status !== "running" || !shellId || !isTauri()) return;
 
-    let unlistenFn: (() => void) | null = null;
+    let unlisteners: (() => void)[] = [];
     let cancelled = false;
 
+    // Listen for streaming output chunks.
+    listen<Record<string, unknown>>("shell-output", (event) => {
+      if (cancelled) return;
+      const payload = event.payload as Record<string, unknown>;
+      if (payload.shellId !== shellId) return;
+      const chunk = typeof payload.data === "string" ? payload.data : "";
+      if (chunk) {
+        setLiveStreamBuffer((prev) => prev + chunk);
+      }
+    }).then((unlisten) => {
+      unlisteners.push(unlisten);
+    });
+
+    // Listen for shell completion (carries the full final ShellOutput).
     listen<Record<string, unknown>>("shell-finished", (event) => {
       if (cancelled) return;
       const payload = event.payload as Record<string, unknown>;
@@ -100,12 +119,12 @@ export function ShellOutput({
         data: payload,
       });
     }).then((unlisten) => {
-      unlistenFn = unlisten;
+      unlisteners.push(unlisten);
     });
 
     return () => {
       cancelled = true;
-      unlistenFn?.();
+      for (const fn of unlisteners) fn();
     };
   }, [status, shellId]);
 
@@ -117,9 +136,9 @@ export function ShellOutput({
       parts.push(`$ ${command}`);
     }
 
-    // stdout
-    if (stdout) {
-      const cleaned = stripAnsi(stdout);
+    // stdout (includes live streaming chunks when still running)
+    if (displayStdout) {
+      const cleaned = stripAnsi(displayStdout);
       if (cleaned) {
         parts.push(cleaned);
       }
@@ -134,20 +153,20 @@ export function ShellOutput({
     }
 
     // No output marker
-    if (!stdout && !stderr) {
+    if (!displayStdout && !stderr) {
       const exitInfo =
         exitCode != null ? `exit code ${exitCode}` : null;
       parts.push(`(no output${exitInfo ? `, ${exitInfo}` : ""})`);
     }
 
     return parts.join("\n");
-  }, [command, stdout, stderr, exitCode]);
+  }, [command, displayStdout, stderr, exitCode]);
 
   const showTruncated =
     (stdoutTruncated && stdoutTotalBytes > 0) ||
     (stderrTruncated && stderrTotalBytes > 0);
 
-  const emptyOutput = !command && !stdout && !stderr;
+  const emptyOutput = !command && !displayStdout && !stderr;
 
   return (
     <div className={cn("w-full overflow-hidden rounded-md border", className)}>
