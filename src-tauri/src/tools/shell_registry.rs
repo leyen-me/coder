@@ -322,7 +322,7 @@ impl ShellRegistry {
         // PTY often never closes the master read side, which leaves the shell stuck in
         // Running until timeout and mixes terminal escape sequences into stdout.
         let mut cmd = Command::new(&program);
-        cmd.args(args).current_dir(&cwd);
+        cmd.current_dir(&cwd);
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());
         cmd.kill_on_drop(true);
@@ -331,7 +331,21 @@ impl ShellRegistry {
         }
 
         #[cfg(target_os = "windows")]
-        cmd.as_std_mut().creation_flags(0x08000000);
+        {
+            // Rust's Command.arg() applies CommandLineToArgvW-style escaping,
+            // producing \" sequences that cmd.exe does not understand. Use
+            // raw_arg to pass the command verbatim so CMD's native parser
+            // can handle quotes correctly.
+            cmd.arg("/C");
+            cmd.as_std_mut().raw_arg(&command);
+            cmd.as_std_mut().creation_flags(0x08000000);
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            cmd.args(args);
+        }
+        #[cfg(target_os = "windows")]
+        let _ = args;
 
         let mut child = cmd
             .spawn()
