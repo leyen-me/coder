@@ -5,13 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import { extractShellData } from "@/features/agent/tools/shell-display";
 import { stripAnsi } from "@/lib/strip-ansi";
 import { cn } from "@/lib/utils";
-import { isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { ToolUIPart } from "ai";
 import {
   CheckCircle2Icon,
   CircleIcon,
   LoaderCircleIcon,
+  SquareIcon,
   XCircleIcon,
 } from "lucide-react";
 
@@ -62,6 +63,8 @@ export function ShellOutput({
   const [liveOutput, setLiveOutput] = useState<unknown | null>(null);
   // Streaming buffer: accumulates shell-output events before shell-finished.
   const [liveStreamBuffer, setLiveStreamBuffer] = useState("");
+  // Track whether the user clicked stop.
+  const [killing, setKilling] = useState(false);
 
   // Use the live event data when available, falling back to the stored output.
   const effectiveOutput = liveOutput ?? output;
@@ -193,6 +196,39 @@ export function ShellOutput({
           ) : null}
 
           <div className="ml-auto flex items-center gap-x-2">
+            {/* Stop button for running shells */}
+            {status === "running" && shellId && isTauri() ? (
+              <button
+                aria-label="Stop shell"
+                className={cn(
+                  "flex size-4 items-center justify-center rounded",
+                  "text-muted-foreground/50 transition-colors hover:text-destructive",
+                  killing && "pointer-events-none opacity-50",
+                )}
+                disabled={killing}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setKilling(true);
+                  invoke("shell_kill", { shellId }).then(
+                    () => {
+                      // Shell killed successfully — "shell-finished" event
+                      // will update the UI. Re-enable button after 5s
+                      // in case the event never arrives.
+                      setTimeout(() => setKilling(false), 5000);
+                    },
+                    (error) => {
+                      console.error("Failed to kill shell:", error);
+                      setKilling(false);
+                    },
+                  );
+                }}
+                title="Stop"
+                type="button"
+              >
+                <SquareIcon className="size-3" />
+              </button>
+            ) : null}
+
             {status ? (
               <span
                 className={cn(

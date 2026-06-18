@@ -337,6 +337,10 @@ impl ShellRegistry {
             .spawn()
             .map_err(|error| format!("Failed to spawn command: {error}"))?;
 
+        // Capture the OS PID before moving child into the slot, so
+        // kill_running_shell can kill the process via pid even after
+        // wait_for_child has taken the child out of the slot.
+        let child_pid = child.id();
         let stdout = child.stdout.take();
         let stderr = child.stderr.take();
         let child_slot = Arc::new(Mutex::new(Some(child)));
@@ -358,7 +362,7 @@ impl ShellRegistry {
                     exit_code: None,
                     started_at,
                     task_id,
-                    pid: None,
+                    pid: child_pid,
                     killed,
                     child: child_slot.clone(),
                     child_killer: None,
