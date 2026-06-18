@@ -89,6 +89,8 @@ type PromptComposerProps = {
   onModelChange: (model: string) => void;
   agentMode?: AgentMode;
   onAgentModeChange?: (mode: AgentMode) => void;
+  /** When set, the plan has been built — Plan mode is no longer selectable. */
+  planBuiltAt?: number | null;
   sessionKind?: SessionKind;
   onSessionKindChange?: (kind: SessionKind) => void;
   thinkingEnabled?: boolean;
@@ -451,6 +453,7 @@ export const PromptComposer = memo(function PromptComposer({
   contextUsage,
   agentMode = "agent",
   onAgentModeChange,
+  planBuiltAt,
   sessionKind = "standard",
   onSessionKindChange,
   modelProviders,
@@ -721,7 +724,7 @@ export const PromptComposer = memo(function PromptComposer({
                   <FileQuestionIcon className="mr-2 size-4" />
                   <span>{t("chat.modeAsk")}</span>
                 </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="plan">
+                <DropdownMenuRadioItem value="plan" disabled={Boolean(planBuiltAt)}>
                   <ClipboardListIcon className="mr-2 size-4" />
                   <span>{t("chat.modePlan")}</span>
                 </DropdownMenuRadioItem>

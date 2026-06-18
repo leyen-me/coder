@@ -607,6 +607,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             contextUsage={contextUsage}
             agentMode={agentMode}
             onAgentModeChange={setAgentMode}
+            planBuiltAt={effectiveSession?.planBuiltAt ?? null}
             sessionKind={effectiveSession?.sessionKind ?? "standard"}
           />
         </div>
