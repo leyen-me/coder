@@ -148,7 +148,7 @@ function formatStreamSection(
   return `${header}\n${stripAnsi(content)}`;
 }
 
-function extractShellData(output: unknown): ShellData | null {
+export function extractShellData(output: unknown): ShellData | null {
   if (!output || typeof output !== "object") {
     return null;
   }

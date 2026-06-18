@@ -39,7 +39,7 @@ import { useState } from "react";
 
 import { BrowsePageToolOutput } from "./browse-page-tool-output";
 import { FileDiffToolOutput } from "./file-diff-tool-output";
-import { ShellToolOutput } from "./shell-tool-output";
+import { ShellOutput } from "./shell-output";
 import { WorkspaceTreeToolOutput } from "./workspace-tree-tool-output";
 
 type ToolInvocationChipProps = {
@@ -83,12 +83,19 @@ export function ToolInvocationChip({
       ? extractReadFileLinesRead(invocation.output)
       : null;
 
-  // File diff tools render inline directly in the message.
-  if (isFileDiffTool) {
+  // File diff and shell tools render inline directly in the message.
+  if (isFileDiffTool || isShellTool) {
     return (
       <div className={cn("not-prose my-2 w-full", className)}>
-        {invocation.output ? (
+        {isFileDiffTool && invocation.output ? (
           <FileDiffToolOutput
+            input={invocation.input}
+            output={invocation.output}
+            toolName={invocation.name}
+            state={invocation.state as ToolUIPart["state"]}
+          />
+        ) : isShellTool && invocation.output ? (
+          <ShellOutput
             input={invocation.input}
             output={invocation.output}
             toolName={invocation.name}
@@ -132,9 +139,6 @@ export function ToolInvocationChip({
           </SheetHeader>
           <div className="space-y-4 px-4 pb-4">
             <ToolInput input={invocation.input} />
-            {isShellTool && invocation.output ? (
-              <ShellToolOutput output={invocation.output} />
-            ) : null}
             {isBrowsePageTool && invocation.output ? (
               <BrowsePageToolOutput output={invocation.output} />
             ) : null}
@@ -144,7 +148,7 @@ export function ToolInvocationChip({
             <ToolOutput
               errorText={invocation.errorText}
               output={
-                isShellTool || isBrowsePageTool || isWorkspaceTreeTool
+                isBrowsePageTool || isWorkspaceTreeTool
                   ? undefined
                   : invocation.output
               }
