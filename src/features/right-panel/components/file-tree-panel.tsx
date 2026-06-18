@@ -33,6 +33,7 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 
 import { useFileEditorSessions, type FileEditorSession } from "../hooks/use-file-editor-sessions";
 import { useFilePreviewTabs } from "../hooks/use-file-preview-tabs";
+import { useFileWatcher } from "../hooks/use-file-watcher";
 import { OPEN_FILE_IN_PREVIEW_EVENT } from "../lib/open-file-event";
 import { useRightPanel } from "../right-panel-context";
 import { FilePreview } from "./file-preview";
@@ -97,6 +98,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
     deactivateSourceControlTab,
     isOpen: isRightPanelOpen,
     setOpen: setIsRightPanelOpen,
+    setGitRefreshTick,
   } = useRightPanel();
   const {
     tabs,
@@ -137,6 +139,21 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
   const [editorSaveErrorMessage, setEditorSaveErrorMessage] = useState<string | null>(null);
   const editorReloadRef = useRef<(() => void) | null>(null);
   const fileTreeRef = useRef<WorkspaceFileTreeHandle>(null);
+
+  // ── File-watcher: auto-refresh file tree & git panel ──
+  const handleFilesChanged = useCallback(() => {
+    fileTreeRef.current?.refreshAll();
+  }, []);
+
+  const handleGitChanged = useCallback(() => {
+    setGitRefreshTick((c: number) => c + 1);
+  }, [setGitRefreshTick]);
+
+  useFileWatcher({
+    workspaceDir,
+    onFilesChanged: handleFilesChanged,
+    onGitChanged: handleGitChanged,
+  });
 
   // Track active file editor session state for the PanelHeader save bar
   const handleSessionChange = useCallback(

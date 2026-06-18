@@ -31,6 +31,7 @@ tokio-util = { version = "0.7", features = ["rt"] }
 futures = "0.3"
 encoding_rs = "0.8"
 ignore = "0.4"
+notify = { version = "7", features = ["macos_fsevent"] }
 globset = "0.4"
 regex = "1"
 sha2 = "0.10"

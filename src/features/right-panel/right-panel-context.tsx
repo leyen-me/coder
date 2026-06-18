@@ -37,6 +37,9 @@ type RightPanelContextValue = {
   isSourceControlTabActive: boolean;
   openSourceControlTab: () => void;
   deactivateSourceControlTab: () => void;
+  /** Incremented by the file watcher when .git/ changes occur */
+  gitRefreshTick: number;
+  setGitRefreshTick: React.Dispatch<React.SetStateAction<number>>;
 };
 
 const RightPanelContext = createContext<RightPanelContextValue | null>(null);
@@ -51,6 +54,7 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
   );
   const [planUpdateTick, setPlanUpdateTick] = useState(0);
   const [isSourceControlTabActive, setIsSourceControlTabActive] = useState(false);
+  const [gitRefreshTick, setGitRefreshTick] = useState(0);
 
   useEffect(() => {
     if (!isChatRoute(pathname)) {
@@ -135,6 +139,8 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
       isSourceControlTabActive,
       openSourceControlTab,
       deactivateSourceControlTab,
+      gitRefreshTick,
+      setGitRefreshTick,
     }),
     [
       activePlanName,
@@ -149,6 +155,7 @@ export function RightPanelProvider({ children }: { children: ReactNode }) {
       isSourceControlTabActive,
       openSourceControlTab,
       deactivateSourceControlTab,
+      gitRefreshTick,
     ]
   );
 

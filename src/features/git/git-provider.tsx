@@ -17,6 +17,7 @@ import type {
   SourceControlTab,
 } from "./types";
 import * as gitService from "./git-service";
+import { useRightPanel } from "@/features/right-panel/right-panel-context";
 
 export type GitContextValue = {
   /** Current branch name. */
@@ -108,18 +109,9 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
   const [isGitRepo, setIsGitRepo] = useState(true);
   const [activeTab, setActiveTab] = useState<SourceControlTab>("changes");
   const wasActiveRef = useRef(isActive);
-
-  // Auto-refresh when the panel becomes visible (opened or tab switched to it).
-  // This ensures data is always fresh when the user looks at the Source Control panel.
-  useEffect(() => {
-    if (isActive && !wasActiveRef.current && workspaceDir) {
-      wasActiveRef.current = true;
-      void refresh();
-    } else if (!isActive) {
-      wasActiveRef.current = false;
-    }
-  }); // run every render to detect transitions
-  // Note: intentional — we need to detect transitions without depending on `refresh` (stable ref)
+  const { gitRefreshTick } = useRightPanel();
+  const lastGitRefreshAtRef = useRef(0);
+  const GIT_REFRESH_COOLDOWN_MS = 3_000;
 
   const refresh = useCallback(async () => {
     if (!workspaceDir) return;
@@ -171,6 +163,32 @@ export function GitProvider({ children, workspaceDir, isActive }: GitProviderPro
     }
     setIsLoading(false);
   }, [workspaceDir]);
+
+  // Auto-refresh when the panel becomes visible (opened or tab switched to it).
+  // This ensures data is always fresh when the user looks at the Source Control panel.
+  useEffect(() => {
+    if (isActive && !wasActiveRef.current && workspaceDir) {
+      wasActiveRef.current = true;
+      void refresh();
+    } else if (!isActive) {
+      wasActiveRef.current = false;
+    }
+  }); // run every render to detect transitions
+  // Note: intentional — we need to detect transitions without depending on `refresh` (stable ref)
+
+  // Auto-refresh when the file watcher detects .git/ changes.
+  // Cooldown prevents refresh loops: git commands (status, log, etc.) may
+  // themselves touch `.git/` files and trigger new watcher events.
+  useEffect(() => {
+    if (gitRefreshTick > 0 && workspaceDir) {
+      const now = Date.now();
+      if (now - lastGitRefreshAtRef.current < GIT_REFRESH_COOLDOWN_MS) {
+        return;
+      }
+      lastGitRefreshAtRef.current = now;
+      void refresh();
+    }
+  }, [gitRefreshTick, refresh, workspaceDir]);
 
   const loadMoreRecentCommits = useCallback(async () => {
     if (!workspaceDir || isLoadingMoreRecentCommits || !hasMoreRecentCommits) {
