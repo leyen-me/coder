@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { extractShellData } from "@/features/agent/tools/shell-display";
 import { stripAnsi } from "@/lib/strip-ansi";
 import { cn } from "@/lib/utils";
+import { isTauri } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type { ToolUIPart } from "ai";
 import {
   CheckCircle2Icon,
@@ -55,7 +57,13 @@ export function ShellOutput({
   state,
   className,
 }: ShellOutputProps) {
-  const data = output ? extractShellData(output) : null;
+  // Live-update state: when a background shell finishes on the Rust side,
+  // the component receives the final output via Tauri events.
+  const [liveOutput, setLiveOutput] = useState<unknown | null>(null);
+
+  // Use the live event data when available, falling back to the stored output.
+  const effectiveOutput = liveOutput ?? output;
+  const data = effectiveOutput ? extractShellData(effectiveOutput) : null;
 
   const command =
     data?.command ?? extractInputValue(input, "command");
@@ -66,12 +74,40 @@ export function ShellOutput({
   const status = data?.status;
   const exitCode = data?.exitCode;
   const durationMs = data?.durationMs;
+  const shellId = data?.shellId;
   const stdout = data?.stdout ?? "";
   const stderr = data?.stderr ?? "";
   const stdoutTruncated = data?.stdoutTruncated ?? false;
   const stderrTruncated = data?.stderrTruncated ?? false;
   const stdoutTotalBytes = data?.stdoutTotalBytes ?? 0;
   const stderrTotalBytes = data?.stderrTotalBytes ?? 0;
+
+  // Subscribe to shell-finished events so background shells update in real time.
+  useEffect(() => {
+    if (status !== "running" || !shellId || !isTauri()) return;
+
+    let unlistenFn: (() => void) | null = null;
+    let cancelled = false;
+
+    listen<Record<string, unknown>>("shell-finished", (event) => {
+      if (cancelled) return;
+      const payload = event.payload as Record<string, unknown>;
+      if (payload.shellId !== shellId) return;
+      // Wrap in the tool-result envelope so extractShellData can parse it.
+      setLiveOutput({
+        ok: true,
+        tool: "shell",
+        data: payload,
+      });
+    }).then((unlisten) => {
+      unlistenFn = unlisten;
+    });
+
+    return () => {
+      cancelled = true;
+      unlistenFn?.();
+    };
+  }, [status, shellId]);
 
   const formattedLog = useMemo(() => {
     const parts: string[] = [];

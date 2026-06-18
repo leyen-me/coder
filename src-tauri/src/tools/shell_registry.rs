@@ -634,14 +634,12 @@ async fn wait_for_child(
         }
     }
 
-    let _ = app.emit(
-        "shell-finished",
-        serde_json::json!({
-            "shellId": shell_id,
-            "exitCode": exit_code,
-            "status": shell_status_label(status),
-        }),
-    );
+    // Emit the full ShellOutput so the frontend can update UI in real time.
+    if let Ok(reg) = registry.lock() {
+        if let Ok(output) = reg.snapshot_output(&shell_id) {
+            let _ = app.emit("shell-finished", output);
+        }
+    }
 }
 
 fn kill_process_tree(pid: u32) {
