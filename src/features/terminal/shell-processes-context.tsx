@@ -57,7 +57,11 @@ async function refreshProcesses(): Promise<void> {
     const shells = await invoke<ShellInfo[]>("shell_list", {
       statusFilter: "running",
     });
-    setProcesses((current) => mergeShellList(shells, current));
+    // Only expose human-terminal shells in the bottom panel.
+    const humanShells = shells.filter(
+      (shell) => shell.source !== "agent",
+    );
+    setProcesses((current) => mergeShellList(humanShells, current));
   } catch {
     // Ignore list failures in UI polling.
   }
@@ -200,6 +204,12 @@ function appendStream(
   data: string
 ): ShellProcess[] {
   const index = current.findIndex((process) => process.shellId === shellId);
+
+  // Skip agent shells — they are managed inline in the chat, not in the bottom panel.
+  if (index === -1 && shellId.startsWith("pty-") === false) {
+    return current;
+  }
+
   if (index === -1) {
     return [
       ...current,
