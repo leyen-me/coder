@@ -95,7 +95,6 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
     <div className="flex h-full min-h-0 min-w-0 flex-col">
       {/* Unified header */}
       <PanelHeader
-        icon={<GitBranchIcon className="size-4" />}
         title={t("git.sourceControl")}
         actions={
           <>

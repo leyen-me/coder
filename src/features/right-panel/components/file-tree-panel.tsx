@@ -240,7 +240,6 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
           value="explorer"
         >
           <PanelHeader
-            icon={<FilesIcon className="size-4" />}
             title={t("rightPanel.explorer")}
             actions={
               activeTabPath === null ? (

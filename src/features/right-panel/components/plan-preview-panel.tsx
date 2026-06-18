@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 import {
   BotIcon,
   CheckIcon,
-  ClipboardListIcon,
   CopyIcon,
   RefreshCwIcon,
 } from "lucide-react";
@@ -198,7 +197,6 @@ export function PlanPreviewPanel({
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
       <PanelHeader
-        icon={<ClipboardListIcon className="size-4" />}
         title={
           resolvedName
             ? formatPlanTabLabel(resolvedName)
