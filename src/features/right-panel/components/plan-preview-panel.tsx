@@ -226,18 +226,6 @@ export function PlanPreviewPanel({
                 <span>{t("rightPanel.planBuild")}</span>
               </button>
             ) : null}
-            <button
-              aria-label={t("rightPanel.menuRefresh")}
-              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
-              disabled={showSpinner}
-              onClick={() => {
-                void loadPlan({ refresh: true });
-              }}
-              title={t("rightPanel.menuRefresh")}
-              type="button"
-            >
-              <RefreshCwIcon className={cn("size-3.5", showSpinner && "animate-spin")} />
-            </button>
             {content.trim() ? (
               <button
                 aria-label={t("rightPanel.planCopy")}
@@ -253,6 +241,18 @@ export function PlanPreviewPanel({
                 )}
               </button>
             ) : null}
+            <button
+              aria-label={t("rightPanel.menuRefresh")}
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+              disabled={showSpinner}
+              onClick={() => {
+                void loadPlan({ refresh: true });
+              }}
+              title={t("rightPanel.menuRefresh")}
+              type="button"
+            >
+              <RefreshCwIcon className={cn("size-3.5", showSpinner && "animate-spin")} />
+            </button>
           </>
         }
       />
