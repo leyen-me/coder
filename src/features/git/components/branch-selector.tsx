@@ -100,15 +100,13 @@ export function BranchSelector() {
         <Tooltip>
           <TooltipTrigger asChild>
             <PopoverTrigger asChild>
-              <Button
+              <button
                 aria-label={t("git.branches")}
-                className="h-7 w-7"
-                size="icon-sm"
+                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
                 type="button"
-                variant="ghost"
               >
                 <GitForkIcon className="size-3.5" />
-              </Button>
+              </button>
             </PopoverTrigger>
           </TooltipTrigger>
           <TooltipContent>{t("git.branches")}</TooltipContent>

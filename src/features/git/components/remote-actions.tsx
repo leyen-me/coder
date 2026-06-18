@@ -13,7 +13,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -72,14 +71,12 @@ export function RemoteActions() {
       <div className="flex items-center gap-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
+            <button
               aria-label={t("git.push")}
-              className="h-6 w-6"
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
               disabled={isPushing || aheadCount === 0}
               onClick={handlePush}
-              size="icon-sm"
               type="button"
-              variant="ghost"
             >
               <ArrowUpFromLineIcon
                 className={cn(
@@ -87,21 +84,19 @@ export function RemoteActions() {
                   aheadCount === 0 && "text-muted-foreground/40"
                 )}
               />
-            </Button>
+            </button>
           </TooltipTrigger>
           <TooltipContent>{t("git.push")}</TooltipContent>
         </Tooltip>
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
+            <button
               aria-label={t("git.pull")}
-              className="h-6 w-6"
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
               disabled={isPulling || behindCount === 0}
               onClick={handlePull}
-              size="icon-sm"
               type="button"
-              variant="ghost"
             >
               <ArrowDownFromLineIcon
                 className={cn(
@@ -109,7 +104,7 @@ export function RemoteActions() {
                   behindCount === 0 && "text-muted-foreground/40"
                 )}
               />
-            </Button>
+            </button>
           </TooltipTrigger>
           <TooltipContent>{t("git.pull")}</TooltipContent>
         </Tooltip>

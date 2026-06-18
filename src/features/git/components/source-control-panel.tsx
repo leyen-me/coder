@@ -101,17 +101,16 @@ export function SourceControlPanel({ workspaceDir }: SourceControlPanelProps) {
           <>
             <BranchSelector />
             <RemoteActions />
-            <Button
+            <button
               aria-label={t("git.refresh")}
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
               disabled={isLoading}
               onClick={() => void refresh()}
-              size="icon-xs"
               title={t("git.refresh")}
               type="button"
-              variant="ghost"
             >
               <RefreshCwIcon className={cn("size-3.5", isLoading && "animate-spin")} />
-            </Button>
+            </button>
           </>
         }
       />
