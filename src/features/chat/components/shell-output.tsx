@@ -90,6 +90,60 @@ export function ShellOutput({
   // Merge live streaming chunks into the display output.
   const displayStdout = liveOutput ? stdout : stdout + liveStreamBuffer;
 
+  // Recovery effect: when the session is re-opened from IndexedDB, the persisted
+  // output may have status === "running" because a background shell (block_until_ms=0)
+  // finished after its result was already saved. The Rust-side ShellRegistry has
+  // since been lost (app restart) or the shell has completed. Query the real status
+  // from Rust, or infer it from the exit code when the shell is gone.
+  useEffect(() => {
+    if (liveOutput) return; // Already has live data — no recovery needed.
+    if (status !== "running") return;
+    if (!shellId || !isTauri()) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const shells = await invoke<
+          { shellId: string; status: string; exitCode?: number | null }[]
+        >("shell_list", { statusFilter: "all" });
+        if (cancelled) return;
+
+        const found = shells.find((s) => s.shellId === shellId);
+        if (found) {
+          // Shell still exists in the registry — use its actual status.
+          if (found.status !== "running") {
+            setLiveOutput({
+              ok: true,
+              tool: "shell",
+              data: { ...data, status: found.status, exitCode: found.exitCode ?? data?.exitCode },
+            });
+          }
+        } else {
+          // Shell registry has been cleared (e.g. app restart).
+          // The process is gone — infer the final status from the exit code.
+          const inferredStatus =
+            data?.exitCode != null
+              ? data.exitCode === 0
+                ? "completed"
+                : "failed"
+              : "completed";
+          setLiveOutput({
+            ok: true,
+            tool: "shell",
+            data: { ...data, status: inferredStatus },
+          });
+        }
+      } catch {
+        // Best effort — if the query fails, keep the persisted state as-is.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [liveOutput, status, shellId]);
+
   // Subscribe to shell events for real-time updates.
   useEffect(() => {
     if (status !== "running" || !shellId || !isTauri()) return;
