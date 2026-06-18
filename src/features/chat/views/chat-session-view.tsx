@@ -338,6 +338,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       const editingId = editingMessageId;
       setEditingMessageId(null);
       setEditInitialFiles([]);
+      setEditInitialValue("");
       await sendPayload(
         {
           text: finalText,
