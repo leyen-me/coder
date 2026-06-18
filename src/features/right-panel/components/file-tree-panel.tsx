@@ -7,12 +7,15 @@ import {
   FileIcon,
   FilesIcon,
   GitBranchIcon,
+  LoaderCircleIcon,
   RefreshCwIcon,
+  SaveIcon,
   XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -28,7 +31,7 @@ import { cn } from "@/lib/utils";
 
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 
-import { useFileEditorSessions } from "../hooks/use-file-editor-sessions";
+import { useFileEditorSessions, type FileEditorSession } from "../hooks/use-file-editor-sessions";
 import { useFilePreviewTabs } from "../hooks/use-file-preview-tabs";
 import { OPEN_FILE_IN_PREVIEW_EVENT } from "../lib/open-file-event";
 import { useRightPanel } from "../right-panel-context";
@@ -128,7 +131,33 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
   const lastPlanUpdateTick = useRef(planUpdateTick);
   const [showHidden, setShowHidden] = useState(false);
   const [fileTreeLoading, setFileTreeLoading] = useState(false);
+  const [editorIsDirty, setEditorIsDirty] = useState(false);
+  const [editorIsSaving, setEditorIsSaving] = useState(false);
+  const [editorSaveErrorKey, setEditorSaveErrorKey] = useState<string | null>(null);
+  const [editorSaveErrorMessage, setEditorSaveErrorMessage] = useState<string | null>(null);
+  const editorReloadRef = useRef<(() => void) | null>(null);
   const fileTreeRef = useRef<WorkspaceFileTreeHandle>(null);
+
+  // Track active file editor session state for the PanelHeader save bar
+  const handleSessionChange = useCallback(
+    (path: string, session: FileEditorSession | null) => {
+      if (session) {
+        setEditorIsDirty(session.isDirty());
+        setEditorIsSaving(session.isSaving);
+        setEditorSaveErrorKey(session.saveErrorKey);
+        setEditorSaveErrorMessage(session.saveErrorMessage);
+        editorReloadRef.current = session.onReload;
+      } else {
+        setEditorIsDirty(false);
+        setEditorIsSaving(false);
+        setEditorSaveErrorKey(null);
+        setEditorSaveErrorMessage(null);
+        editorReloadRef.current = null;
+      }
+      setSession(path, session);
+    },
+    [setSession]
+  );
 
   useEffect(() => {
     if (planUpdateTick === 0 || planUpdateTick === lastPlanUpdateTick.current) {
@@ -242,7 +271,46 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
           <PanelHeader
             title={t("rightPanel.explorer")}
             actions={
-              activeTabPath === null ? (
+              activeTabPath !== null ? (
+              <TooltipProvider delayDuration={300}>
+                <Button
+                  disabled={!editorIsDirty || editorIsSaving}
+                  onClick={() => {
+                    void saveFile(activeTabPath);
+                  }}
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  {editorIsSaving ? (
+                    <LoaderCircleIcon className="size-3.5 animate-spin" />
+                  ) : (
+                    <SaveIcon className="size-3.5" />
+                  )}
+                </Button>
+                {editorIsDirty ? (
+                  <span className="text-xs text-muted-foreground">
+                    {t("rightPanel.previewUnsaved")}
+                  </span>
+                ) : null}
+                {editorSaveErrorKey ? (
+                  <span className="text-xs text-destructive">{t(editorSaveErrorKey as any)}</span>
+                ) : null}
+                {editorSaveErrorMessage ? (
+                  <span className="text-xs text-destructive">{editorSaveErrorMessage}</span>
+                ) : null}
+                {editorSaveErrorKey === "rightPanel.previewFileChanged" && editorReloadRef.current ? (
+                  <Button
+                    onClick={() => editorReloadRef.current?.()}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    {t("rightPanel.previewReload")}
+                  </Button>
+                ) : null}
+              </TooltipProvider>
+              ) : (
               <TooltipProvider delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -292,7 +360,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-              ) : null
+              )
             }
           />
 
@@ -374,7 +442,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
             </div>
             {activeTabPath !== null ? (
               <FilePreview
-                onSessionChange={setSession}
+                onSessionChange={handleSessionChange}
                 path={activeTabPath}
                 workspaceDir={workspaceDir}
               />

@@ -1,9 +1,7 @@
 "use client";
 
-import { LoaderCircleIcon, SaveIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Button } from "@/components/ui/button";
 import { parseReadFileToolError } from "@/features/agent/tools/parse-read-file-tool-error";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import type { MessageKey } from "@/lib/i18n/message-schema";
@@ -187,12 +185,27 @@ export function FilePreview({
     onSessionChange(path, {
       isDirty: () => contentRef.current !== savedContentRef.current,
       save: () => handleSaveRef.current(),
+      isSaving: saving,
+      saveErrorKey,
+      saveErrorMessage,
+      onReload: loadFile,
     });
 
     return () => {
       onSessionChange(path, null);
     };
-  }, [errorKey, errorMessage, loading, onSessionChange, path]);
+  }, [
+    content,
+    errorKey,
+    errorMessage,
+    loadFile,
+    loading,
+    onSessionChange,
+    path,
+    saveErrorKey,
+    saveErrorMessage,
+    saving,
+  ]);
 
   if (loading) {
     return (
@@ -240,48 +253,6 @@ export function FilePreview({
           {t("rightPanel.previewSecretsWarning")}
         </div>
       ) : null}
-
-      <div className="flex shrink-0 items-center gap-2 border-b px-2 py-1.5">
-        <Button
-          disabled={!isDirty || saving || !workspaceDir}
-          onClick={() => {
-            void handleSave();
-          }}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          {saving ? (
-            <LoaderCircleIcon className="size-3.5 animate-spin" />
-          ) : (
-            <SaveIcon className="size-3.5" />
-          )}
-          {saving ? t("rightPanel.previewSaving") : t("rightPanel.previewSave")}
-        </Button>
-        {isDirty ? (
-          <span className="text-xs text-muted-foreground">
-            {t("rightPanel.previewUnsaved")}
-          </span>
-        ) : null}
-        {saveErrorKey ? (
-          <span className="text-xs text-destructive">{t(saveErrorKey)}</span>
-        ) : null}
-        {saveErrorMessage ? (
-          <span className="text-xs text-destructive">{saveErrorMessage}</span>
-        ) : null}
-        {saveErrorKey === "rightPanel.previewFileChanged" ? (
-          <Button
-            onClick={() => {
-              void loadFile();
-            }}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            {t("rightPanel.previewReload")}
-          </Button>
-        ) : null}
-      </div>
 
       <div className="min-h-0 flex-1">
         <MonacoPreviewEditor

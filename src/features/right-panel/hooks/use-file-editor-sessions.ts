@@ -5,6 +5,10 @@ import { useCallback, useRef, useState } from "react";
 export type FileEditorSession = {
   isDirty: () => boolean;
   save: () => Promise<boolean>;
+  isSaving: boolean;
+  saveErrorKey: string | null;
+  saveErrorMessage: string | null;
+  onReload: (() => void) | null;
 };
 
 type PendingClose = {
