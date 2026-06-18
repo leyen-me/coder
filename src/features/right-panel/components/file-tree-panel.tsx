@@ -270,6 +270,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
             icon={<FilesIcon className="size-4" />}
             title={t("rightPanel.explorer")}
             actions={
+              activeTabPath === null ? (
               <TooltipProvider delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -319,6 +320,7 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+              ) : null
             }
           />
 
