@@ -76,7 +76,7 @@ function NavButton({
           {icon}
         </button>
       </TooltipTrigger>
-      <TooltipContent side="right">{tooltip}</TooltipContent>
+      <TooltipContent side="left">{tooltip}</TooltipContent>
     </Tooltip>
   );
 }
@@ -228,33 +228,6 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-row">
-      {/* ── Level 1: Vertical icon navigation bar ── */}
-      <div className="flex w-[48px] shrink-0 flex-col items-center border-r bg-muted/20 py-3">
-        <TooltipProvider delayDuration={300}>
-          <div className="flex flex-col items-center gap-1">
-            <NavButton
-              icon={<FilesIcon className="size-5" />}
-              isActive={mainTabValue === "explorer"}
-              onClick={() => handleMainTabChange("explorer")}
-              tooltip={t("rightPanel.explorer")}
-            />
-            <NavButton
-              icon={<GitBranchIcon className="size-5" />}
-              isActive={mainTabValue === "source-control"}
-              onClick={() => handleMainTabChange("source-control")}
-              tooltip={t("git.sourceControl")}
-            />
-            <NavButton
-              className={planTabPulse ? "animate-pulse text-primary" : undefined}
-              icon={<ClipboardListIcon className="size-5" />}
-              isActive={mainTabValue === "plan"}
-              onClick={() => handleMainTabChange("plan")}
-              tooltip={t("rightPanel.plan")}
-            />
-          </div>
-        </TooltipProvider>
-      </div>
-
       {/* ── Content area ── */}
       <Tabs
         className="flex min-h-0 min-w-0 flex-1 flex-col gap-0"
@@ -432,6 +405,33 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
           </GitProvider>
         </TabsContent>
       </Tabs>
+
+      {/* ── Level 1: Vertical icon navigation bar ── */}
+      <div className="flex w-[48px] shrink-0 flex-col items-center border-l bg-muted/20 py-3">
+        <TooltipProvider delayDuration={300}>
+          <div className="flex flex-col items-center gap-1">
+            <NavButton
+              icon={<FilesIcon className="size-5" />}
+              isActive={mainTabValue === "explorer"}
+              onClick={() => handleMainTabChange("explorer")}
+              tooltip={t("rightPanel.explorer")}
+            />
+            <NavButton
+              icon={<GitBranchIcon className="size-5" />}
+              isActive={mainTabValue === "source-control"}
+              onClick={() => handleMainTabChange("source-control")}
+              tooltip={t("git.sourceControl")}
+            />
+            <NavButton
+              className={planTabPulse ? "animate-pulse text-primary" : undefined}
+              icon={<ClipboardListIcon className="size-5" />}
+              isActive={mainTabValue === "plan"}
+              onClick={() => handleMainTabChange("plan")}
+              tooltip={t("rightPanel.plan")}
+            />
+          </div>
+        </TooltipProvider>
+      </div>
 
       <UnsavedFileCloseDialog
         fileName={pendingClose?.fileName ?? null}
