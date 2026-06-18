@@ -96,12 +96,12 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const effectiveSession = previewSession ?? session;
   const effectiveMessages = previewMessages ?? messages;
   const displayMessages = useDisplayMessages(effectiveMessages);
-  const [prompt, setPrompt] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingQueuedMessageId, setEditingQueuedMessageId] = useState<string | null>(
     null
   );
   const [editInitialFiles, setEditInitialFiles] = useState<FileUIPart[]>([]);
+  const [editInitialValue, setEditInitialValue] = useState("");
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
   const queueDispatchingRef = useRef(false);
   const [model, setModel] = useState(() => resolveDefaultModel({ models: allModels }));
@@ -150,7 +150,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     setEditingMessageId(null);
     setEditingQueuedMessageId(null);
     setEditInitialFiles([]);
-    setPrompt("");
+    setEditInitialValue("");
   }, []);
 
   const handleEditUserMessage = useCallback(
@@ -162,7 +162,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
       setEditingQueuedMessageId(null);
       setEditingMessageId(message.id);
-      setPrompt(message.content);
+      setEditInitialValue(message.content);
       setEditInitialFiles(storedImagesToFileUIParts(message.images ?? []));
     },
     [cancelTask, chatId, getSessionTask]
@@ -173,20 +173,16 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       payload: { text: string; files: FileUIPart[]; skillSlugs?: string[] },
       options?: {
         editMessageId?: string;
-        restorePromptOnError?: boolean;
         requeueOnError?: QueuedMessage | null;
       }
-    ): Promise<boolean> => {
+    ): Promise<void> => {
       const trimmed = payload.text.trim();
       const hasImages = payload.files.length > 0;
       if (!trimmed && !hasImages) {
-        return false;
+        return;
       }
 
       setIsSubmitting(true);
-      if (options?.restorePromptOnError) {
-        setPrompt("");
-      }
       try {
         await sendMessage({
           sessionId: chatId,
@@ -198,18 +194,10 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
           agentMode,
           skillSlugs: payload.skillSlugs,
         });
-        return true;
       } catch (error) {
         notifySendMessageError(error, (key, params) =>
           t(`chat.${key}`, params)
         );
-
-        if (options?.restorePromptOnError) {
-          setPrompt(trimmed);
-          if (options.editMessageId) {
-            setEditingMessageId(options.editMessageId);
-          }
-        }
 
         if (options?.requeueOnError) {
           setQueuedMessages((currentQueue) => [
@@ -217,7 +205,9 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             ...currentQueue,
           ]);
         }
-        return false;
+
+        // Re-throw so the caller (PromptComposer) can restore the input value
+        throw error;
       } finally {
         setIsSubmitting(false);
       }
@@ -305,7 +295,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   }, [handleBuildFromPlan, isBuildPending, isRunning, setPlanBuildActions]);
 
   const handleSend = useCallback(
-    async (payload: { text: string; files: FileUIPart[]; skillSlugs?: string[] }) => {
+    async (payload: { text: string; files: FileUIPart[]; skillSlugs?: string[] }): Promise<void> => {
       const trimmed = payload.text.trim();
       const hasImages = payload.files.length > 0;
       if (!trimmed && !hasImages) {
@@ -321,7 +311,6 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         );
         setEditingQueuedMessageId(null);
         setEditInitialFiles([]);
-        setPrompt("");
         return;
       }
 
@@ -353,7 +342,6 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             files: payload.files,
           },
         ]);
-        setPrompt("");
         setEditInitialFiles([]);
         return;
       }
@@ -369,7 +357,6 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         },
         {
           editMessageId: editingId ?? undefined,
-          restorePromptOnError: true,
         }
       );
     },
@@ -387,7 +374,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const handleEditQueuedMessage = useCallback((message: QueuedMessage) => {
     setEditingMessageId(null);
     setEditingQueuedMessageId(message.id);
-    setPrompt(message.text);
+    setEditInitialValue(message.text);
     setEditInitialFiles(message.files);
   }, []);
 
@@ -396,7 +383,6 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     if (editingQueuedMessageId === messageId) {
       setEditingQueuedMessageId(null);
       setEditInitialFiles([]);
-      setPrompt("");
     }
   }, [editingQueuedMessageId]);
 
@@ -421,17 +407,15 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       {
         requeueOnError: nextItem,
       }
-    )
-      .then((success) => {
-        if (!success) {
-          setEditingQueuedMessageId(nextItem.id);
-          setPrompt(nextItem.text);
-          setEditInitialFiles(nextItem.files);
-        }
-      })
-      .finally(() => {
-        queueDispatchingRef.current = false;
-      });
+    ).catch(() => {
+      // Re-queue failed message. PromptComposer will handle value restoration
+      // via the try/catch in handleSubmit.
+      setEditingQueuedMessageId(nextItem.id);
+      setEditInitialFiles(nextItem.files);
+      setEditInitialValue(nextItem.text);
+    }).finally(() => {
+      queueDispatchingRef.current = false;
+    });
   }, [editingQueuedMessageId, isRunning, queuedMessages, sendPayload]);
 
   const handleStop = () => {
@@ -587,16 +571,14 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             </div>
           ) : null}
           <PromptComposer
+            key={editingMessageId ?? editingQueuedMessageId ?? "new"}
             composerKey={editingMessageId ?? editingQueuedMessageId ?? "new"}
+            initialValue={editInitialValue}
             initialFiles={editInitialFiles}
-            value={prompt}
             onCancelEdit={
               editingMessageId || editingQueuedMessageId ? handleCancelEdit : undefined
             }
-            onChange={setPrompt}
-            onSend={(payload) => {
-              void handleSend(payload);
-            }}
+            onSend={handleSend}
             onStop={activeTask ? handleStop : undefined}
             model={model}
             models={allModels}

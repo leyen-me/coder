@@ -97,7 +97,11 @@ export function ComposerRichInput({
   );
   const enabledSkillSlugs = useMemo(
     () => new Set(enabledSkills.map((s) => s.slug)),
-    [enabledSkills]
+    // Stringify to produce a stable reference when the skill list hasn't changed.
+    // `new Set(...)` creates a new object every render, breaking referential
+    // equality and causing downstream memo / useEffect to fire unnecessarily.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(enabledSkills.map((s) => s.slug).sort())]
   );
   const deserializeOptions = useMemo(
     () => ({

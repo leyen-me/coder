@@ -30,7 +30,6 @@ export function NewChatView() {
   const { settings: labSettings } = useLabSettings();
   const longTaskEnabled = labSettings.longTaskEnabled;
   const { workspaceDir, pickWorkspace, clearWorkspace } = useNewChatWorkspace();
-  const [prompt, setPrompt] = useState("");
   const [model, setModel] = useState(() => resolveDefaultModel({ models: allModels }));
   const { thinkingEnabled, onThinkingEnabledChange } = useComposerThinking(
     model,
@@ -51,7 +50,7 @@ export function NewChatView() {
     enabled: true,
   });
 
-  const handleSend = async (payload: { text: string; files: FileUIPart[]; skillSlugs?: string[] }) => {
+  const sendText = async (payload: { text: string; files: FileUIPart[]; skillSlugs?: string[] }) => {
     const trimmed = payload.text.trim();
     const hasImages = payload.files.length > 0;
     if ((!trimmed && !hasImages) || isSubmitting) {
@@ -59,7 +58,6 @@ export function NewChatView() {
     }
 
     setIsSubmitting(true);
-    const previousPrompt = trimmed;
     try {
       const refineResult = await refineIfEnabled(trimmed, [], model);
       if (refineResult === "cancelled") {
@@ -81,7 +79,6 @@ export function NewChatView() {
         decisionModel: model,
       });
       navigate(paths.chat(session.id), { state: { agentMode } });
-      setPrompt("");
       await sendMessage({
         sessionId: session.id,
         content: finalText,
@@ -95,10 +92,19 @@ export function NewChatView() {
       notifySendMessageError(error, (key, params) =>
         t(`chat.${key}`, params)
       );
-      setPrompt(previousPrompt);
+      // Re-throw so PromptComposer can restore the input value
+      throw error;
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleStarterSelect = async (prompt: string) => {
+    // When a starter prompt is selected, immediately send it
+    // without going through the composer.
+    await sendText({ text: prompt, files: [], skillSlugs: [] }).catch(() => {
+      // Error already handled in sendText
+    });
   };
 
   const workspaceName = workspaceDir
@@ -114,11 +120,7 @@ export function NewChatView() {
         </h2>
 
         <PromptComposer
-          value={prompt}
-          onChange={setPrompt}
-          onSend={(payload) => {
-            void handleSend(payload);
-          }}
+          onSend={sendText}
           model={model}
           models={allModels}
           modelProviders={modelProviders}
@@ -152,7 +154,7 @@ export function NewChatView() {
           </p>
         ) : null}
 
-        <StarterPromptList onSelect={setPrompt} />
+        <StarterPromptList onSelect={handleStarterSelect} />
     </div>
   );
 }

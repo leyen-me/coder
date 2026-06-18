@@ -2,6 +2,7 @@ import type { ChatStatus, FileUIPart } from "ai";
 import type { Editor } from "@tiptap/core";
 import { BrainIcon, BotIcon, ChevronDownIcon, ClipboardListIcon, FileQuestionIcon, FolderOpenIcon, GitBranchIcon, XIcon } from "lucide-react";
 import {
+  memo,
   useCallback,
   useEffect,
   useRef,
@@ -77,9 +78,9 @@ type PromptInputAttachmentError = {
 };
 
 type PromptComposerProps = {
-  value: string;
-  onChange: (value: string) => void;
-  onSend?: (payload: { text: string; files: FileUIPart[]; skillSlugs?: string[] }) => void;
+  /** Initial value for editing mode. PromptComposer owns its own input state. */
+  initialValue?: string;
+  onSend?: (payload: { text: string; files: FileUIPart[]; skillSlugs?: string[] }) => Promise<void>;
   onStop?: () => void;
   model: string;
   models: readonly ModelDefinition[];
@@ -162,17 +163,15 @@ function ComposerAttachmentError({
 function ComposerHotkeyActions({
   onSubmit,
   supportsMultimodal,
-  value,
 }: {
   onSubmit: (message: PromptInputMessage) => void;
   supportsMultimodal: boolean;
-  value: string;
 }) {
   const attachments = usePromptInputAttachments();
 
   useRegisterHotkeyAction("chat.send", () => {
     onSubmit({
-      text: value,
+      text: "",
       files: supportsMultimodal ? attachments.files : [],
     });
     return true;
@@ -424,9 +423,8 @@ function renderModelOptions(
   return items;
 }
 
-export function PromptComposer({
-  value,
-  onChange,
+export const PromptComposer = memo(function PromptComposer({
+  initialValue: initialValueProp,
   onSend,
   onStop,
   model,
@@ -460,6 +458,19 @@ export function PromptComposer({
   const { t } = useTranslation();
   const isCompact = variant === "compact";
   const isEditing = Boolean(onCancelEdit);
+
+  // Self-managed input value — decouples PromptComposer from parent re-renders
+  const [value, setValue] = useState(initialValueProp ?? "");
+  const valueRef = useRef(value);
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
+
+  // Reset value when initialValueProp or composerKey changes (editing transitions)
+  useEffect(() => {
+    setValue(initialValueProp ?? "");
+  }, [composerKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const editorRef = useRef<Editor | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const submitStatus = resolveSubmitStatus(isRunning, Boolean(onStop));
@@ -555,11 +566,14 @@ export function PromptComposer({
   const dropTargetRef = useRef<HTMLDivElement>(null);
   useWorkspacePathDropTarget(dropTargetRef, handleWorkspacePathDrop);
 
+  const handleChange = useCallback((nextValue: string) => {
+    setValue(nextValue);
+  }, []);
+
   const handleSubmit = useCallback(
-    (message: PromptInputMessage) => {
-      // Prefer controlled `value` over FormData: the hidden input can lag one
-      // React commit behind the TipTap editor when the user submits quickly.
-      const text = value.trim() || message.text.trim();
+    async (message: PromptInputMessage) => {
+      // Read current value from ref to avoid stale closures
+      const text = valueRef.current.trim() || message.text.trim();
       const hasText = text.length > 0;
       const hasFiles = supportsMultimodal && message.files.length > 0;
       if (!hasText && !hasFiles) {
@@ -573,14 +587,21 @@ export function PromptComposer({
         ? extractSkillSlugsFromEditor(editorRef.current)
         : [];
 
-      onChange("");
-      onSend?.({
-        text,
-        files: supportsMultimodal ? message.files : [],
-        skillSlugs,
-      });
+      // Clear immediately for responsive UX
+      setValue("");
+
+      try {
+        await onSend?.({
+          text,
+          files: supportsMultimodal ? message.files : [],
+          skillSlugs,
+        });
+      } catch {
+        // Restore value on send failure so the user doesn't lose their input
+        setValue(text);
+      }
     },
-    [onChange, onSend, supportsMultimodal, value]
+    [onSend, supportsMultimodal]
   );
 
   const promptInputClassName = cn(
@@ -616,7 +637,6 @@ export function PromptComposer({
       <ComposerHotkeyActions
         onSubmit={handleSubmit}
         supportsMultimodal={supportsMultimodal}
-        value={value}
       />
       <ComposerTauriFileDropBridge
         dropTargetRef={dropTargetRef}
@@ -632,7 +652,7 @@ export function PromptComposer({
         <ComposerRichInput
           editorRef={editorRef}
           onCancelEdit={onCancelEdit}
-          onChange={onChange}
+          onChange={handleChange}
           placeholder={
             agentMode === "plan"
               ? t("chat.composerPlanPlaceholder")
@@ -882,4 +902,4 @@ export function PromptComposer({
       </div>
     </div>
   );
-}
+});
