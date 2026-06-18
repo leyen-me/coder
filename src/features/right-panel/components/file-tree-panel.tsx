@@ -2,9 +2,12 @@
 
 import {
   ClipboardListIcon,
+  EyeIcon,
+  EyeOffIcon,
   FileIcon,
   FilesIcon,
   GitBranchIcon,
+  RefreshCwIcon,
   XIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -33,7 +36,7 @@ import { FilePreview } from "./file-preview";
 import { PanelHeader } from "./panel-header";
 import { PlanPreviewPanel } from "./plan-preview-panel";
 import { UnsavedFileCloseDialog } from "./unsaved-file-close-dialog";
-import { WorkspaceFileTree } from "./workspace-file-tree";
+import { WorkspaceFileTree, type WorkspaceFileTreeHandle } from "./workspace-file-tree";
 
 import { GitProvider } from "@/features/git/git-provider";
 import { SourceControlPanel } from "@/features/git/components/source-control-panel";
@@ -123,6 +126,9 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
   );
   const [planTabPulse, setPlanTabPulse] = useState(false);
   const lastPlanUpdateTick = useRef(planUpdateTick);
+  const [showHidden, setShowHidden] = useState(false);
+  const [fileTreeLoading, setFileTreeLoading] = useState(false);
+  const fileTreeRef = useRef<WorkspaceFileTreeHandle>(null);
 
   useEffect(() => {
     if (planUpdateTick === 0 || planUpdateTick === lastPlanUpdateTick.current) {
@@ -263,6 +269,57 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
           <PanelHeader
             icon={<FilesIcon className="size-4" />}
             title={t("rightPanel.explorer")}
+            actions={
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      aria-label={t("rightPanel.menuShowHiddenFiles")}
+                      className={cn(
+                        "rounded-md p-1 transition-colors hover:bg-muted/30",
+                        showHidden
+                          ? "text-foreground"
+                          : "text-muted-foreground/60 hover:text-foreground"
+                      )}
+                      onClick={() => fileTreeRef.current?.toggleShowHidden()}
+                      title={t("rightPanel.menuShowHiddenFiles")}
+                      type="button"
+                    >
+                      {showHidden ? (
+                        <EyeIcon className="size-3.5" />
+                      ) : (
+                        <EyeOffIcon className="size-3.5" />
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t("rightPanel.menuShowHiddenFiles")}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      aria-label={t("rightPanel.menuRefresh")}
+                      className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-foreground"
+                      disabled={fileTreeLoading}
+                      onClick={() => fileTreeRef.current?.refreshAll()}
+                      title={t("rightPanel.menuRefresh")}
+                      type="button"
+                    >
+                      <RefreshCwIcon
+                        className={cn(
+                          "size-3.5",
+                          fileTreeLoading && "animate-spin"
+                        )}
+                      />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t("rightPanel.menuRefresh")}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            }
           />
 
           {/* Level 2: File preview tabs (pill-style container) */}
@@ -329,9 +386,12 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
           <div className="relative min-h-0 min-w-0 flex-1">
             <div className={cn("absolute inset-0", activeTabPath !== null && "hidden")}>
               <WorkspaceFileTree
+                ref={fileTreeRef}
                 onFileClose={requestCloseFile}
                 onFileOpen={handleOpenFile}
                 onFileRename={renameFile}
+                onLoadingChange={setFileTreeLoading}
+                onShowHiddenChange={setShowHidden}
                 openPreviewPaths={openPreviewPaths}
                 workspaceDir={workspaceDir}
               />

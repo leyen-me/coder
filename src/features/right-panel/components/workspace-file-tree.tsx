@@ -10,13 +10,7 @@ import type { ListDirEntry } from "@/features/agent/tools/types";
 import { createFileTreePointerDragProps } from "@/lib/dnd/workspace-path-pointer";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
-import {
-  EyeIcon,
-  EyeOffIcon,
-  FilesIcon,
-  RefreshCwIcon,
-} from "lucide-react";
-import { forwardRef, useCallback, useImperativeHandle, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
 
 import {
   FileTreeDeleteDialog,
@@ -39,10 +33,15 @@ type WorkspaceFileTreeProps = {
   onFileClose?: (path: string) => void;
   onFileRename?: (oldPath: string, file: FilePreviewTab) => void;
   openPreviewPaths?: Set<string>;
+  /** Called when the tree loading state changes. */
+  onLoadingChange?: (loading: boolean) => void;
+  /** Called when the show-hidden state changes. */
+  onShowHiddenChange?: (showHidden: boolean) => void;
 };
 
 export type WorkspaceFileTreeHandle = {
   refreshAll: () => void;
+  toggleShowHidden: () => void;
 };
 
 function findTreeEntry(
@@ -152,6 +151,8 @@ export const WorkspaceFileTree = forwardRef<
     onFileClose,
     onFileRename,
     openPreviewPaths,
+    onLoadingChange,
+    onShowHiddenChange,
   },
   ref
 ) {
@@ -183,12 +184,23 @@ export const WorkspaceFileTree = forwardRef<
     setGitignoreRefreshTick((c) => c + 1);
   }, [tree]);
 
+  // Sync loading state to parent
+  useEffect(() => {
+    onLoadingChange?.(tree.loading);
+  }, [tree.loading, onLoadingChange]);
+
+  // Sync show-hidden state to parent
+  useEffect(() => {
+    onShowHiddenChange?.(tree.showHidden);
+  }, [tree.showHidden, onShowHiddenChange]);
+
   useImperativeHandle(
     ref,
     () => ({
       refreshAll: handleRefreshAll,
+      toggleShowHidden: tree.toggleShowHidden,
     }),
-    [handleRefreshAll]
+    [handleRefreshAll, tree.toggleShowHidden]
   );
 
   if (!workspaceDir) {
@@ -209,48 +221,6 @@ export const WorkspaceFileTree = forwardRef<
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <FilesIcon className="size-4 shrink-0 text-muted-foreground" />
-          <span className="truncate text-sm font-medium">
-            {t("rightPanel.explorer")}
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <button
-            aria-label={t("rightPanel.menuShowHiddenFiles")}
-            className={cn(
-              "rounded-md p-1 transition-colors hover:bg-muted/30",
-              tree.showHidden
-                ? "text-foreground"
-                : "text-muted-foreground/60 hover:text-foreground"
-            )}
-            onClick={tree.toggleShowHidden}
-            title={t("rightPanel.menuShowHiddenFiles")}
-            type="button"
-          >
-            {tree.showHidden ? (
-              <EyeIcon className="size-3.5" />
-            ) : (
-              <EyeOffIcon className="size-3.5" />
-            )}
-          </button>
-          <button
-            aria-label={t("rightPanel.menuRefresh")}
-            className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-foreground"
-          disabled={tree.loading}
-          onClick={handleRefreshAll}
-          title={t("rightPanel.menuRefresh")}
-          type="button"
-        >
-          <RefreshCwIcon
-            className={cn("size-3.5", tree.loading && "animate-spin")}
-          />
-        </button>
-        </div>
-      </div>
-
       <ScrollArea className={cn("min-h-0 flex-1", className)}>
         <FileTreeBlankContextMenu
           actions={actions}
