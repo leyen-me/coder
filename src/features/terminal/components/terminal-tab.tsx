@@ -5,12 +5,18 @@ import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import {
   CpuIcon,
+  Minus,
   PlusIcon,
   TerminalIcon,
   XIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { getShellStatusBadgeVariant } from "@/features/agent/tools/shell-display";
 import { formatTerminalTabPath } from "../format-terminal-tab-path";
@@ -22,6 +28,7 @@ import { ProcessLogViewer } from "./process-log-viewer";
 
 type TerminalTabProps = {
   workspaceDir: string | null;
+  onHide?: () => void;
 };
 
 type TerminalSession = {
@@ -46,7 +53,7 @@ function createTerminalSession(cwd: string): TerminalSession {
   };
 }
 
-export function TerminalTab({ workspaceDir }: TerminalTabProps) {
+export function TerminalTab({ workspaceDir, onHide }: TerminalTabProps) {
   const { t } = useTranslation();
   const { isOpen: isBottomPanelOpen, setOpen: setBottomPanelOpen } =
     useBottomPanel();
@@ -207,11 +214,7 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
 
   const renderSessionBadge = (session: UnifiedSession) => {
     if (session.source === "human") {
-      return (
-        <Badge className="h-3.5 px-1 text-[9px] font-normal" variant="secondary">
-          {t("terminal.humanSession")}
-        </Badge>
-      );
+      return null;
     }
 
     const badgeVariant = getShellStatusBadgeVariant(session.process.status);
@@ -288,6 +291,24 @@ export function TerminalTab({ workspaceDir }: TerminalTabProps) {
             <PlusIcon className="size-3.5" />
           </Button>
         </div>
+
+        {onHide ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                aria-label={t("terminal.hidePanel")}
+                className="size-7 shrink-0 text-muted-foreground"
+                onClick={onHide}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <Minus className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("terminal.hidePanel")}</TooltipContent>
+          </Tooltip>
+        ) : null}
       </div>
 
       <div className="relative min-h-0 flex-1 p-2">

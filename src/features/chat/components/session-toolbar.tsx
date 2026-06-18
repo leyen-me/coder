@@ -10,7 +10,6 @@ import { useRightPanel } from "@/features/right-panel/right-panel-context";
 import { ProviderUsageTag } from "@/features/lab/provider-usage-tag";
 import { UpdateTag } from "@/features/update/update-tag";
 import { useBottomPanel } from "@/features/terminal/bottom-panel-context";
-import { useShellProcesses } from "@/features/terminal/use-shell-processes";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import type { ProviderId } from "@/lib/model-provider/types";
@@ -22,21 +21,13 @@ type SessionToolbarProps = {
 export function SessionToolbar({ sessionProvider }: SessionToolbarProps) {
   const { t } = useTranslation();
   const { isOpen, toggle } = useBottomPanel();
-  const { processes } = useShellProcesses();
   const isBottomActive = isOpen;
   const {
     isOpen: isRightPanelOpen,
     toggle: toggleRightPanel,
   } = useRightPanel();
 
-  const runningCount = processes.filter(
-    (process) => process.status === "running"
-  ).length;
-
-  const tooltip =
-    runningCount > 0
-      ? t("session.agentProcessesRunning", { count: runningCount })
-      : t("session.bottomPanel");
+  const tooltip = t("session.bottomPanel");
 
   return (
     <div className="flex shrink-0 items-center gap-1">
@@ -50,20 +41,14 @@ export function SessionToolbar({ sessionProvider }: SessionToolbarProps) {
             variant="ghost"
             size="icon-sm"
             className={cn(
-              "relative text-muted-foreground",
+              "text-muted-foreground",
               isBottomActive && "bg-muted text-foreground",
-              runningCount > 0 && !isBottomActive && "text-primary"
             )}
             aria-label={tooltip}
             aria-pressed={isBottomActive}
             onClick={toggle}
           >
             <PanelBottom className="size-4" />
-            {runningCount > 0 ? (
-              <span className="absolute -top-0.5 -right-0.5 flex size-3.5 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
-                {runningCount > 9 ? "9+" : runningCount}
-              </span>
-            ) : null}
           </Button>
         </TooltipTrigger>
         <TooltipContent>{tooltip}</TooltipContent>
