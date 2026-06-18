@@ -61,10 +61,10 @@ function NavButton({
       <TooltipTrigger asChild>
         <button
           className={cn(
-            "relative flex h-9 w-9 items-center justify-center rounded-md transition-colors",
+            "relative flex size-10 items-center justify-center rounded-lg transition-colors",
             isActive
-              ? "text-foreground before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-foreground"
-              : "text-muted-foreground hover:bg-muted/30 hover:text-foreground",
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
             className
           )}
           onClick={onClick}
@@ -223,24 +223,24 @@ export function FileTreePanel({ workspaceDir }: FileTreePanelProps) {
   return (
     <div className="flex h-full min-h-0 flex-row">
       {/* ── Level 1: Vertical icon navigation bar ── */}
-      <div className="flex w-[42px] shrink-0 flex-col items-center border-r bg-muted/20 py-2">
+      <div className="flex w-[48px] shrink-0 flex-col items-center border-r bg-muted/20 py-3">
         <TooltipProvider delayDuration={300}>
-          <div className="flex flex-col items-center gap-0.5">
+          <div className="flex flex-col items-center gap-1">
             <NavButton
-              icon={<FilesIcon className="size-4" />}
+              icon={<FilesIcon className="size-5" />}
               isActive={mainTabValue === "explorer"}
               onClick={() => handleMainTabChange("explorer")}
               tooltip={t("rightPanel.explorer")}
             />
             <NavButton
-              icon={<GitBranchIcon className="size-4" />}
+              icon={<GitBranchIcon className="size-5" />}
               isActive={mainTabValue === "source-control"}
               onClick={() => handleMainTabChange("source-control")}
               tooltip={t("git.sourceControl")}
             />
             <NavButton
               className={planTabPulse ? "animate-pulse text-primary" : undefined}
-              icon={<ClipboardListIcon className="size-4" />}
+              icon={<ClipboardListIcon className="size-5" />}
               isActive={mainTabValue === "plan"}
               onClick={() => handleMainTabChange("plan")}
               tooltip={t("rightPanel.plan")}
