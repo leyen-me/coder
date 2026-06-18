@@ -255,7 +255,7 @@ describe("buildAssistantProcessSteps", () => {
     ).toBe(false);
   });
 
-  it("filters answer steps from the timeline for plan messages", () => {
+  it("keeps answer steps in the timeline for plan messages (same as non-plan)", () => {
     const steps = buildAssistantProcessSteps({
       processSteps: [
         { id: "reasoning:0", kind: "reasoning", text: "先分析需求。" },
@@ -274,10 +274,10 @@ describe("buildAssistantProcessSteps", () => {
       getAssistantTimelineSteps({ steps, isPlanMessage: true }).map(
         (step) => step.kind
       )
-    ).toEqual(["reasoning"]);
+    ).toEqual(["reasoning", "answer"]);
     expect(
       shouldRenderStandaloneAssistantAnswer({ steps, isPlanMessage: true })
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldShowAssistantProcessTimeline({ steps, isPlanMessage: true })
     ).toBe(true);

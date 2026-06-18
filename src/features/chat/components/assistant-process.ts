@@ -98,21 +98,13 @@ export function getAssistantTimelineSteps(input: {
   steps: AssistantProcessStep[];
   isPlanMessage: boolean;
 }): AssistantProcessStep[] {
-  if (!input.isPlanMessage) {
-    return input.steps;
-  }
-
-  return input.steps.filter((step) => step.kind !== "answer");
+  return input.steps;
 }
 
 export function shouldRenderStandaloneAssistantAnswer(input: {
   steps: AssistantProcessStep[];
   isPlanMessage: boolean;
 }): boolean {
-  if (input.isPlanMessage) {
-    return true;
-  }
-
   return !input.steps.some((step) => step.kind === "answer");
 }
 
