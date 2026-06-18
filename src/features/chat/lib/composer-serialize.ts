@@ -290,10 +290,12 @@ export function deserializeAgentTextToDoc(
     paragraphContent.push({ type: "text", text: text.slice(cursor) });
   }
 
-  // Empty text still produces an empty paragraph so the editor is editable
-  if (paragraphContent.length === 0) {
-    paragraphContent.push({ type: "text", text: "" });
-  }
+  // Empty paragraph — leave content as an empty array.
+  // ProseMirror does NOT allow empty text nodes ({ type: "text", text: "" }),
+  // and pushing one will throw: "RangeError: Empty text nodes are not allowed".
+  // An empty content array is perfectly valid; the paragraph is still editable
+  // and the Placeholder extension renders normally over it.
+  // See also: https://prosemirror.net/docs/ref/#model.Node
 
   return {
     type: "doc",
