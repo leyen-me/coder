@@ -1,7 +1,8 @@
 "use client";
 
-import { ArrowDownFromLineIcon, ArrowUpFromLineIcon } from "lucide-react";
+import { ArrowDownFromLineIcon, ArrowUpFromLineIcon, Loader2Icon } from "lucide-react";
 import { useCallback, useState } from "react";
+import { toast } from "sonner";
 
 import {
   AlertDialog,
@@ -37,23 +38,25 @@ export function RemoteActions() {
     setIsPushing(true);
     try {
       await push();
+      toast.success(t("git.pushSuccess"));
     } catch {
-      // Error handled in provider
+      toast.error(t("git.pushFailed"));
     } finally {
       setIsPushing(false);
     }
-  }, [push]);
+  }, [push, t]);
 
   const executePull = useCallback(async () => {
     setIsPulling(true);
     try {
       await pull();
+      toast.success(t("git.pullSuccess"));
     } catch {
-      // Error handled in provider
+      toast.error(t("git.pullFailed"));
     } finally {
       setIsPulling(false);
     }
-  }, [pull]);
+  }, [pull, t]);
 
   const handlePull = useCallback(() => {
     if (statusEntries.length > 0) {
@@ -78,12 +81,16 @@ export function RemoteActions() {
               onClick={handlePush}
               type="button"
             >
-              <ArrowUpFromLineIcon
-                className={cn(
-                  "size-3",
-                  aheadCount === 0 && "text-muted-foreground/40"
-                )}
-              />
+              {isPushing ? (
+                <Loader2Icon className="size-3 animate-spin" />
+              ) : (
+                <ArrowUpFromLineIcon
+                  className={cn(
+                    "size-3",
+                    aheadCount === 0 && "text-muted-foreground/40",
+                  )}
+                />
+              )}
             </button>
           </TooltipTrigger>
           <TooltipContent>{t("git.push")}</TooltipContent>
@@ -98,12 +105,16 @@ export function RemoteActions() {
               onClick={handlePull}
               type="button"
             >
-              <ArrowDownFromLineIcon
-                className={cn(
-                  "size-3",
-                  behindCount === 0 && "text-muted-foreground/40"
-                )}
-              />
+              {isPulling ? (
+                <Loader2Icon className="size-3 animate-spin" />
+              ) : (
+                <ArrowDownFromLineIcon
+                  className={cn(
+                    "size-3",
+                    behindCount === 0 && "text-muted-foreground/40",
+                  )}
+                />
+              )}
             </button>
           </TooltipTrigger>
           <TooltipContent>{t("git.pull")}</TooltipContent>

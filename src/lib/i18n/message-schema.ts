@@ -745,7 +745,9 @@ export type Messages = {
     commitSuccess: string;
     commitFailed: string;
     pushSuccess: string;
+    pushFailed: string;
     pullSuccess: string;
+    pullFailed: string;
     fetchSuccess: string;
     checkoutSuccess: string;
     branchCreated: string;
