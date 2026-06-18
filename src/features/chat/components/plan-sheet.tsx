@@ -2,12 +2,10 @@
 
 import {
   BotIcon,
-  CheckIcon,
   ChevronDownIcon,
   ClipboardListIcon,
-  CopyIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { MarkdownRenderer } from "@/components/markdown/markdown-renderer";
 import {
@@ -21,115 +19,127 @@ import { cn } from "@/lib/utils";
 import { subscribePlanFileUpdated } from "@/features/plan/plan-events";
 import {
   formatPlanTabLabel,
-  getLatestWorkspacePlan,
+  isPlanNotFoundError,
+  readWorkspacePlan,
 } from "@/features/plan/plan-service";
 import type { PlanBuildActions } from "@/features/right-panel/right-panel-context";
 
 type PlanSheetProps = {
   workspaceDir: string | null;
+  planFileName: string | null;
   planBuildActions: PlanBuildActions | null;
+  /** When set, the plan has already been built and the Build button is disabled. */
+  planBuiltAt?: number | null;
 };
 
 /**
- * Inline collapsible sheet above the prompt composer that shows the latest
- * plan content. Collapsed shows a compact header with plan name and Build
- * button; expanded renders the full plan markdown.
+ * Inline collapsible sheet above the prompt composer that shows the
+ * current session's bound plan file content. Content is loaded from
+ * the .plan/ directory using the file name stored in the session.
  */
 export function PlanSheet({
   workspaceDir,
+  planFileName,
   planBuildActions,
+  planBuiltAt,
 }: PlanSheetProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState("");
-  const [resolvedName, setResolvedName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isCopied, setIsCopied] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
+  const isEmpty = !content.trim();
   const canBuild =
-    Boolean(content.trim()) &&
+    !planBuiltAt &&
+    !isEmpty &&
     Boolean(planBuildActions?.onBuild) &&
     !planBuildActions?.isRunning;
 
-  const loadLatest = useCallback(async (dir: string) => {
-    setIsLoading(true);
-    try {
-      const latest = await getLatestWorkspacePlan(dir);
-      if (latest?.content?.trim()) {
-        setResolvedName(latest.name);
-        setContent(latest.content);
-      } else {
-        setResolvedName(latest?.name ?? null);
-        setContent("");
-      }
-    } catch {
-      setContent("");
-      setResolvedName(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Load on mount / workspace change
+  // Load plan file content when planFileName or workspaceDir changes
   useEffect(() => {
-    if (!workspaceDir) {
+    if (!workspaceDir || !planFileName) {
       setContent("");
-      setResolvedName(null);
+      setLoadError(false);
       return;
     }
 
-    void loadLatest(workspaceDir);
-  }, [loadLatest, workspaceDir]);
+    let cancelled = false;
+    setIsLoading(true);
+    setLoadError(false);
 
-  // Subscribe to plan file updates
+    void readWorkspacePlan(workspaceDir, planFileName)
+      .then((result) => {
+        if (!cancelled) {
+          setContent(result.content);
+          setIsLoading(false);
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          if (isPlanNotFoundError(error)) {
+            setContent("");
+            setLoadError(true);
+          } else {
+            setContent("");
+            setLoadError(true);
+          }
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceDir, planFileName]);
+
+  // Refresh when plan file is updated externally
   useEffect(() => {
     return subscribePlanFileUpdated((detail) => {
-      if (!workspaceDir) {
+      if (!workspaceDir || !planFileName) {
+        return;
+      }
+
+      if (detail.name !== planFileName) {
         return;
       }
 
       if (detail.action === "deleted") {
-        void loadLatest(workspaceDir);
+        setContent("");
+        setLoadError(true);
         return;
       }
 
-      void loadLatest(workspaceDir).then(() => {
-        setOpen(true);
-      });
+      // Reload the updated content
+      void readWorkspacePlan(workspaceDir, planFileName)
+        .then((result) => {
+          setContent(result.content);
+          setOpen(true);
+          setLoadError(false);
+        })
+        .catch(() => {
+          setContent("");
+          setLoadError(true);
+        });
     });
-  }, [loadLatest, workspaceDir]);
+  }, [workspaceDir, planFileName]);
 
-  // Close when workspace is cleared
-  useEffect(() => {
-    if (!workspaceDir) {
-      setOpen(false);
-    }
-  }, [workspaceDir]);
-
-  const handleCopy = useCallback(async () => {
-    if (typeof window === "undefined" || !navigator?.clipboard?.writeText) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(content);
-      setIsCopied(true);
-      window.setTimeout(() => {
-        setIsCopied(false);
-      }, 2000);
-    } catch {
-      // silently fail
-    }
-  }, [content]);
-
-  const hasPlan = Boolean(content.trim());
-  if (!hasPlan && !isLoading) {
+  // Don't render if we don't have a plan, or the file was deleted
+  if (!planFileName || loadError) {
     return null;
   }
 
-  const headerLabel = resolvedName
-    ? formatPlanTabLabel(resolvedName)
-    : t("rightPanel.planManager");
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="mb-2 flex items-center gap-2 overflow-hidden rounded-2xl border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground dark:bg-muted/20">
+        <ClipboardListIcon className="size-4 shrink-0" />
+        <span>{t("rightPanel.planLoading")}</span>
+      </div>
+    );
+  }
+
+  const headerLabel = formatPlanTabLabel(planFileName);
 
   return (
     <Collapsible
@@ -146,22 +156,6 @@ export function PlanSheet({
           {headerLabel}
         </p>
 
-        {!open && (
-          <span className="max-w-[30%] truncate text-muted-foreground text-xs">
-            {content
-              .replace(/^#+\s*/u, "")
-              .split("\n")
-              .find((l) => l.trim())
-              ?.trim() ?? ""}
-          </span>
-        )}
-
-        <span
-          className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
-        >
-          {t("rightPanel.planSaved")}
-        </span>
-
         {canBuild ? (
           <button
             aria-label={t("chat.buildWithAgent")}
@@ -176,25 +170,6 @@ export function PlanSheet({
           >
             <BotIcon className="size-3.5 shrink-0" />
             <span>{t("rightPanel.planBuild")}</span>
-          </button>
-        ) : null}
-
-        {content.trim() ? (
-          <button
-            aria-label={t("rightPanel.planCopy")}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
-            onClick={(e) => {
-              e.stopPropagation();
-              void handleCopy();
-            }}
-            title={t("rightPanel.planCopy")}
-            type="button"
-          >
-            {isCopied ? (
-              <CheckIcon className="size-3.5 text-primary" />
-            ) : (
-              <CopyIcon className="size-3.5" />
-            )}
           </button>
         ) : null}
 

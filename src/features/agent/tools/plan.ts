@@ -1,6 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { emitPlanFileUpdated } from "@/features/plan/plan-events";
+import { updateSession } from "@/lib/db/sessions";
 
 import {
   PLAN_CREATE_TOOL_NAME,
@@ -267,6 +268,11 @@ export const planCreateHandler: ToolHandler = async (rawArgs, context) => {
       name: result.data.name,
       action: "created",
     });
+
+    // Bind the plan file to the current session
+    if (context.sessionId) {
+      void updateSession(context.sessionId, { planFileName: result.data.name });
+    }
   }
 
   return result;
@@ -315,6 +321,11 @@ export const planUpdateHandler: ToolHandler = async (rawArgs, context) => {
       name: result.data.name,
       action: "updated",
     });
+
+    // Re-bind the plan file to the current session
+    if (context.sessionId) {
+      void updateSession(context.sessionId, { planFileName: result.data.name });
+    }
   }
 
   return result;
@@ -349,6 +360,11 @@ export const planEditHandler: ToolHandler = async (rawArgs, context) => {
       name: result.data.name,
       action: "updated",
     });
+
+    // Re-bind the plan file to the current session
+    if (context.sessionId) {
+      void updateSession(context.sessionId, { planFileName: result.data.name });
+    }
   }
 
   return result;
@@ -378,6 +394,11 @@ export const planDeleteHandler: ToolHandler = async (rawArgs, context) => {
       name: result.data.name,
       action: "deleted",
     });
+
+    // Clear the plan binding from the current session
+    if (context.sessionId) {
+      void updateSession(context.sessionId, { planFileName: null });
+    }
   }
 
   return result;

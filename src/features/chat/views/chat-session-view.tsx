@@ -42,6 +42,7 @@ import { useSessionWorkspaceBinding } from "../hooks/use-session-workspace-bindi
 import { useSystemPrompt } from "../hooks/use-system-prompt";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
 import type { MessageRecord } from "@/lib/db";
+import { updateSession } from "@/lib/db/sessions";
 import { resolveAgentSessionPolicy } from "@/features/agent/session-policy";
 import {
   buildHandoffPreviewMessages,
@@ -260,6 +261,9 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
           agentMode: "agent",
           skillSlugs: [],
         });
+
+        // Mark the plan as built so it cannot be re-executed
+        await updateSession(chatId, { planBuiltAt: Date.now() });
       } catch (error) {
         notifySendMessageError(error, (key, params) =>
           t(`chat.${key}`, params)
@@ -555,10 +559,14 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
               </div>
             </div>
           ) : null}
+          {!isLoading && session != null && session.id === chatId ? (
           <PlanSheet
             workspaceDir={workspaceBinding.workspaceDir}
+            planFileName={session.planFileName ?? null}
+            planBuiltAt={session.planBuiltAt ?? null}
             planBuildActions={{ isRunning, isBuildPending, onBuild: () => { void handleBuildFromPlan(""); } }}
           />
+          ) : null}
           <PromptComposer
             key={editingMessageId ?? editingQueuedMessageId ?? "new"}
             composerKey={editingMessageId ?? editingQueuedMessageId ?? "new"}

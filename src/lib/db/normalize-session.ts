@@ -15,6 +15,8 @@ type LegacySessionRecord = {
   parentSessionId?: string | null;
   handoffFromSessionId?: string | null;
   handoffMessageId?: string | null;
+  planFileName?: string | null;
+  planBuiltAt?: number | null;
   createdAt: number;
   updatedAt: number;
   gitBranch?: string | null;
@@ -46,6 +48,8 @@ export function normalizeSessionRecord(
     parentSessionId: session.parentSessionId?.trim() || null,
     handoffFromSessionId: session.handoffFromSessionId?.trim() || null,
     handoffMessageId: session.handoffMessageId?.trim() || null,
+    planFileName: session.planFileName?.trim() || null,
+    planBuiltAt: session.planBuiltAt ?? null,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   };
