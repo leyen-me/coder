@@ -158,7 +158,7 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Workspace required");
   });
 
-  it("includes Windows-specific environment guidance on Windows", () => {
+  it("builds prompt on Windows without Windows-specific guidance", () => {
     const prompt = buildSystemPrompt(
       normalizeEnvironment({
         workspaceDir: "C:\\project",
@@ -169,26 +169,8 @@ describe("buildSystemPrompt", () => {
       })
     );
 
-    expect(prompt).toContain("## ⚠️ Windows Shell Rules (CRITICAL)");
-    expect(prompt).toContain("### CMD Quoting");
-    expect(prompt).toContain("### Unicode Filenames");
-    expect(prompt).toContain("powershell -NoProfile -File script.ps1");
-  });
-
-  it("omits Windows-specific environment guidance on non-Windows", () => {
-    const prompt = buildSystemPrompt(
-      normalizeEnvironment({
-        workspaceDir: "/tmp/project",
-        os: "macos aarch64 (15.5)",
-        shell: "/bin/zsh",
-        isGitRepository: false,
-        today: "2026-06-02, Monday",
-      })
-    );
-
-    expect(prompt).not.toContain("## ⚠️ Windows Shell Rules (CRITICAL)");
-    expect(prompt).not.toContain("### CMD Quoting");
-    expect(prompt).not.toContain("### Unicode Filenames");
+    expect(prompt).toContain("## Environment");
+    expect(prompt).toContain("## Communication Rules");
   });
 });
 

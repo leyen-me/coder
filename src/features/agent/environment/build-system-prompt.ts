@@ -23,9 +23,9 @@ export function buildSystemPrompt(
 
   const modeLine =
     agentMode === "ask"
-      ? "ask (read-only: can read files, search code, browse the web, and list skills â€?cannot modify files or run shell commands)"
+      ? "ask (read-only: can read files, search code, browse the web, and list skills ¡ª cannot modify files or run shell commands)"
       : agentMode === "plan"
-        ? "plan (planning: can read files, search, browse, manage .plan/ files and todos â€?cannot modify project files or run shell commands)"
+        ? "plan (planning: can read files, search, browse, manage .plan/ files and todos ¡ª cannot modify project files or run shell commands)"
         : "agent (full tool access)";
 
   const modeGuidance =
@@ -33,7 +33,7 @@ export function buildSystemPrompt(
       ? [
           "",
           "## Mode Guidance",
-          "You are in Ask mode â€?you can only read files, search, and browse.",
+          "You are in Ask mode ¡ª you can only read files, search, and browse.",
           "When the user asks you to modify files, run commands, or perform any write operation:",
           "  - Explain that the task requires write access.",
           "  - Tell the user they can switch to Agent mode (click \"Agent\" next to the input) to give you full tool access.",
@@ -61,7 +61,7 @@ export function buildSystemPrompt(
     `- date: ${environment.today}`,
     `- mode: ${modeLine}`,
     ...buildCoreRulesSection(),
-    ...(isWindows ? buildWindowsGuidanceSections() : [""]),
+    ...(isWindows ? [""] : []),
     ...buildSystemPromptSections(environment.enabledSystemSkills),
     ...buildUserSkillsSection(agentMode),
     ...buildProjectInstructionsSection(environment.agentsMd),
@@ -96,40 +96,11 @@ function buildCoreRulesSection(): string[] {
   ];
 }
 
-function buildWindowsGuidanceSections(): string[] {
-  return [
-    "",
-    "## âš ï¸ Windows Shell Rules (CRITICAL)",
-    "",
-    "### Exit Code Convention",
-    "On Windows, many commands use non-zero exit codes to signal routine conditions, NOT errors:",
-    "  - findstr: exit code 0 = match found, 1 = no match (not an error)",
-    "  - where: exit code 0 = found, 1 = not found",
-    "  - fc (file compare): exit code 0 = same, 1 = different",
-    "  - attrib, icacls, takeown: exit code 0 = success, 1+ = various non-error states",
-    "When a command exits with status=failed but produced no stdout/stderr, it often means the condition simply wasn't met (e.g., string not found). Do NOT blindly retry the same command \u2014 assess the exit code in the context of the specific Windows command you ran.",
-    "",
-    "### CMD Quoting",
-    "When using git commit with a message, or any command containing spaces, quotes, or special characters (& | > < ^ %):",
-    "  - DO NOT pass the command string directly through CMD â€?it will be mangled.",
-    "  - ALWAYS write the command to a temporary .ps1 file first, then execute via:",
-    "    powershell -NoProfile -File temp.ps1",
-    "  - After execution, delete the temp .ps1 file.",
-    "",
-    "### Unicode Filenames",
-    "When operating on files with non-ASCII characters (rename, delete, etc.):",
-    "  - Use PowerShell script files (UTF-8 with BOM) via -File flag.",
-    '  - Using powershell -Command "ä¸­æ–‡" still sends Chinese characters through CMD\'s command line, which gets garbled.',
-    "  - Write the commands to a .ps1 file first, then execute via powershell -NoProfile -File script.ps1.",
-    "",
-  ];
-}
-
 function buildPlanModeGuidance(workspaceDir: string | null): string[] {
   const lines = [
     "",
     "## Mode Guidance",
-    "You are in Plan mode â€?research, analyze, and write a structured Markdown plan to the .plan/ directory.",
+    "You are in Plan mode ¡ª research, analyze, and write a structured Markdown plan to the .plan/ directory.",
     "The plan file is the source of truth. The user reviews it in the right panel Plan tab.",
     "",
     "### Plan file workflow",
@@ -166,7 +137,7 @@ function buildPlanModeGuidance(workspaceDir: string | null): string[] {
     "- Do NOT modify project files, run shell commands, or implement changes.",
     "",
     "### Execution",
-    "- When the user asks to implement, tell them to open the right panel Plan tab and click \"Build\" (æ‰§è¡Œ) to run the plan in Agent mode.",
+    "- When the user asks to implement, tell them to open the right panel Plan tab and click \"Build\" (Ö´ÐÐ) to run the plan in Agent mode.",
     "- Do NOT silently attempt implementation. Keep the user in the planning loop until they explicitly build.",
   ];
 
