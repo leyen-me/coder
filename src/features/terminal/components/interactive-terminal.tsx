@@ -179,9 +179,19 @@ export function InteractiveTerminal({
       return;
     }
 
+    // Defer xterm theme update to the next macrotask so that the app's CSS
+    // theme (applied by applyTheme via <html> class) has already been painted
+    // before we update xterm's canvas. This avoids a flash where the canvas
+    // lags behind or renders during the same frame as the DOM theme switch.
+    //
     // xterm.js 6 compares option values by reference, so spread the theme to
     // guarantee a new reference even if getXtermTheme returned the same shape.
-    terminal.options.theme = { ...getXtermTheme(resolved) };
+    const theme = { ...getXtermTheme(resolved) };
+    const id = setTimeout(() => {
+      terminal.options.theme = theme;
+    }, 0);
+
+    return () => clearTimeout(id);
   }, [resolved]);
 
   useEffect(() => {
