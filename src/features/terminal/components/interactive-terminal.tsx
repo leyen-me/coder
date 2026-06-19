@@ -179,7 +179,9 @@ export function InteractiveTerminal({
       return;
     }
 
-    terminal.options.theme = getXtermTheme(resolved);
+    // xterm.js 6 compares option values by reference, so spread the theme to
+    // guarantee a new reference even if getXtermTheme returned the same shape.
+    terminal.options.theme = { ...getXtermTheme(resolved) };
   }, [resolved]);
 
   useEffect(() => {

@@ -2,54 +2,10 @@ import type { ITheme } from "@xterm/xterm";
 
 import type { ResolvedTheme } from "@/lib/theme/types";
 
-type AppThemeColors = {
-  foreground: string;
-  background: string;
-  destructive: string;
-  success: string;
-  warning: string;
-};
-
-function withFallback(value: string, fallback: string): string {
-  return value || fallback;
-}
-
-function readAppThemeColors(): AppThemeColors {
-  if (typeof document === "undefined") {
-    return {
-      foreground: "",
-      background: "",
-      destructive: "",
-      success: "",
-      warning: "",
-    };
-  }
-
-  const body = getComputedStyle(document.body);
-  const probe = document.createElement("div");
-  probe.style.display = "none";
-  document.documentElement.appendChild(probe);
-
-  const readVar = (variable: string, property: "color" | "backgroundColor") => {
-    if (property === "backgroundColor") {
-      probe.style.backgroundColor = `var(${variable})`;
-    } else {
-      probe.style.color = `var(${variable})`;
-    }
-    return getComputedStyle(probe)[property];
-  };
-
-  const colors = {
-    foreground: body.color,
-    background: body.backgroundColor,
-    destructive: readVar("--destructive", "color"),
-    success: readVar("--success", "color"),
-    warning: readVar("--warning", "color"),
-  };
-
-  probe.remove();
-  return colors;
-}
+const LIGHT_FOREGROUND = "#1f1f1f";
+const LIGHT_BACKGROUND = "#ffffff";
+const DARK_FOREGROUND = "#f0f0f0";
+const DARK_BACKGROUND = "#0a0a0a";
 
 const ANSI_PALETTE: Record<
   ResolvedTheme,
@@ -111,30 +67,23 @@ const ANSI_PALETTE: Record<
   },
 };
 
-/** Maps app theme tokens to an xterm.js theme. */
+/** Maps the app's resolved theme to an xterm.js ITheme. */
 export function getXtermTheme(resolved: ResolvedTheme): ITheme {
   const palette = ANSI_PALETTE[resolved];
-  const colors = readAppThemeColors();
-  const foreground = withFallback(
-    colors.foreground,
-    resolved === "dark" ? "rgb(250, 250, 250)" : "rgb(10, 10, 10)"
-  );
-  const background = withFallback(
-    colors.background,
-    resolved === "dark" ? "rgb(10, 10, 10)" : "rgb(255, 255, 255)"
-  );
+  const isDark = resolved === "dark";
 
   return {
-    background,
-    foreground,
-    cursor: foreground,
-    cursorAccent: background,
-    selectionBackground:
-      resolved === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.15)",
-    selectionForeground: foreground,
+    background: isDark ? DARK_BACKGROUND : LIGHT_BACKGROUND,
+    foreground: isDark ? DARK_FOREGROUND : LIGHT_FOREGROUND,
+    cursor: isDark ? DARK_FOREGROUND : LIGHT_FOREGROUND,
+    cursorAccent: isDark ? DARK_BACKGROUND : LIGHT_BACKGROUND,
+    selectionBackground: isDark
+      ? "rgba(255, 255, 255, 0.2)"
+      : "rgba(0, 0, 0, 0.15)",
+    selectionForeground: isDark ? DARK_FOREGROUND : LIGHT_FOREGROUND,
     ...palette,
-    red: withFallback(colors.destructive, palette.red!),
-    green: withFallback(colors.success, palette.green!),
-    yellow: withFallback(colors.warning, palette.yellow!),
+    red: palette.red!,
+    green: palette.green!,
+    yellow: palette.yellow!,
   };
 }
