@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   useActiveStreamingMessageIds,
   useChatRetryByMessageId,
 } from "@/features/agent/store/agent-store";
+import { cn } from "@/lib/utils";
 import { resolveContinuedSessionIdFromMessages } from "@/features/agent/handoff";
 import type { MessageRecord } from "@/lib/db";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,6 +29,8 @@ type MessageListProps = {
 };
 
 const NEAR_BOTTOM_THRESHOLD_PX = 80;
+const ESTIMATED_MESSAGE_HEIGHT_PX = 220;
+const MESSAGE_OVERSCAN = 4;
 
 function getScrollViewport(container: HTMLElement): HTMLElement | null {
   const viewport = container.querySelector('[data-slot="scroll-area-viewport"]');
@@ -38,18 +42,6 @@ function isNearBottom(viewport: HTMLElement): boolean {
     viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
 
   return distanceFromBottom <= NEAR_BOTTOM_THRESHOLD_PX;
-}
-
-function scrollMessagesToBottom(container: HTMLElement, smooth: boolean) {
-  const viewport = getScrollViewport(container);
-  if (!viewport) {
-    return;
-  }
-
-  viewport.scrollTo({
-    top: viewport.scrollHeight,
-    behavior: smooth ? "smooth" : "auto",
-  });
 }
 
 export function MessageList({
@@ -66,11 +58,32 @@ export function MessageList({
   const streamingMessageIds = useActiveStreamingMessageIds();
   const chatRetryByMessageId = useChatRetryByMessageId();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [scrollViewport, setScrollViewport] = useState<HTMLElement | null>(null);
   const previousMessageCountRef = useRef(messages.length);
   const isPinnedToBottomRef = useRef(true);
   const isStreamingRef = useRef(false);
   const scrollRafRef = useRef<number | null>(null);
   const sessionId = messages[0]?.sessionId;
+  const rowVirtualizer = useVirtualizer({
+    count: messages.length,
+    estimateSize: () => ESTIMATED_MESSAGE_HEIGHT_PX,
+    getItemKey: (index) => messages[index]?.id ?? index,
+    getScrollElement: () => scrollViewport,
+    overscan: MESSAGE_OVERSCAN,
+  });
+  const scrollToBottom = useCallback(
+    (smooth: boolean) => {
+      if (messages.length === 0) {
+        return;
+      }
+
+      rowVirtualizer.scrollToIndex(messages.length - 1, {
+        align: "end",
+        behavior: smooth ? "smooth" : "auto",
+      });
+    },
+    [messages.length, rowVirtualizer]
+  );
   const handoffContinuedSessionId = useMemo(
     () =>
       handoffFromSessionId
@@ -96,43 +109,44 @@ export function MessageList({
   }, [messages]);
 
   useEffect(() => {
-    isPinnedToBottomRef.current = true;
-    previousMessageCountRef.current = messages.length;
-  }, [sessionId]);
-
-  useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) {
       return;
     }
 
     const viewport = getScrollViewport(container);
-    if (!viewport) {
+    setScrollViewport((currentViewport) =>
+      currentViewport === viewport ? currentViewport : viewport
+    );
+  }, []);
+
+  useEffect(() => {
+    isPinnedToBottomRef.current = true;
+    previousMessageCountRef.current = messages.length;
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!scrollViewport) {
       return;
     }
 
     const handleScroll = () => {
       const wasPinned = isPinnedToBottomRef.current;
-      const pinned = isNearBottom(viewport);
+      const pinned = isNearBottom(scrollViewport);
       isPinnedToBottomRef.current = pinned;
 
       if (!wasPinned && pinned && isStreamingRef.current) {
-        scrollMessagesToBottom(container, false);
+        scrollToBottom(false);
       }
     };
 
-    viewport.addEventListener("scroll", handleScroll, { passive: true });
+    scrollViewport.addEventListener("scroll", handleScroll, { passive: true });
     return () => {
-      viewport.removeEventListener("scroll", handleScroll);
+      scrollViewport.removeEventListener("scroll", handleScroll);
     };
-  }, []);
+  }, [scrollToBottom, scrollViewport]);
 
   useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) {
-      return;
-    }
-
     const isStreaming = messages.some((message) =>
       streamingMessageIds.has(message.id)
     );
@@ -158,7 +172,7 @@ export function MessageList({
 
     scrollRafRef.current = requestAnimationFrame(() => {
       scrollRafRef.current = null;
-      scrollMessagesToBottom(container, didAppendMessage && !isStreaming);
+      scrollToBottom(didAppendMessage && !isStreaming);
     });
 
     return () => {
@@ -167,20 +181,29 @@ export function MessageList({
         scrollRafRef.current = null;
       }
     };
-  }, [messages, streamingMessageIds]);
+  }, [messages, scrollToBottom, streamingMessageIds]);
+
+  useEffect(() => {
+    if (!scrollViewport) {
+      return;
+    }
+
+    rowVirtualizer.measure();
+  }, [messages.length, rowVirtualizer, scrollViewport]);
 
   // Listen for custom DOM event dispatched from the title bar.
   useEffect(() => {
     const handler = () => {
-      if (scrollContainerRef.current) {
-        scrollMessagesToBottom(scrollContainerRef.current, true);
-      }
+      isPinnedToBottomRef.current = true;
+      scrollToBottom(true);
     };
     window.addEventListener("chat:scroll-to-bottom", handler);
     return () => {
       window.removeEventListener("chat:scroll-to-bottom", handler);
     };
-  }, []);
+  }, [scrollToBottom]);
+
+  const virtualItems = rowVirtualizer.getVirtualItems();
 
   return (
     <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-hidden">
@@ -198,30 +221,67 @@ export function MessageList({
           {handoffContinuedSessionId ? (
             <HandoffSourceBanner continuedSessionId={handoffContinuedSessionId} />
           ) : null}
-          {messages.map((message, index) => (
-            <React.Fragment key={message.id}>
-              {buildBoundaryIndex > 0 && index === buildBoundaryIndex ? (
-                <div className="-mx-4 flex items-center gap-3 px-4">
-                  <Separator className="flex-1" />
-                  <span className="shrink-0 text-xs font-medium text-muted-foreground">
-                    {t("chat.planBuildStart")}
-                  </span>
-                  <Separator className="flex-1" />
-                </div>
-              ) : null}
-              <MessageItem
-                chatRetry={chatRetryByMessageId.get(message.id) ?? null}
-                editingMessageId={editingMessageId}
-                handoffFromSessionId={handoffFromSessionId}
-                isStreaming={streamingMessageIds.has(message.id)}
-                key={message.id}
-                message={message}
-                onEditUserMessage={onEditUserMessage}
-                onRegenerateAssistantMessage={onRegenerateAssistantMessage}
-                sessionTitle={sessionTitle}
-              />
-            </React.Fragment>
-          ))}
+          {messages.length > 0 ? (
+            <div
+              className="relative w-full"
+              style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+            >
+              {virtualItems.map((virtualItem) => {
+                const index = virtualItem.index;
+                const message = messages[index];
+                if (!message) {
+                  return null;
+                }
+
+                return (
+                  <div
+                    className="[contain-intrinsic-size:480px] [content-visibility:auto]"
+                    data-index={index}
+                    key={virtualItem.key}
+                    ref={(node) => {
+                      if (node) {
+                        rowVirtualizer.measureElement(node);
+                      }
+                    }}
+                    style={{
+                      left: 0,
+                      position: "absolute",
+                      top: 0,
+                      transform: `translateY(${virtualItem.start}px)`,
+                      width: "100%",
+                    }}
+                  >
+                    <div
+                      className={cn(
+                        "flex flex-col gap-6",
+                        index < messages.length - 1 ? "pb-6" : null
+                      )}
+                    >
+                      {buildBoundaryIndex > 0 && index === buildBoundaryIndex ? (
+                        <div className="-mx-4 flex items-center gap-3 px-4">
+                          <Separator className="flex-1" />
+                          <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                            {t("chat.planBuildStart")}
+                          </span>
+                          <Separator className="flex-1" />
+                        </div>
+                      ) : null}
+                      <MessageItem
+                        chatRetry={chatRetryByMessageId.get(message.id) ?? null}
+                        editingMessageId={editingMessageId}
+                        handoffFromSessionId={handoffFromSessionId}
+                        isStreaming={streamingMessageIds.has(message.id)}
+                        message={message}
+                        onEditUserMessage={onEditUserMessage}
+                        onRegenerateAssistantMessage={onRegenerateAssistantMessage}
+                        sessionTitle={sessionTitle}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       </ScrollArea>
     </div>

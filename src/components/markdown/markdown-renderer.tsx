@@ -36,6 +36,9 @@ type CodeElementProps = {
   children?: ReactNode;
 };
 
+type MarkdownPluginList = NonNullable<ComponentProps<typeof ReactMarkdown>["remarkPlugins"]>;
+type RehypePluginList = NonNullable<ComponentProps<typeof ReactMarkdown>["rehypePlugins"]>;
+
 function getTextContent(node: ReactNode): string {
   return Children.toArray(node)
     .map((child) => {
@@ -308,11 +311,47 @@ const markdownComponents: Components = {
 export const MarkdownRenderer = memo(function MarkdownRenderer({
   children,
   className,
+  isAnimating = false,
 }: MarkdownRendererProps) {
   const content = useMemo(() => children, [children]);
+  const hasMath = useMemo(() => /\$\$?/.test(content), [content]);
+  const hasHtml = useMemo(
+    () => /<([a-z][\w-]*)(?:\s|>)/i.test(content),
+    [content]
+  );
+  const remarkPlugins = useMemo<MarkdownPluginList>(() => {
+    const plugins: MarkdownPluginList = [remarkGemoji, remarkGfm];
+    if (hasMath) {
+      plugins.push(remarkMath);
+    }
+    return plugins;
+  }, [hasMath]);
+  const rehypePlugins = useMemo<RehypePluginList>(() => {
+    const plugins: RehypePluginList = [[rehypeSanitize, sanitizeSchema]];
+    if (hasHtml) {
+      plugins.unshift(rehypeRaw);
+    }
+    if (hasMath) {
+      plugins.push(rehypeKatex);
+    }
+    return plugins;
+  }, [hasHtml, hasMath]);
 
   if (!content.trim()) {
     return null;
+  }
+
+  if (isAnimating) {
+    return (
+      <div
+        className={cn(
+          "size-full whitespace-pre-wrap wrap-break-word text-sm leading-7",
+          className
+        )}
+      >
+        {content}
+      </div>
+    );
   }
 
   return (
@@ -324,8 +363,8 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
     >
       <ReactMarkdown
         components={markdownComponents}
-        rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema], rehypeKatex]}
-        remarkPlugins={[remarkGemoji, remarkGfm, remarkMath]}
+        rehypePlugins={rehypePlugins}
+        remarkPlugins={remarkPlugins}
       >
         {content}
       </ReactMarkdown>

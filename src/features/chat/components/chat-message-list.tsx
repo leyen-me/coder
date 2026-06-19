@@ -1,6 +1,5 @@
 import type { MessageRecord } from "@/lib/db";
 
-import { useDisplayMessages } from "../hooks/use-session-messages";
 import { MessageList } from "./message-list";
 
 type ChatMessageListProps = {
@@ -24,13 +23,11 @@ export function ChatMessageList({
   onEditUserMessage,
   onRegenerateAssistantMessage,
 }: ChatMessageListProps) {
-  const displayMessages = useDisplayMessages(messages);
-
   return (
     <MessageList
       editingMessageId={editingMessageId}
       handoffFromSessionId={handoffFromSessionId}
-      messages={displayMessages}
+      messages={messages}
       onEditUserMessage={onEditUserMessage}
       onRegenerateAssistantMessage={onRegenerateAssistantMessage}
       onSystemPromptExpand={onSystemPromptExpand}

@@ -39,7 +39,7 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
   const groups = groupAssistantProcessSteps(steps);
 
   return (
-    <div className="flex w-full flex-col gap-3">
+    <div className="flex w-full flex-col gap-3 [contain-intrinsic-size:360px] [content-visibility:auto]">
       {groups.map((group) => {
         if (group.kind === "tools") {
           const askQuestionInvocations = group.invocations.filter(
@@ -50,7 +50,10 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
           );
 
           return (
-            <div className="flex flex-col gap-3" key={group.id}>
+            <div
+              className="flex flex-col gap-3 [contain-intrinsic-size:240px] [content-visibility:auto]"
+              key={group.id}
+            >
               {standardInvocations.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {standardInvocations.map((invocation) => (
@@ -185,7 +188,7 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
                       </div>
                     </HoverCardContent>
                   </HoverCard>
-                  <span className="whitespace-pre-wrap break-words">
+                  <span className="whitespace-pre-wrap wrap-break-word">
                     {group.response.suggestedContinuation.trim()}
                   </span>
                 </MessageContent>

@@ -1,6 +1,13 @@
 import type { AgentMode } from "@/features/agent/types";
 import type { FileUIPart } from "ai";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useLocation } from "react-router-dom";
 import { LoaderCircleIcon } from "lucide-react";
 import { nanoid } from "nanoid";
@@ -139,6 +146,9 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const activeTask = getSessionTask(chatId);
   const handoffState = getSessionHandoffState(chatId);
   const isRunning = isSessionRunning(chatId) || isSubmitting || isBuildPending;
+  const deferredContextMessages = useDeferredValue(
+    activeTask ? effectiveMessages : displayMessages
+  );
 
   useEffect(() => {
     if (session?.model) {
@@ -480,14 +490,14 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const contextUsage = useMemo(
     () =>
       estimateSessionContextUsage({
-        messages: displayMessages,
+        messages: deferredContextMessages,
         systemPrompt,
         modelId: model,
         models: allModels,
         editingMessageId,
       }),
     [
-      displayMessages,
+      deferredContextMessages,
       editingMessageId,
       model,
       allModels,
@@ -522,7 +532,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       <ChatMessageList
         editingMessageId={editingMessageId}
         handoffFromSessionId={effectiveSession?.handoffFromSessionId}
-        messages={effectiveMessages}
+        messages={displayMessages}
         onEditUserMessage={handleEditUserMessage}
         onRegenerateAssistantMessage={handleRegenerateAssistantMessage}
         onSystemPromptExpand={() => {
