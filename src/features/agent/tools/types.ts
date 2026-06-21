@@ -292,6 +292,11 @@ export type ToolExecutionContext = {
     models: readonly ModelDefinition[];
     thinkingEnabled?: boolean;
   };
+  /**
+   * Callback for tools to emit partial/progressive output during execution.
+   * The UI updates in real-time as partial data is pushed.
+   */
+  emitProgress?: (partialOutput: unknown) => void;
 };
 
 /** Input arguments for spawn_subagent tool. */

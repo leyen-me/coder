@@ -476,6 +476,18 @@ async function appendToolResults(
           agentMode: context.agentMode,
           explicitlyAllowedToolNames,
           spawnSubAgentConfig: context.spawnSubAgentConfig,
+          // Provide a progress callback that lets tools push partial output
+          // to the UI in real-time by re-emitting a finished event with
+          // the latest data.
+          emitProgress: context.emitProgress ?? ((partial) => {
+            // Use toolSuccess to wrap partial data in a result envelope
+            onEvent({
+              type: "tool_call_finished",
+              taskId: context.taskId ?? "",
+              toolCallId: call.id,
+              output: { ok: true, tool: call.name, data: partial },
+            });
+          }),
         });
         return { kind: "ok", result };
       } catch (error) {

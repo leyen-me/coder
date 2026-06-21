@@ -116,6 +116,23 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
         if (event.type === "content_delta") {
           finalContent += event.delta;
         }
+        // Emit partial progress to UI after each new step or content update
+        if (
+          event.type === "tool_call_started" ||
+          event.type === "tool_call_finished" ||
+          event.type === "thinking_delta"
+        ) {
+          const rounds = steps.filter((s) => s.kind === "reasoning").length;
+          const toolCalls = steps.filter((s) => s.kind === "tool").length;
+          context.emitProgress?.({
+            task: args.value.task,
+            steps: [...steps],
+            summary: "",
+            rounds,
+            toolCalls,
+            content: finalContent.trim() || undefined,
+          } satisfies SubAgentOutput);
+        }
       }
     );
   } catch (error: unknown) {
