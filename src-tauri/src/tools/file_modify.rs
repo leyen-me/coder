@@ -21,6 +21,10 @@ pub struct FileModifyResult {
     pub lines_removed: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub old_content: Option<String>,
+    /// The actual content written to the file (after line-ending normalization).
+    /// Used by the frontend to render a reliable diff without fragile client-side reconstruction.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub new_content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub backup_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -208,6 +212,7 @@ pub fn commit_text_modification(
         lines_added,
         lines_removed,
         old_content: Some(loaded.text.clone()),
+        new_content: Some(prepared),
         backup_path,
         warning,
     })

@@ -62,7 +62,17 @@ function resolveModifiedContent(
   toolName: string,
   oldContent: string | undefined,
   input: unknown,
+  newContent: string | undefined,
 ): string {
+  // When the backend provides the actual written content, use it directly.
+  // This avoids the fragile client-side reconstruction that breaks when
+  // line endings differ between the tool input (LF) and the file (CRLF).
+  if (newContent !== undefined) {
+    return newContent;
+  }
+
+  // Fall back to client-side reconstruction for backwards compatibility
+  // with old tool calls that don't include newContent.
   const inputRecord = asRecord(input);
   if (!inputRecord) {
     return oldContent ?? "";
@@ -244,8 +254,8 @@ export function FileDiffToolOutput({
   const hasOldContent = data?.oldContent !== undefined;
 
   const modified = useMemo(
-    () => resolveModifiedContent(toolName, data?.oldContent, input),
-    [toolName, data?.oldContent, input],
+    () => resolveModifiedContent(toolName, data?.oldContent, input, data?.newContent),
+    [toolName, data?.oldContent, data?.newContent, input],
   );
 
   const filePath = resolveFilePath(output, input);

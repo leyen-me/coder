@@ -89,6 +89,8 @@ export type FileModifyData = {
   linesAdded: number;
   linesRemoved: number;
   oldContent?: string;
+  /** The actual content written to disk (after line-ending normalization). */
+  newContent?: string;
   backupPath?: string;
   warning?: string;
 };

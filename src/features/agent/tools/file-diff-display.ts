@@ -8,6 +8,8 @@ type FileDiffData = {
   path: string;
   action: string;
   oldContent?: string;
+  /** The actual content written to disk (after line-ending normalization). */
+  newContent?: string;
   linesAdded: number;
   linesRemoved: number;
   warning?: string;
@@ -64,6 +66,8 @@ export function extractFileDiffData(output: unknown): FileDiffData | null {
     action: typeof record.action === "string" ? record.action : "unknown",
     oldContent:
       typeof record.oldContent === "string" ? record.oldContent : undefined,
+    newContent:
+      typeof record.newContent === "string" ? record.newContent : undefined,
     linesAdded:
       typeof record.linesAdded === "number" ? record.linesAdded : 0,
     linesRemoved:
