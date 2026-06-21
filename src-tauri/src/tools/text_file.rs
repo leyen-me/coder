@@ -277,23 +277,21 @@ pub fn count_lines(text: &str) -> u32 {
     text.lines().count() as u32
 }
 
+/// Counts the number of added and removed lines between two texts.
+/// Uses a proper Myers diff algorithm so inserted/deleted lines in the
+/// middle of a file don't misalign all subsequent lines.
 pub fn count_line_diff(before: &str, after: &str) -> (u32, u32) {
-    let before_lines: Vec<&str> = before.lines().collect();
-    let after_lines: Vec<&str> = after.lines().collect();
+    use similar::{ChangeTag, TextDiff};
+
+    let diff = TextDiff::from_lines(before, after);
     let mut added = 0u32;
     let mut removed = 0u32;
 
-    let max_len = before_lines.len().max(after_lines.len());
-    for index in 0..max_len {
-        match (before_lines.get(index), after_lines.get(index)) {
-            (Some(old), Some(new)) if old == new => {}
-            (Some(_), Some(_)) => {
-                removed += 1;
-                added += 1;
-            }
-            (Some(_), None) => removed += 1,
-            (None, Some(_)) => added += 1,
-            (None, None) => {}
+    for change in diff.iter_all_changes() {
+        match change.tag() {
+            ChangeTag::Equal => {}
+            ChangeTag::Insert => added += 1,
+            ChangeTag::Delete => removed += 1,
         }
     }
 
@@ -657,10 +655,44 @@ mod tests {
     }
 
     #[test]
-    fn counts_line_diff() {
+    fn counts_line_diff_changed_line() {
         let (added, removed) = count_line_diff("a\nb\n", "a\nc\n");
         assert_eq!(added, 1);
         assert_eq!(removed, 1);
+    }
+
+    #[test]
+    fn counts_line_diff_insert_middle() {
+        // Previously this would give +51 -50 due to positional comparison
+        let before = (0..100).map(|i| format!("line{i}")).collect::<Vec<_>>().join("\n");
+        let mut after_lines: Vec<String> = (0..100).map(|i| format!("line{i}")).collect();
+        after_lines.insert(50, "NEW LINE".to_string());
+        let after = after_lines.join("\n");
+        let (added, removed) = count_line_diff(&before, &after);
+        assert_eq!(added, 1, "one line inserted");
+        assert_eq!(removed, 0, "no lines removed");
+    }
+
+    #[test]
+    fn counts_line_diff_delete_middle() {
+        // Previously this would give +0 -51 due to positional comparison
+        let before = (0..101).map(|i| format!("line{i}")).collect::<Vec<_>>().join("\n");
+        let mut after_lines: Vec<String> = (0..101).map(|i| format!("line{i}")).collect();
+        after_lines.remove(50);
+        let after = after_lines.join("\n");
+        let (added, removed) = count_line_diff(&before, &after);
+        assert_eq!(added, 0, "no lines added");
+        assert_eq!(removed, 1, "one line removed");
+    }
+
+    #[test]
+    fn counts_line_diff_insert_and_modify() {
+        // Insert + modify one existing line
+        let before = "a\nb\nc\n";
+        let after = "a\nx\nb\nc\n";
+        let (added, removed) = count_line_diff(before, after);
+        assert_eq!(added, 1, "one line added");
+        assert_eq!(removed, 0, "no lines removed (no deletes)");
     }
 
     #[test]
