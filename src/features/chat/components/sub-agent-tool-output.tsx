@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  CheckCircle2Icon,
   ChevronDownIcon,
   ChevronRightIcon,
   LoaderCircleIcon,

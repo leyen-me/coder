@@ -11,7 +11,6 @@ import type {
 import type { AgentChatMessage, AgentEvent } from "../types";
 
 const MAX_DEPTH = 3;
-export const SPAWN_SUBAGENT_TOOL_NAME = "spawn_subagent";
 
 export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
   // Lazy import to avoid circular dependency: agent-loop.ts -> tools -> registry -> spawn-subagent -> agent-loop

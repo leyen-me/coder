@@ -1,4 +1,4 @@
-import { SPAWN_SUBAGENT_TOOL_NAME } from "./spawn-subagent";
+import { SPAWN_SUBAGENT_TOOL_NAME } from "./definitions";
 import type { SubAgentOutput } from "./types";
 
 export function getSubAgentChipLabel(

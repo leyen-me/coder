@@ -50,6 +50,7 @@ type ToolExecutionContextInput = {
     models: readonly ModelDefinition[];
     thinkingEnabled?: boolean;
   };
+  emitProgress?: (partialOutput: unknown) => void;
 };
 
 export async function runAgentWithTools(
@@ -67,9 +68,7 @@ export async function runAgentWithTools(
 
   // Build spawnSubAgentConfig from input if not already provided,
   // so the spawn_subagent tool can reuse the parent's provider config.
-  const toolContext: ToolExecutionContextInput & {
-    spawnSubAgentConfig: ToolExecutionContextInput["spawnSubAgentConfig"];
-  } = context.spawnSubAgentConfig
+  const toolContext: ToolExecutionContextInput = context.spawnSubAgentConfig
     ? context
     : {
         ...context,
