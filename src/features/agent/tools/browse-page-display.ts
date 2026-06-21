@@ -24,10 +24,17 @@ export function getBrowsePageChipLabel(
     return BROWSE_PAGE_TOOL_NAME;
   }
 
-  const preview = url.length > 48 ? `${url.slice(0, 48)}…` : url;
   const statusSuffix =
     data?.statusCode != null ? ` [${data.statusCode}]` : "";
 
+  // Prefer the page title for a human-readable label; fall back to URL.
+  if (data?.title) {
+    const trimmed = data.title.trim();
+    const preview = trimmed.length > 64 ? `${trimmed.slice(0, 64)}…` : trimmed;
+    return `browse_page: ${preview}${statusSuffix}`;
+  }
+
+  const preview = url.length > 48 ? `${url.slice(0, 48)}…` : url;
   return `browse_page: ${preview}${statusSuffix}`;
 }
 

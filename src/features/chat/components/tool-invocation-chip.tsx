@@ -161,7 +161,8 @@ export function ToolInvocationChip({
   const isInlineTool =
     isFileDiffTool || isShellTool || isReadFileTool || isGrepTool ||
     isWebSearchTool || isGlobTool || isListDirTool || isTodoTool || isPlanTool ||
-    isListShellsTool || isReadShellLogsTool || isKillShellTool || isSkillTool || isSendEmailTool;
+    isListShellsTool || isReadShellLogsTool || isKillShellTool || isSkillTool ||
+    isSendEmailTool || isWorkspaceTreeTool;
 
   // High-frequency tools render inline directly in the message.
   if (isInlineTool) {
@@ -276,6 +277,13 @@ export function ToolInvocationChip({
             toolName={invocation.name}
             state={invocation.state as ToolUIPart["state"]}
           />
+        ) : isWorkspaceTreeTool ? (
+          <WorkspaceTreeToolOutput
+            errorText={invocation.errorText}
+            output={invocation.output}
+            toolName={invocation.name}
+            state={invocation.state as ToolUIPart["state"]}
+          />
         ) : isSkillTool ? (
           <SkillToolOutput
             errorText={invocation.errorText}
@@ -322,13 +330,10 @@ export function ToolInvocationChip({
             {isBrowsePageTool && invocation.output ? (
               <BrowsePageToolOutput output={invocation.output} />
             ) : null}
-            {isWorkspaceTreeTool && invocation.output ? (
-              <WorkspaceTreeToolOutput output={invocation.output} />
-            ) : null}
             <ToolOutput
               errorText={invocation.errorText}
               output={
-                isBrowsePageTool || isWorkspaceTreeTool
+                isBrowsePageTool
                   ? undefined
                   : invocation.output
               }
