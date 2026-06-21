@@ -8,6 +8,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  ASK_QUESTION_TOOL_NAME,
   AWAIT_TOOL_NAME,
   BROWSE_PAGE_TOOL_NAME,
   CREATE_SKILL_TOOL_NAME,
@@ -37,6 +38,7 @@ import {
   WEB_SEARCH_TOOL_NAME,
   WRITE_FILE_TOOL_NAME,
 } from "@/features/agent/tools/definitions";
+import { getAskQuestionChipLabel } from "@/features/agent/tools/ask-question-display";
 import { getBrowsePageChipLabel } from "@/features/agent/tools/browse-page-display";
 import { getFileDiffChipLabel } from "@/features/agent/tools/file-diff-display";
 import { getGlobChipLabel } from "@/features/agent/tools/glob-display";
@@ -71,6 +73,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
+import { AskQuestionToolOutput } from "./ask-question-tool-output";
 import { BrowsePageToolOutput } from "./browse-page-tool-output";
 import { FileDiffToolOutput } from "./file-diff-tool-output";
 import { GlobToolOutput } from "./glob-tool-output";
@@ -106,6 +109,7 @@ export function ToolInvocationChip({
       invocation.input,
       invocation.output,
     ) ??
+    getAskQuestionChipLabel(invocation.name, invocation.output) ??
     getFileDiffChipLabel(
       invocation.name,
       invocation.input,
@@ -158,11 +162,12 @@ export function ToolInvocationChip({
     invocation.name === CREATE_SKILL_TOOL_NAME ||
     invocation.name === UPDATE_SKILL_TOOL_NAME;
   const isSendEmailTool = invocation.name === SEND_EMAIL_TOOL_NAME;
+  const isAskQuestionTool = invocation.name === ASK_QUESTION_TOOL_NAME;
   const isInlineTool =
     isFileDiffTool || isShellTool || isReadFileTool || isGrepTool ||
     isWebSearchTool || isGlobTool || isListDirTool || isTodoTool || isPlanTool ||
     isListShellsTool || isReadShellLogsTool || isKillShellTool || isSkillTool ||
-    isSendEmailTool || isWorkspaceTreeTool;
+    isSendEmailTool || isWorkspaceTreeTool || isAskQuestionTool;
 
   // High-frequency tools render inline directly in the message.
   if (isInlineTool) {
@@ -286,6 +291,13 @@ export function ToolInvocationChip({
           />
         ) : isSkillTool ? (
           <SkillToolOutput
+            errorText={invocation.errorText}
+            output={invocation.output}
+            toolName={invocation.name}
+            state={invocation.state as ToolUIPart["state"]}
+          />
+        ) : isAskQuestionTool ? (
+          <AskQuestionToolOutput
             errorText={invocation.errorText}
             output={invocation.output}
             toolName={invocation.name}
