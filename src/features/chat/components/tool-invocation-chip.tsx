@@ -12,20 +12,34 @@ import {
   BROWSE_PAGE_TOOL_NAME,
   EDIT_FILE_TOOL_NAME,
   GET_WORKSPACE_TREE_TOOL_NAME,
+  GLOB_TOOL_NAME,
   GREP_TOOL_NAME,
+  LIST_DIR_TOOL_NAME,
+  PLAN_CREATE_TOOL_NAME,
+  PLAN_DELETE_TOOL_NAME,
+  PLAN_EDIT_TOOL_NAME,
+  PLAN_LIST_TOOL_NAME,
+  PLAN_READ_TOOL_NAME,
+  PLAN_UPDATE_TOOL_NAME,
   READ_FILE_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
   SHELL_TOOL_NAME,
+  TODO_READ_TOOL_NAME,
+  TODO_WRITE_TOOL_NAME,
   WEB_SEARCH_TOOL_NAME,
   WRITE_FILE_TOOL_NAME,
 } from "@/features/agent/tools/definitions";
 import { getBrowsePageChipLabel } from "@/features/agent/tools/browse-page-display";
 import { getFileDiffChipLabel } from "@/features/agent/tools/file-diff-display";
+import { getGlobChipLabel } from "@/features/agent/tools/glob-display";
 import { getGrepChipLabel } from "@/features/agent/tools/grep-display";
+import { getListDirChipLabel } from "@/features/agent/tools/list-dir-display";
+import { getPlanChipLabel } from "@/features/agent/tools/plan-display";
 import {
   getReadFileChipLabel,
 } from "@/features/agent/tools/read-file-display";
 import { getShellChipLabel } from "@/features/agent/tools/shell-display";
+import { getTodoChipLabel } from "@/features/agent/tools/todo-display";
 import { getWebSearchChipLabel } from "@/features/agent/tools/web-search-display";
 import { getWorkspaceTreeChipLabel } from "@/features/agent/tools/workspace-tree-display";
 import type { MessageToolInvocation } from "@/lib/db";
@@ -42,9 +56,13 @@ import { useState } from "react";
 
 import { BrowsePageToolOutput } from "./browse-page-tool-output";
 import { FileDiffToolOutput } from "./file-diff-tool-output";
+import { GlobToolOutput } from "./glob-tool-output";
 import { GrepToolOutput } from "./grep-tool-output";
+import { ListDirToolOutput } from "./list-dir-tool-output";
+import { PlanToolOutput } from "./plan-tool-output";
 import { ReadFileToolOutput } from "./read-file-tool-output";
 import { ShellOutput } from "./shell-output";
+import { TodoToolOutput } from "./todo-tool-output";
 import { WebSearchToolOutput } from "./web-search-tool-output";
 import { WorkspaceTreeToolOutput } from "./workspace-tree-tool-output";
 
@@ -74,6 +92,10 @@ export function ToolInvocationChip({
     getReadFileChipLabel(invocation.name, invocation.output) ??
     getGrepChipLabel(invocation.name, invocation.input, invocation.output) ??
     getWebSearchChipLabel(invocation.name, invocation.input, invocation.output) ??
+    getGlobChipLabel(invocation.name, invocation.input, invocation.output) ??
+    getListDirChipLabel(invocation.name, invocation.input, invocation.output) ??
+    getTodoChipLabel(invocation.name, invocation.output) ??
+    getPlanChipLabel(invocation.name, invocation.input, invocation.output) ??
     getWorkspaceTreeChipLabel(invocation.name, invocation.output) ??
     invocation.name;
   const isShellTool =
@@ -88,8 +110,21 @@ export function ToolInvocationChip({
   const isWebSearchTool = invocation.name === WEB_SEARCH_TOOL_NAME;
   const isWorkspaceTreeTool =
     invocation.name === GET_WORKSPACE_TREE_TOOL_NAME;
+  const isGlobTool = invocation.name === GLOB_TOOL_NAME;
+  const isListDirTool = invocation.name === LIST_DIR_TOOL_NAME;
+  const isTodoTool =
+    invocation.name === TODO_READ_TOOL_NAME ||
+    invocation.name === TODO_WRITE_TOOL_NAME;
+  const isPlanTool =
+    invocation.name === PLAN_CREATE_TOOL_NAME ||
+    invocation.name === PLAN_READ_TOOL_NAME ||
+    invocation.name === PLAN_UPDATE_TOOL_NAME ||
+    invocation.name === PLAN_EDIT_TOOL_NAME ||
+    invocation.name === PLAN_DELETE_TOOL_NAME ||
+    invocation.name === PLAN_LIST_TOOL_NAME;
   const isInlineTool =
-    isFileDiffTool || isShellTool || isReadFileTool || isGrepTool || isWebSearchTool;
+    isFileDiffTool || isShellTool || isReadFileTool || isGrepTool ||
+    isWebSearchTool || isGlobTool || isListDirTool || isTodoTool || isPlanTool;
 
   // High-frequency tools render inline directly in the message.
   if (isInlineTool) {
@@ -140,8 +175,40 @@ export function ToolInvocationChip({
             toolName={invocation.name}
             state={invocation.state as ToolUIPart["state"]}
           />
-        ) : (
+        ) : isWebSearchTool ? (
           <WebSearchToolOutput
+            errorText={invocation.errorText}
+            input={invocation.input}
+            output={invocation.output}
+            toolName={invocation.name}
+            state={invocation.state as ToolUIPart["state"]}
+          />
+        ) : isGlobTool ? (
+          <GlobToolOutput
+            errorText={invocation.errorText}
+            input={invocation.input}
+            output={invocation.output}
+            toolName={invocation.name}
+            state={invocation.state as ToolUIPart["state"]}
+          />
+        ) : isListDirTool ? (
+          <ListDirToolOutput
+            errorText={invocation.errorText}
+            input={invocation.input}
+            output={invocation.output}
+            toolName={invocation.name}
+            state={invocation.state as ToolUIPart["state"]}
+          />
+        ) : isTodoTool ? (
+          <TodoToolOutput
+            errorText={invocation.errorText}
+            input={invocation.input}
+            output={invocation.output}
+            toolName={invocation.name}
+            state={invocation.state as ToolUIPart["state"]}
+          />
+        ) : (
+          <PlanToolOutput
             errorText={invocation.errorText}
             input={invocation.input}
             output={invocation.output}
