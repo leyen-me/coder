@@ -52,6 +52,8 @@ describe("browsePageHandler", () => {
     );
     expect(invoke).toHaveBeenCalledWith("tool_browse_page", {
       url: "https://example.com",
+      startLine: null,
+      maxLines: null,
       allowPrivateNetwork: true,
     });
   });
@@ -72,6 +74,8 @@ describe("browsePageHandler", () => {
 
     expect(invoke).toHaveBeenCalledWith("tool_browse_page", {
       url: "https://example.com",
+      startLine: null,
+      maxLines: null,
       allowPrivateNetwork: false,
     });
   });

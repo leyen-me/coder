@@ -7,6 +7,8 @@ import type { BrowsePageData, ToolHandler } from "./types";
 
 type BrowsePageArgs = {
   url: string;
+  start_line?: number;
+  max_lines?: number;
   explanation?: string;
 };
 
@@ -27,6 +29,8 @@ export const browsePageHandler: ToolHandler = async (rawArgs, context) => {
   try {
     const data = await invoke<BrowsePageData>("tool_browse_page", {
       url: args.value.url,
+      startLine: args.value.start_line ?? null,
+      maxLines: args.value.max_lines ?? null,
       allowPrivateNetwork:
         context.allowPrivateNetworkAccess ??
         true,
@@ -73,10 +77,22 @@ function parseBrowsePageArgs(
     return { ok: false, message: "explanation must be a string" };
   }
 
+  const startLine = record.start_line;
+  if (startLine !== undefined && typeof startLine !== "number") {
+    return { ok: false, message: "start_line must be a number" };
+  }
+
+  const maxLines = record.max_lines;
+  if (maxLines !== undefined && typeof maxLines !== "number") {
+    return { ok: false, message: "max_lines must be a number" };
+  }
+
   return {
     ok: true,
     value: {
       url: url.trim(),
+      start_line: startLine,
+      max_lines: maxLines,
       explanation,
     },
   };

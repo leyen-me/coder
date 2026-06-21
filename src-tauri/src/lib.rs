@@ -29,7 +29,7 @@ use tools::{
     tool_rename_path, tool_replace_file, tool_normalize_external_path, tool_read_local_image_bytes,
     tool_resolve_absolute_path, tool_shell,
     tool_search_workspace_paths, tool_web_search, tool_write_file,
-    PtyRegistry, PtyState, ShellRegistry,
+    PageCache, PtyRegistry, PtyState, ShellRegistry,
     ShellState,
 };
 
@@ -123,6 +123,7 @@ pub fn run() {
         .manage(ShellState(Arc::new(Mutex::new(ShellRegistry::new()))))
         .manage(PtyState(Arc::new(Mutex::new(PtyRegistry::new()))))
         .manage(FileWatcherState(Arc::new(Mutex::new(None))))
+        .manage(Arc::new(PageCache::new()))
         .setup(|app| {
             shell_env::preload_shell_environment();
             configure_main_window(app);

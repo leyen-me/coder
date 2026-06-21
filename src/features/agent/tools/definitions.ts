@@ -514,13 +514,26 @@ export const BROWSE_PAGE_TOOL: AgentToolDefinition = {
   function: {
     name: BROWSE_PAGE_TOOL_NAME,
     description:
-      "Fetch a public web page and return readable Markdown content. Use after web_search when you need the full page text. Does not render JavaScript-heavy pages. Do not call repeatedly for the same URL.",
+      "Fetch a public web page and return readable Markdown content. " +
+      "Use after web_search when you need the full page text. " +
+      "Results are paginated like read_file: use start_line (1-based) and max_lines to page through the content. " +
+      "Does not render JavaScript-heavy pages. Do not call repeatedly for the same URL.",
     parameters: {
       type: "object",
       properties: {
         url: {
           type: "string",
           description: "The URL to fetch. Must be http or https.",
+        },
+        start_line: {
+          type: "integer",
+          description: "First line to read (1-based).",
+          default: 1,
+        },
+        max_lines: {
+          type: "integer",
+          description: "Maximum number of lines to return.",
+          default: 500,
         },
         explanation: {
           type: "string",

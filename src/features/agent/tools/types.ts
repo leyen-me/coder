@@ -232,6 +232,9 @@ export type BrowsePageData = {
   title?: string;
   content: string;
   truncated: boolean;
+  totalLines: number;
+  startLine: number;
+  endLine: number;
   statusCode: number;
   contentType?: string;
 };
