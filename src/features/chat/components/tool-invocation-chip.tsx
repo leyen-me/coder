@@ -12,18 +12,21 @@ import {
   BROWSE_PAGE_TOOL_NAME,
   EDIT_FILE_TOOL_NAME,
   GET_WORKSPACE_TREE_TOOL_NAME,
+  GREP_TOOL_NAME,
   READ_FILE_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
   SHELL_TOOL_NAME,
+  WEB_SEARCH_TOOL_NAME,
   WRITE_FILE_TOOL_NAME,
 } from "@/features/agent/tools/definitions";
 import { getBrowsePageChipLabel } from "@/features/agent/tools/browse-page-display";
 import { getFileDiffChipLabel } from "@/features/agent/tools/file-diff-display";
+import { getGrepChipLabel } from "@/features/agent/tools/grep-display";
 import {
-  extractReadFileLinesRead,
   getReadFileChipLabel,
 } from "@/features/agent/tools/read-file-display";
 import { getShellChipLabel } from "@/features/agent/tools/shell-display";
+import { getWebSearchChipLabel } from "@/features/agent/tools/web-search-display";
 import { getWorkspaceTreeChipLabel } from "@/features/agent/tools/workspace-tree-display";
 import type { MessageToolInvocation } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
@@ -39,7 +42,10 @@ import { useState } from "react";
 
 import { BrowsePageToolOutput } from "./browse-page-tool-output";
 import { FileDiffToolOutput } from "./file-diff-tool-output";
+import { GrepToolOutput } from "./grep-tool-output";
+import { ReadFileToolOutput } from "./read-file-tool-output";
 import { ShellOutput } from "./shell-output";
+import { WebSearchToolOutput } from "./web-search-tool-output";
 import { WorkspaceTreeToolOutput } from "./workspace-tree-tool-output";
 
 type ToolInvocationChipProps = {
@@ -66,6 +72,8 @@ export function ToolInvocationChip({
       invocation.output,
     ) ??
     getReadFileChipLabel(invocation.name, invocation.output) ??
+    getGrepChipLabel(invocation.name, invocation.input, invocation.output) ??
+    getWebSearchChipLabel(invocation.name, invocation.input, invocation.output) ??
     getWorkspaceTreeChipLabel(invocation.name, invocation.output) ??
     invocation.name;
   const isShellTool =
@@ -76,15 +84,15 @@ export function ToolInvocationChip({
     invocation.name === REPLACE_FILE_TOOL_NAME ||
     invocation.name === EDIT_FILE_TOOL_NAME;
   const isReadFileTool = invocation.name === READ_FILE_TOOL_NAME;
+  const isGrepTool = invocation.name === GREP_TOOL_NAME;
+  const isWebSearchTool = invocation.name === WEB_SEARCH_TOOL_NAME;
   const isWorkspaceTreeTool =
     invocation.name === GET_WORKSPACE_TREE_TOOL_NAME;
-  const linesRead =
-    isReadFileTool && invocation.output
-      ? extractReadFileLinesRead(invocation.output)
-      : null;
+  const isInlineTool =
+    isFileDiffTool || isShellTool || isReadFileTool || isGrepTool || isWebSearchTool;
 
-  // File diff and shell tools render inline directly in the message.
-  if (isFileDiffTool || isShellTool) {
+  // High-frequency tools render inline directly in the message.
+  if (isInlineTool) {
     const hasContent = Boolean(invocation.output) || Boolean(invocation.errorText);
 
     if (!hasContent) {
@@ -108,8 +116,32 @@ export function ToolInvocationChip({
             toolName={invocation.name}
             state={invocation.state as ToolUIPart["state"]}
           />
-        ) : (
+        ) : isShellTool ? (
           <ShellOutput
+            errorText={invocation.errorText}
+            input={invocation.input}
+            output={invocation.output}
+            toolName={invocation.name}
+            state={invocation.state as ToolUIPart["state"]}
+          />
+        ) : isReadFileTool ? (
+          <ReadFileToolOutput
+            errorText={invocation.errorText}
+            input={invocation.input}
+            output={invocation.output}
+            toolName={invocation.name}
+            state={invocation.state as ToolUIPart["state"]}
+          />
+        ) : isGrepTool ? (
+          <GrepToolOutput
+            errorText={invocation.errorText}
+            input={invocation.input}
+            output={invocation.output}
+            toolName={invocation.name}
+            state={invocation.state as ToolUIPart["state"]}
+          />
+        ) : (
+          <WebSearchToolOutput
             errorText={invocation.errorText}
             input={invocation.input}
             output={invocation.output}
@@ -134,11 +166,6 @@ export function ToolInvocationChip({
       >
         <ToolStatusIcon state={invocation.state as ToolUIPart["state"]} />
         <span>{chipLabel}</span>
-        {linesRead != null ? (
-          <span className="font-mono font-medium text-muted-foreground">
-            L{linesRead.startLine}-{linesRead.endLine}
-          </span>
-        ) : null}
       </button>
       <Sheet onOpenChange={setOpen} open={open}>
         <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-2xl">

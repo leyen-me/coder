@@ -65,6 +65,37 @@ export function extractReadFileData(
   };
 }
 
+export function formatReadFileOutputForDisplay(output: unknown): {
+  path: string;
+  totalLines: number;
+  startLine: number;
+  endLine: number;
+  truncated: boolean;
+  containsSecrets: boolean;
+  sha256: string;
+  mimeType: string;
+  encoding: string;
+  content: string;
+} | null {
+  const data = extractReadFileData(output);
+  if (!data) {
+    return null;
+  }
+
+  return {
+    path: data.path,
+    totalLines: data.totalLines,
+    startLine: data.startLine,
+    endLine: data.endLine,
+    truncated: data.truncated,
+    containsSecrets: data.containsSecrets,
+    sha256: data.sha256,
+    mimeType: data.mimeType,
+    encoding: data.encoding,
+    content: data.content,
+  };
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value === "object" && value !== null && !Array.isArray(value)) {
     return value as Record<string, unknown>;
