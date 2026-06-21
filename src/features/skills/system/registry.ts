@@ -112,6 +112,9 @@ Use tools to confirm facts whenever the answer or change depends on them.
  * - read_skill：遵循 skill 前先读取完整说明。
  * - create_skill：仅当用户要求保存可复用指令时使用。
  *
+ * 子 Agent：
+ * - spawn_subagent：将独立子任务委托给子 Agent，适用于多步探索、验证或调研。
+ *
  * 失败处理：
  * 1. 读错误码和错误信息。
  * 2. 形成新假设。
