@@ -37,6 +37,7 @@ import {
   UPDATE_SKILL_TOOL_NAME,
   WEB_SEARCH_TOOL_NAME,
   WRITE_FILE_TOOL_NAME,
+  SPAWN_SUBAGENT_TOOL_NAME,
 } from "@/features/agent/tools/definitions";
 import { getAskQuestionChipLabel } from "@/features/agent/tools/ask-question-display";
 import { getBrowsePageChipLabel } from "@/features/agent/tools/browse-page-display";
@@ -61,6 +62,7 @@ import { getSkillChipLabel } from "@/features/agent/tools/skill-display";
 import { getTodoChipLabel } from "@/features/agent/tools/todo-display";
 import { getWebSearchChipLabel } from "@/features/agent/tools/web-search-display";
 import { getWorkspaceTreeChipLabel } from "@/features/agent/tools/workspace-tree-display";
+import { getSubAgentChipLabel } from "@/features/agent/tools/spawn-subagent-display";
 import type { MessageToolInvocation } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -90,6 +92,7 @@ import { SkillToolOutput } from "./skill-tool-output";
 import { TodoToolOutput } from "./todo-tool-output";
 import { WebSearchToolOutput } from "./web-search-tool-output";
 import { WorkspaceTreeToolOutput } from "./workspace-tree-tool-output";
+import { SubAgentToolOutput } from "./sub-agent-tool-output";
 
 type ToolInvocationChipProps = {
   invocation: MessageToolInvocation;
@@ -128,6 +131,7 @@ export function ToolInvocationChip({
     getSkillChipLabel(invocation.name, invocation.input, invocation.output) ??
     getSendEmailChipLabel(invocation.name, invocation.input, invocation.output) ??
     getWorkspaceTreeChipLabel(invocation.name, invocation.output) ??
+    getSubAgentChipLabel(invocation.name, invocation.input, invocation.output) ??
     invocation.name;
   const isShellTool =
     invocation.name === SHELL_TOOL_NAME || invocation.name === AWAIT_TOOL_NAME;
@@ -168,6 +172,7 @@ export function ToolInvocationChip({
     isWebSearchTool || isGlobTool || isListDirTool || isTodoTool || isPlanTool ||
     isListShellsTool || isReadShellLogsTool || isKillShellTool || isSkillTool ||
     isSendEmailTool || isWorkspaceTreeTool || isAskQuestionTool;
+  const isSubAgentTool = invocation.name === SPAWN_SUBAGENT_TOOL_NAME;
 
   // High-frequency tools render inline directly in the message.
   if (isInlineTool) {
@@ -312,6 +317,19 @@ export function ToolInvocationChip({
             state={invocation.state as ToolUIPart["state"]}
           />
         )}
+      </div>
+    );
+  }
+
+  // Sub-agent tools render inline with their own timeline component
+  if (isSubAgentTool) {
+    return (
+      <div className={cn("not-prose my-2 w-full", className)}>
+        <SubAgentToolOutput
+          input={invocation.input}
+          output={invocation.output}
+          errorText={invocation.errorText}
+        />
       </div>
     );
   }

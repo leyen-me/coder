@@ -8,6 +8,7 @@ import { AgentCancellationError, isAgentCancellationError, throwIfAborted } from
 import { parseToolCallInput, toolResultToInvocationPatch } from "./tools/tool-display";
 import { toApiToolCalls } from "./tools/api-tool-call";
 import type { AgentToolCall, TavilyConfig } from "./tools/types";
+import type { ModelDefinition } from "@/lib/model-provider/types";
 import { startAgent } from "./runner";
 import type { AgentChatMessage, AgentEvent, AgentEventHandler, AgentMode, AgentStartInput } from "./types";
 import {
@@ -40,6 +41,15 @@ type ToolExecutionContextInput = {
   tavilyConfig?: TavilyConfig | null;
   allowPrivateNetworkAccess?: boolean;
   agentMode?: AgentMode;
+  spawnSubAgentConfig?: {
+    baseUrl: string;
+    apiKey: string;
+    apiKeySource: "manual" | "env";
+    apiKeyEnvVar: string;
+    model: string;
+    models: readonly ModelDefinition[];
+    thinkingEnabled?: boolean;
+  };
 };
 
 export async function runAgentWithTools(
@@ -54,6 +64,26 @@ export async function runAgentWithTools(
       ? new Set(tools.map((t) => t.function.name))
       : undefined;
   const stallDetector = new ToolCallStallDetector();
+
+  // Build spawnSubAgentConfig from input if not already provided,
+  // so the spawn_subagent tool can reuse the parent's provider config.
+  const toolContext: ToolExecutionContextInput & {
+    spawnSubAgentConfig: ToolExecutionContextInput["spawnSubAgentConfig"];
+  } = context.spawnSubAgentConfig
+    ? context
+    : {
+        ...context,
+        spawnSubAgentConfig: {
+          baseUrl: input.baseUrl,
+          apiKey: input.apiKey,
+          apiKeySource: input.apiKeySource,
+          apiKeyEnvVar: input.apiKeyEnvVar,
+          model: input.model,
+          // models is not directly available on AgentStartInput,
+          // but the child agent will use the default tool definitions
+          models: [] as readonly ModelDefinition[],
+        },
+      };
 
   while (true) {
     throwIfAborted(context.signal, input.taskId);
@@ -180,7 +210,7 @@ export async function runAgentWithTools(
       throw agentToolCallStallError();
     }
 
-    messages = await appendToolResults(messages, turn, context, onEvent, explicitlyAllowedToolNames);
+    messages = await appendToolResults(messages, turn, toolContext, onEvent, explicitlyAllowedToolNames);
   }
 }
 
@@ -445,6 +475,7 @@ async function appendToolResults(
           allowPrivateNetworkAccess: context.allowPrivateNetworkAccess,
           agentMode: context.agentMode,
           explicitlyAllowedToolNames,
+          spawnSubAgentConfig: context.spawnSubAgentConfig,
         });
         return { kind: "ok", result };
       } catch (error) {

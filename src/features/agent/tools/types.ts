@@ -1,3 +1,5 @@
+import type { ModelDefinition } from "@/lib/model-provider/types";
+
 import type { AgentMode } from "../types";
 import type { ToolResultEnvelope } from "./result";
 
@@ -276,6 +278,47 @@ export type ToolExecutionContext = {
    * tools that are normally restricted in agent mode.
    */
   explicitlyAllowedToolNames?: ReadonlySet<string>;
+  /**
+   * Provider config for spawning sub-agent instances.
+   * When present, the spawn_subagent tool can run a child agent
+   * using the same provider/model configuration as the parent.
+   */
+  spawnSubAgentConfig?: {
+    baseUrl: string;
+    apiKey: string;
+    apiKeySource: "manual" | "env";
+    apiKeyEnvVar: string;
+    model: string;
+    models: readonly ModelDefinition[];
+    thinkingEnabled?: boolean;
+  };
+};
+
+/** Input arguments for spawn_subagent tool. */
+export type SubAgentInput = {
+  task: string;
+  context?: string;
+  tools?: string[];
+};
+
+/** A single step recorded by the sub-agent. */
+export type SubAgentStep = {
+  kind: "reasoning" | "tool";
+  text: string;
+  toolName?: string;
+  toolLabel?: string;
+  state?: "pending" | "running" | "completed" | "error";
+};
+
+/** Structured output returned by spawn_subagent. */
+export type SubAgentOutput = {
+  task: string;
+  steps: SubAgentStep[];
+  summary: string;
+  rounds: number;
+  toolCalls: number;
+  tokensUsed?: number;
+  error?: string;
 };
 
 export type ToolHandler = (

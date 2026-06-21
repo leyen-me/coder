@@ -32,6 +32,8 @@ export const SEND_EMAIL_TOOL_NAME = "send_email";
 
 export const GET_WORKSPACE_TREE_TOOL_NAME = "get_workspace_tree";
 
+export const SPAWN_SUBAGENT_TOOL_NAME = "spawn_subagent";
+
 export const LIST_DIR_TOOL: AgentToolDefinition = {
   type: "function",
   function: {
@@ -978,6 +980,40 @@ export const SEND_EMAIL_TOOL: AgentToolDefinition = {
   },
 };
 
+export const SPAWN_SUBAGENT_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: SPAWN_SUBAGENT_TOOL_NAME,
+    description:
+      "Spawn a sub-agent to complete an independent sub-task. The sub-agent runs with the same workspace tools and returns a structured report. Use this for delegating focused research, file exploration, or verification tasks. Maximum nesting depth: 3.",
+    parameters: {
+      type: "object",
+      properties: {
+        task: {
+          type: "string",
+          description:
+            "The task description for the sub-agent. Be specific about what to do and what to report back.",
+        },
+        context: {
+          type: "string",
+          description:
+            "Optional additional context or constraints for the sub-agent.",
+        },
+        tools: {
+          type: "array",
+          description:
+            "Optional whitelist of tool names the sub-agent may use. Defaults to all available tools.",
+          items: {
+            type: "string",
+          },
+        },
+      },
+      required: ["task"],
+      additionalProperties: false,
+    },
+  },
+};
+
 export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   LIST_DIR_TOOL,
   READ_FILE_TOOL,
@@ -1008,4 +1044,5 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   PLAN_DELETE_TOOL,
   PLAN_LIST_TOOL,
   SEND_EMAIL_TOOL,
+  SPAWN_SUBAGENT_TOOL,
 ];

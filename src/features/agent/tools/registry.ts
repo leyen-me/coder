@@ -29,6 +29,7 @@ import {
   WEB_SEARCH_TOOL_NAME,
   WRITE_FILE_TOOL_NAME,
   GET_WORKSPACE_TREE_TOOL_NAME,
+  SPAWN_SUBAGENT_TOOL_NAME,
 } from "./definitions";
 import { awaitShellHandler } from "./await-shell";
 import { askQuestionHandler } from "./ask-question";
@@ -61,6 +62,7 @@ import { todoWriteHandler } from "./todo-write";
 import { updateSkillHandler } from "./update-skill";
 import { webSearchHandler } from "./web-search";
 import { writeFileHandler } from "./write-file";
+import { spawnSubAgentHandler } from "./spawn-subagent";
 import { ASK_MODE_TOOL_NAMES } from "./ask-tools";
 import { PLAN_MODE_TOOL_NAMES } from "./plan-tools";
 import type {
@@ -101,6 +103,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [PLAN_DELETE_TOOL_NAME]: planDeleteHandler,
   [PLAN_LIST_TOOL_NAME]: planListHandler,
   [SEND_EMAIL_TOOL_NAME]: sendEmailHandler,
+  [SPAWN_SUBAGENT_TOOL_NAME]: spawnSubAgentHandler,
 };
 
 const ASK_MODE_TOOL_NAMES_SET = new Set(ASK_MODE_TOOL_NAMES);

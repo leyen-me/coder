@@ -36,6 +36,8 @@ export {
   GET_WORKSPACE_TREE_TOOL_NAME,
   SEND_EMAIL_TOOL,
   SEND_EMAIL_TOOL_NAME,
+  SPAWN_SUBAGENT_TOOL,
+  SPAWN_SUBAGENT_TOOL_NAME,
 } from "./definitions";
 export { toApiToolCall, toApiToolCalls, type ApiToolCall } from "./api-tool-call";
 export { executeToolCall, getAgentToolDefinitions, getToolHandler } from "./registry";
@@ -74,4 +76,7 @@ export type {
   WebSearchData,
   TavilyConfig,
   ToolExecutionContext,
+  SubAgentInput,
+  SubAgentStep,
+  SubAgentOutput,
 } from "./types";
