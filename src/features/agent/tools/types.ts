@@ -319,6 +319,8 @@ export type SubAgentOutput = {
   toolCalls: number;
   tokensUsed?: number;
   error?: string;
+  /** The final text content produced by the sub-agent. */
+  content?: string;
 };
 
 export type ToolHandler = (

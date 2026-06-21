@@ -56,6 +56,7 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
 
   const subTaskId = `${context.taskId ?? "root"}/sub-${Date.now()}`;
   const steps: SubAgentStep[] = [];
+  let finalContent = "";
   let finalError: string | undefined;
 
   // Build system prompt for the sub-agent
@@ -112,6 +113,9 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
       },
       (event: AgentEvent) => {
         collectSubAgentEvent(event, steps);
+        if (event.type === "content_delta") {
+          finalContent += event.delta;
+        }
       }
     );
   } catch (error: unknown) {
@@ -137,6 +141,7 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
     rounds,
     toolCalls,
     error: finalError,
+    content: finalContent.trim() || undefined,
   };
 
   return toolSuccess(SPAWN_SUBAGENT_TOOL_NAME, output);

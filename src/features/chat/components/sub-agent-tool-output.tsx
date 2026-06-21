@@ -55,16 +55,16 @@ export function SubAgentToolOutput({
     <div className="not-prose my-2 w-full">
       {/* Timeline */}
       <div className="rounded-md border border-border/70 bg-muted/30 p-3">
-        {/* Header */}
+        {/* Header — single line with truncation */}
         <div className="mb-2 flex items-center gap-2 text-xs font-medium text-foreground">
-          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary">
+          <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary">
             sub-agent
           </span>
-          <span className="truncate">{taskLabel}</span>
+          <span className="min-w-0 truncate">{taskLabel}</span>
           {data.error ? (
-            <span className="ml-auto text-destructive">Failed</span>
+            <span className="ml-auto shrink-0 text-destructive">Failed</span>
           ) : (
-            <span className="ml-auto text-muted-foreground">
+            <span className="ml-auto shrink-0 text-muted-foreground">
               {data.steps.length} step{data.steps.length !== 1 ? "s" : ""}
             </span>
           )}
