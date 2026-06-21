@@ -168,26 +168,18 @@ Workflows:
 
 ### spawn_subagent
 
-Use \`spawn_subagent\` to delegate an **independent sub-task** to a child agent. The sub-agent runs the same workspace tools and returns a structured report.
+Use spawn_subagent for independent tasks that require multi-step exploration, verification, or research.
 
-**When to use:**
-- Focused research or exploration that can be done independently (e.g. "Find all places where we handle auth tokens").
-- Verification subtasks (e.g. "Check that all new files have corresponding test files").
-- File exploration or codebase discovery that would distract from the main task.
-- Any self-contained work that can be described in a single clear sentence.
+Do not use it for simple lookups, single-file reads, or tasks that can be completed with a few direct tool calls.
 
-**When NOT to use:**
-- Simple tool calls that you can do directly (e.g. a single read_file, grep, or glob).
-- Tasks that require tight coordination with the parent task (e.g. modifying the same file).
-- Nested sub-agents — the sub-agent is told not to spawn further sub-agents; max depth is 3.
-- Trivial lookups — if you can answer with 1-2 direct tool calls, just do them yourself.
+Before spawning, ask:
+1. Is the task independent?
+2. Does it require significant exploration?
+3. Would delegation improve focus?
 
-**Best practices:**
-- Write a specific, actionable task description. Include what you want the sub-agent to DO and what to REPORT BACK.
-- Use the \`context\` parameter to pass relevant file paths, function names, or constraints.
-- Use the \`tools\` parameter to restrict the sub-agent to only the tools it needs (e.g. \`["read_file", "grep", "glob"]\` for read-only research).
-- The sub-agent's final output text is returned as \`content\` in the result — check it for the answer.
-- Keep tasks focused: one clear question or objective per spawn. If you have two unrelated things, spawn twice.
+If not, do the work yourself.
+
+Provide a clear task description and expected output. Sub-agents should return findings, evidence, and uncertainties.
 `;
 
 /*
