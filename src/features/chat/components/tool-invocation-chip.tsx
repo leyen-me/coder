@@ -85,27 +85,37 @@ export function ToolInvocationChip({
 
   // File diff and shell tools render inline directly in the message.
   if (isFileDiffTool || isShellTool) {
+    const hasContent = Boolean(invocation.output) || Boolean(invocation.errorText);
+
+    if (!hasContent) {
+      return (
+        <div className={cn("not-prose my-2 w-full", className)}>
+          <div className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/40 px-2 py-1 font-mono text-xs text-foreground">
+            <ToolStatusIcon state={invocation.state as ToolUIPart["state"]} />
+            <span>{chipLabel}</span>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className={cn("not-prose my-2 w-full", className)}>
-        {isFileDiffTool && invocation.output ? (
+        {isFileDiffTool ? (
           <FileDiffToolOutput
-            input={invocation.input}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : isShellTool && invocation.output ? (
-          <ShellOutput
+            errorText={invocation.errorText}
             input={invocation.input}
             output={invocation.output}
             toolName={invocation.name}
             state={invocation.state as ToolUIPart["state"]}
           />
         ) : (
-          <div className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/40 px-2 py-1 font-mono text-xs text-foreground">
-            <ToolStatusIcon state={invocation.state as ToolUIPart["state"]} />
-            <span>{chipLabel}</span>
-          </div>
+          <ShellOutput
+            errorText={invocation.errorText}
+            input={invocation.input}
+            output={invocation.output}
+            toolName={invocation.name}
+            state={invocation.state as ToolUIPart["state"]}
+          />
         )}
       </div>
     );

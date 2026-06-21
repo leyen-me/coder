@@ -21,6 +21,7 @@ type ShellOutputProps = {
   input: unknown;
   toolName: string;
   state: ToolUIPart["state"];
+  errorText?: string;
   className?: string;
 };
 
@@ -56,6 +57,7 @@ export function ShellOutput({
   input,
   toolName,
   state,
+  errorText,
   className,
 }: ShellOutputProps) {
   // Live-update state: when a background shell finishes on the Rust side,
@@ -338,6 +340,15 @@ export function ShellOutput({
           </div>
         ) : null}
       </div>
+
+      {/* Error banner */}
+      {errorText ? (
+        <div className="bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
+          <span className="min-w-0 whitespace-pre-wrap break-words">
+            {errorText}
+          </span>
+        </div>
+      ) : null}
 
       {/* Log body */}
       {emptyOutput ? (

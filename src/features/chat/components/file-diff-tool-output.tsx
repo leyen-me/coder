@@ -30,6 +30,7 @@ type FileDiffToolOutputProps = {
   input: unknown;
   toolName: string;
   state: ToolUIPart["state"];
+  errorText?: string;
   className?: string;
 };
 
@@ -232,6 +233,7 @@ export function FileDiffToolOutput({
   input,
   toolName,
   state,
+  errorText,
   className,
 }: FileDiffToolOutputProps) {
   const { resolved } = useTheme();
@@ -250,23 +252,28 @@ export function FileDiffToolOutput({
   const isDark = resolved === "dark";
 
   const diffStyles = useMemo(() => buildDiffStyles(isDark), [isDark]);
+  const isError = state === "output-error" && errorText;
 
   // Decide what to show:
   // - "diff":  old content exists AND differs → inline unified diff
   // - "single": no old content (new file) → just the modified content
   // - "none":  nothing changed and no warning → hidden
-  const showMode: ShowMode = !hasOldContent
-    ? "single"
-    : original !== modified
-      ? "diff"
-      : "none";
+  // - On error: still render the container with the error message
+  const showMode: ShowMode = isError
+    ? "none"
+    : !hasOldContent
+      ? "single"
+      : original !== modified
+        ? "diff"
+        : "none";
 
   const linesAdded = data?.linesAdded ?? 0;
   const linesRemoved = data?.linesRemoved ?? 0;
   const action = data?.action ?? "";
   const warning = data?.warning;
 
-  if (showMode === "none" && !warning) {
+  // Don't hide the component when there's an error to display
+  if (showMode === "none" && !warning && !isError) {
     return null;
   }
 
@@ -323,25 +330,33 @@ export function FileDiffToolOutput({
         </div>
       </div>
 
-      {/* Content area */}
-      <div
-        className={cn(
-          showMode === "single" &&
-            "max-h-80 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent",
-        )}
-      >
-        <ReactDiffViewer
-          oldValue={showMode === "single" ? "" : original}
-          newValue={modified}
-          splitView={false}
-          useDarkTheme={isDark}
-          disableWordDiff={true}
-          showDiffOnly={true}
-          extraLinesSurroundingDiff={3}
-          codeFoldMessageRenderer={() => null}
-          styles={diffStyles}
-        />
-      </div>
+      {/* Content area: show error message or diff */}
+      {isError ? (
+        <div className="flex items-start gap-2 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
+          <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
+            {errorText}
+          </span>
+        </div>
+      ) : (
+        <div
+          className={cn(
+            showMode === "single" &&
+              "max-h-80 overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-track]:bg-transparent",
+          )}
+        >
+          <ReactDiffViewer
+            oldValue={showMode === "single" ? "" : original}
+            newValue={modified}
+            splitView={false}
+            useDarkTheme={isDark}
+            disableWordDiff={true}
+            showDiffOnly={true}
+            extraLinesSurroundingDiff={3}
+            codeFoldMessageRenderer={() => null}
+            styles={diffStyles}
+          />
+        </div>
+      )}
     </div>
   );
 }
