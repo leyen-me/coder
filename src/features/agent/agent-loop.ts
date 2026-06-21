@@ -3,6 +3,7 @@ import {
   getAgentToolDefinitions,
   serializeToolResult,
 } from "./tools";
+import type { ToolResultEnvelope } from "./tools/result";
 import { AgentCancellationError, isAgentCancellationError, throwIfAborted } from "./cancellation";
 import { parseToolCallInput, toolResultToInvocationPatch } from "./tools/tool-display";
 import { toApiToolCalls } from "./tools/api-tool-call";
@@ -409,9 +410,10 @@ async function appendToolResults(
     assistantMessage,
   ];
 
+  // 1. Emit all tool_call_started events synchronously so the UI sees
+  //    every tool immediately, even when they execute in parallel.
   for (const call of turn.toolCalls) {
     throwIfAborted(context.signal, context.taskId);
-
     const toolInput = parseToolCallInput(call.arguments);
     onEvent({
       type: "tool_call_started",
@@ -420,32 +422,64 @@ async function appendToolResults(
       name: call.name,
       input: toolInput,
     });
+  }
 
-    let result;
-    try {
-      result = await executeToolCall(call.name, call.arguments, {
-        workspaceDir: context.workspaceDir,
-        sessionId: context.sessionId,
-        taskId: context.taskId,
-        signal: context.signal,
-        tavilyConfig: context.tavilyConfig,
-        allowPrivateNetworkAccess: context.allowPrivateNetworkAccess,
-        agentMode: context.agentMode,
-        explicitlyAllowedToolNames,
-      });
-    } catch (error) {
-      if (isAgentCancellationError(error)) {
-        onEvent({
-          type: "tool_call_finished",
-          taskId: context.taskId ?? "",
-          toolCallId: call.id,
-          errorText: "Cancelled",
+  // 2. Execute all tools in parallel.
+  //    Wrap each in a safe promise so Promise.all always resolves.
+  //    Errors are collected and the first error is re-thrown after
+  //    every tool settles, ensuring proper cleanup of cancellation events.
+  type SafeResult =
+    | { kind: "ok"; result: ToolResultEnvelope }
+    | { kind: "cancelled" }
+    | { kind: "fail"; error: unknown };
+
+  const results: SafeResult[] = await Promise.all(
+    turn.toolCalls.map(async (call) => {
+      try {
+        const result = await executeToolCall(call.name, call.arguments, {
+          workspaceDir: context.workspaceDir,
+          sessionId: context.sessionId,
+          taskId: context.taskId,
+          signal: context.signal,
+          tavilyConfig: context.tavilyConfig,
+          allowPrivateNetworkAccess: context.allowPrivateNetworkAccess,
+          agentMode: context.agentMode,
+          explicitlyAllowedToolNames,
         });
+        return { kind: "ok", result };
+      } catch (error) {
+        if (isAgentCancellationError(error)) {
+          return { kind: "cancelled" };
+        }
+        return { kind: "fail", error };
       }
-      throw error;
+    })
+  );
+
+  // 3. Process results in order — emit finished events and build message list.
+  let firstError: unknown;
+  for (let i = 0; i < turn.toolCalls.length; i++) {
+    const call = turn.toolCalls[i];
+    const safe = results[i];
+
+    if (safe.kind === "cancelled") {
+      onEvent({
+        type: "tool_call_finished",
+        taskId: context.taskId ?? "",
+        toolCallId: call.id,
+        errorText: "Cancelled",
+      });
+      firstError ??= new AgentCancellationError(context.taskId);
+      continue;
     }
 
-    const patch = toolResultToInvocationPatch(result);
+    if (safe.kind === "fail") {
+      // Non-cancellation error — skip finished event (matches original behavior).
+      firstError ??= safe.error;
+      continue;
+    }
+
+    const patch = toolResultToInvocationPatch(safe.result);
     onEvent({
       type: "tool_call_finished",
       taskId: context.taskId ?? "",
@@ -458,8 +492,13 @@ async function appendToolResults(
       role: "tool",
       tool_call_id: call.id,
       name: call.name,
-      content: serializeToolResult(result),
+      content: serializeToolResult(safe.result),
     });
+  }
+
+  // 4. If any tool failed, propagate the first error.
+  if (firstError) {
+    throw firstError;
   }
 
   return nextMessages;
