@@ -267,6 +267,13 @@ export type ToolExecutionContext = {
   allowPrivateNetworkAccess?: boolean;
   /** Agent mode used to enforce tool permission at execution time. */
   agentMode?: AgentMode;
+  /**
+   * Tool names explicitly provided in this session's tool list.
+   * When set, these tools bypass the agent-mode exclusion check,
+   * allowing callers (e.g. automations) to dynamically grant
+   * tools that are normally restricted in agent mode.
+   */
+  explicitlyAllowedToolNames?: ReadonlySet<string>;
 };
 
 export type ToolHandler = (

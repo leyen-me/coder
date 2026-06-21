@@ -184,8 +184,12 @@ export async function executeToolCall(
     };
   }
 
-  // Enforce mode-based permission at execution time.
-  if (!isToolAllowedInMode(name, context.agentMode)) {
+  // Enforce mode-based permission at execution time,
+  // unless the tool was explicitly provided in this session's tool list.
+  if (
+    !context.explicitlyAllowedToolNames?.has(name) &&
+    !isToolAllowedInMode(name, context.agentMode)
+  ) {
     const modeLabel = context.agentMode ?? "unknown";
     return {
       ok: false,

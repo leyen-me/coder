@@ -48,6 +48,10 @@ export async function runAgentWithTools(
 ): Promise<void> {
   let messages = [...input.messages];
   const tools = input.tools ?? getAgentToolDefinitions(input.agentMode);
+  const explicitlyAllowedToolNames: ReadonlySet<string> | undefined =
+    input.tools
+      ? new Set(tools.map((t) => t.function.name))
+      : undefined;
   const stallDetector = new ToolCallStallDetector();
 
   while (true) {
@@ -175,7 +179,7 @@ export async function runAgentWithTools(
       throw agentToolCallStallError();
     }
 
-    messages = await appendToolResults(messages, turn, context, onEvent);
+    messages = await appendToolResults(messages, turn, context, onEvent, explicitlyAllowedToolNames);
   }
 }
 
@@ -384,7 +388,8 @@ async function appendToolResults(
     reasoningContent: string;
   },
   context: ToolExecutionContextInput,
-  onEvent: AgentEventHandler
+  onEvent: AgentEventHandler,
+  explicitlyAllowedToolNames: ReadonlySet<string> | undefined,
 ): Promise<AgentStartInput["messages"]> {
   throwIfAborted(context.signal, context.taskId);
 
@@ -426,6 +431,7 @@ async function appendToolResults(
         tavilyConfig: context.tavilyConfig,
         allowPrivateNetworkAccess: context.allowPrivateNetworkAccess,
         agentMode: context.agentMode,
+        explicitlyAllowedToolNames,
       });
     } catch (error) {
       if (isAgentCancellationError(error)) {
