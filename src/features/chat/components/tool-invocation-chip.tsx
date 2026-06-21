@@ -323,6 +323,17 @@ export function ToolInvocationChip({
 
   // Sub-agent tools render inline with their own timeline component
   if (isSubAgentTool) {
+    const hasContent = Boolean(invocation.output) || Boolean(invocation.errorText);
+    if (!hasContent) {
+      return (
+        <div className={cn("not-prose my-2 w-full", className)}>
+          <div className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/40 px-2 py-1 font-mono text-xs text-foreground">
+            <ToolStatusIcon state={invocation.state as ToolUIPart["state"]} />
+            <span>{chipLabel}</span>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className={cn("not-prose my-2 w-full", className)}>
         <SubAgentToolOutput

@@ -2,11 +2,20 @@
 
 import {
   CheckCircle2Icon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   LoaderCircleIcon,
   XCircleIcon,
 } from "lucide-react";
+import { useState } from "react";
 
 import { extractSubAgentOutput } from "@/features/agent/tools/spawn-subagent-display";
+
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 import type { SubAgentStep } from "@/features/agent/tools/types";
 
@@ -22,6 +31,7 @@ export function SubAgentToolOutput({
   errorText,
 }: SubAgentToolOutputProps) {
   const data = extractSubAgentOutput(output);
+  const [collapsed, setCollapsed] = useState(false);
 
   if (!data && !errorText) {
     return null;
@@ -53,47 +63,58 @@ export function SubAgentToolOutput({
 
   return (
     <div className="not-prose my-2 w-full">
-      {/* Timeline */}
-      <div className="rounded-md border border-border/70 bg-muted/30 p-3">
-        {/* Header — single line with truncation */}
-        <div className="mb-2 flex items-center gap-2 text-xs font-medium text-foreground">
-          <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary">
-            sub-agent
-          </span>
-          <span className="min-w-0 truncate">{taskLabel}</span>
-          {data.error ? (
-            <span className="ml-auto shrink-0 text-destructive">Failed</span>
-          ) : (
-            <span className="ml-auto shrink-0 text-muted-foreground">
-              {data.steps.length} step{data.steps.length !== 1 ? "s" : ""}
-            </span>
-          )}
-        </div>
-
-        {/* Step Timeline */}
-        <div className="space-y-1">
-          {data.steps.length === 0 && !data.error ? (
-            <div className="py-2 text-xs text-muted-foreground">
-              No steps recorded.
-            </div>
-          ) : null}
-          {data.steps.map((step, index) => (
-            <TimelineStep key={index} step={step} />
-          ))}
-        </div>
-
-        {/* Summary Card */}
-        {data.summary || data.error ? (
-          <div className="mt-3 rounded-sm border border-border/50 bg-background/50 p-2 text-xs text-foreground/80">
-            <span className="font-medium text-foreground">Summary: </span>
-            {data.error ? (
-              <span className="text-destructive">{data.error}</span>
+      <Collapsible
+        open={!collapsed}
+        onOpenChange={(open) => setCollapsed(!open)}
+        className="rounded-md border border-border/70 bg-muted/30"
+      >
+        {/* Header — single line with truncation, clickable to toggle */}
+        <CollapsibleTrigger asChild>
+          <div className="flex cursor-pointer select-none items-center gap-2 px-3 pb-2 pt-3 text-xs font-medium text-foreground">
+            {collapsed ? (
+              <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground" />
             ) : (
-              data.summary
+              <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            )}
+            <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary">
+              sub-agent
+            </span>
+            <span className="min-w-0 truncate">{taskLabel}</span>
+            {data.error ? (
+              <span className="ml-auto shrink-0 text-destructive">Failed</span>
+            ) : (
+              <span className="ml-auto shrink-0 text-muted-foreground">
+                {data.steps.length} step{data.steps.length !== 1 ? "s" : ""}
+              </span>
             )}
           </div>
-        ) : null}
-      </div>
+        </CollapsibleTrigger>
+
+        <CollapsibleContent className="data-[slot=collapsible-content]:overflow-visible">
+          <div className="space-y-1 px-3 pb-3">
+            {data.steps.length === 0 && !data.error ? (
+              <div className="py-2 text-xs text-muted-foreground">
+                No steps recorded.
+              </div>
+            ) : null}
+            {data.steps.map((step, index) => (
+              <TimelineStep key={index} step={step} />
+            ))}
+
+            {/* Summary Card */}
+            {data.summary || data.error ? (
+              <div className="mt-3 rounded-sm border border-border/50 bg-background/50 p-2 text-xs text-foreground/80">
+                <span className="font-medium text-foreground">Summary: </span>
+                {data.error ? (
+                  <span className="text-destructive">{data.error}</span>
+                ) : (
+                  data.summary
+                )}
+              </div>
+            ) : null}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }
