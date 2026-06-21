@@ -156,7 +156,7 @@ Do not repeat the same failing action without learning from the failure.
 You have 5 shell tools. Use them together:
 
 - **shell** — run a command. Set \`block_until_ms=0\` for background mode; returns a \`shell_id\`.
-- **await** — wait for a background shell to finish. Pass the \`shell_id\` from shell.
+- **await** — poll a background shell to completion. Pass the \`shell_id\` from shell.
 - **list_shells** — list active shells. Default shows running only; use \`status_filter="all"\` to see all states.
 - **read_shell_logs** — read stdout/stderr from any shell. Paginate with \`offset\` and \`limit\`.
 - **kill_shell** — kill a running shell by \`shell_id\`. Cannot kill human terminals.
@@ -165,6 +165,29 @@ Workflows:
 1. **background + await**: \`shell(cmd, {block_until_ms: 0})\` → do other work → \`await({shell_id})\`
 2. **monitor progress**: \`shell(background)\` → \`read_shell_logs\` to peek → \`await\` when done
 3. **clean up**: \`list_shells({status_filter: "all"})\` → \`read_shell_logs\` → \`kill_shell\` if stuck
+
+### spawn_subagent
+
+Use \`spawn_subagent\` to delegate an **independent sub-task** to a child agent. The sub-agent runs the same workspace tools and returns a structured report.
+
+**When to use:**
+- Focused research or exploration that can be done independently (e.g. "Find all places where we handle auth tokens").
+- Verification subtasks (e.g. "Check that all new files have corresponding test files").
+- File exploration or codebase discovery that would distract from the main task.
+- Any self-contained work that can be described in a single clear sentence.
+
+**When NOT to use:**
+- Simple tool calls that you can do directly (e.g. a single read_file, grep, or glob).
+- Tasks that require tight coordination with the parent task (e.g. modifying the same file).
+- Nested sub-agents — the sub-agent is told not to spawn further sub-agents; max depth is 3.
+- Trivial lookups — if you can answer with 1-2 direct tool calls, just do them yourself.
+
+**Best practices:**
+- Write a specific, actionable task description. Include what you want the sub-agent to DO and what to REPORT BACK.
+- Use the \`context\` parameter to pass relevant file paths, function names, or constraints.
+- Use the \`tools\` parameter to restrict the sub-agent to only the tools it needs (e.g. \`["read_file", "grep", "glob"]\` for read-only research).
+- The sub-agent's final output text is returned as \`content\` in the result — check it for the answer.
+- Keep tasks focused: one clear question or objective per spawn. If you have two unrelated things, spawn twice.
 `;
 
 /*
