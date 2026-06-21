@@ -110,7 +110,7 @@ function resolveFilePath(output: unknown, input: unknown): string {
   return "file.txt";
 }
 
-type ShowMode = "diff" | "single" | "none";
+type ShowMode = "diff" | "single" | "none" | "summary";
 
 /**
  * Builds the theme-aware `styles.variables` object for ReactDiffViewer.
@@ -255,9 +255,9 @@ export function FileDiffToolOutput({
   const isError = state === "output-error" && errorText;
 
   // Decide what to show:
-  // - "diff":  old content exists AND differs → inline unified diff
-  // - "single": no old content (new file) → just the modified content
-  // - "none":  nothing changed and no warning → hidden
+  // - \"diff\":  old content exists AND differs → inline unified diff
+  // - \"single\": no old content (new file) → just the modified content
+  // - \"summary\":  reconstruction failed or no change detected → show header + stats only
   // - On error: still render the container with the error message
   const showMode: ShowMode = isError
     ? "none"
@@ -265,17 +265,12 @@ export function FileDiffToolOutput({
       ? "single"
       : original !== modified
         ? "diff"
-        : "none";
+        : "summary";
 
   const linesAdded = data?.linesAdded ?? 0;
   const linesRemoved = data?.linesRemoved ?? 0;
   const action = data?.action ?? "";
   const warning = data?.warning;
-
-  // Don't hide the component when there's an error to display
-  if (showMode === "none" && !warning && !isError) {
-    return null;
-  }
 
   return (
     <div className={cn("w-full overflow-hidden rounded-md border", className)}>
@@ -330,12 +325,18 @@ export function FileDiffToolOutput({
         </div>
       </div>
 
-      {/* Content area: show error message or diff */}
+      {/* Content area: show error message, summary placeholder, or diff */}
       {isError ? (
         <div className="flex items-start gap-2 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
           <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
             {errorText}
           </span>
+        </div>
+      ) : showMode === "summary" ? (
+        <div className="flex items-center gap-2 px-3 py-2 text-muted-foreground text-xs">
+          {linesAdded > 0 || linesRemoved > 0
+            ? "File modified"
+            : "No changes detected"}
         </div>
       ) : (
         <div
