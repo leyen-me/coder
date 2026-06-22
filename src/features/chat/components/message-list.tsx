@@ -31,6 +31,7 @@ type MessageListProps = {
 const NEAR_BOTTOM_THRESHOLD_PX = 80;
 const ESTIMATED_MESSAGE_HEIGHT_PX = 220;
 const MESSAGE_OVERSCAN = 4;
+const ESTIMATED_ITEM_SIZE = () => ESTIMATED_MESSAGE_HEIGHT_PX;
 
 function getScrollViewport(container: HTMLElement): HTMLElement | null {
   const viewport = container.querySelector('[data-slot="scroll-area-viewport"]');
@@ -64,25 +65,38 @@ export function MessageList({
   const isStreamingRef = useRef(false);
   const scrollRafRef = useRef<number | null>(null);
   const sessionId = messages[0]?.sessionId;
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const scrollViewportRef = useRef(scrollViewport);
+  scrollViewportRef.current = scrollViewport;
+
+  // Stable callbacks for useVirtualizer options — avoids re-creation on every render.
+  const getItemKey = useCallback(
+    (index: number) => messagesRef.current[index]?.id ?? index,
+    []
+  );
+  const getScrollElement = useCallback(() => scrollViewportRef.current, []);
+
   const rowVirtualizer = useVirtualizer({
     count: messages.length,
-    estimateSize: () => ESTIMATED_MESSAGE_HEIGHT_PX,
-    getItemKey: (index) => messages[index]?.id ?? index,
-    getScrollElement: () => scrollViewport,
+    estimateSize: ESTIMATED_ITEM_SIZE,
+    getItemKey,
+    getScrollElement,
     overscan: MESSAGE_OVERSCAN,
   });
+
   const scrollToBottom = useCallback(
     (smooth: boolean) => {
-      if (messages.length === 0) {
+      if (messagesRef.current.length === 0) {
         return;
       }
 
-      rowVirtualizer.scrollToIndex(messages.length - 1, {
+      rowVirtualizer.scrollToIndex(messagesRef.current.length - 1, {
         align: "end",
         behavior: smooth ? "smooth" : "auto",
       });
     },
-    [messages.length, rowVirtualizer]
+    [rowVirtualizer]
   );
   const handoffContinuedSessionId = useMemo(
     () =>
@@ -183,14 +197,6 @@ export function MessageList({
     };
   }, [messages, scrollToBottom, streamingMessageIds]);
 
-  useEffect(() => {
-    if (!scrollViewport) {
-      return;
-    }
-
-    rowVirtualizer.measure();
-  }, [messages.length, rowVirtualizer, scrollViewport]);
-
   // Listen for custom DOM event dispatched from the title bar.
   useEffect(() => {
     const handler = () => {
@@ -207,7 +213,7 @@ export function MessageList({
 
   return (
     <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-hidden">
-      <ScrollArea className="h-full px-4 py-6">
+      <ScrollArea className="h-full px-4 py-6 [&_[data-slot=scroll-area-viewport]]:[will-change:transform]">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
           {systemPrompt ? (
             <SystemPromptBlock
@@ -235,20 +241,16 @@ export function MessageList({
 
                 return (
                   <div
-                    className="[contain-intrinsic-size:480px] [content-visibility:auto]"
                     data-index={index}
                     key={virtualItem.key}
-                    ref={(node) => {
-                      if (node) {
-                        rowVirtualizer.measureElement(node);
-                      }
-                    }}
+                    ref={rowVirtualizer.measureElement}
                     style={{
                       left: 0,
                       position: "absolute",
                       top: 0,
-                      transform: `translateY(${virtualItem.start}px)`,
+                      transform: `translateY(${virtualItem.start}px) translateZ(0)`,
                       width: "100%",
+                      willChange: "transform",
                     }}
                   >
                     <div

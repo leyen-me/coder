@@ -39,7 +39,7 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
   const groups = groupAssistantProcessSteps(steps);
 
   return (
-    <div className="flex w-full flex-col gap-3 [contain-intrinsic-size:360px] [content-visibility:auto]">
+    <div className="flex w-full flex-col gap-3">
       {groups.map((group) => {
         if (group.kind === "tools") {
           const askQuestionInvocations = group.invocations.filter(
@@ -50,10 +50,7 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
           );
 
           return (
-            <div
-              className="flex flex-col gap-3 [contain-intrinsic-size:240px] [content-visibility:auto]"
-              key={group.id}
-            >
+            <div className="flex flex-col gap-3" key={group.id}>
               {standardInvocations.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {standardInvocations.map((invocation) => (
