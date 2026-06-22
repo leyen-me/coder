@@ -1106,6 +1106,15 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         });
       }
 
+      // Persist the selected model on the session so the model choice
+      // survives session reload (fixes edit/regenerate model mismatch).
+      updateSession(input.sessionId, {
+        model: input.model,
+        provider: inferProviderFromModel(null, input.model),
+      }).catch(() => {
+        // best-effort
+      });
+
       // Set session title synchronously from user message on first turn,
       // then fire-and-forget an LLM refinement
       if (isFirstTurn) {
@@ -1235,6 +1244,16 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const session = await ensureSessionWorkspaceForAgent(input.sessionId);
       const workspaceDir = session.workspaceDir?.trim() || null;
       const sessionPolicy = resolveAgentSessionPolicy(session);
+
+      // Persist the selected model on the session so the model choice
+      // survives session reload (fixes edit/regenerate model mismatch).
+      updateSession(input.sessionId, {
+        model: input.model,
+        provider: inferProviderFromModel(null, input.model),
+      }).catch(() => {
+        // best-effort
+      });
+
       const sessionResolved = resolveProviderForModel(input.model) ?? resolved;
       const historyMessages = await getMessagesBySession(input.sessionId);
       const environment = await resolveAgentEnvironment(workspaceDir);
