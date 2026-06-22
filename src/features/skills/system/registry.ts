@@ -169,6 +169,8 @@ Workflows:
 2. **monitor progress**: \`shell(background)\` → \`read_shell_logs\` to peek → \`await\` when done
 3. **clean up**: \`list_shells({status_filter: "all"})\` → \`read_shell_logs\` → \`kill_shell\` if stuck
 
+**Remote target limitation:** When using \`shell(target: "<alias>")\`, background mode does NOT return a usable \`shell_id\`, so companion tools (\`await\`, \`list_shells\`, \`kill_shell\`, \`read_shell_logs\`) are not supported. Only blocking mode works for remote commands.
+
 ### spawn_subagent
 
 Use spawn_subagent for independent tasks that require multi-step exploration, verification, or research.
