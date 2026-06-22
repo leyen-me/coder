@@ -142,7 +142,7 @@ export const AssistantProcessCollapsible = memo(
 
         {/* Unmount interior content when collapsed — saves DOM nodes for long conversations */}
         {isOpen && hasInteriorContent ? (
-          <div className="mt-4">
+          <div className="mt-4 border-l-2 border-muted pl-4">
             <AssistantProcessView steps={interiorSteps} taskId={taskId} />
           </div>
         ) : null}
