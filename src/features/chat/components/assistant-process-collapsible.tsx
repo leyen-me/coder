@@ -2,7 +2,6 @@
 
 import {
   Collapsible,
-  CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { BotIcon, ChevronDownIcon } from "lucide-react";
@@ -121,12 +120,12 @@ export const AssistantProcessCollapsible = memo(
 
     return (
       <Collapsible
-        className="not-prose w-full overflow-hidden"
+        className="not-prose w-full"
         onOpenChange={handleOpenChange}
         open={isOpen}
       >
         <CollapsibleTrigger
-          className="flex w-full items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+          className="flex w-full items-center gap-2 text-left text-sm text-muted-foreground transition-colors hover:text-foreground"
           aria-label={
             isOpen ? t("chat.queueCollapse") : t("chat.queueExpand")
           }
@@ -143,20 +142,15 @@ export const AssistantProcessCollapsible = memo(
 
         {/* Unmount interior content when collapsed — saves DOM nodes for long conversations */}
         {isOpen && hasInteriorContent ? (
-          <CollapsibleContent
-            className={cn(
-              "mt-2 rounded-lg border bg-muted/15 p-4",
-              "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 outline-none data-[state=closed]:animate-out data-[state=open]:animate-in"
-            )}
-          >
+          <div className="mt-4">
             <AssistantProcessView steps={interiorSteps} taskId={taskId} />
-          </CollapsibleContent>
+          </div>
         ) : null}
 
         {/* Final answer outside the collapsible — only rendered after the
             turn finishes, so the panel has already auto-closed by then. */}
         {!isStreaming && answerText ? (
-          <div className="mt-3">
+          <div className="mt-4">
             <AssistantProcessView
               steps={[
                 {
