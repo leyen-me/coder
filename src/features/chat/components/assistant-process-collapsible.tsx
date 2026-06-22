@@ -85,6 +85,15 @@ export const AssistantProcessCollapsible = memo(
       [steps]
     );
 
+    // Strip answer steps from the internal process view — the answer is
+    // always rendered outside the collapsible so it stays visible even
+    // when the panel is collapsed.
+    const interiorSteps = useMemo(
+      () => steps.filter((s) => s.kind !== "answer"),
+      [steps]
+    );
+    const hasInteriorContent = interiorSteps.length > 0;
+
     const triggerLabel = useMemo(() => {
       if (isStreaming) {
         return t("chat.thinkingInProgress");
@@ -132,19 +141,20 @@ export const AssistantProcessCollapsible = memo(
           />
         </CollapsibleTrigger>
 
-        {/* Unmount content when collapsed — saves DOM nodes for long conversations */}
-        {isOpen ? (
+        {/* Unmount interior content when collapsed — saves DOM nodes for long conversations */}
+        {isOpen && hasInteriorContent ? (
           <CollapsibleContent
             className={cn(
               "mt-2 rounded-lg border bg-muted/15 p-4",
               "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 outline-none data-[state=closed]:animate-out data-[state=open]:animate-in"
             )}
           >
-            <AssistantProcessView steps={steps} taskId={taskId} />
+            <AssistantProcessView steps={interiorSteps} taskId={taskId} />
           </CollapsibleContent>
         ) : null}
 
-        {/* Final answer is always visible outside the collapsible */}
+        {/* Final answer is always outside the collapsible — visible whether
+            the panel is open or collapsed. */}
         {answerText ? (
           <div className="mt-3">
             <AssistantProcessView
