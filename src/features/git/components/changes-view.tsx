@@ -295,7 +295,7 @@ export function ChangesView() {
         <AlertDialogContent size="sm">
           <AlertDialogHeader>
             <AlertDialogTitle>{t("git.discardConfirmTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>{discardDescription}</AlertDialogDescription>
+            <AlertDialogDescription className="break-words">{discardDescription}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDiscarding}>{t("git.cancel")}</AlertDialogCancel>
