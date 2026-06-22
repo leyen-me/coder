@@ -4,13 +4,8 @@ import { Plus, Trash2, Play } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { PasswordInput } from "@/components/ui/password-input";
+import { SettingSelect } from "./setting-select";
 import {
   Dialog,
   DialogContent,
@@ -336,11 +331,13 @@ export function RemoteTargetsSettingsPanel() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="auth-type">
-                  {t("settings.remoteTargets.authTypeLabel")}
-                </Label>
-                <Select
+                <Label>{t("settings.remoteTargets.authTypeLabel")}</Label>
+                <SettingSelect
                   value={editing.auth.type}
+                  options={AUTH_OPTIONS.map((opt) => ({
+                    value: opt,
+                    label: authTypeLabel(t as (key: string) => string, opt),
+                  }))}
                   onValueChange={(value: AuthType) => {
                     const newAuth: RemoteTargetAuth =
                       value === "agent"
@@ -352,18 +349,8 @@ export function RemoteTargetsSettingsPanel() {
                             : { type: "password", password: "" };
                     setEditing({ ...editing, auth: newAuth });
                   }}
-                >
-                  <SelectTrigger id="auth-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AUTH_OPTIONS.map((opt) => (
-                      <SelectItem key={opt} value={opt}>
-                        {authTypeLabel(t as (key: string) => string, opt)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  aria-label={t("settings.remoteTargets.authTypeLabel")}
+                />
               </div>
 
               {(editing.auth.type === "key" ||
@@ -377,26 +364,45 @@ export function RemoteTargetsSettingsPanel() {
                         ? t("settings.remoteTargets.keyPathLabel")
                         : t("settings.remoteTargets.keyContentLabel")}
                   </Label>
-                  <Input
-                    id="auth-value"
-                    type={
-                      editing.auth.type === "password" ? "password" : "text"
-                    }
-                    value={authValueForType(editing.auth)}
-                    onChange={(e) =>
-                      setEditing({
-                        ...editing,
-                        auth: setAuthValue(editing.auth, e.target.value),
-                      })
-                    }
-                    placeholder={
-                      editing.auth.type === "password"
-                        ? t("settings.remoteTargets.passwordPlaceholder")
-                        : editing.auth.type === "key"
+                  {editing.auth.type === "password" ? (
+                    <PasswordInput
+                      id="auth-value"
+                      value={authValueForType(editing.auth)}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          auth: setAuthValue(editing.auth, e.target.value),
+                        })
+                      }
+                      placeholder={t(
+                        "settings.remoteTargets.passwordPlaceholder"
+                      )}
+                      showPasswordLabel={t(
+                        "settings.remoteTargets.passwordShowAriaLabel"
+                      )}
+                      hidePasswordLabel={t(
+                        "settings.remoteTargets.passwordHideAriaLabel"
+                      )}
+                    />
+                  ) : (
+                    <Input
+                      id="auth-value"
+                      value={authValueForType(editing.auth)}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          auth: setAuthValue(editing.auth, e.target.value),
+                        })
+                      }
+                      placeholder={
+                        editing.auth.type === "key"
                           ? t("settings.remoteTargets.keyPathPlaceholder")
-                          : t("settings.remoteTargets.keyContentPlaceholder")
-                    }
-                  />
+                          : t(
+                              "settings.remoteTargets.keyContentPlaceholder"
+                            )
+                      }
+                    />
+                  )}
                 </div>
               )}
             </div>

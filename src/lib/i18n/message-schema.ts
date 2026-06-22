@@ -483,6 +483,8 @@ export type Messages = {
       };
       passwordLabel: string;
       passwordPlaceholder: string;
+      passwordShowAriaLabel: string;
+      passwordHideAriaLabel: string;
       keyPathLabel: string;
       keyPathPlaceholder: string;
       keyContentLabel: string;

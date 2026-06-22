@@ -575,6 +575,8 @@ export const enMessages = {
       },
       passwordLabel: "Password",
       passwordPlaceholder: "Enter password",
+      passwordShowAriaLabel: "Show password",
+      passwordHideAriaLabel: "Hide password",
       keyPathLabel: "Key file path",
       keyPathPlaceholder: "/home/user/.ssh/id_rsa",
       keyContentLabel: "Private key content",

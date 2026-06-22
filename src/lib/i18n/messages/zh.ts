@@ -562,6 +562,8 @@ export const zhMessages = {
       },
       passwordLabel: "密码",
       passwordPlaceholder: "输入密码",
+      passwordShowAriaLabel: "显示密码",
+      passwordHideAriaLabel: "隐藏密码",
       keyPathLabel: "密钥文件路径",
       keyPathPlaceholder: "/home/user/.ssh/id_rsa",
       keyContentLabel: "私钥内容",
