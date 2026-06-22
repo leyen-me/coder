@@ -218,6 +218,9 @@ export const zhMessages = {
     proxyContinuationLoading: "决策代理中",
     proxyContinuationHoverTitle: "代理决策详情",
     proxyContinuationNoDetails: "无可用决策详情。",
+    agentProcess: "Agent 过程",
+    agentToolCalls: "{count} 次工具调用",
+    agentProcessSeconds: "{duration}秒",
   },
   time: {
     justNow: "刚刚",

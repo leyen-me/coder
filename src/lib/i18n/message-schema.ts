@@ -208,6 +208,9 @@ export type Messages = {
     proxyContinuationLoading: string;
     proxyContinuationHoverTitle: string;
     proxyContinuationNoDetails: string;
+    agentProcess: string;
+    agentToolCalls: string;
+    agentProcessSeconds: string;
   };
   time: {
     justNow: string;

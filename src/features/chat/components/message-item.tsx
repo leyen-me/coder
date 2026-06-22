@@ -3,7 +3,6 @@ import {
   AttachmentPreview,
   Attachments,
 } from "@/components/ai-elements/attachments";
-import { AssistantProcessView } from "./assistant-process-view";
 import {
   Message,
   MessageAction,
@@ -34,6 +33,7 @@ import {
   shouldRenderStandaloneAssistantAnswer,
   shouldShowAssistantProcessTimeline,
 } from "./assistant-process";
+import { AssistantProcessCollapsible } from "./assistant-process-collapsible";
 import { StreamingMessageContent } from "./streaming-message-content";
 import { HandoffContinuationMessage } from "./handoff-continuation-message";
 import { HandoffSourceMessage } from "./handoff-source-message";
@@ -368,9 +368,13 @@ export const MessageItem = memo(function MessageItem({
   return (
     <Message from="assistant">
       {showProcessTimeline ? (
-        <AssistantProcessView steps={timelineSteps} taskId={message.taskId} />
-      ) : null}
-      {answerText && showStandaloneAnswer ? (
+        <AssistantProcessCollapsible
+          steps={timelineSteps}
+          taskId={message.taskId}
+          isStreaming={isStreaming}
+          answerText={answerText}
+        />
+      ) : answerText && showStandaloneAnswer ? (
         <StreamingMessageContent text={answerText} />
       ) : null}
       {showActions ? (

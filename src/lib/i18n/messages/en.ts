@@ -228,6 +228,9 @@ export const enMessages = {
     proxyContinuationLoading: "Making a proxy decision…",
     proxyContinuationHoverTitle: "Proxy agent decision details",
     proxyContinuationNoDetails: "No decision details available.",
+    agentProcess: "Agent process",
+    agentToolCalls: "{count} tool calls",
+    agentProcessSeconds: "{duration}s",
   },
   time: {
     justNow: "Just now",
