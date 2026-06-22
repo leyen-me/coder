@@ -27,8 +27,6 @@ import type { BundledLanguage } from "shiki";
 type MarkdownRendererProps = {
   children: string;
   className?: string;
-  animated?: boolean;
-  isAnimating?: boolean;
 };
 
 type CodeElementProps = {
@@ -311,7 +309,6 @@ const markdownComponents: Components = {
 export const MarkdownRenderer = memo(function MarkdownRenderer({
   children,
   className,
-  isAnimating = false,
 }: MarkdownRendererProps) {
   const content = useMemo(() => children, [children]);
   const hasMath = useMemo(() => /\$\$?/.test(content), [content]);
@@ -339,19 +336,6 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
 
   if (!content.trim()) {
     return null;
-  }
-
-  if (isAnimating) {
-    return (
-      <div
-        className={cn(
-          "size-full whitespace-pre-wrap wrap-break-word text-sm leading-7",
-          className
-        )}
-      >
-        {content}
-      </div>
-    );
   }
 
   return (

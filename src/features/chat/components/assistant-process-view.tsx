@@ -86,7 +86,6 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
         if (group.kind === "answer") {
           return (
             <StreamingMessageContent
-              isStreaming={group.isStreaming}
               key={group.id}
               text={group.text}
             />

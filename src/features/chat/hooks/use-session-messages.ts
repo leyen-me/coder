@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useStreamingMessageOverlays } from "@/features/agent/store/agent-store";
+import type { StreamingFields } from "@/features/agent/streaming-buffer";
 import {
   getMessagesBySession,
   getSession,
@@ -201,11 +202,49 @@ export function useSessionData(sessionId: string) {
 export function useDisplayMessages(messages: MessageRecord[]) {
   const streamingOverlays = useStreamingMessageOverlays();
   const messageIndexById = useMemo(() => buildMessageIndexById(messages), [messages]);
+  // Cache the last known overlay content per message. When an overlay is removed
+  // but the DB content is still stale (async refresh in flight), continue using
+  // the cached value so the UI doesn't flash empty content.
+  const cachedOverlaysRef = useRef(new Map<string, StreamingFields>());
 
-  return useMemo(
-    () => applyStreamingOverlays(messages, streamingOverlays, messageIndexById),
-    [messages, messageIndexById, streamingOverlays]
-  );
+  return useMemo(() => {
+    const applied = applyStreamingOverlays(messages, streamingOverlays, messageIndexById);
+
+    // Update cache with active overlay values.
+    for (const [messageId, overlay] of streamingOverlays) {
+      cachedOverlaysRef.current.set(messageId, overlay);
+    }
+
+    // For messages that lost their overlay but still have empty/stale content
+    // in the DB, fall back to the cached overlay until the DB catches up.
+    for (const [messageId, cached] of cachedOverlaysRef.current) {
+      if (streamingOverlays.has(messageId)) {
+        continue; // overlay is still active
+      }
+
+      const messageIndex = messageIndexById.get(messageId);
+      if (messageIndex === undefined) {
+        cachedOverlaysRef.current.delete(messageId);
+        continue; // message no longer in the list
+      }
+
+      const message = messages[messageIndex];
+      if (
+        message.content === cached.content &&
+        message.thinking === cached.thinking
+      ) {
+        cachedOverlaysRef.current.delete(messageId);
+        continue; // DB has caught up, drop the cache
+      }
+
+      // DB is still stale — apply cached overlay
+      const nextMessages = applied === messages ? messages.slice() : applied;
+      nextMessages[messageIndex] = { ...message, ...cached };
+      return nextMessages;
+    }
+
+    return applied;
+  }, [messages, messageIndexById, streamingOverlays]);
 }
 
 /** @deprecated Prefer `useSessionData` + `useDisplayMessages` for narrower subscriptions. */

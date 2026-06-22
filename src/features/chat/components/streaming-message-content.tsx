@@ -4,13 +4,11 @@ import { memo } from "react";
 
 type StreamingMessageContentProps = {
   text: string;
-  isStreaming: boolean;
   className?: string;
 };
 
 export const StreamingMessageContent = memo(function StreamingMessageContent({
   text,
-  isStreaming,
   className,
 }: StreamingMessageContentProps) {
   return (
@@ -20,24 +18,22 @@ export const StreamingMessageContent = memo(function StreamingMessageContent({
         className
       )}
     >
-      <MessageResponse isAnimating={isStreaming}>{text}</MessageResponse>
+      <MessageResponse>{text}</MessageResponse>
     </MessageContent>
   );
 });
 
 type StreamingPlainTextProps = {
   text: string;
-  isStreaming: boolean;
   className?: string;
 };
 
 export const StreamingPlainText = memo(function StreamingPlainText({
   text,
-  isStreaming,
   className,
 }: StreamingPlainTextProps) {
   return (
-    <MessageResponse className={className} isAnimating={isStreaming}>
+    <MessageResponse className={className}>
       {text}
     </MessageResponse>
   );

@@ -371,7 +371,7 @@ export const MessageItem = memo(function MessageItem({
         <AssistantProcessView steps={timelineSteps} taskId={message.taskId} />
       ) : null}
       {answerText && showStandaloneAnswer ? (
-        <StreamingMessageContent isStreaming={isStreaming} text={answerText} />
+        <StreamingMessageContent text={answerText} />
       ) : null}
       {showActions ? (
         <MessageActions className="mt-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">

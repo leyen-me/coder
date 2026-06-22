@@ -116,7 +116,6 @@ function ThinkingNarrative({ segments, isStreaming }: ThinkingNarrativeProps) {
 
         return (
           <StreamingPlainText
-            isStreaming={isStreaming}
             key={`text:${index}`}
             text={group.text}
           />
