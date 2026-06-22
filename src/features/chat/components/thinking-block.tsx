@@ -1,15 +1,8 @@
 "use client";
 
-import {
-  Reasoning,
-  ReasoningTrigger,
-} from "@/components/ai-elements/reasoning";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { CollapsibleContent } from "@/components/ui/collapsible";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import type { MessageToolInvocation } from "@/lib/db";
-import { cn } from "@/lib/utils";
-import { useCallback } from "react";
 
 import { StreamingPlainText } from "./streaming-message-content";
 import { ToolInvocationChip } from "./tool-invocation-chip";
@@ -34,49 +27,6 @@ export function ThinkingBlock({
   isStreaming,
 }: ThinkingBlockProps) {
   const { t } = useTranslation();
-
-  const getThinkingMessage = useCallback(
-    (streaming: boolean, duration?: number) => {
-      if (streaming || duration === 0) {
-        return <Shimmer duration={1}>{t("chat.thinkingInProgress")}</Shimmer>;
-      }
-      if (duration === undefined) {
-        return <p>{t("chat.thinking")}</p>;
-      }
-      return <p>{t("chat.thoughtForSeconds", { duration })}</p>;
-    },
-    [t]
-  );
-
-  const narrative = (
-    <ThinkingNarrative
-      isStreaming={isStreaming}
-      segments={segments}
-    />
-  );
-
-  return (
-    <Reasoning className="mb-0 w-full" isStreaming={isStreaming}>
-      <ReasoningTrigger getThinkingMessage={getThinkingMessage} />
-      <CollapsibleContent
-        className={cn(
-          "mt-4 text-sm",
-          "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-muted-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in"
-        )}
-      >
-        {narrative}
-      </CollapsibleContent>
-    </Reasoning>
-  );
-}
-
-type ThinkingNarrativeProps = {
-  segments: ThinkingSegment[];
-  isStreaming: boolean;
-};
-
-function ThinkingNarrative({ segments, isStreaming }: ThinkingNarrativeProps) {
-  const { t } = useTranslation();
   const hasVisibleContent = segments.some(
     (segment) =>
       segment.kind === "tool" ||
@@ -84,15 +34,23 @@ function ThinkingNarrative({ segments, isStreaming }: ThinkingNarrativeProps) {
   );
 
   if (!hasVisibleContent && isStreaming) {
-    return <Shimmer duration={1}>{t("chat.thinkingInProgress")}</Shimmer>;
+    return (
+      <div className="text-muted-foreground text-sm">
+        <Shimmer duration={1}>{t("chat.thinkingInProgress")}</Shimmer>
+      </div>
+    );
   }
 
   if (!hasVisibleContent) {
-    return <p>{t("chat.thinkingPlaceholder")}</p>;
+    return (
+      <p className="text-muted-foreground text-sm">
+        {t("chat.thinkingPlaceholder")}
+      </p>
+    );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 text-muted-foreground text-sm">
       {groupThinkingSegments(segments).map((group, index) => {
         if (group.kind === "tools") {
           return (
@@ -118,6 +76,7 @@ function ThinkingNarrative({ segments, isStreaming }: ThinkingNarrativeProps) {
           <StreamingPlainText
             key={`text:${index}`}
             text={group.text}
+            className="text-muted-foreground"
           />
         );
       })}
