@@ -21,6 +21,8 @@ type AssistantProcessCollapsibleProps = {
   answerText: string;
   isStreaming: boolean;
   taskId?: string | null;
+  /** Persisted duration from the message record (ms). Available on re-open. */
+  durationMs?: number;
 };
 
 export const AssistantProcessCollapsible = memo(
@@ -29,6 +31,7 @@ export const AssistantProcessCollapsible = memo(
     answerText,
     isStreaming,
     taskId,
+    durationMs: persistedDurationMs,
   }: AssistantProcessCollapsibleProps) {
     const { t } = useTranslation();
 
@@ -39,7 +42,13 @@ export const AssistantProcessCollapsible = memo(
 
     // -- duration tracking --
     const startTimeRef = useRef<number | null>(null);
-    const [duration, setDuration] = useState<number | undefined>(undefined);
+    // Use the persisted duration when available (historical view), otherwise
+    // compute in-memory during live streaming.
+    const [duration, setDuration] = useState<number | undefined>(
+      persistedDurationMs !== undefined
+        ? Math.ceil(persistedDurationMs / MS_IN_S)
+        : undefined
+    );
 
     // Track streaming lifecycle
     useEffect(() => {

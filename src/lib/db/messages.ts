@@ -74,6 +74,7 @@ export async function updateMessage(
       | "images"
       | "referencedSkills"
       | "messageKind"
+      | "durationMs"
     >
   >,
   options: UpdateMessageOptions = {}
@@ -125,7 +126,18 @@ export async function setMessageStatus(
   status: MessageStatus,
   error: string | null = null
 ): Promise<MessageRecord | null> {
-  return updateMessage(messageId, { status, error });
+  const patch: Partial<MessageRecord> = { status, error };
+
+  // Persist process duration when the message completes, so historical
+  // sessions show how long the agent took.
+  if (status === "completed") {
+    const existing = await getMessage(messageId);
+    if (existing && existing.durationMs === undefined) {
+      patch.durationMs = Date.now() - existing.createdAt;
+    }
+  }
+
+  return updateMessage(messageId, patch);
 }
 
 export async function deleteMessagesBySession(

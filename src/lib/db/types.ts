@@ -113,6 +113,8 @@ export type MessageRecord = {
   taskId: string | null;
   error: string | null;
   createdAt: number;
+  /** Agent process duration in ms, persisted on completion for historical view. */
+  durationMs?: number;
 };
 
 export type UserSkillRecord = {

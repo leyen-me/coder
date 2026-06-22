@@ -373,6 +373,7 @@ export const MessageItem = memo(function MessageItem({
           taskId={message.taskId}
           isStreaming={isStreaming}
           answerText={answerText}
+          durationMs={message.durationMs}
         />
       ) : answerText && showStandaloneAnswer ? (
         <StreamingMessageContent text={answerText} />
