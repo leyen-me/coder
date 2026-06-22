@@ -85,11 +85,11 @@ export const AssistantProcessCollapsible = memo(
       [steps]
     );
 
-    // Strip answer steps from the internal process view — the answer is
-    // always rendered outside the collapsible so it stays visible even
-    // when the panel is collapsed.
+    // Keep answer steps in the interior view during streaming so the user
+    // can see the answer being written in real time. After the turn finishes,
+    // the answer moves outside the collapsible.
     const interiorSteps = useMemo(
-      () => steps.filter((s) => s.kind !== "answer"),
+      () => steps,
       [steps]
     );
     const hasInteriorContent = interiorSteps.length > 0;
@@ -153,9 +153,9 @@ export const AssistantProcessCollapsible = memo(
           </CollapsibleContent>
         ) : null}
 
-        {/* Final answer is always outside the collapsible — visible whether
-            the panel is open or collapsed. */}
-        {answerText ? (
+        {/* Final answer outside the collapsible — only rendered after the
+            turn finishes, so the panel has already auto-closed by then. */}
+        {!isStreaming && answerText ? (
           <div className="mt-3">
             <AssistantProcessView
               steps={[
