@@ -3,7 +3,9 @@
 import { useMemo } from "react";
 
 import { CodeBlock } from "@/components/ai-elements/code-block";
-import { cn } from "@/lib/utils";
+
+import { CollapsibleToolSection } from "@/components/ai-elements/collapsible-tool-section";
+import { ToolStatusIcon } from "@/features/chat/components/tool-status-icon";
 
 import {
   CREATE_SKILL_TOOL_NAME,
@@ -20,13 +22,9 @@ import {
 import type { ToolUIPart } from "ai";
 import {
   BookIcon,
-  CheckCircle2Icon,
-  CircleIcon,
   InfoIcon,
-  LoaderCircleIcon,
   PenIcon,
   PlusCircleIcon,
-  XCircleIcon,
 } from "lucide-react";
 
 type SkillToolOutputProps = {
@@ -108,28 +106,26 @@ function ListSkillsView({
   const data = useMemo(() => extractListSkillsData(output), [output]);
 
   return (
-    <div className={cn("w-full overflow-hidden rounded-md border", className)}>
-      <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-1.5 text-xs">
-        <ToolStatusIcon state={state} />
-        <span className="font-mono font-medium text-foreground">
-          {LIST_SKILLS_TOOL_NAME}
-        </span>
-        {data ? (
-          <>
-            <span className="text-muted-foreground">·</span>
-            <span className="font-mono text-muted-foreground">
-              {data.skills.length} skill{data.skills.length !== 1 ? "s" : ""}
-            </span>
-          </>
-        ) : null}
-      </div>
-
-      {errorText ? (
-        <div className="bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
-          {errorText}
-        </div>
-      ) : null}
-
+    <CollapsibleToolSection
+      className={className}
+      errorText={errorText}
+      header={
+        <>
+          <ToolStatusIcon state={state} />
+          <span className="font-mono font-medium text-foreground">
+            {LIST_SKILLS_TOOL_NAME}
+          </span>
+          {data ? (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono text-muted-foreground">
+                {data.skills.length} skill{data.skills.length !== 1 ? "s" : ""}
+              </span>
+            </>
+          ) : null}
+        </>
+      }
+    >
       {data && data.skills.length > 0 ? (
         <div className="divide-y">
           {data.skills.map((skill) => (
@@ -164,7 +160,7 @@ function ListSkillsView({
           No skills available.
         </div>
       ) : null}
-    </div>
+    </CollapsibleToolSection>
   );
 }
 
@@ -186,32 +182,30 @@ function ReadSkillView({
   const data = useMemo(() => extractSkillReadData(output), [output]);
 
   return (
-    <div className={cn("w-full overflow-hidden rounded-md border", className)}>
-      <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-1.5 text-xs">
-        <ToolStatusIcon state={state} />
-        <span className="font-mono font-medium text-foreground">
-          {READ_SKILL_TOOL_NAME}
-        </span>
-        {data ? (
-          <>
-            <span className="text-muted-foreground">·</span>
-            <span className="font-mono text-muted-foreground">{data.slug}</span>
-            <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-              {data.source}
-            </span>
-            <span className="ml-auto font-mono text-muted-foreground">
-              {data.content.length.toLocaleString()} chars
-            </span>
-          </>
-        ) : null}
-      </div>
-
-      {errorText ? (
-        <div className="bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
-          {errorText}
-        </div>
-      ) : null}
-
+    <CollapsibleToolSection
+      className={className}
+      errorText={errorText}
+      header={
+        <>
+          <ToolStatusIcon state={state} />
+          <span className="font-mono font-medium text-foreground">
+            {READ_SKILL_TOOL_NAME}
+          </span>
+          {data ? (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono text-muted-foreground">{data.slug}</span>
+              <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                {data.source}
+              </span>
+              <span className="ml-auto font-mono text-muted-foreground">
+                {data.content.length.toLocaleString()} chars
+              </span>
+            </>
+          ) : null}
+        </>
+      }
+    >
       {data ? (
         <div className="space-y-3 p-3">
           {data.description ? (
@@ -231,7 +225,7 @@ function ReadSkillView({
           </div>
         </div>
       ) : null}
-    </div>
+    </CollapsibleToolSection>
   );
 }
 
@@ -253,32 +247,30 @@ function CreateSkillView({
   const data = useMemo(() => extractSkillCreateData(output), [output]);
 
   return (
-    <div className={cn("w-full overflow-hidden rounded-md border", className)}>
-      <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-1.5 text-xs">
-        <ToolStatusIcon state={state} />
-        <PlusCircleIcon className="size-3.5 shrink-0 text-green-600" />
-        <span className="font-mono font-medium text-foreground">
-          {CREATE_SKILL_TOOL_NAME}
-        </span>
-        {data ? (
-          <>
-            <span className="text-muted-foreground">·</span>
-            <span className="font-mono font-medium text-foreground">
-              {data.name}
-            </span>
-            <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-              {data.slug}
-            </span>
-          </>
-        ) : null}
-      </div>
-
-      {errorText ? (
-        <div className="bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
-          {errorText}
-        </div>
-      ) : null}
-
+    <CollapsibleToolSection
+      className={className}
+      errorText={errorText}
+      header={
+        <>
+          <ToolStatusIcon state={state} />
+          <PlusCircleIcon className="size-3.5 shrink-0 text-green-600" />
+          <span className="font-mono font-medium text-foreground">
+            {CREATE_SKILL_TOOL_NAME}
+          </span>
+          {data ? (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono font-medium text-foreground">
+                {data.name}
+              </span>
+              <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                {data.slug}
+              </span>
+            </>
+          ) : null}
+        </>
+      }
+    >
       {data ? (
         <div className="space-y-2 p-3">
           {data.description ? (
@@ -296,7 +288,7 @@ function CreateSkillView({
           ) : null}
         </div>
       ) : null}
-    </div>
+    </CollapsibleToolSection>
   );
 }
 
@@ -318,56 +310,34 @@ function UpdateSkillView({
   const data = useMemo(() => extractSkillUpdateData(output), [output]);
 
   return (
-    <div className={cn("w-full overflow-hidden rounded-md border", className)}>
-      <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-1.5 text-xs">
-        <ToolStatusIcon state={state} />
-        <PenIcon className="size-3.5 shrink-0 text-blue-600" />
-        <span className="font-mono font-medium text-foreground">
-          {UPDATE_SKILL_TOOL_NAME}
-        </span>
-        {data ? (
-          <>
-            <span className="text-muted-foreground">·</span>
-            <span className="font-mono text-foreground">{data.name}</span>
-            <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-              {data.slug}
-            </span>
-          </>
-        ) : null}
-      </div>
-
-      {errorText ? (
-        <div className="bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
-          {errorText}
-        </div>
-      ) : null}
-
+    <CollapsibleToolSection
+      className={className}
+      errorText={errorText}
+      header={
+        <>
+          <ToolStatusIcon state={state} />
+          <PenIcon className="size-3.5 shrink-0 text-blue-600" />
+          <span className="font-mono font-medium text-foreground">
+            {UPDATE_SKILL_TOOL_NAME}
+          </span>
+          {data ? (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono text-foreground">{data.name}</span>
+              <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                {data.slug}
+              </span>
+            </>
+          ) : null}
+        </>
+      }
+    >
       {data ? (
         <div className="px-3 py-2 text-xs text-muted-foreground">
           Skill updated successfully.
           {data.enabled ? " (enabled)" : " (disabled)"}
         </div>
       ) : null}
-    </div>
+    </CollapsibleToolSection>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Shared
-// ---------------------------------------------------------------------------
-
-function ToolStatusIcon({ state }: { state: ToolUIPart["state"] }) {
-  switch (state) {
-    case "output-available":
-      return <CheckCircle2Icon className="size-3.5 shrink-0 text-green-600" />;
-    case "output-error":
-      return <XCircleIcon className="size-3.5 shrink-0 text-destructive" />;
-    case "input-streaming":
-    case "input-available":
-      return (
-        <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-      );
-    default:
-      return <CircleIcon className="size-3.5 shrink-0 text-muted-foreground" />;
-  }
 }

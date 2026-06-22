@@ -8,6 +8,10 @@ import { cn } from "@/lib/utils";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { ToolUIPart } from "ai";
+
+import {
+  CollapsibleToolSection,
+} from "@/components/ai-elements/collapsible-tool-section";
 import {
   CheckCircle2Icon,
   CircleIcon,
@@ -39,12 +43,12 @@ function extractInputValue(
 
 function truncatePath(path: string, maxLen = 40): string {
   if (path.length <= maxLen) return path;
-  return `…${path.slice(-(maxLen - 1))}`;
+  return `\u2026${path.slice(-(maxLen - 1))}`;
 }
 
 function truncateCommand(cmd: string, maxLen = 50): string {
   if (cmd.length <= maxLen) return cmd;
-  return `${cmd.slice(0, maxLen - 1)}…`;
+  return `${cmd.slice(0, maxLen - 1)}\u2026`;
 }
 
 function formatDuration(ms: number): string {
@@ -227,134 +231,131 @@ export function ShellOutput({
 
   const emptyOutput = !command && !displayStdout && !stderr;
 
+  const hasSecondaryRow = Boolean(description || workingDirectory || (durationMs != null && durationMs > 0));
+
   return (
-    <div className={cn("w-full overflow-hidden rounded-md border", className)}>
-      {/* Header bar — two-line layout */}
-      <div className="border-b bg-muted/30 px-3 py-2 text-xs">
-        {/* Row 1: core info */}
-        <div className="flex items-center gap-x-2">
-          <ToolStatusIcon state={state} status={status} />
+    <CollapsibleToolSection
+      className={className}
+      errorText={errorText}
+      defaultOpen={status === "running"}
+      header={
+        <div className="w-full">
+          {/* Row 1: core info */}
+          <div className="flex items-center gap-x-2">
+            <ShellStatusIcon state={state} status={status} />
 
-          <span className="font-mono font-medium text-foreground">
-            {toolName}
-          </span>
+            <span className="font-mono font-medium text-foreground">
+              {toolName}
+            </span>
 
-          {command ? (
-            <>
-              <span className="text-muted-foreground">·</span>
-              <span
-                className="max-w-[240px] truncate font-mono font-medium text-foreground"
-                title={command}
-              >
-                {truncateCommand(command)}
-              </span>
-            </>
-          ) : null}
-
-          <div className="ml-auto flex items-center gap-x-2">
-            {/* Stop button for running shells */}
-            {status === "running" && shellId && isTauri() ? (
-              <button
-                aria-label="Stop shell"
-                className={cn(
-                  "flex size-4 items-center justify-center rounded",
-                  "text-muted-foreground/50 transition-colors hover:text-destructive",
-                  killing && "pointer-events-none opacity-50",
-                )}
-                disabled={killing}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setKilling(true);
-                  invoke("shell_kill", { shellId }).then(
-                    () => {
-                      // Shell killed successfully — "shell-finished" event
-                      // will update the UI. Re-enable button after 5s
-                      // in case the event never arrives.
-                      setTimeout(() => setKilling(false), 5000);
-                    },
-                    (error) => {
-                      console.error("Failed to kill shell:", error);
-                      setKilling(false);
-                    },
-                  );
-                }}
-                title="Stop"
-                type="button"
-              >
-                <SquareIcon className="size-3" />
-              </button>
-            ) : null}
-
-            {status ? (
-              <span
-                className={cn(
-                  "rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium",
-                  getStatusBadgeStyle(status),
-                )}
-              >
-                {status}
-              </span>
-            ) : null}
-
-            {exitCode != null ? (
-              <span
-                className={cn(
-                  "font-mono font-medium",
-                  exitCode === 0 ? "text-success" : "text-destructive",
-                )}
-              >
-                exit {exitCode}
-              </span>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Row 2: secondary info */}
-        {(description || workingDirectory || (durationMs != null && durationMs > 0)) ? (
-          <div className="mt-0.5 flex items-center gap-x-2 pl-5">
-            {description ? (
-              <span className="font-mono text-muted-foreground/70">
-                {description}
-              </span>
-            ) : null}
-
-            {workingDirectory ? (
+            {command ? (
               <>
-                {description ? (
+                <span className="text-muted-foreground">·</span>
+                <span
+                  className="max-w-[240px] truncate font-mono font-medium text-foreground"
+                  title={command}
+                >
+                  {truncateCommand(command)}
+                </span>
+              </>
+            ) : null}
+
+            <div className="ml-auto flex items-center gap-x-2">
+              {/* Stop button for running shells */}
+              {status === "running" && shellId && isTauri() ? (
+                <button
+                  aria-label="Stop shell"
+                  className={cn(
+                    "flex size-4 items-center justify-center rounded",
+                    "text-muted-foreground/50 transition-colors hover:text-destructive",
+                    killing && "pointer-events-none opacity-50",
+                  )}
+                  disabled={killing}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setKilling(true);
+                    invoke("shell_kill", { shellId }).then(
+                      () => {
+                        // Shell killed successfully — "shell-finished" event
+                        // will update the UI. Re-enable button after 5s
+                        // in case the event never arrives.
+                        setTimeout(() => setKilling(false), 5000);
+                      },
+                      (error) => {
+                        console.error("Failed to kill shell:", error);
+                        setKilling(false);
+                      },
+                    );
+                  }}
+                  title="Stop"
+                  type="button"
+                >
+                  <SquareIcon className="size-3" />
+                </button>
+              ) : null}
+
+              {status ? (
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium",
+                    getStatusBadgeStyle(status),
+                  )}
+                >
+                  {status}
+                </span>
+              ) : null}
+
+              {exitCode != null ? (
+                <span
+                  className={cn(
+                    "font-mono font-medium",
+                    exitCode === 0 ? "text-success" : "text-destructive",
+                  )}
+                >
+                  exit {exitCode}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Row 2: secondary info */}
+          {hasSecondaryRow ? (
+            <div className="mt-0.5 flex items-center gap-x-2 pl-5">
+              {description ? (
+                <span className="font-mono text-muted-foreground/70">
+                  {description}
+                </span>
+              ) : null}
+
+              {workingDirectory ? (
+                <>
+                  {description ? (
+                    <span className="text-muted-foreground/40">·</span>
+                  ) : null}
+                  <span className="font-mono text-muted-foreground/70">
+                    {truncatePath(workingDirectory)}
+                  </span>
+                </>
+              ) : null}
+
+              {durationMs != null && durationMs > 0 ? (
+                <>
                   <span className="text-muted-foreground/40">·</span>
-                ) : null}
-                <span className="font-mono text-muted-foreground/70">
-                  {truncatePath(workingDirectory)}
-                </span>
-              </>
-            ) : null}
-
-            {durationMs != null && durationMs > 0 ? (
-              <>
-                <span className="text-muted-foreground/40">·</span>
-                <span className="font-mono text-muted-foreground/70">
-                  {formatDuration(durationMs)}
-                </span>
-              </>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-
-      {/* Error banner */}
-      {errorText ? (
-        <div className="bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
-          <span className="min-w-0 whitespace-pre-wrap break-words">
-            {errorText}
-          </span>
+                  <span className="font-mono text-muted-foreground/70">
+                    {formatDuration(durationMs)}
+                  </span>
+                </>
+              ) : null}
+            </div>
+          ) : null}
         </div>
-      ) : null}
-
+      }
+    >
       {/* Log body */}
       {emptyOutput ? (
         <div className="px-3 py-2 font-mono text-xs text-muted-foreground">
           {state === "input-streaming" || state === "input-available"
-            ? "Running…"
+            ? "Running\u2026"
             : "No output"}
         </div>
       ) : (
@@ -377,35 +378,21 @@ export function ShellOutput({
           ) : null}
         </div>
       )}
-    </div>
+    </CollapsibleToolSection>
   );
 }
 
-function getStatusBadgeStyle(status: string): string {
-  switch (status) {
-    case "completed":
-      return "bg-success/10 text-success";
-    case "running":
-      return "bg-blue-500/10 text-blue-600";
-    case "failed":
-      return "bg-destructive/10 text-destructive";
-    case "timeout":
-      return "bg-amber-500/10 text-amber-600";
-    case "cancelled":
-      return "bg-muted-foreground/10 text-muted-foreground";
-    default:
-      return "bg-muted-foreground/10 text-muted-foreground";
-  }
-}
-
-function ToolStatusIcon({
+/**
+ * Shell-specific status icon that shows a blue spinner for running shells
+ * (overrides the shared ToolStatusIcon's generic streaming icon).
+ */
+function ShellStatusIcon({
   state,
   status,
 }: {
   state: ToolUIPart["state"];
   status?: string;
 }) {
-  // Running status overrides the generic streaming icon
   if (status === "running") {
     return (
       <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin text-blue-600" />
@@ -428,5 +415,22 @@ function ToolStatusIcon({
       );
     default:
       return <CircleIcon className="size-3.5 shrink-0 text-muted-foreground" />;
+  }
+}
+
+function getStatusBadgeStyle(status: string): string {
+  switch (status) {
+    case "completed":
+      return "bg-success/10 text-success";
+    case "running":
+      return "bg-blue-500/10 text-blue-600";
+    case "failed":
+      return "bg-destructive/10 text-destructive";
+    case "timeout":
+      return "bg-amber-500/10 text-amber-600";
+    case "cancelled":
+      return "bg-muted-foreground/10 text-muted-foreground";
+    default:
+      return "bg-muted-foreground/10 text-muted-foreground";
   }
 }

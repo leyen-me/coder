@@ -8,10 +8,11 @@ import {
   CircleDotIcon,
   CircleIcon,
   CircleOffIcon,
-  LoaderCircleIcon,
   ListTodoIcon,
-  XCircleIcon,
 } from "lucide-react";
+
+import { CollapsibleToolSection } from "@/components/ai-elements/collapsible-tool-section";
+import { ToolStatusIcon } from "@/features/chat/components/tool-status-icon";
 
 type TodoToolOutputProps = {
   output: unknown;
@@ -70,47 +71,41 @@ export function TodoToolOutput({
       : 0;
 
   return (
-    <div className={cn("w-full overflow-hidden rounded-md border", className)}>
-      {/* Header bar */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/30 px-3 py-1.5 text-xs">
-        <ToolStatusIcon state={state} />
-        <span className="font-mono font-medium text-foreground">
-          {toolName}
-        </span>
-        {formatted ? (
-          <>
-            <span className="text-muted-foreground">·</span>
-            <span className="font-mono text-muted-foreground">
-              {formatted.total} todo{formatted.total !== 1 ? "s" : ""}
-            </span>
-            {formatted.active > 0 ? (
-              <span className="rounded-full bg-blue-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-blue-600">
-                {formatted.active} active
-              </span>
-            ) : null}
-            {formatted.completed > 0 ? (
-              <span className="rounded-full bg-green-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-green-600">
-                {formatted.completed} done
-              </span>
-            ) : null}
-            {formatted.merge != null && formatted.removed != null && formatted.removed.length > 0 ? (
-              <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
-                {formatted.removed.length} removed
-              </span>
-            ) : null}
-          </>
-        ) : null}
-      </div>
-
-      {/* Error banner */}
-      {isError ? (
-        <div className="flex items-start gap-2 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
-          <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
-            {errorText}
+    <CollapsibleToolSection
+      className={className}
+      errorText={isError ? errorText : undefined}
+      header={
+        <>
+          <ToolStatusIcon state={state} />
+          <span className="font-mono font-medium text-foreground">
+            {toolName}
           </span>
-        </div>
-      ) : null}
-
+          {formatted ? (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono text-muted-foreground">
+                {formatted.total} todo{formatted.total !== 1 ? "s" : ""}
+              </span>
+              {formatted.active > 0 ? (
+                <span className="rounded-full bg-blue-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-blue-600">
+                  {formatted.active} active
+                </span>
+              ) : null}
+              {formatted.completed > 0 ? (
+                <span className="rounded-full bg-green-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-green-600">
+                  {formatted.completed} done
+                </span>
+              ) : null}
+              {formatted.merge != null && formatted.removed != null && formatted.removed.length > 0 ? (
+                <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
+                  {formatted.removed.length} removed
+                </span>
+              ) : null}
+            </>
+          ) : null}
+        </>
+      }
+    >
       {/* Progress bar */}
       {formatted && formatted.total > 0 ? (
         <div className="border-b bg-muted/20 px-3 py-2">
@@ -178,24 +173,6 @@ export function TodoToolOutput({
           <span>No todos</span>
         </div>
       ) : null}
-    </div>
+    </CollapsibleToolSection>
   );
-}
-
-function ToolStatusIcon({ state }: { state: ToolUIPart["state"] }) {
-  switch (state) {
-    case "output-available":
-      return (
-        <CheckCircle2Icon className="size-3.5 shrink-0 text-green-600" />
-      );
-    case "output-error":
-      return <XCircleIcon className="size-3.5 shrink-0 text-destructive" />;
-    case "input-streaming":
-    case "input-available":
-      return (
-        <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-      );
-    default:
-      return <CircleIcon className="size-3.5 shrink-0 text-muted-foreground" />;
-  }
 }

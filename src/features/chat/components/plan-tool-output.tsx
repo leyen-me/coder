@@ -20,20 +20,18 @@ import {
   PLAN_READ_TOOL_NAME,
   PLAN_UPDATE_TOOL_NAME,
 } from "@/features/agent/tools/definitions";
-import { cn } from "@/lib/utils";
 import type { ToolUIPart } from "ai";
 import {
   CalendarIcon,
-  CheckCircle2Icon,
-  CircleIcon,
   FileCheckIcon,
   FileCode2Icon,
   FileTextIcon,
   FolderOpenIcon,
-  LoaderCircleIcon,
   Trash2Icon,
-  XCircleIcon,
 } from "lucide-react";
+
+import { CollapsibleToolSection } from "@/components/ai-elements/collapsible-tool-section";
+import { ToolStatusIcon } from "@/features/chat/components/tool-status-icon";
 
 type PlanToolOutputProps = {
   output: unknown;
@@ -232,28 +230,22 @@ export function PlanToolOutput({
   const deleteData = toolName === PLAN_DELETE_TOOL_NAME ? extractPlanDeleteData(output) : null;
 
   return (
-    <div className={cn("w-full overflow-hidden rounded-md border", className)}>
-      {/* Header bar — single data section only */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/30 px-3 py-1.5 text-xs">
-        <ToolStatusIcon state={state} />
-        <span className="font-mono font-medium text-foreground">
-          {toolName}
-        </span>
-        {fileData ? <FileResultHeader data={fileData} /> : null}
-        {readData ? <ReadResultHeader data={readData} /> : null}
-        {listData ? <ListResultHeader data={listData} /> : null}
-        {deleteData ? <DeleteResultHeader data={deleteData} /> : null}
-      </div>
-
-      {/* Error banner */}
-      {isError ? (
-        <div className="flex items-start gap-2 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
-          <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
-            {errorText}
+    <CollapsibleToolSection
+      className={className}
+      errorText={isError ? errorText : undefined}
+      header={
+        <>
+          <ToolStatusIcon state={state} />
+          <span className="font-mono font-medium text-foreground">
+            {toolName}
           </span>
-        </div>
-      ) : null}
-
+          {fileData ? <FileResultHeader data={fileData} /> : null}
+          {readData ? <ReadResultHeader data={readData} /> : null}
+          {listData ? <ListResultHeader data={listData} /> : null}
+          {deleteData ? <DeleteResultHeader data={deleteData} /> : null}
+        </>
+      }
+    >
       {/* Content based on tool type */}
       {!isError ? (
         <>
@@ -272,24 +264,6 @@ export function PlanToolOutput({
           {deleteData ? <PlanDeleteResultView data={deleteData} /> : null}
         </>
       ) : null}
-    </div>
+    </CollapsibleToolSection>
   );
-}
-
-function ToolStatusIcon({ state }: { state: ToolUIPart["state"] }) {
-  switch (state) {
-    case "output-available":
-      return (
-        <CheckCircle2Icon className="size-3.5 shrink-0 text-green-600" />
-      );
-    case "output-error":
-      return <XCircleIcon className="size-3.5 shrink-0 text-destructive" />;
-    case "input-streaming":
-    case "input-available":
-      return (
-        <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-      );
-    default:
-      return <CircleIcon className="size-3.5 shrink-0 text-muted-foreground" />;
-  }
 }

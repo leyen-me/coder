@@ -10,12 +10,9 @@ import {
   getShellStatusBadgeStyle,
 } from "@/features/agent/tools/shell-management-display";
 import type { ToolUIPart } from "ai";
-import {
-  CheckCircle2Icon,
-  CircleIcon,
-  LoaderCircleIcon,
-  XCircleIcon,
-} from "lucide-react";
+
+import { CollapsibleToolSection } from "@/components/ai-elements/collapsible-tool-section";
+import { ToolStatusIcon } from "@/features/chat/components/tool-status-icon";
 
 type ListShellsToolOutputProps = {
   output: unknown;
@@ -50,28 +47,24 @@ export function ListShellsToolOutput({
       : toolName;
 
   return (
-    <div className={cn("w-full overflow-hidden rounded-md border", className)}>
-      {/* Header */}
-      <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-1.5 text-xs">
-        <ToolStatusIcon state={state} />
-        <span className="font-mono font-medium text-foreground">{title}</span>
-        {formatted ? (
-          <>
-            <span className="text-muted-foreground">·</span>
-            <span className="font-mono text-muted-foreground">
-              {formatted.total} shell{formatted.total !== 1 ? "s" : ""}
-            </span>
-          </>
-        ) : null}
-      </div>
-
-      {/* Error */}
-      {errorText ? (
-        <div className="bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
-          {errorText}
-        </div>
-      ) : null}
-
+    <CollapsibleToolSection
+      className={className}
+      errorText={errorText}
+      header={
+        <>
+          <ToolStatusIcon state={state} />
+          <span className="font-mono font-medium text-foreground">{title}</span>
+          {formatted ? (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono text-muted-foreground">
+                {formatted.total} shell{formatted.total !== 1 ? "s" : ""}
+              </span>
+            </>
+          ) : null}
+        </>
+      }
+    >
       {/* Shell list */}
       {formatted && formatted.shells.length > 0 ? (
         <div className="divide-y">
@@ -89,7 +82,7 @@ export function ListShellsToolOutput({
           No shells found.
         </div>
       ) : null}
-    </div>
+    </CollapsibleToolSection>
   );
 }
 
@@ -161,20 +154,4 @@ function formatElapsed(startedAtMs: number): string {
   if (elapsed < 1000) return `${elapsed}ms`;
   if (elapsed < 60_000) return `${(elapsed / 1000).toFixed(1)}s`;
   return `${Math.floor(elapsed / 60_000)}m ${Math.floor((elapsed % 60_000) / 1000)}s`;
-}
-
-function ToolStatusIcon({ state }: { state: ToolUIPart["state"] }) {
-  switch (state) {
-    case "output-available":
-      return <CheckCircle2Icon className="size-3.5 shrink-0 text-green-600" />;
-    case "output-error":
-      return <XCircleIcon className="size-3.5 shrink-0 text-destructive" />;
-    case "input-streaming":
-    case "input-available":
-      return (
-        <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-      );
-    default:
-      return <CircleIcon className="size-3.5 shrink-0 text-muted-foreground" />;
-  }
 }

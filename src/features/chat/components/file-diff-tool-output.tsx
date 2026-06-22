@@ -15,13 +15,12 @@ import {
 import { useTheme } from "@/lib/theme/theme-provider";
 import { cn } from "@/lib/utils";
 
+import { ExternalLinkIcon } from "lucide-react";
+
 import {
-  CheckCircle2Icon,
-  CircleIcon,
-  ExternalLinkIcon,
-  LoaderCircleIcon,
-  XCircleIcon,
-} from "lucide-react";
+  CollapsibleToolSection,
+} from "@/components/ai-elements/collapsible-tool-section";
+import { ToolStatusIcon } from "./tool-status-icon";
 
 import { OPEN_FILE_IN_PREVIEW_EVENT } from "@/features/right-panel/lib/open-file-event";
 
@@ -265,9 +264,9 @@ export function FileDiffToolOutput({
   const isError = state === "output-error" && errorText;
 
   // Decide what to show:
-  // - \"diff\":  old content exists AND differs → inline unified diff
-  // - \"single\": no old content (new file) → just the modified content
-  // - \"summary\":  reconstruction failed or no change detected → show header + stats only
+  // - "diff":  old content exists AND differs → inline unified diff
+  // - "single": no old content (new file) → just the modified content
+  // - "summary":  reconstruction failed or no change detected → show header + stats only
   // - On error: still render the container with the error message
   const showMode: ShowMode = isError
     ? "none"
@@ -283,72 +282,69 @@ export function FileDiffToolOutput({
   const warning = data?.warning;
 
   return (
-    <div className={cn("w-full overflow-hidden rounded-md border", className)}>
-      {/* Header bar — merges status + tool + path + stats */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/30 px-3 py-1.5 text-xs">
-        <ToolStatusIcon state={state} />
-        <span className="font-mono font-medium text-foreground">
-          {toolName}
-        </span>
-        <span className="text-muted-foreground">·</span>
-        <span className="font-mono text-muted-foreground">{filePath}</span>
-        {action ? (
-          <span
-            className={cn(
-              "rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium",
-              action === "created"
-                ? "bg-primary/10 text-primary"
-                : "bg-muted-foreground/10 text-muted-foreground",
-            )}
-          >
-            {action}
+    <CollapsibleToolSection
+      className={className}
+      errorText={isError ? errorText : undefined}
+      header={
+        <>
+          <ToolStatusIcon state={state} />
+          <span className="font-mono font-medium text-foreground">
+            {toolName}
           </span>
-        ) : null}
-        {linesAdded > 0 ? (
-          <span className="font-mono font-medium text-success">+{linesAdded}</span>
-        ) : null}
-        {linesRemoved > 0 ? (
-          <span className="font-mono font-medium text-destructive">
-            -{linesRemoved}
-          </span>
-        ) : null}
-        {warning ? (
-          <span className="font-mono text-warning">{warning}</span>
-        ) : null}
-        <div className="ml-auto">
-          <button
-            aria-label="Open in preview"
-            className="flex size-4 items-center justify-center text-muted-foreground/50 transition-colors hover:text-muted-foreground"
-            onClick={() => {
-              const name = filePath.split("/").pop() ?? filePath;
-              window.dispatchEvent(
-                new CustomEvent(OPEN_FILE_IN_PREVIEW_EVENT, {
-                  detail: { path: filePath, name },
-                }),
-              );
-            }}
-            title="Open file in preview"
-            type="button"
-          >
-            <ExternalLinkIcon className="size-3" />
-          </button>
-        </div>
-      </div>
-
-      {/* Content area: show error message, summary placeholder, or diff */}
-      {isError ? (
-        <div className="flex items-start gap-2 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
-          <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
-            {errorText}
-          </span>
-        </div>
-      ) : showMode === "summary" ? (
+          <span className="text-muted-foreground">·</span>
+          <span className="font-mono text-muted-foreground">{filePath}</span>
+          {action ? (
+            <span
+              className={cn(
+                "rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium",
+                action === "created"
+                  ? "bg-primary/10 text-primary"
+                  : "bg-muted-foreground/10 text-muted-foreground",
+              )}
+            >
+              {action}
+            </span>
+          ) : null}
+          {linesAdded > 0 ? (
+            <span className="font-mono font-medium text-success">+{linesAdded}</span>
+          ) : null}
+          {linesRemoved > 0 ? (
+            <span className="font-mono font-medium text-destructive">
+              -{linesRemoved}
+            </span>
+          ) : null}
+          {warning ? (
+            <span className="font-mono text-warning">{warning}</span>
+          ) : null}
+          <div className="ml-auto">
+            <button
+              aria-label="Open in preview"
+              className="flex size-4 items-center justify-center text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+              onClick={(e) => {
+                e.stopPropagation();
+                const name = filePath.split("/").pop() ?? filePath;
+                window.dispatchEvent(
+                  new CustomEvent(OPEN_FILE_IN_PREVIEW_EVENT, {
+                    detail: { path: filePath, name },
+                  }),
+                );
+              }}
+              title="Open file in preview"
+              type="button"
+            >
+              <ExternalLinkIcon className="size-3" />
+            </button>
+          </div>
+        </>
+      }
+    >
+      {showMode === "summary" ? (
         <div className="flex items-center gap-2 px-3 py-2 text-muted-foreground text-xs">
           {linesAdded > 0 || linesRemoved > 0
             ? "File modified"
             : "No changes detected"}
         </div>
-      ) : (
+      ) : showMode === "single" || showMode === "diff" ? (
         <div
           className={cn(
             showMode === "single" &&
@@ -367,27 +363,9 @@ export function FileDiffToolOutput({
             styles={diffStyles}
           />
         </div>
-      )}
-    </div>
+      ) : null}
+    </CollapsibleToolSection>
   );
-}
-
-function ToolStatusIcon({ state }: { state: ToolUIPart["state"] }) {
-  switch (state) {
-    case "output-available":
-      return (
-        <CheckCircle2Icon className="size-3.5 shrink-0 text-green-600" />
-      );
-    case "output-error":
-      return <XCircleIcon className="size-3.5 shrink-0 text-destructive" />;
-    case "input-streaming":
-    case "input-available":
-      return (
-        <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-      );
-    default:
-      return <CircleIcon className="size-3.5 shrink-0 text-muted-foreground" />;
-  }
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

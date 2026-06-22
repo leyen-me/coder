@@ -2,20 +2,15 @@
 
 import { useMemo } from "react";
 
-import { cn } from "@/lib/utils";
-
 import {
   extractSendEmailData,
   getSendEmailInputData,
 } from "@/features/agent/tools/send-email-display";
 import type { ToolUIPart } from "ai";
-import {
-  CheckCircle2Icon,
-  CircleIcon,
-  LoaderCircleIcon,
-  MailIcon,
-  XCircleIcon,
-} from "lucide-react";
+import { MailIcon } from "lucide-react";
+
+import { CollapsibleToolSection } from "@/components/ai-elements/collapsible-tool-section";
+import { ToolStatusIcon } from "@/features/chat/components/tool-status-icon";
 
 type SendEmailToolOutputProps = {
   output: unknown;
@@ -41,54 +36,35 @@ export function SendEmailToolOutput({
   const isError = state === "output-error" && errorText;
 
   return (
-    <div className={cn("w-full overflow-hidden rounded-md border", className)}>
-      {/* Header */}
-      <div
-        className={cn(
-          "flex items-center gap-2 border-b px-3 py-1.5 text-xs",
-          isError
-            ? "bg-destructive/5"
-            : isSuccess
-              ? "bg-success/5"
-              : "bg-muted/30",
-        )}
-      >
-        {isError ? (
-          <XCircleIcon className="size-3.5 shrink-0 text-destructive" />
-        ) : isSuccess ? (
-          <CheckCircle2Icon className="size-3.5 shrink-0 text-green-600" />
-        ) : (
+    <CollapsibleToolSection
+      className={className}
+      errorText={isError ? errorText : undefined}
+      header={
+        <>
           <ToolStatusIcon state={state} />
-        )}
-        <MailIcon className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="font-mono font-medium text-foreground">
-          {toolName}
-        </span>
-        {inputData ? (
-          <>
-            <span className="text-muted-foreground">·</span>
-            <span
-              className="max-w-[160px] truncate font-mono text-muted-foreground"
-              title={inputData.to}
-            >
-              {inputData.to}
-            </span>
-          </>
-        ) : null}
-        {isSuccess ? (
-          <span className="ml-auto rounded-full bg-success/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-success">
-            sent
+          <MailIcon className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="font-mono font-medium text-foreground">
+            {toolName}
           </span>
-        ) : null}
-      </div>
-
-      {/* Error */}
-      {isError ? (
-        <div className="bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
-          {errorText}
-        </div>
-      ) : null}
-
+          {inputData ? (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span
+                className="max-w-[160px] truncate font-mono text-muted-foreground"
+                title={inputData.to}
+              >
+                {inputData.to}
+              </span>
+            </>
+          ) : null}
+          {isSuccess ? (
+            <span className="ml-auto rounded-full bg-success/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-success">
+              sent
+            </span>
+          ) : null}
+        </>
+      }
+    >
       {/* Success body */}
       {isSuccess && inputData ? (
         <div className="space-y-1.5 p-3 text-xs">
@@ -136,18 +112,6 @@ export function SendEmailToolOutput({
           </div>
         </div>
       ) : null}
-    </div>
+    </CollapsibleToolSection>
   );
-}
-
-function ToolStatusIcon({ state }: { state: ToolUIPart["state"] }) {
-  switch (state) {
-    case "input-streaming":
-    case "input-available":
-      return (
-        <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-      );
-    default:
-      return <CircleIcon className="size-3.5 shrink-0 text-muted-foreground" />;
-  }
 }

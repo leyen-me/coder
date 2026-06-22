@@ -1,16 +1,10 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import {
-  CheckCircle2Icon,
-  CircleIcon,
-  ExternalLinkIcon,
-  GlobeIcon,
-  LoaderCircleIcon,
-  SearchIcon,
-  SparklesIcon,
-  XCircleIcon,
-} from "lucide-react";
+
+import { ExternalLinkIcon, GlobeIcon, SearchIcon, SparklesIcon } from "lucide-react";
+
+import { CollapsibleToolSection } from "@/components/ai-elements/collapsible-tool-section";
+import { ToolStatusIcon } from "@/features/chat/components/tool-status-icon";
 
 import { formatWebSearchOutputForDisplay } from "@/features/agent/tools/web-search-display";
 import type { ToolUIPart } from "ai";
@@ -46,38 +40,32 @@ export function WebSearchToolOutput({
   void _input; // Kept for consistent interface with other tool output components.
 
   return (
-    <div className={cn("w-full overflow-hidden rounded-md border", className)}>
-      {/* Header bar */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/30 px-3 py-1.5 text-xs">
-        <ToolStatusIcon state={state} />
-        <span className="font-mono font-medium text-foreground">
-          {toolName}
-        </span>
-        {formatted ? (
-          <>
-            <span className="text-muted-foreground">·</span>
-            <span className="font-mono text-muted-foreground">
-              {formatted.query.length > 48
-                ? `${formatted.query.slice(0, 48)}…`
-                : formatted.query}
-            </span>
-            <span className="font-mono text-muted-foreground/60">
-              {formatted.results.length} result
-              {formatted.results.length !== 1 ? "s" : ""}
-            </span>
-          </>
-        ) : null}
-      </div>
-
-      {/* Error banner */}
-      {isError ? (
-        <div className="flex items-start gap-2 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
-          <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
-            {errorText}
+    <CollapsibleToolSection
+      className={className}
+      errorText={isError ? errorText : undefined}
+      header={
+        <>
+          <ToolStatusIcon state={state} />
+          <span className="font-mono font-medium text-foreground">
+            {toolName}
           </span>
-        </div>
-      ) : null}
-
+          {formatted ? (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono text-muted-foreground">
+                {formatted.query.length > 48
+                  ? `${formatted.query.slice(0, 48)}…`
+                  : formatted.query}
+              </span>
+              <span className="font-mono text-muted-foreground/60">
+                {formatted.results.length} result
+                {formatted.results.length !== 1 ? "s" : ""}
+              </span>
+            </>
+          ) : null}
+        </>
+      }
+    >
       {/* AI-generated answer */}
       {formatted?.answer ? (
         <div className="border-b bg-primary/5 px-3 py-2.5">
@@ -150,24 +138,6 @@ export function WebSearchToolOutput({
           <span>No results found</span>
         </div>
       ) : null}
-    </div>
+    </CollapsibleToolSection>
   );
-}
-
-function ToolStatusIcon({ state }: { state: ToolUIPart["state"] }) {
-  switch (state) {
-    case "output-available":
-      return (
-        <CheckCircle2Icon className="size-3.5 shrink-0 text-green-600" />
-      );
-    case "output-error":
-      return <XCircleIcon className="size-3.5 shrink-0 text-destructive" />;
-    case "input-streaming":
-    case "input-available":
-      return (
-        <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-      );
-    default:
-      return <CircleIcon className="size-3.5 shrink-0 text-muted-foreground" />;
-  }
 }

@@ -2,16 +2,11 @@
 
 import { useMemo } from "react";
 
-import { cn } from "@/lib/utils";
-import {
-  CheckCircle2Icon,
-  CircleIcon,
-  ExternalLinkIcon,
-  FileIcon,
-  LoaderCircleIcon,
-  SearchIcon,
-  XCircleIcon,
-} from "lucide-react";
+
+import { ExternalLinkIcon, FileIcon, SearchIcon } from "lucide-react";
+
+import { CollapsibleToolSection } from "@/components/ai-elements/collapsible-tool-section";
+import { ToolStatusIcon } from "@/features/chat/components/tool-status-icon";
 
 import { OPEN_FILE_IN_PREVIEW_EVENT } from "@/features/right-panel/lib/open-file-event";
 import { formatGrepOutputForDisplay } from "@/features/agent/tools/grep-display";
@@ -56,51 +51,45 @@ export function GrepToolOutput({
   }, [formatted]);
 
   return (
-    <div className={cn("w-full overflow-hidden rounded-md border", className)}>
-      {/* Header bar */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/30 px-3 py-1.5 text-xs">
-        <ToolStatusIcon state={state} />
-        <span className="font-mono font-medium text-foreground">
-          {toolName}
-        </span>
-        <span className="text-muted-foreground">·</span>
-        <span className="font-mono text-muted-foreground">
-          /{pattern}/
-        </span>
-        {formatted ? (
-          <>
-            <span className="font-mono text-muted-foreground/60">
-              {formatted.totalMatches} match
-              {formatted.totalMatches !== 1 ? "es" : ""}
-            </span>
-            {formatted.outputMode !== "content" ? (
-              <span className="rounded-full bg-muted-foreground/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
-                {formatted.outputMode}
-              </span>
-            ) : null}
-            {formatted.skippedFiles != null && formatted.skippedFiles > 0 ? (
-              <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
-                {formatted.skippedFiles} skipped
-              </span>
-            ) : null}
-            {formatted.truncated ? (
-              <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
-                truncated
-              </span>
-            ) : null}
-          </>
-        ) : null}
-      </div>
-
-      {/* Error banner */}
-      {isError ? (
-        <div className="flex items-start gap-2 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
-          <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
-            {errorText}
+    <CollapsibleToolSection
+      className={className}
+      errorText={isError ? errorText : undefined}
+      header={
+        <>
+          <ToolStatusIcon state={state} />
+          <span className="font-mono font-medium text-foreground">
+            {toolName}
           </span>
-        </div>
-      ) : null}
-
+          <span className="text-muted-foreground">·</span>
+          <span className="font-mono text-muted-foreground">
+            /{pattern}/
+          </span>
+          {formatted ? (
+            <>
+              <span className="font-mono text-muted-foreground/60">
+                {formatted.totalMatches} match
+                {formatted.totalMatches !== 1 ? "es" : ""}
+              </span>
+              {formatted.outputMode !== "content" ? (
+                <span className="rounded-full bg-muted-foreground/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  {formatted.outputMode}
+                </span>
+              ) : null}
+              {formatted.skippedFiles != null && formatted.skippedFiles > 0 ? (
+                <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
+                  {formatted.skippedFiles} skipped
+                </span>
+              ) : null}
+              {formatted.truncated ? (
+                <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
+                  truncated
+                </span>
+              ) : null}
+            </>
+          ) : null}
+        </>
+      }
+    >
       {/* Content: files_with_matches mode */}
       {formatted && formatted.outputMode === "files_with_matches" && formatted.files.length > 0 ? (
         <div className="divide-y">
@@ -238,7 +227,7 @@ export function GrepToolOutput({
           <span>No matches found</span>
         </div>
       ) : null}
-    </div>
+    </CollapsibleToolSection>
   );
 }
 
@@ -246,22 +235,4 @@ function extractPatternFromInput(input: unknown): string {
   if (!input || typeof input !== "object") return "";
   const record = input as Record<string, unknown>;
   return typeof record.pattern === "string" ? record.pattern : "";
-}
-
-function ToolStatusIcon({ state }: { state: ToolUIPart["state"] }) {
-  switch (state) {
-    case "output-available":
-      return (
-        <CheckCircle2Icon className="size-3.5 shrink-0 text-green-600" />
-      );
-    case "output-error":
-      return <XCircleIcon className="size-3.5 shrink-0 text-destructive" />;
-    case "input-streaming":
-    case "input-available":
-      return (
-        <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-      );
-    default:
-      return <CircleIcon className="size-3.5 shrink-0 text-muted-foreground" />;
-  }
 }

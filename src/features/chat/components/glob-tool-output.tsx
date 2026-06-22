@@ -1,20 +1,19 @@
 "use client";
 
 import { useMemo } from "react";
+import type { ToolUIPart } from "ai";
 
+import {
+  CollapsibleToolSection,
+} from "@/components/ai-elements/collapsible-tool-section";
 import { formatGlobOutputForDisplay } from "@/features/agent/tools/glob-display";
 import { OPEN_FILE_IN_PREVIEW_EVENT } from "@/features/right-panel/lib/open-file-event";
-import { cn } from "@/lib/utils";
-import type { ToolUIPart } from "ai";
+import { ToolStatusIcon } from "./tool-status-icon";
 import {
-  CheckCircle2Icon,
-  CircleIcon,
   ExternalLinkIcon,
   FileIcon,
   FolderIcon,
-  LoaderCircleIcon,
   SearchIcon,
-  XCircleIcon,
 } from "lucide-react";
 
 type GlobToolOutputProps = {
@@ -26,7 +25,9 @@ type GlobToolOutputProps = {
   className?: string;
 };
 
-/** Group matches into a tree-like structure based on directory prefix. */
+/**
+ * Group matches into a tree-like structure based on directory prefix.
+ */
 function groupByDirectory(matches: string[]): Map<string, string[]> {
   const map = new Map<string, string[]>();
   for (const match of matches) {
@@ -47,26 +48,9 @@ function inferFileIcon(path: string): string {
   if (name.startsWith(".")) return "dotfile";
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   const codeExts = new Set([
-    "ts",
-    "tsx",
-    "js",
-    "jsx",
-    "rs",
-    "py",
-    "go",
-    "java",
-    "c",
-    "cpp",
-    "css",
-    "scss",
-    "html",
-    "json",
-    "md",
-    "yaml",
-    "yml",
-    "toml",
-    "xml",
-    "sql",
+    "ts", "tsx", "js", "jsx", "rs", "py", "go", "java",
+    "c", "cpp", "css", "scss", "less", "html", "json", "md",
+    "yaml", "yml", "toml", "xml", "sql",
   ]);
   return codeExts.has(ext) ? "code" : "file";
 }
@@ -81,7 +65,7 @@ export function GlobToolOutput({
 }: GlobToolOutputProps) {
   const formatted = formatGlobOutputForDisplay(output);
   const isError = state === "output-error" && errorText;
-  void _input; // Kept for consistent interface with other tool output components.
+  void _input;
 
   const grouped = useMemo(() => {
     if (!formatted?.matches) return [];
@@ -96,44 +80,37 @@ export function GlobToolOutput({
   }, [formatted]);
 
   return (
-    <div className={cn("w-full overflow-hidden rounded-md border", className)}>
-      {/* Header bar */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/30 px-3 py-1.5 text-xs">
-        <ToolStatusIcon state={state} />
-        <span className="font-mono font-medium text-foreground">
-          {toolName}
-        </span>
-        {formatted ? (
-          <>
-            <span className="text-muted-foreground">·</span>
-            <span className="font-mono text-muted-foreground">
-              {formatted.pattern.length > 40
-                ? `${formatted.pattern.slice(0, 40)}…`
-                : formatted.pattern}
-            </span>
-            <span className="font-mono text-muted-foreground/60">
-              {formatted.totalMatches} match
-              {formatted.totalMatches !== 1 ? "es" : ""}
-            </span>
-            {formatted.truncated ? (
-              <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
-                truncated
-              </span>
-            ) : null}
-          </>
-        ) : null}
-      </div>
-
-      {/* Error banner */}
-      {isError ? (
-        <div className="flex items-start gap-2 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
-          <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
-            {errorText}
+    <CollapsibleToolSection
+      className={className}
+      errorText={isError ? errorText : undefined}
+      header={
+        <>
+          <ToolStatusIcon state={state} />
+          <span className="font-mono font-medium text-foreground">
+            {toolName}
           </span>
-        </div>
-      ) : null}
-
-      {/* File list grouped by directory */}
+          {formatted ? (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="font-mono text-muted-foreground">
+                {formatted.pattern.length > 40
+                  ? `${formatted.pattern.slice(0, 40)}\u2026`
+                  : formatted.pattern}
+              </span>
+              <span className="font-mono text-muted-foreground/60">
+                {formatted.totalMatches} match
+                {formatted.totalMatches !== 1 ? "es" : ""}
+              </span>
+              {formatted.truncated ? (
+                <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
+                  truncated
+                </span>
+              ) : null}
+            </>
+          ) : null}
+        </>
+      }
+    >
       {formatted && grouped.length > 0 ? (
         <div className="max-h-80 divide-y overflow-y-auto">
           {grouped.map(([dirPath, files]) => (
@@ -199,24 +176,7 @@ export function GlobToolOutput({
           <span>No matches found</span>
         </div>
       ) : null}
-    </div>
+    </CollapsibleToolSection>
   );
 }
 
-function ToolStatusIcon({ state }: { state: ToolUIPart["state"] }) {
-  switch (state) {
-    case "output-available":
-      return (
-        <CheckCircle2Icon className="size-3.5 shrink-0 text-green-600" />
-      );
-    case "output-error":
-      return <XCircleIcon className="size-3.5 shrink-0 text-destructive" />;
-    case "input-streaming":
-    case "input-available":
-      return (
-        <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-      );
-    default:
-      return <CircleIcon className="size-3.5 shrink-0 text-muted-foreground" />;
-  }
-}

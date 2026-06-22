@@ -1,20 +1,16 @@
 "use client";
 
 import { useMemo } from "react";
+import type { ToolUIPart } from "ai";
+import { ExternalLinkIcon } from "lucide-react";
 
 import { CodeBlock } from "@/components/ai-elements/code-block";
-import { formatReadFileOutputForDisplay } from "@/features/agent/tools/read-file-display";
-import { cn } from "@/lib/utils";
 import {
-  CheckCircle2Icon,
-  CircleIcon,
-  ExternalLinkIcon,
-  LoaderCircleIcon,
-  XCircleIcon,
-} from "lucide-react";
-
+  CollapsibleToolSection,
+} from "@/components/ai-elements/collapsible-tool-section";
+import { formatReadFileOutputForDisplay } from "@/features/agent/tools/read-file-display";
 import { OPEN_FILE_IN_PREVIEW_EVENT } from "@/features/right-panel/lib/open-file-event";
-import type { ToolUIPart } from "ai";
+import { ToolStatusIcon } from "./tool-status-icon";
 
 type ReadFileToolOutputProps = {
   output: unknown;
@@ -48,77 +44,71 @@ export function ReadFileToolOutput({
   const language = useMemo(() => inferLanguage(filePath), [filePath]);
 
   return (
-    <div className={cn("w-full overflow-hidden rounded-md border", className)}>
-      {/* Header bar */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/30 px-3 py-1.5 text-xs">
-        <ToolStatusIcon state={state} />
-        <span className="font-mono font-medium text-foreground">
-          {toolName}
-        </span>
-        <span className="text-muted-foreground">·</span>
-        <span className="font-mono text-muted-foreground">{filePath}</span>
-        <span className="font-mono text-muted-foreground/60">
-          L{startLine}-{endLine}
-        </span>
-        {totalLines > 0 ? (
-          <span className="font-mono text-muted-foreground/50">
-            / {totalLines} lines
+    <CollapsibleToolSection
+      className={className}
+      errorText={isError ? errorText : undefined}
+      header={
+        <>
+          <ToolStatusIcon state={state} />
+          <span className="font-mono font-medium text-foreground">
+            {toolName}
           </span>
-        ) : null}
-        {containsSecrets ? (
-          <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
-            secrets
+          <span className="text-muted-foreground">·</span>
+          <span className="font-mono text-muted-foreground">{filePath}</span>
+          <span className="font-mono text-muted-foreground/60">
+            L{startLine}-{endLine}
           </span>
-        ) : null}
-        {truncated ? (
-          <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
-            truncated
-          </span>
-        ) : null}
-        <div className="ml-auto">
-          <button
-            aria-label="Open in preview"
-            className="flex size-4 items-center justify-center text-muted-foreground/50 transition-colors hover:text-muted-foreground"
-            onClick={() => {
-              const name = filePath.split("/").pop() ?? filePath;
-              window.dispatchEvent(
-                new CustomEvent(OPEN_FILE_IN_PREVIEW_EVENT, {
-                  detail: { path: filePath, name },
-                }),
-              );
-            }}
-            title="Open file in preview"
-            type="button"
-          >
-            <ExternalLinkIcon className="size-3" />
-          </button>
-        </div>
-      </div>
-
-      {/* Error banner */}
-      {isError ? (
-        <div className="flex items-start gap-2 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
-          <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
-            {errorText}
-          </span>
+          {totalLines > 0 ? (
+            <span className="font-mono text-muted-foreground/50">
+              / {totalLines} lines
+            </span>
+          ) : null}
+          {containsSecrets ? (
+            <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
+              secrets
+            </span>
+          ) : null}
+          {truncated ? (
+            <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
+              truncated
+            </span>
+          ) : null}
+          <div className="ml-auto">
+            <button
+              aria-label="Open in preview"
+              className="flex size-4 items-center justify-center text-muted-foreground/50 transition-colors hover:text-muted-foreground"
+              onClick={(e) => {
+                e.stopPropagation();
+                const name = filePath.split("/").pop() ?? filePath;
+                window.dispatchEvent(
+                  new CustomEvent(OPEN_FILE_IN_PREVIEW_EVENT, {
+                    detail: { path: filePath, name },
+                  }),
+                );
+              }}
+              title="Open file in preview"
+              type="button"
+            >
+              <ExternalLinkIcon className="size-3" />
+            </button>
+          </div>
+        </>
+      }
+    >
+      {content ? (
+        <div className="max-h-96 overflow-y-auto">
+          <CodeBlock
+            code={content}
+            language={language as unknown as import("shiki").BundledLanguage}
+            showLineNumbers
+          />
         </div>
       ) : (
-        /* Code content */
-        <div className="max-h-96 overflow-y-auto">
-          {content ? (
-            <CodeBlock
-              code={content}
-              language={language as unknown as import("shiki").BundledLanguage}
-              showLineNumbers
-            />
-          ) : (
-            <div className="px-3 py-4 font-mono text-xs text-muted-foreground">
-              (empty file)
-            </div>
-          )}
+        <div className="px-3 py-4 font-mono text-xs text-muted-foreground">
+          (empty file)
         </div>
       )}
-    </div>
+    </CollapsibleToolSection>
   );
 }
 
@@ -164,22 +154,4 @@ function inferLanguage(filePath: string): string {
     lock: "json",
   };
   return langMap[ext] ?? "";
-}
-
-function ToolStatusIcon({ state }: { state: ToolUIPart["state"] }) {
-  switch (state) {
-    case "output-available":
-      return (
-        <CheckCircle2Icon className="size-3.5 shrink-0 text-green-600" />
-      );
-    case "output-error":
-      return <XCircleIcon className="size-3.5 shrink-0 text-destructive" />;
-    case "input-streaming":
-    case "input-available":
-      return (
-        <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-      );
-    default:
-      return <CircleIcon className="size-3.5 shrink-0 text-muted-foreground" />;
-  }
 }
