@@ -157,10 +157,12 @@ export function ChatHistoryList({
                         <Download className="size-4" />
                         {t("sidebar.exportChat")}
                       </ContextMenuItem>
-                      <ContextMenuItem onClick={() => invoke("create_new_window", { sessionId: item.id })}>
-                        <ExternalLink className="size-4" />
-                        {t("sidebar.openInNewWindow")}
-                      </ContextMenuItem>
+                      {!isRunning && (
+                        <ContextMenuItem onClick={() => invoke("create_new_window", { sessionId: item.id })}>
+                          <ExternalLink className="size-4" />
+                          {t("sidebar.openInNewWindow")}
+                        </ContextMenuItem>
+                      )}
                       <ContextMenuSeparator />
                       <ContextMenuItem
                         variant="destructive"
