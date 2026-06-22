@@ -38,6 +38,7 @@ export const zhMessages = {
     agentRunning: "Agent 运行中",
     exportChat: "导出",
     editChat: "编辑标题",
+    openInNewWindow: "在新窗口中打开",
     editChatTitle: "编辑聊天标题",
     editChatTitleLabel: "聊天名称",
     editChatTitleSave: "保存",

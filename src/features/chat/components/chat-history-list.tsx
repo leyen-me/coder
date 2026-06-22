@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Pencil, Trash2 } from "lucide-react";
+import { Download, ExternalLink, Pencil, Trash2 } from "lucide-react";
 
 import { paths } from "@/app/paths";
 import {
@@ -32,6 +32,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
+import { invoke } from "@tauri-apps/api/core";
 
 import { SessionTitleLabel } from "@/features/chat/components/session-title-label";
 import type { ChatHistoryItem } from "@/lib/db";
@@ -155,6 +156,10 @@ export function ChatHistoryList({
                       <ContextMenuItem onClick={() => onExportSession(item.id)}>
                         <Download className="size-4" />
                         {t("sidebar.exportChat")}
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => invoke("create_new_window", { sessionId: item.id })}>
+                        <ExternalLink className="size-4" />
+                        {t("sidebar.openInNewWindow")}
                       </ContextMenuItem>
                       <ContextMenuSeparator />
                       <ContextMenuItem

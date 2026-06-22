@@ -40,12 +40,16 @@ fn configure_main_window(app: &tauri::App) {
 }
 
 #[tauri::command]
-async fn create_new_window(app: tauri::AppHandle) -> Result<(), String> {
+async fn create_new_window(app: tauri::AppHandle, session_id: Option<String>) -> Result<(), String> {
     let label = format!("window-{}", uuid::Uuid::new_v4().to_string().replace('-', "_"));
+    let url = match &session_id {
+        Some(id) => format!("/chat/{id}").into(),
+        None => "index.html".into(),
+    };
     let window = tauri::WebviewWindowBuilder::new(
         &app,
         &label,
-        tauri::WebviewUrl::App("index.html".into()),
+        tauri::WebviewUrl::App(url),
     )
     .title("coder")
     .inner_size(1600.0, 900.0)
@@ -53,7 +57,7 @@ async fn create_new_window(app: tauri::AppHandle) -> Result<(), String> {
     .build()
     .map_err(|e| e.to_string())?;
 
-    log::info!("Created new window with label: {label}");
+    log::info!("Created new window with label: {label}, session_id: {session_id:?}");
     window.show().map_err(|e| e.to_string())?;
     std::mem::forget(window);
     Ok(())

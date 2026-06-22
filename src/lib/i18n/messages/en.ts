@@ -38,6 +38,7 @@ export const enMessages = {
     agentRunning: "Agent running",
     exportChat: "Export",
     editChat: "Rename",
+    openInNewWindow: "Open in New Window",
     editChatTitle: "Rename chat",
     editChatTitleLabel: "Chat name",
     editChatTitleSave: "Save",
