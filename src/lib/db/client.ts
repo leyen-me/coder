@@ -6,6 +6,7 @@ import {
   DB_NAME,
   DB_VERSION,
   MESSAGES_STORE,
+  REMOTE_TARGETS_STORE,
   SESSIONS_STORE,
   SYSTEM_SKILL_PREFERENCES_STORE,
   USER_SKILLS_STORE,
@@ -16,6 +17,7 @@ import type {
   AgentTodoRecord,
   AutomationRecord,
   MessageRecord,
+  RemoteTargetConfig,
   SessionRecord,
   SystemSkillPreference,
   UserSkillRecord,
@@ -57,6 +59,10 @@ interface CoderDbSchema extends DBSchema {
       "by-sessionId-order": [string, number];
     };
   };
+  remoteTargets: {
+    key: string;
+    value: RemoteTargetConfig;
+  };
 }
 
 const REQUIRED_STORES = [
@@ -66,6 +72,7 @@ const REQUIRED_STORES = [
   SYSTEM_SKILL_PREFERENCES_STORE,
   AUTOMATIONS_STORE,
   AGENT_TODOS_STORE,
+  REMOTE_TARGETS_STORE,
 ] as const;
 
 let dbPromise: Promise<IDBPDatabase<CoderDbSchema>> | null = null;
@@ -168,6 +175,13 @@ async function openCoderDb(repairAttempted = false): Promise<IDBPDatabase<CoderD
         for (const automation of automations) {
           await automationStore.put(normalizeAutomationRecord(automation));
         }
+      }
+
+      // v12: add remoteTargets store
+      if (!database.objectStoreNames.contains(REMOTE_TARGETS_STORE)) {
+        database.createObjectStore(REMOTE_TARGETS_STORE, {
+          keyPath: "alias",
+        });
       }
     },
   });

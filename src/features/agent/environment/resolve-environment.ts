@@ -1,6 +1,7 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { getEnabledSystemSkills } from "@/features/skills/lib/resolve-skills";
+import { listRemoteTargets } from "@/lib/db/remote-targets";
 
 import { normalizeEnvironment } from "./build-system-prompt";
 import type { AgentEnvironment, AgentProjectInstructions } from "./types";
@@ -22,6 +23,14 @@ export async function resolveAgentEnvironment(
     content: skill.content,
   }));
 
+  // Load remote targets
+  const remoteTargets = (await listRemoteTargets()).map((t) => ({
+    alias: t.alias,
+    host: t.host,
+    port: t.port,
+    user: t.user,
+  }));
+
   if (isTauri()) {
     try {
       const runtime = await invoke<RuntimeEnvironmentResponse>(
@@ -38,6 +47,7 @@ export async function resolveAgentEnvironment(
         isGitRepository: runtime.isGitRepository,
         agentsMd: runtime.agentsMd ?? null,
         enabledSystemSkills: skillPayload,
+        remoteTargets,
       });
     } catch {
       // Fall through to browser-style defaults when the command is unavailable.
@@ -51,6 +61,7 @@ export async function resolveAgentEnvironment(
     isGitRepository: false,
     agentsMd: null,
     enabledSystemSkills: skillPayload,
+    remoteTargets,
   });
 }
 

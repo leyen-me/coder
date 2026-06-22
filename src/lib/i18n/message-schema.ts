@@ -233,6 +233,7 @@ export type Messages = {
       data: string;
       lab: string;
       email: string;
+      remoteTargets: string;
     };
     general: {
       languageLabel: string;
@@ -449,6 +450,42 @@ export type Messages = {
       sending: string;
       testSubject: string;
       testBody: string;
+    };
+    remoteTargets: {
+      title: string;
+      description: string;
+      addButton: string;
+      emptyState: string;
+      edit: string;
+      delete: string;
+      save: string;
+      cancel: string;
+      testConnection: string;
+      addDialogTitle: string;
+      editDialogTitle: string;
+      dialogDescription: string;
+      aliasLabel: string;
+      aliasPlaceholder: string;
+      hostLabel: string;
+      hostPlaceholder: string;
+      portLabel: string;
+      userLabel: string;
+      userPlaceholder: string;
+      authTypeLabel: string;
+      authTypes: {
+        agent: string;
+        key: string;
+        keyContent: string;
+        password: string;
+      };
+      passwordLabel: string;
+      passwordPlaceholder: string;
+      keyPathLabel: string;
+      keyPathPlaceholder: string;
+      keyContentLabel: string;
+      keyContentPlaceholder: string;
+      deleteConfirmTitle: string;
+      deleteConfirmDescription: string;
     };
   };
   lab: {

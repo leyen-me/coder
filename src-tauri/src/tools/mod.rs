@@ -16,6 +16,7 @@ mod pty_terminal;
 mod project_instructions;
 mod read_editor_file;
 mod read_file;
+mod remote_connection;
 mod replace_file;
 mod runtime;
 mod search;
@@ -52,6 +53,7 @@ pub use plan::{
 pub use pty_terminal::{pty_close, pty_create, pty_resize, pty_write, PtyRegistry, PtyState};
 pub use read_editor_file::tool_read_editor_file;
 pub use read_file::tool_read_file;
+pub use remote_connection::{test_remote_connection, RemoteConnectionPool};
 pub use replace_file::tool_replace_file;
 pub use runtime::agent_get_runtime_environment;
 pub use search_workspace::tool_search_workspace_paths;

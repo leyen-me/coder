@@ -15,6 +15,7 @@ import { KeyboardShortcutsSettingsPanel } from "../components/keyboard-shortcuts
 import { ModelProviderSettingsPanel } from "../components/model-provider-settings-panel";
 import { LabSettingsPanel } from "../components/lab-settings-panel";
 import { WebToolsSettingsPanel } from "../components/web-tools-settings-panel";
+import { RemoteTargetsSettingsPanel } from "../components/remote-targets-settings-panel";
 import { SettingsSidebar } from "../components/settings-sidebar";
 import type { SettingsCategoryId } from "../types";
 
@@ -27,6 +28,7 @@ const SETTINGS_PANELS: Record<SettingsCategoryId, ComponentType> = {
   data: DataSettingsPanel,
   lab: LabSettingsPanel,
   email: EmailSettingsPanel,
+  remoteTargets: RemoteTargetsSettingsPanel,
 };
 
 export function SettingsPage() {

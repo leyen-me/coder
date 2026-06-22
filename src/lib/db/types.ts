@@ -180,6 +180,20 @@ export type ChatHistoryItem = {
   sessionKind: SessionKind;
 };
 
+export type RemoteTargetAuth =
+  | { type: "key"; keyPath: string }
+  | { type: "keyContent"; content: string }
+  | { type: "password"; password: string }
+  | { type: "agent" };
+
+export type RemoteTargetConfig = {
+  alias: string;
+  host: string;
+  port: number;
+  user: string;
+  auth: RemoteTargetAuth;
+};
+
 export type AgentTodoStatus =
   | "pending"
   | "in_progress"

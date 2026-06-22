@@ -16,6 +16,12 @@ export type AgentEnvironment = {
     name: string;
     content: string;
   }>;
+  remoteTargets: Array<{
+    alias: string;
+    host: string;
+    port: number;
+    user: string;
+  }>;
 };
 
 export type AgentEnvironmentInput = {
@@ -26,4 +32,5 @@ export type AgentEnvironmentInput = {
   today?: string;
   agentsMd?: AgentProjectInstructions;
   enabledSystemSkills?: AgentEnvironment["enabledSystemSkills"];
+  remoteTargets?: AgentEnvironment["remoteTargets"];
 };

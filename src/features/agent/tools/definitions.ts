@@ -364,6 +364,11 @@ export const SHELL_TOOL: AgentToolDefinition = {
             "Max wait time in ms. Default 30000. Use 0 for background mode (returns shell_id). Max 600000.",
           default: 30000,
         },
+        target: {
+          type: "string",
+          description:
+            "Target remote machine alias. Omit to run locally on the user's machine.",
+        },
       },
       required: ["command"],
       additionalProperties: false,

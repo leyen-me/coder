@@ -65,8 +65,31 @@ export function buildSystemPrompt(
     ...buildSystemPromptSections(environment.enabledSystemSkills),
     ...buildUserSkillsSection(agentMode),
     ...buildProjectInstructionsSection(environment.agentsMd),
+    ...buildRemoteTargetsSection(environment.remoteTargets),
     ...modeGuidance,
   ].join("\n");
+}
+
+function buildRemoteTargetsSection(
+  remoteTargets: AgentEnvironment["remoteTargets"]
+): string[] {
+  if (!remoteTargets.length) {
+    return [];
+  }
+
+  const targetLines = remoteTargets.map(
+    (t) => `  - "${t.alias}" (${t.user}@${t.host}:${t.port})`
+  );
+
+  return [
+    "",
+    "## Remote Machines",
+    "You have the following remote machines available:",
+    ...targetLines,
+    "",
+    'Use `shell(target: "<alias>")` to execute commands on a remote machine. The `target` parameter is optional ¡ª omit it to run commands locally.',
+    "",
+  ];
 }
 
 /**
@@ -229,6 +252,7 @@ export function normalizeEnvironment(
     today: input.today ?? formatToday(new Date()),
     agentsMd: input.agentsMd ?? null,
     enabledSystemSkills: input.enabledSystemSkills ?? [],
+    remoteTargets: input.remoteTargets ?? [],
   };
 }
 

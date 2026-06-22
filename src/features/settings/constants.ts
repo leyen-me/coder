@@ -6,6 +6,7 @@ import {
   Keyboard,
   Mail,
   Palette,
+  Server,
   SlidersHorizontal,
 } from "lucide-react";
 
@@ -36,6 +37,7 @@ export const SETTINGS_CATEGORY_GROUPS: SettingsCategoryGroup[] = [
       { id: "modelProvider", icon: Bot },
       { id: "email", icon: Mail },
       { id: "webTools", icon: Globe },
+      { id: "remoteTargets", icon: Server },
     ],
   },
   {

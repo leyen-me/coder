@@ -22,14 +22,14 @@ use tools::{
     git_get_current_branch, git_get_remote_url, git_init, git_list_branches, git_log, git_pull,
     git_push, git_revert, git_stage_all, git_stage_files, git_status, git_unstage_all, git_unstage_files,
     pty_close, pty_create, pty_resize, pty_write, resolve_env_var, send_email, shell_kill, shell_kill_by_task, shell_list, shell_read_logs,
-    tool_await, tool_browse_page, tool_copy_path, tool_create_dir, tool_delete_path,
+    test_remote_connection, tool_await, tool_browse_page, tool_copy_path, tool_create_dir, tool_delete_path,
     tool_edit_file, tool_get_workspace_tree, tool_glob, tool_grep, tool_list_dir,     tool_move_path, tool_read_editor_file,
     tool_plan_create, tool_plan_delete, tool_plan_edit, tool_plan_list, tool_plan_read, tool_plan_update,
     tool_read_file,
     tool_rename_path, tool_replace_file, tool_normalize_external_path, tool_read_local_image_bytes,
     tool_resolve_absolute_path, tool_shell,
     tool_search_workspace_paths, tool_web_search, tool_write_file,
-    PageCache, PtyRegistry, PtyState, ShellRegistry,
+    PageCache, PtyRegistry, PtyState, RemoteConnectionPool, ShellRegistry,
     ShellState,
 };
 
@@ -124,9 +124,12 @@ pub fn run() {
         .manage(PtyState(Arc::new(Mutex::new(PtyRegistry::new()))))
         .manage(FileWatcherState(Arc::new(Mutex::new(None))))
         .manage(Arc::new(PageCache::new()))
+        .manage(RemoteConnectionPool::new())
         .setup(|app| {
             shell_env::preload_shell_environment();
             configure_main_window(app);
+            let pool = app.state::<RemoteConnectionPool>();
+            pool.start_idle_reaper();
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -199,6 +202,7 @@ pub fn run() {
             send_email,
             write_text_file,
             set_workspace_dir,
+            test_remote_connection,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
