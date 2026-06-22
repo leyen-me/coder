@@ -9,6 +9,7 @@ import {
 import { useRightPanel } from "@/features/right-panel/right-panel-context";
 import { ProviderUsageTag } from "@/features/lab/provider-usage-tag";
 import { useBottomPanel } from "@/features/terminal/bottom-panel-context";
+import { useRunningSessionIds } from "@/features/agent/store/agent-store";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import type { ProviderId } from "@/lib/model-provider/types";
@@ -27,11 +28,14 @@ export function SessionToolbar({ sessionProvider, sessionId }: SessionToolbarPro
     isOpen: isRightPanelOpen,
     toggle: toggleRightPanel,
   } = useRightPanel();
+  const runningSessionIds = useRunningSessionIds();
+  const isSessionRunning = sessionId ? runningSessionIds.has(sessionId) : false;
 
   const tooltip = t("session.bottomPanel");
 
   const handleNewWindow = () => {
-    invoke("create_new_window", sessionId ? { sessionId } : {});
+    // Don't pass sessionId for running sessions — event stream is tied to the current window
+    invoke("create_new_window", sessionId && !isSessionRunning ? { sessionId } : {});
   };
 
   return (
