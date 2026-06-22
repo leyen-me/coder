@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { Plus, Trash2, Play } from "lucide-react";
+import { Plus, Trash2, Play, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -221,7 +221,11 @@ export function RemoteTargetsSettingsPanel() {
               disabled={testingAlias === target.alias}
               aria-label={t("settings.remoteTargets.testConnection")}
             >
-              <Play className="h-4 w-4" />
+              {testingAlias === target.alias ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
             </Button>
             <Button
               variant="ghost"

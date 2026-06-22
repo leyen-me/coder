@@ -296,17 +296,38 @@ impl RemoteConnectionPool {
     }
 }
 
-/// Tauri command: test remote connection
+/// Tauri command: test remote connection (async, runs blocking SSH on background thread
+/// so the UI thread is not frozen).
+const TEST_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+
 #[tauri::command]
-pub fn test_remote_connection(
+pub async fn test_remote_connection(
     config: RemoteTargetConfig,
 ) -> Result<TestConnectionResult, String> {
-    match SshSession::connect(&config) {
+    // Extract display fields before moving config into the blocking closure.
+    let user = config.user.clone();
+    let host = config.host.clone();
+    let port = config.port;
+
+    let result = tokio::time::timeout(
+        TEST_CONNECT_TIMEOUT,
+        tokio::task::spawn_blocking(move || SshSession::connect(&config)),
+    )
+    .await
+    .map_err(|_| {
+        format!(
+            "Connection timed out after {} seconds",
+            TEST_CONNECT_TIMEOUT.as_secs()
+        )
+    })? // tokio::time::timeout elapsed
+    .map_err(|e| format!("Internal error: {e}"))?; // JoinError
+
+    match result {
         Ok(_session) => Ok(TestConnectionResult {
             ok: true,
             message: format!(
                 "Successfully connected to {}@{}:{}",
-                config.user, config.host, config.port
+                user, host, port
             ),
         }),
         Err(e) => Ok(TestConnectionResult {
