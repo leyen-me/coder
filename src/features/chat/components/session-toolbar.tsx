@@ -16,9 +16,10 @@ import { invoke } from "@tauri-apps/api/core";
 
 type SessionToolbarProps = {
   sessionProvider?: ProviderId | null;
+  sessionId?: string | null;
 };
 
-export function SessionToolbar({ sessionProvider }: SessionToolbarProps) {
+export function SessionToolbar({ sessionProvider, sessionId }: SessionToolbarProps) {
   const { t } = useTranslation();
   const { isOpen, toggle } = useBottomPanel();
   const isBottomActive = isOpen;
@@ -30,7 +31,7 @@ export function SessionToolbar({ sessionProvider }: SessionToolbarProps) {
   const tooltip = t("session.bottomPanel");
 
   const handleNewWindow = () => {
-    invoke("create_new_window");
+    invoke("create_new_window", sessionId ? { sessionId } : {});
   };
 
   return (

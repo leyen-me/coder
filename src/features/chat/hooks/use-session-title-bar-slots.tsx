@@ -50,6 +50,6 @@ export function useSessionTitleBarSlots(pathname: string) {
         onDoubleClick={handleDoubleClick}
       />
     ),
-    trailing: <SessionToolbar sessionProvider={session?.provider ?? null} />,
+    trailing: <SessionToolbar sessionProvider={session?.provider ?? null} sessionId={chatId} />,
   };
 }
