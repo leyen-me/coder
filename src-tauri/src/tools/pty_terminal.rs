@@ -195,7 +195,7 @@ impl PtyRegistry {
     }
 
     pub fn close(&mut self, pty_id: &str) -> Result<(), String> {
-        let mut session = self
+        let session = self
             .sessions
             .remove(pty_id)
             .ok_or_else(|| format!("Unknown pty_id: {pty_id}"))?;

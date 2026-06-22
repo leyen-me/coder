@@ -430,7 +430,7 @@ pub fn guess_text_mime_type(path: &str) -> String {
 pub fn atomic_write_bytes(
     path: &Path,
     bytes: &[u8],
-    preserve_mode: Option<u32>,
+    _preserve_mode: Option<u32>,
 ) -> Result<(), TextFileToolError> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
@@ -460,7 +460,7 @@ pub fn atomic_write_bytes(
     }
 
     #[cfg(unix)]
-    if let Some(mode) = preserve_mode {
+    if let Some(mode) = _preserve_mode {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&tmp_path, fs::Permissions::from_mode(mode)).map_err(|error| {
             TextFileToolError::new(

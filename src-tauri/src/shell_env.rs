@@ -4,7 +4,6 @@
 //! shell at startup bridges that gap for `apiKeySource: "env"` settings.
 
 use std::collections::HashMap;
-use std::process::Command;
 use std::sync::OnceLock;
 
 static SHELL_ENV: OnceLock<HashMap<String, String>> = OnceLock::new();
@@ -89,6 +88,8 @@ fn load_shell_environment() -> HashMap<String, String> {
 
 #[cfg(not(target_os = "windows"))]
 fn load_unix_shell_environment() -> HashMap<String, String> {
+    use std::process::Command;
+
     let shell = resolve_login_shell();
     let (flag, command) = shell_invocation(&shell);
 

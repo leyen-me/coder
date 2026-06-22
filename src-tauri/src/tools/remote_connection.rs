@@ -1,3 +1,4 @@
+use std::fs;
 use std::io::Read;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -99,9 +100,34 @@ impl SshSession {
                     .map_err(|e| format!("SSH key auth failed: {e}"))?;
             }
             RemoteTargetAuth::KeyContent { content } => {
-                session
-                    .userauth_pubkey_memory(config.user.as_str(), None, content.as_str(), None)
-                    .map_err(|e| format!("SSH key content auth failed: {e}"))?;
+                // Write the key to a temporary file, then use userauth_pubkey_file.
+                // userauth_pubkey_memory is not available in ssh2 0.9.x on crates.io.
+                let tmp_dir = std::env::temp_dir().join(format!(
+                    "coder-ssh-key-{}",
+                    uuid::Uuid::new_v4()
+                ));
+                fs::create_dir_all(&tmp_dir).map_err(|e| {
+                    format!("Failed to create temp dir for SSH key: {e}")
+                })?;
+                let key_path = tmp_dir.join("id_rsa");
+                fs::write(&key_path, content.as_bytes()).map_err(|e| {
+                    format!("Failed to write SSH key to temp file: {e}")
+                })?;
+                // Restrict permissions on Unix so libssh2 doesn't refuse the key.
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    fs::set_permissions(&key_path, fs::Permissions::from_mode(0o600)).ok();
+                }
+                let result = session.userauth_pubkey_file(
+                    config.user.as_str(),
+                    None,
+                    &key_path,
+                    None,
+                );
+                // Clean up the temp directory regardless of auth result.
+                let _ = fs::remove_dir_all(&tmp_dir);
+                result.map_err(|e| format!("SSH key content auth failed: {e}"))?;
             }
             RemoteTargetAuth::Password { password } => {
                 session
