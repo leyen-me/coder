@@ -32,7 +32,7 @@ export function CollapsibleToolSection({
   header,
   children,
   errorText,
-  defaultOpen = false,
+  defaultOpen = true,
   className,
 }: CollapsibleToolSectionProps) {
   return (
