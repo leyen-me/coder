@@ -131,10 +131,10 @@ export const AssistantProcessCollapsible = memo(
           }
         >
           <BotIcon className="size-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">{triggerLabel}</span>
+          <span>{triggerLabel}</span>
           <ChevronDownIcon
             className={cn(
-              "ml-auto size-4 shrink-0 transition-transform",
+              "size-4 shrink-0 transition-transform",
               isOpen ? "rotate-180" : "rotate-0"
             )}
           />
