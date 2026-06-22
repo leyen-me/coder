@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import { Plus, Trash2, Play, Loader2 } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import {
@@ -33,6 +32,8 @@ import {
   deleteRemoteTarget,
 } from "@/lib/db/remote-targets";
 import type { RemoteTargetAuth, RemoteTargetConfig } from "@/lib/db/types";
+
+import { RemoteTargetCard } from "./remote-target-card";
 
 type AuthType = RemoteTargetAuth["type"];
 
@@ -175,88 +176,55 @@ export function RemoteTargetsSettingsPanel() {
   }
 
   return (
-    <section className="divide-y">
-      <div className="flex items-center justify-between pb-4">
-        <div>
-          <h3 className="text-sm font-medium">
+    <section className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-base font-medium tracking-tight">
             {t("settings.remoteTargets.title")}
-          </h3>
-          <p className="text-muted-foreground mt-1 text-xs">
+          </h2>
+          <p className="text-sm text-muted-foreground">
             {t("settings.remoteTargets.description")}
           </p>
         </div>
-        <Button size="sm" onClick={handleAdd}>
+        <Button onClick={handleAdd} size="sm">
           <Plus className="mr-1 h-4 w-4" />
           {t("settings.remoteTargets.addButton")}
         </Button>
       </div>
 
-      {targets.length === 0 && (
-        <div className="text-muted-foreground py-8 text-center text-sm">
-          {t("settings.remoteTargets.emptyState")}
+      {targets.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-4xl border border-dashed py-16 text-center">
+          <p className="text-sm text-muted-foreground">
+            {t("settings.remoteTargets.emptyState")}
+          </p>
         </div>
-      )}
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {targets.map((target) => (
+              <RemoteTargetCard
+                key={target.alias}
+                target={target}
+                isTesting={testingAlias === target.alias}
+                onEdit={() => handleEdit(target)}
+                onDelete={() => handleDelete(target.alias)}
+                onTest={() => void handleTestConnection(target.alias)}
+              />
+            ))}
+          </div>
 
-      {targets.map((target) => (
-        <div
-          key={target.alias}
-          className="flex items-center justify-between py-3"
-        >
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">{target.alias}</span>
-              <Badge variant="outline" className="text-xs">
-                {target.user}@{target.host}:{target.port}
-              </Badge>
-              <Badge variant="secondary" className="text-xs">
-                {authTypeLabel(t as (key: string) => string, target.auth.type)}
-              </Badge>
+          {testResult && (
+            <div
+              className={`rounded-md p-3 text-sm ${
+                testResult.ok
+                  ? "bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200"
+                  : "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200"
+              }`}
+            >
+              <strong>{testResult.alias}:</strong> {testResult.message}
             </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleTestConnection(target.alias)}
-              disabled={testingAlias === target.alias}
-              aria-label={t("settings.remoteTargets.testConnection")}
-            >
-              {testingAlias === target.alias ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleEdit(target)}
-              aria-label={t("settings.remoteTargets.edit")}
-            >
-              {t("settings.remoteTargets.edit")}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleDelete(target.alias)}
-              aria-label={t("settings.remoteTargets.delete")}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      ))}
-
-      {testResult && (
-        <div
-          className={`mt-2 rounded-md p-3 text-sm ${
-            testResult.ok
-              ? "bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200"
-              : "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200"
-          }`}
-        >
-          <strong>{testResult.alias}:</strong> {testResult.message}
-        </div>
+          )}
+        </>
       )}
 
       {/* Add/Edit Dialog */}
