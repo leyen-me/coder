@@ -8,6 +8,7 @@ import type {
   SubAgentStep,
   ToolHandler,
 } from "./types";
+import { cancelAgent } from "../runner";
 import type { AgentChatMessage, AgentEvent } from "../types";
 
 const MAX_DEPTH = 3;
@@ -115,11 +116,11 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
         if (event.type === "content_delta") {
           finalContent += event.delta;
         }
-        // Emit partial progress to UI after each new step or content update
+        // Emit partial progress to UI only at step boundaries (tool started/finished),
+        // not on every thinking token. The steps array is still accumulated in memory.
         if (
           event.type === "tool_call_started" ||
-          event.type === "tool_call_finished" ||
-          event.type === "thinking_delta"
+          event.type === "tool_call_finished"
         ) {
           const rounds = steps.filter((s) => s.kind === "reasoning").length;
           const toolCalls = steps.filter((s) => s.kind === "tool").length;
@@ -137,6 +138,9 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
   } catch (error: unknown) {
     if (abortController.signal.aborted) {
       finalError = "Sub-agent was cancelled.";
+      // The parent was cancelled — also abort the sub-agent's HTTP request,
+      // which runs independently via startAgent() and won't stop on its own.
+      cancelAgent(subTaskId).catch(() => {});
     } else {
       finalError =
         error instanceof Error ? error.message : "Unknown sub-agent error.";
