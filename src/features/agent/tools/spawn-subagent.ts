@@ -68,8 +68,11 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
     { role: "user", content: args.value.task },
   ];
 
-  // Build tools list for the sub-agent
-  const allTools = getAgentToolDefinitions("agent");
+  // Build tools list for the sub-agent — explicitly exclude spawn_subagent
+  // to prevent recursive spawning beyond the depth limit.
+  const allTools = getAgentToolDefinitions("agent").filter(
+    (t) => t.function.name !== SPAWN_SUBAGENT_TOOL_NAME
+  );
   const tools = args.value.tools
     ? allTools.filter((t) => args.value.tools!.includes(t.function.name))
     : allTools;
@@ -80,6 +83,9 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
   if (parentSignal) {
     const onParentAbort = () => {
       abortController.abort();
+      // Immediately cancel the sub-agent on the Rust side, since AbortController
+      // cannot interrupt an in-flight Tauri invoke("agent_start") call.
+      cancelAgent(subTaskId).catch(() => {});
     };
     parentSignal.addEventListener("abort", onParentAbort, { once: true });
   }

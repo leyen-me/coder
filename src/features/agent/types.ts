@@ -1,6 +1,7 @@
 import type { AgentMessageContent } from "./message-content";
 import type { AgentToolCall, AgentToolDefinition } from "./tools/types";
 import type { ApiToolCall } from "./tools/api-tool-call";
+import type { ModelDefinition } from "@/lib/model-provider/types";
 import type { SessionAutonomyMode, SessionKind } from "@/lib/db";
 import type {
   DecisionOption,
@@ -106,6 +107,8 @@ export type AgentStartInput = {
   handoffTriggerThreshold?: number;
   /** Agent mode — controls which tools are available. Defaults to "agent". */
   agentMode?: AgentMode;
+  /** Model definitions used to resolve provider capabilities (thinking, context window, etc.). */
+  models?: readonly ModelDefinition[];
   sessionKind?: SessionKind;
   autonomyMode?: SessionAutonomyMode;
   decisionPolicyVersion?: string;

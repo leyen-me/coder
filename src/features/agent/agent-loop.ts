@@ -78,9 +78,7 @@ export async function runAgentWithTools(
           apiKeySource: input.apiKeySource,
           apiKeyEnvVar: input.apiKeyEnvVar,
           model: input.model,
-          // models is not directly available on AgentStartInput,
-          // but the child agent will use the default tool definitions
-          models: [] as readonly ModelDefinition[],
+          models: input.models ?? ([] as readonly ModelDefinition[]),
         },
       };
 

@@ -669,6 +669,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           apiKeySource: input.resolvedConfig.apiKeySource,
           apiKeyEnvVar: resolveApiKeyEnvVar(input.resolvedConfig),
           model: input.model,
+          models: input.resolvedConfig.models,
           messages: input.history,
           requestExtensions: buildThinkingRequestExtensions({
             models: input.resolvedConfig.models,

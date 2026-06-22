@@ -134,6 +134,7 @@ export async function executeAutomation(
         apiKeySource,
         apiKeyEnvVar,
         model: runConfig.model,
+        models: resolved.models,
         messages,
         tools,
         requestExtensions: buildThinkingRequestExtensions({
