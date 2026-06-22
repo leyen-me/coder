@@ -12,6 +12,7 @@ import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import type { AssistantProcessStep } from "./assistant-process";
 import { AssistantProcessView } from "./assistant-process-view";
+import { StreamingMessageContent } from "./streaming-message-content";
 
 const AUTO_CLOSE_DELAY_MS = 1000;
 const MS_IN_S = 1000;
@@ -151,7 +152,7 @@ export const AssistantProcessCollapsible = memo(
 
         {/* Unmount interior content when collapsed — saves DOM nodes for long conversations */}
         {isOpen && hasInteriorContent ? (
-          <div className="mt-4 border-l-2 border-muted pl-4">
+          <div className="mt-4 border-l-2 border-muted pl-4 text-muted-foreground">
             <AssistantProcessView steps={interiorSteps} taskId={taskId} />
           </div>
         ) : null}
@@ -160,17 +161,7 @@ export const AssistantProcessCollapsible = memo(
             turn finishes, so the panel has already auto-closed by then. */}
         {!isStreaming && answerText ? (
           <div className="mt-4">
-            <AssistantProcessView
-              steps={[
-                {
-                  id: "answer:standalone",
-                  kind: "answer",
-                  text: answerText,
-                  isStreaming,
-                },
-              ]}
-              taskId={taskId}
-            />
+            <StreamingMessageContent text={answerText} />
           </div>
         ) : null}
       </Collapsible>

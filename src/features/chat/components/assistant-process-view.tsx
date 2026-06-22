@@ -88,6 +88,7 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
             <StreamingMessageContent
               key={group.id}
               text={group.text}
+              className="!text-muted-foreground"
             />
           );
         }
