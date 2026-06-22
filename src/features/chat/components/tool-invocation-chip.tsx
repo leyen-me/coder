@@ -169,15 +169,6 @@ export function ToolInvocationChip({
   const isAskQuestionTool = invocation.name === ASK_QUESTION_TOOL_NAME;
   const isSubAgentTool = invocation.name === SPAWN_SUBAGENT_TOOL_NAME;
 
-  // Collect all specialized tools so we know when NOT to render the generic fallback.
-  const specializedTools = [
-    isFileDiffTool, isShellTool, isReadFileTool, isGrepTool,
-    isWebSearchTool, isGlobTool, isListDirTool, isTodoTool, isPlanTool,
-    isListShellsTool, isReadShellLogsTool, isKillShellTool, isSkillTool,
-    isAskQuestionTool, isSubAgentTool, isBrowsePageTool,
-  ];
-  const hasSpecializedOutput = specializedTools.some(Boolean);
-
   return (
     <>
       {/* Text-like inline trigger — styled like an <a> tag with a tool-specific color */}
@@ -205,8 +196,18 @@ export function ToolInvocationChip({
             </SheetTitle>
           </SheetHeader>
           <div className="space-y-4 px-4 pb-4">
+            {/* 1. Raw input parameters */}
             <ToolInput input={invocation.input} />
 
+            {/* 2. Raw result/error */}
+            {invocation.output !== undefined || invocation.errorText ? (
+              <ToolOutput
+                errorText={invocation.errorText}
+                output={invocation.output}
+              />
+            ) : null}
+
+            {/* 3. Specialized visualization */}
             {isFileDiffTool ? (
               <FileDiffToolOutput
                 errorText={invocation.errorText}
@@ -332,14 +333,6 @@ export function ToolInvocationChip({
               />
             ) : isBrowsePageTool && invocation.output ? (
               <BrowsePageToolOutput output={invocation.output} />
-            ) : null}
-
-            {/* Generic fallback — rendered when none of the specialized outputs apply */}
-            {!hasSpecializedOutput ? (
-              <ToolOutput
-                errorText={invocation.errorText}
-                output={invocation.output}
-              />
             ) : null}
           </div>
         </SheetContent>
