@@ -7,6 +7,7 @@ export const zhMessages = {
     toggleSidebar: "切换侧栏",
     back: "后退",
     forward: "前进",
+    newWindow: "新建窗口",
   },
   windowControls: {
     minimize: "最小化",
@@ -301,6 +302,10 @@ export const zhMessages = {
           history: {
             label: "打开历史记录",
             description: "进入历史记录页面",
+          },
+          newWindow: {
+            label: "新建窗口",
+            description: "打开一个新的应用窗口",
           },
         },
         panel: {

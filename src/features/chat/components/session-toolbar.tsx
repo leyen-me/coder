@@ -1,4 +1,4 @@
-import { PanelBottom, PanelRight } from "lucide-react";
+import { ExternalLink, PanelBottom, PanelRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import { useBottomPanel } from "@/features/terminal/bottom-panel-context";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import type { ProviderId } from "@/lib/model-provider/types";
+import { invoke } from "@tauri-apps/api/core";
 
 type SessionToolbarProps = {
   sessionProvider?: ProviderId | null;
@@ -28,9 +29,31 @@ export function SessionToolbar({ sessionProvider }: SessionToolbarProps) {
 
   const tooltip = t("session.bottomPanel");
 
+  const handleNewWindow = () => {
+    invoke("create_new_window");
+  };
+
   return (
     <div className="flex shrink-0 items-center gap-1">
       <ProviderUsageTag providerId={sessionProvider} />
+
+      <div className="mx-1 h-4 w-px bg-border" />
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground"
+            aria-label={t("titleBar.newWindow")}
+            onClick={handleNewWindow}
+          >
+            <ExternalLink className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{t("titleBar.newWindow")}</TooltipContent>
+      </Tooltip>
 
       <Tooltip>
         <TooltipTrigger asChild>

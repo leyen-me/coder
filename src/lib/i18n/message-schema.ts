@@ -5,6 +5,7 @@ export type Messages = {
     toggleSidebar: string;
     back: string;
     forward: string;
+    newWindow: string;
   };
   windowControls: {
     minimize: string;
@@ -273,6 +274,7 @@ export type Messages = {
           skills: { label: string; description: string };
           automations: { label: string; description: string };
           history: { label: string; description: string };
+          newWindow: { label: string; description: string };
         };
         panel: {
           toggleSidebar: { label: string; description: string };

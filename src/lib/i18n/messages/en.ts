@@ -7,6 +7,7 @@ export const enMessages = {
     toggleSidebar: "Toggle sidebar",
     back: "Back",
     forward: "Forward",
+    newWindow: "New Window",
   },
   windowControls: {
     minimize: "Minimize",
@@ -311,6 +312,10 @@ export const enMessages = {
           history: {
             label: "Open history",
             description: "Go to the history page",
+          },
+          newWindow: {
+            label: "New Window",
+            description: "Open a new application window",
           },
         },
         panel: {

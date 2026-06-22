@@ -36,12 +36,27 @@ use tools::{
 const MAIN_WINDOW_LABEL: &str = "main";
 
 fn configure_main_window(app: &tauri::App) {
-    let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) else {
-        log::warn!("main window not found; skipping window chrome setup");
-        return;
-    };
+    window_chrome::apply_to_window(app.handle(), MAIN_WINDOW_LABEL);
+}
 
-    window_chrome::apply(&window);
+#[tauri::command]
+async fn create_new_window(app: tauri::AppHandle) -> Result<(), String> {
+    let label = format!("window-{}", uuid::Uuid::new_v4().to_string().replace('-', "_"));
+    let window = tauri::WebviewWindowBuilder::new(
+        &app,
+        &label,
+        tauri::WebviewUrl::App("index.html".into()),
+    )
+    .title("coder")
+    .inner_size(1600.0, 900.0)
+    .decorations(false)
+    .build()
+    .map_err(|e| e.to_string())?;
+
+    log::info!("Created new window with label: {label}");
+    window.show().map_err(|e| e.to_string())?;
+    std::mem::forget(window);
+    Ok(())
 }
 
 fn cleanup_background_shells(app: &tauri::AppHandle) {
@@ -203,6 +218,7 @@ pub fn run() {
             write_text_file,
             set_workspace_dir,
             test_remote_connection,
+            create_new_window,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

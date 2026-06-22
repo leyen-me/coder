@@ -1,6 +1,16 @@
 //! Platform-specific native window chrome customization.
 
-use tauri::WebviewWindow;
+use tauri::{AppHandle, Manager, WebviewWindow};
+
+/// Applies the host platform's native window chrome policies to the given
+/// window obtained from the app handle by label.
+pub fn apply_to_window(app: &AppHandle, label: &str) {
+    let Some(window) = app.get_webview_window(label) else {
+        log::warn!("window \"{label}\" not found; skipping window chrome setup");
+        return;
+    };
+    apply(&window);
+}
 
 /// Applies the host platform's native window chrome policies.
 pub fn apply(window: &WebviewWindow) {

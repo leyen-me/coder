@@ -1,6 +1,7 @@
 export type ShortcutActionId =
   | "global.search"
   | "global.newChat"
+  | "global.newWindow"
   | "global.settings"
   | "global.skills"
   | "global.automations"
