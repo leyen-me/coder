@@ -46,18 +46,18 @@ export function WebSearchToolOutput({
       header={
         <>
           <ToolStatusIcon state={state} />
-          <span className="font-mono font-medium text-foreground">
+          <span className="shrink-0 font-mono font-medium text-foreground">
             {toolName}
           </span>
           {formatted ? (
             <>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono text-muted-foreground">
+              <span className="shrink-0 text-muted-foreground">·</span>
+              <span className="min-w-0 truncate font-mono text-muted-foreground">
                 {formatted.query.length > 48
                   ? `${formatted.query.slice(0, 48)}…`
                   : formatted.query}
               </span>
-              <span className="font-mono text-muted-foreground/60">
+              <span className="shrink-0 font-mono text-muted-foreground/60">
                 {formatted.results.length} result
                 {formatted.results.length !== 1 ? "s" : ""}
               </span>

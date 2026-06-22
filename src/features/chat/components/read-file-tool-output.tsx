@@ -50,30 +50,30 @@ export function ReadFileToolOutput({
       header={
         <>
           <ToolStatusIcon state={state} />
-          <span className="font-mono font-medium text-foreground">
+          <span className="font-mono font-medium text-foreground shrink-0">
             {toolName}
           </span>
-          <span className="text-muted-foreground">·</span>
-          <span className="font-mono text-muted-foreground">{filePath}</span>
-          <span className="font-mono text-muted-foreground/60">
+          <span className="text-muted-foreground shrink-0">·</span>
+          <span className="min-w-0 truncate font-mono text-muted-foreground">{filePath}</span>
+          <span className="shrink-0 font-mono text-muted-foreground/60">
             L{startLine}-{endLine}
           </span>
           {totalLines > 0 ? (
-            <span className="font-mono text-muted-foreground/50">
+            <span className="shrink-0 font-mono text-muted-foreground/50">
               / {totalLines} lines
             </span>
           ) : null}
           {containsSecrets ? (
-            <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
+            <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
               secrets
             </span>
           ) : null}
           {truncated ? (
-            <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
+            <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
               truncated
             </span>
           ) : null}
-          <div className="ml-auto">
+          <div className="ml-auto shrink-0">
             <button
               aria-label="Open in preview"
               className="flex size-4 items-center justify-center text-muted-foreground/50 transition-colors hover:text-muted-foreground"

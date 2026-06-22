@@ -57,31 +57,31 @@ export function GrepToolOutput({
       header={
         <>
           <ToolStatusIcon state={state} />
-          <span className="font-mono font-medium text-foreground">
+          <span className="shrink-0 font-mono font-medium text-foreground">
             {toolName}
           </span>
-          <span className="text-muted-foreground">·</span>
-          <span className="font-mono text-muted-foreground">
+          <span className="shrink-0 text-muted-foreground">·</span>
+          <span className="min-w-0 truncate font-mono text-muted-foreground">
             /{pattern}/
           </span>
           {formatted ? (
             <>
-              <span className="font-mono text-muted-foreground/60">
+              <span className="shrink-0 font-mono text-muted-foreground/60">
                 {formatted.totalMatches} match
                 {formatted.totalMatches !== 1 ? "es" : ""}
               </span>
               {formatted.outputMode !== "content" ? (
-                <span className="rounded-full bg-muted-foreground/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
+                <span className="shrink-0 rounded-full bg-muted-foreground/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground">
                   {formatted.outputMode}
                 </span>
               ) : null}
               {formatted.skippedFiles != null && formatted.skippedFiles > 0 ? (
-                <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
+                <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
                   {formatted.skippedFiles} skipped
                 </span>
               ) : null}
               {formatted.truncated ? (
-                <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
+                <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
                   truncated
                 </span>
               ) : null}

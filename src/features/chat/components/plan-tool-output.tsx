@@ -176,9 +176,9 @@ function PlanDeleteResultView({
 function FileResultHeader({ data }: { data: PlanFileResult }) {
   return (
     <>
-      <span className="text-muted-foreground">·</span>
-      <span className="font-mono text-muted-foreground">{data.name}</span>
-      <span className="font-mono text-muted-foreground/60">{data.lines} lines</span>
+      <span className="shrink-0 text-muted-foreground">·</span>
+      <span className="shrink-0 font-mono text-muted-foreground">{data.name}</span>
+      <span className="shrink-0 font-mono text-muted-foreground/60">{data.lines} lines</span>
     </>
   );
 }
@@ -186,16 +186,16 @@ function FileResultHeader({ data }: { data: PlanFileResult }) {
 function ReadResultHeader({ data }: { data: PlanReadResult }) {
   return (
     <>
-      <span className="text-muted-foreground">·</span>
-      <span className="font-mono text-muted-foreground">{data.name}</span>
-      <span className="font-mono text-muted-foreground/60">{data.content.length} chars</span>
+      <span className="shrink-0 text-muted-foreground">·</span>
+      <span className="shrink-0 font-mono text-muted-foreground">{data.name}</span>
+      <span className="shrink-0 font-mono text-muted-foreground/60">{data.content.length} chars</span>
     </>
   );
 }
 
 function ListResultHeader({ data }: { data: PlanListResult }) {
   return (
-    <span className="font-mono text-muted-foreground/60">
+    <span className="shrink-0 font-mono text-muted-foreground/60">
       {data.plans.length} plan{data.plans.length !== 1 ? "s" : ""}
     </span>
   );
@@ -204,8 +204,8 @@ function ListResultHeader({ data }: { data: PlanListResult }) {
 function DeleteResultHeader({ data }: { data: PlanDeleteResult }) {
   return (
     <>
-      <span className="text-muted-foreground">·</span>
-      <span className="font-mono text-muted-foreground">{data.name}</span>
+      <span className="shrink-0 text-muted-foreground">·</span>
+      <span className="shrink-0 font-mono text-muted-foreground">{data.name}</span>
     </>
   );
 }
@@ -236,7 +236,7 @@ export function PlanToolOutput({
       header={
         <>
           <ToolStatusIcon state={state} />
-          <span className="font-mono font-medium text-foreground">
+          <span className="shrink-0 font-mono font-medium text-foreground">
             {toolName}
           </span>
           {fileData ? <FileResultHeader data={fileData} /> : null}

@@ -43,18 +43,18 @@ export function KillShellToolOutput({
       header={
         <>
           <ToolStatusIcon state={state} />
-          <span className="font-mono font-medium text-foreground">
+          <span className="shrink-0 font-mono font-medium text-foreground">
             {toolName}
           </span>
-          <span className="text-muted-foreground">·</span>
+          <span className="shrink-0 text-muted-foreground">·</span>
           <span
-            className="max-w-[200px] truncate font-mono text-muted-foreground"
+            className="min-w-0 truncate font-mono text-muted-foreground"
             title={shellId}
           >
             {shortenedShellId}
           </span>
           {killed ? (
-            <span className="ml-auto rounded-full bg-success/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-success">
+            <span className="shrink-0 ml-auto rounded-full bg-success/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-success">
               killed
             </span>
           ) : null}

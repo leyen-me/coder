@@ -41,7 +41,7 @@ export function CollapsibleToolSection({
       className={cn("group w-full overflow-hidden rounded-md border", className)}
     >
       <CollapsibleTrigger asChild>
-        <div className="flex cursor-pointer items-center gap-2 border-b bg-muted/30 px-3 py-1.5 text-xs">
+        <div className="flex cursor-pointer items-center gap-2 overflow-hidden border-b bg-muted/30 px-3 py-1.5 text-xs">
           <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
           {header}
         </div>

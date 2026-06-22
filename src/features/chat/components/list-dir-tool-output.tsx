@@ -65,16 +65,16 @@ export function ListDirToolOutput({
       header={
         <>
           <ToolStatusIcon state={state} />
-          <span className="font-mono font-medium text-foreground">
+          <span className="shrink-0 font-mono font-medium text-foreground">
             {toolName}
           </span>
           {formatted ? (
             <>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono text-muted-foreground">
+              <span className="shrink-0 text-muted-foreground">·</span>
+              <span className="min-w-0 truncate font-mono text-muted-foreground">
                 {formatted.path}
               </span>
-              <span className="font-mono text-muted-foreground/60">
+              <span className="shrink-0 font-mono text-muted-foreground/60">
                 {dirs.length} dir
                 {dirs.length !== 1 ? "s" : ""}
                 {files.length > 0 ? (

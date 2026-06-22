@@ -53,11 +53,11 @@ export function ListShellsToolOutput({
       header={
         <>
           <ToolStatusIcon state={state} />
-          <span className="font-mono font-medium text-foreground">{title}</span>
+          <span className="shrink-0 font-mono font-medium text-foreground">{title}</span>
           {formatted ? (
             <>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono text-muted-foreground">
+              <span className="shrink-0 text-muted-foreground">·</span>
+              <span className="shrink-0 font-mono text-muted-foreground">
                 {formatted.total} shell{formatted.total !== 1 ? "s" : ""}
               </span>
             </>

@@ -288,15 +288,15 @@ export function FileDiffToolOutput({
       header={
         <>
           <ToolStatusIcon state={state} />
-          <span className="font-mono font-medium text-foreground">
+          <span className="font-mono font-medium text-foreground shrink-0">
             {toolName}
           </span>
-          <span className="text-muted-foreground">·</span>
-          <span className="font-mono text-muted-foreground">{filePath}</span>
+          <span className="text-muted-foreground shrink-0">·</span>
+          <span className="min-w-0 truncate font-mono text-muted-foreground">{filePath}</span>
           {action ? (
             <span
               className={cn(
-                "rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium",
+                "shrink-0 rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium",
                 action === "created"
                   ? "bg-primary/10 text-primary"
                   : "bg-muted-foreground/10 text-muted-foreground",
@@ -306,17 +306,17 @@ export function FileDiffToolOutput({
             </span>
           ) : null}
           {linesAdded > 0 ? (
-            <span className="font-mono font-medium text-success">+{linesAdded}</span>
+            <span className="shrink-0 font-mono font-medium text-success">+{linesAdded}</span>
           ) : null}
           {linesRemoved > 0 ? (
-            <span className="font-mono font-medium text-destructive">
+            <span className="shrink-0 font-mono font-medium text-destructive">
               -{linesRemoved}
             </span>
           ) : null}
           {warning ? (
-            <span className="font-mono text-warning">{warning}</span>
+            <span className="shrink-0 font-mono text-warning">{warning}</span>
           ) : null}
-          <div className="ml-auto">
+          <div className="ml-auto shrink-0">
             <button
               aria-label="Open in preview"
               className="flex size-4 items-center justify-center text-muted-foreground/50 transition-colors hover:text-muted-foreground"

@@ -62,23 +62,23 @@ export function ReadShellLogsToolOutput({
       header={
         <>
           <ToolStatusIcon state={state} />
-          <span className="font-mono font-medium text-foreground">
+          <span className="shrink-0 font-mono font-medium text-foreground">
             {toolName}
           </span>
-          <span className="text-muted-foreground">·</span>
+          <span className="shrink-0 text-muted-foreground">·</span>
           <span
-            className="max-w-[160px] truncate font-mono text-muted-foreground"
+            className="min-w-0 truncate font-mono text-muted-foreground"
             title={shellIdDisplay}
           >
             {shellIdDisplay.length > 20
               ? `${shellIdDisplay.slice(0, 20)}…`
               : shellIdDisplay}
           </span>
-          <span className="text-muted-foreground">·</span>
-          <span className="font-mono text-muted-foreground">[{streamDisplay}]</span>
+          <span className="shrink-0 text-muted-foreground">·</span>
+          <span className="shrink-0 font-mono text-muted-foreground">[{streamDisplay}]</span>
 
           {formatted ? (
-            <div className="ml-auto flex items-center gap-x-2 font-mono text-muted-foreground">
+            <div className="shrink-0 ml-auto flex items-center gap-x-2 font-mono text-muted-foreground">
               <span>offset {formatted.offset}</span>
               <span>/</span>
               <span>{formatBytes(formatted.totalBytes)}</span>

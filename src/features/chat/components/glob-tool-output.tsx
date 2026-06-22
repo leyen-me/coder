@@ -86,23 +86,23 @@ export function GlobToolOutput({
       header={
         <>
           <ToolStatusIcon state={state} />
-          <span className="font-mono font-medium text-foreground">
+          <span className="shrink-0 font-mono font-medium text-foreground">
             {toolName}
           </span>
           {formatted ? (
             <>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono text-muted-foreground">
+              <span className="shrink-0 text-muted-foreground">·</span>
+              <span className="min-w-0 truncate font-mono text-muted-foreground">
                 {formatted.pattern.length > 40
                   ? `${formatted.pattern.slice(0, 40)}\u2026`
                   : formatted.pattern}
               </span>
-              <span className="font-mono text-muted-foreground/60">
+              <span className="shrink-0 font-mono text-muted-foreground/60">
                 {formatted.totalMatches} match
                 {formatted.totalMatches !== 1 ? "es" : ""}
               </span>
               {formatted.truncated ? (
-                <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
+                <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
                   truncated
                 </span>
               ) : null}
@@ -179,4 +179,3 @@ export function GlobToolOutput({
     </CollapsibleToolSection>
   );
 }
-

@@ -112,13 +112,13 @@ function ListSkillsView({
       header={
         <>
           <ToolStatusIcon state={state} />
-          <span className="font-mono font-medium text-foreground">
+          <span className="shrink-0 font-mono font-medium text-foreground">
             {LIST_SKILLS_TOOL_NAME}
           </span>
           {data ? (
             <>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono text-muted-foreground">
+              <span className="shrink-0 text-muted-foreground">·</span>
+              <span className="shrink-0 font-mono text-muted-foreground">
                 {data.skills.length} skill{data.skills.length !== 1 ? "s" : ""}
               </span>
             </>
@@ -188,17 +188,17 @@ function ReadSkillView({
       header={
         <>
           <ToolStatusIcon state={state} />
-          <span className="font-mono font-medium text-foreground">
+          <span className="shrink-0 font-mono font-medium text-foreground">
             {READ_SKILL_TOOL_NAME}
           </span>
           {data ? (
             <>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono text-muted-foreground">{data.slug}</span>
-              <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              <span className="shrink-0 text-muted-foreground">·</span>
+              <span className="min-w-0 truncate font-mono text-muted-foreground">{data.slug}</span>
+              <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                 {data.source}
               </span>
-              <span className="ml-auto font-mono text-muted-foreground">
+              <span className="shrink-0 ml-auto font-mono text-muted-foreground">
                 {data.content.length.toLocaleString()} chars
               </span>
             </>
@@ -254,16 +254,16 @@ function CreateSkillView({
         <>
           <ToolStatusIcon state={state} />
           <PlusCircleIcon className="size-3.5 shrink-0 text-green-600" />
-          <span className="font-mono font-medium text-foreground">
+          <span className="shrink-0 font-mono font-medium text-foreground">
             {CREATE_SKILL_TOOL_NAME}
           </span>
           {data ? (
             <>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono font-medium text-foreground">
+              <span className="shrink-0 text-muted-foreground">·</span>
+              <span className="min-w-0 truncate font-mono font-medium text-foreground">
                 {data.name}
               </span>
-              <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                 {data.slug}
               </span>
             </>
@@ -317,14 +317,14 @@ function UpdateSkillView({
         <>
           <ToolStatusIcon state={state} />
           <PenIcon className="size-3.5 shrink-0 text-blue-600" />
-          <span className="font-mono font-medium text-foreground">
+          <span className="shrink-0 font-mono font-medium text-foreground">
             {UPDATE_SKILL_TOOL_NAME}
           </span>
           {data ? (
             <>
-              <span className="text-muted-foreground">·</span>
-              <span className="font-mono text-foreground">{data.name}</span>
-              <span className="rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              <span className="shrink-0 text-muted-foreground">·</span>
+              <span className="min-w-0 truncate font-mono text-foreground">{data.name}</span>
+              <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                 {data.slug}
               </span>
             </>
