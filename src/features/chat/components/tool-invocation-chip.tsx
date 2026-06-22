@@ -30,7 +30,6 @@ import {
   READ_SHELL_LOGS_TOOL_NAME,
   READ_SKILL_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
-  SEND_EMAIL_TOOL_NAME,
   SHELL_TOOL_NAME,
   TODO_READ_TOOL_NAME,
   TODO_WRITE_TOOL_NAME,
@@ -86,7 +85,7 @@ import { ListShellsToolOutput } from "./list-shells-tool-output";
 import { PlanToolOutput } from "./plan-tool-output";
 import { ReadFileToolOutput } from "./read-file-tool-output";
 import { ReadShellLogsToolOutput } from "./read-shell-logs-tool-output";
-import { SendEmailToolOutput } from "./send-email-tool-output";
+
 import { ShellOutput } from "./shell-output";
 import { SkillToolOutput } from "./skill-tool-output";
 import { TodoToolOutput } from "./todo-tool-output";
@@ -133,6 +132,8 @@ export function ToolInvocationChip({
     getWorkspaceTreeChipLabel(invocation.name, invocation.output) ??
     getSubAgentChipLabel(invocation.name, invocation.input, invocation.output) ??
     invocation.name;
+
+  // Tool type checks — used for specialized output rendering inside the Sheet.
   const isShellTool =
     invocation.name === SHELL_TOOL_NAME || invocation.name === AWAIT_TOOL_NAME;
   const isBrowsePageTool = invocation.name === BROWSE_PAGE_TOOL_NAME;
@@ -165,192 +166,27 @@ export function ToolInvocationChip({
     invocation.name === READ_SKILL_TOOL_NAME ||
     invocation.name === CREATE_SKILL_TOOL_NAME ||
     invocation.name === UPDATE_SKILL_TOOL_NAME;
-  const isSendEmailTool = invocation.name === SEND_EMAIL_TOOL_NAME;
   const isAskQuestionTool = invocation.name === ASK_QUESTION_TOOL_NAME;
-  const isInlineTool =
-    isFileDiffTool || isShellTool || isReadFileTool || isGrepTool ||
-    isWebSearchTool || isGlobTool || isListDirTool || isTodoTool || isPlanTool ||
-    isListShellsTool || isReadShellLogsTool || isKillShellTool || isSkillTool ||
-    isSendEmailTool || isWorkspaceTreeTool || isAskQuestionTool;
   const isSubAgentTool = invocation.name === SPAWN_SUBAGENT_TOOL_NAME;
 
-  // High-frequency tools render inline directly in the message.
-  if (isInlineTool) {
-    const hasContent = Boolean(invocation.output) || Boolean(invocation.errorText);
-
-    if (!hasContent) {
-      return (
-        <div className={cn("not-prose my-2 w-full", className)}>
-          <div className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/40 px-2 py-1 font-mono text-xs text-foreground">
-            <ToolStatusIcon state={invocation.state as ToolUIPart["state"]} />
-            <span>{chipLabel}</span>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className={cn("not-prose my-2 w-full", className)}>
-        {isFileDiffTool ? (
-          <FileDiffToolOutput
-            errorText={invocation.errorText}
-            input={invocation.input}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : isShellTool ? (
-          <ShellOutput
-            errorText={invocation.errorText}
-            input={invocation.input}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : isReadFileTool ? (
-          <ReadFileToolOutput
-            errorText={invocation.errorText}
-            input={invocation.input}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : isGrepTool ? (
-          <GrepToolOutput
-            errorText={invocation.errorText}
-            input={invocation.input}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : isWebSearchTool ? (
-          <WebSearchToolOutput
-            errorText={invocation.errorText}
-            input={invocation.input}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : isGlobTool ? (
-          <GlobToolOutput
-            errorText={invocation.errorText}
-            input={invocation.input}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : isListDirTool ? (
-          <ListDirToolOutput
-            errorText={invocation.errorText}
-            input={invocation.input}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : isTodoTool ? (
-          <TodoToolOutput
-            errorText={invocation.errorText}
-            input={invocation.input}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : isPlanTool ? (
-          <PlanToolOutput
-            errorText={invocation.errorText}
-            input={invocation.input}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : isListShellsTool ? (
-          <ListShellsToolOutput
-            errorText={invocation.errorText}
-            input={invocation.input}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : isReadShellLogsTool ? (
-          <ReadShellLogsToolOutput
-            errorText={invocation.errorText}
-            input={invocation.input}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : isKillShellTool ? (
-          <KillShellToolOutput
-            errorText={invocation.errorText}
-            input={invocation.input}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : isWorkspaceTreeTool ? (
-          <WorkspaceTreeToolOutput
-            errorText={invocation.errorText}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : isSkillTool ? (
-          <SkillToolOutput
-            errorText={invocation.errorText}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : isAskQuestionTool ? (
-          <AskQuestionToolOutput
-            errorText={invocation.errorText}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        ) : (
-          <SendEmailToolOutput
-            errorText={invocation.errorText}
-            input={invocation.input}
-            output={invocation.output}
-            toolName={invocation.name}
-            state={invocation.state as ToolUIPart["state"]}
-          />
-        )}
-      </div>
-    );
-  }
-
-  // Sub-agent tools render inline with their own timeline component
-  if (isSubAgentTool) {
-    const hasContent = Boolean(invocation.output) || Boolean(invocation.errorText);
-    if (!hasContent) {
-      return (
-        <div className={cn("not-prose my-2 w-full", className)}>
-          <div className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/40 px-2 py-1 font-mono text-xs text-foreground">
-            <ToolStatusIcon state={invocation.state as ToolUIPart["state"]} />
-            <span>{chipLabel}</span>
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div className={cn("not-prose my-2 w-full", className)}>
-        <SubAgentToolOutput
-          input={invocation.input}
-          output={invocation.output}
-          errorText={invocation.errorText}
-        />
-      </div>
-    );
-  }
+  // Collect all specialized tools so we know when NOT to render the generic fallback.
+  const specializedTools = [
+    isFileDiffTool, isShellTool, isReadFileTool, isGrepTool,
+    isWebSearchTool, isGlobTool, isListDirTool, isTodoTool, isPlanTool,
+    isListShellsTool, isReadShellLogsTool, isKillShellTool, isSkillTool,
+    isAskQuestionTool, isSubAgentTool, isBrowsePageTool,
+  ];
+  const hasSpecializedOutput = specializedTools.some(Boolean);
 
   return (
     <>
+      {/* Text-like inline trigger — styled like an <a> tag with a tool-specific color */}
       <button
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-muted/40 px-2 py-1",
-          "font-mono text-xs text-foreground transition-colors hover:bg-muted",
+          "inline items-center gap-1 font-mono text-xs",
+          "text-sky-600 underline decoration-dotted underline-offset-2 transition-colors",
+          "hover:text-sky-500 hover:decoration-solid",
+          "dark:text-sky-400 dark:hover:text-sky-300",
           className,
         )}
         onClick={() => setOpen(true)}
@@ -359,6 +195,8 @@ export function ToolInvocationChip({
         <ToolStatusIcon state={invocation.state as ToolUIPart["state"]} />
         <span>{chipLabel}</span>
       </button>
+
+      {/* Sheet with full tool details */}
       <Sheet onOpenChange={setOpen} open={open}>
         <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-2xl">
           <SheetHeader>
@@ -368,17 +206,141 @@ export function ToolInvocationChip({
           </SheetHeader>
           <div className="space-y-4 px-4 pb-4">
             <ToolInput input={invocation.input} />
-            {isBrowsePageTool && invocation.output ? (
+
+            {isFileDiffTool ? (
+              <FileDiffToolOutput
+                errorText={invocation.errorText}
+                input={invocation.input}
+                output={invocation.output}
+                toolName={invocation.name}
+                state={invocation.state as ToolUIPart["state"]}
+              />
+            ) : isShellTool ? (
+              <ShellOutput
+                errorText={invocation.errorText}
+                input={invocation.input}
+                output={invocation.output}
+                toolName={invocation.name}
+                state={invocation.state as ToolUIPart["state"]}
+              />
+            ) : isReadFileTool ? (
+              <ReadFileToolOutput
+                errorText={invocation.errorText}
+                input={invocation.input}
+                output={invocation.output}
+                toolName={invocation.name}
+                state={invocation.state as ToolUIPart["state"]}
+              />
+            ) : isGrepTool ? (
+              <GrepToolOutput
+                errorText={invocation.errorText}
+                input={invocation.input}
+                output={invocation.output}
+                toolName={invocation.name}
+                state={invocation.state as ToolUIPart["state"]}
+              />
+            ) : isWebSearchTool ? (
+              <WebSearchToolOutput
+                errorText={invocation.errorText}
+                input={invocation.input}
+                output={invocation.output}
+                toolName={invocation.name}
+                state={invocation.state as ToolUIPart["state"]}
+              />
+            ) : isGlobTool ? (
+              <GlobToolOutput
+                errorText={invocation.errorText}
+                input={invocation.input}
+                output={invocation.output}
+                toolName={invocation.name}
+                state={invocation.state as ToolUIPart["state"]}
+              />
+            ) : isListDirTool ? (
+              <ListDirToolOutput
+                errorText={invocation.errorText}
+                input={invocation.input}
+                output={invocation.output}
+                toolName={invocation.name}
+                state={invocation.state as ToolUIPart["state"]}
+              />
+            ) : isTodoTool ? (
+              <TodoToolOutput
+                errorText={invocation.errorText}
+                input={invocation.input}
+                output={invocation.output}
+                toolName={invocation.name}
+                state={invocation.state as ToolUIPart["state"]}
+              />
+            ) : isPlanTool ? (
+              <PlanToolOutput
+                errorText={invocation.errorText}
+                input={invocation.input}
+                output={invocation.output}
+                toolName={invocation.name}
+                state={invocation.state as ToolUIPart["state"]}
+              />
+            ) : isListShellsTool ? (
+              <ListShellsToolOutput
+                errorText={invocation.errorText}
+                input={invocation.input}
+                output={invocation.output}
+                toolName={invocation.name}
+                state={invocation.state as ToolUIPart["state"]}
+              />
+            ) : isReadShellLogsTool ? (
+              <ReadShellLogsToolOutput
+                errorText={invocation.errorText}
+                input={invocation.input}
+                output={invocation.output}
+                toolName={invocation.name}
+                state={invocation.state as ToolUIPart["state"]}
+              />
+            ) : isKillShellTool ? (
+              <KillShellToolOutput
+                errorText={invocation.errorText}
+                input={invocation.input}
+                output={invocation.output}
+                toolName={invocation.name}
+                state={invocation.state as ToolUIPart["state"]}
+              />
+            ) : isWorkspaceTreeTool ? (
+              <WorkspaceTreeToolOutput
+                errorText={invocation.errorText}
+                output={invocation.output}
+                toolName={invocation.name}
+                state={invocation.state as ToolUIPart["state"]}
+              />
+            ) : isSkillTool ? (
+              <SkillToolOutput
+                errorText={invocation.errorText}
+                output={invocation.output}
+                toolName={invocation.name}
+                state={invocation.state as ToolUIPart["state"]}
+              />
+            ) : isAskQuestionTool ? (
+              <AskQuestionToolOutput
+                errorText={invocation.errorText}
+                output={invocation.output}
+                toolName={invocation.name}
+                state={invocation.state as ToolUIPart["state"]}
+              />
+            ) : isSubAgentTool ? (
+              <SubAgentToolOutput
+                errorText={invocation.errorText}
+                input={invocation.input}
+                output={invocation.output}
+              />
+            ) : isBrowsePageTool && invocation.output ? (
               <BrowsePageToolOutput output={invocation.output} />
             ) : null}
-            <ToolOutput
-              errorText={invocation.errorText}
-              output={
-                isBrowsePageTool
-                  ? undefined
-                  : invocation.output
-              }
-            />
+
+            {/* Generic fallback — rendered when none of the specialized outputs apply */}
+            {!hasSpecializedOutput ? (
+              <ToolOutput
+                errorText={invocation.errorText}
+                output={invocation.output}
+              />
+            ) : null}
           </div>
         </SheetContent>
       </Sheet>
@@ -390,16 +352,20 @@ function ToolStatusIcon({ state }: { state: ToolUIPart["state"] }) {
   switch (state) {
     case "output-available":
       return (
-        <CheckCircle2Icon className="size-3.5 shrink-0 text-green-600" />
+        <CheckCircle2Icon className="mr-0.5 inline size-3 shrink-0 text-green-600 align-middle" />
       );
     case "output-error":
-      return <XCircleIcon className="size-3.5 shrink-0 text-destructive" />;
+      return (
+        <XCircleIcon className="mr-0.5 inline size-3 shrink-0 text-destructive align-middle" />
+      );
     case "input-streaming":
     case "input-available":
       return (
-        <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+        <LoaderCircleIcon className="mr-0.5 inline size-3 shrink-0 animate-spin text-muted-foreground align-middle" />
       );
     default:
-      return <CircleIcon className="size-3.5 shrink-0 text-muted-foreground" />;
+      return (
+        <CircleIcon className="mr-0.5 inline size-3 shrink-0 text-muted-foreground align-middle" />
+      );
   }
 }
