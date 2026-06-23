@@ -113,12 +113,14 @@ export function StatisticsPage() {
         {/* ── Header ── */}
         <header className="mb-9 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-lg font-bold text-primary-foreground shadow-sm">
-              C
-            </div>
+            <img
+              src="/app-icon.png"
+              alt="Coder"
+              className="h-11 w-11 rounded-xl object-cover shadow-sm"
+            />
             <div>
               <h1 className="text-xl font-bold tracking-tight">
-                Code <span className="text-primary">Agent</span> Analytics
+                {t("pages.statistics.title")}
               </h1>
               <p className="font-mono text-xs text-muted-foreground">
                 {t("statistics.description")}

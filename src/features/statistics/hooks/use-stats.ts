@@ -55,7 +55,7 @@ export function useStats(): StatisticsData {
     ] = await Promise.all([
       getPlatformStats(),
       getTokenUsageByDate(365),
-      getToolUsageRanking(8),
+      getToolUsageRanking(6),
       getModelDistribution(),
       getActiveSessions(5),
       getAgentDurationDistribution(),
@@ -66,7 +66,7 @@ export function useStats(): StatisticsData {
       platformStats,
       tokenUsageByDate,
       toolRanking,
-      modelDistribution,
+      modelDistribution: modelDistribution.slice(0, 6),
       activeSessions,
       durationDistribution,
       sessionKind: sessionDist.sessionKind,

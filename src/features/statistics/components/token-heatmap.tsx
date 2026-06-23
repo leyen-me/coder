@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import type { TokenUsageByDateItem } from "@/lib/db/stats";
 import {
@@ -19,6 +19,29 @@ function getLevel(tokens: number): number {
 
 export function TokenHeatmap({ data }: Props) {
   const { t } = useTranslation();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [blockSize, setBlockSize] = useState(13);
+
+  const measure = useCallback(() => {
+    if (!containerRef.current) return;
+    const width = containerRef.current.clientWidth;
+    // 53 weeks × (blockSize + blockMargin) + some buffer for labels
+    const margin = 3;
+    const cols = 53;
+    const labelWidth = 30; // left side labels
+    const available = Math.max(width - labelWidth - 16, 200);
+    const computed = Math.floor(available / cols - margin);
+    setBlockSize(Math.max(6, Math.min(computed, 18)));
+  }, []);
+
+  useEffect(() => {
+    measure();
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [measure]);
 
   const activities: Activity[] = useMemo(() => {
     const dataMap = new Map(data.map((d) => [d.date, d.totalTokens]));
@@ -49,22 +72,11 @@ export function TokenHeatmap({ data }: Props) {
 
   return (
     <>
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <span className="text-primary">🔥</span>
-          <span>{t("statistics.tokenHeatmap")}</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span>{t("statistics.less")}</span>
-          <div className="h-3 w-3 rounded-sm border" style={{ background: "hsl(0, 0%, 92%)" }} />
-          <div className="h-3 w-3 rounded-sm border" style={{ background: "hsl(143, 37%, 76%)" }} />
-          <div className="h-3 w-3 rounded-sm border" style={{ background: "hsl(143, 47%, 60%)" }} />
-          <div className="h-3 w-3 rounded-sm border" style={{ background: "hsl(143, 57%, 44%)" }} />
-          <div className="h-3 w-3 rounded-sm border" style={{ background: "hsl(143, 67%, 30%)" }} />
-          <span>{t("statistics.more")}</span>
-        </div>
+      <div className="mb-4 flex items-center gap-2 text-sm font-medium">
+        <span className="text-primary">🔥</span>
+        <span>{t("statistics.tokenHeatmap")}</span>
       </div>
-      <div className="overflow-x-auto">
+      <div ref={containerRef} className="heatmap-svg w-full">
         <ActivityCalendar
           data={activities}
           theme={{
@@ -92,10 +104,10 @@ export function TokenHeatmap({ data }: Props) {
           }}
           showWeekdayLabels
           showTotalCount={false}
-          blockSize={13}
-          blockMargin={4}
-          blockRadius={3}
-          fontSize={12}
+          blockSize={blockSize}
+          blockMargin={3}
+          blockRadius={2}
+          fontSize={Math.max(10, Math.min(12, blockSize - 1))}
         />
       </div>
     </>
