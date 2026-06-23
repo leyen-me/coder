@@ -45,6 +45,8 @@ import { createStreamingBufferManager } from "../streaming-buffer";
 import { fileUIPartsToStoredImages } from "../message-content";
 import { messageRecordToAgentMessages } from "../message-history";
 import type { FileUIPart } from "ai";
+import { getAgentToolDefinitions } from "../tools";
+import type { AgentToolDefinition } from "../tools/types";
 import { ensureSessionWorkspaceForAgent } from "../ensure-session-workspace";
 import { resolveAgentEnvironment } from "../environment";
 import { applyGeneratedSessionTitle } from "../generate-session-title";
@@ -101,6 +103,7 @@ type AgentStoreValue = {
     editMessageId?: string;
     agentMode?: AgentMode;
     skillSlugs?: string[];
+    extraTools?: AgentToolDefinition[];
   }) => Promise<{ userMessageId: string; assistantMessageId: string; taskId: string }>;
   regenerateMessage: (input: {
     sessionId: string;
@@ -625,6 +628,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       decisionPolicyVersion: ActiveTaskState["decisionPolicyVersion"];
       decisionModel: ActiveTaskState["decisionModel"];
       resolvedConfig: ResolvedProviderConfig;
+      extraTools?: AgentToolDefinition[];
     }) => {
       const taskId = createTaskId();
       const assistantMessage = await createMessage({
@@ -664,6 +668,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       taskAbortControllersRef.current.set(taskId, abortController);
       emit();
 
+      const tools = input.extraTools
+        ? [...getAgentToolDefinitions(input.agentMode), ...input.extraTools]
+        : undefined;
+
       void runAgentWithTools(
         {
           taskId,
@@ -674,6 +682,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           model: input.model,
           models: input.resolvedConfig.models,
           messages: input.history,
+          tools,
           requestExtensions: buildThinkingRequestExtensions({
             models: input.resolvedConfig.models,
             modelId: input.model,
@@ -1016,6 +1025,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       editMessageId?: string;
       agentMode?: AgentMode;
       skillSlugs?: string[];
+      extraTools?: AgentToolDefinition[];
     }) => {
       const trimmed = input.content.trim();
       const storedImages = fileUIPartsToStoredImages(input.images ?? []);

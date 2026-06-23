@@ -97,6 +97,7 @@ async function storeExecuteAutomation(
     content: automation.prompt,
     model: runConfig.model,
     agentMode: runConfig.agentMode,
+    extraTools: automation.enableEmail ? [SEND_EMAIL_TOOL] : undefined,
   });
 
   // Wait for task completion via event bus — the agent store emits
