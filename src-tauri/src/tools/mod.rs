@@ -56,6 +56,7 @@ pub use read_file::tool_read_file;
 pub use remote_connection::{test_remote_connection, RemoteConnectionPool};
 pub use replace_file::tool_replace_file;
 pub use runtime::agent_get_runtime_environment;
+pub use runtime::{preload_languages};
 pub use search_workspace::tool_search_workspace_paths;
 pub use shell_registry::{
     shell_kill, shell_kill_by_task, shell_list, shell_read_logs, tool_await, tool_shell,

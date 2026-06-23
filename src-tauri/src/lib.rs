@@ -21,7 +21,7 @@ use tools::{
     git_delete_branch_force, git_diff, git_discard_all, git_discard_files, git_fetch,
     git_get_current_branch, git_get_remote_url, git_init, git_list_branches, git_log, git_pull,
     git_push, git_revert, git_stage_all, git_stage_files, git_status, git_unstage_all, git_unstage_files,
-    pty_close, pty_create, pty_resize, pty_write, resolve_env_var, send_email, shell_kill, shell_kill_by_task, shell_list, shell_read_logs,
+    preload_languages, pty_close, pty_create, pty_resize, pty_write, resolve_env_var, send_email, shell_kill, shell_kill_by_task, shell_list, shell_read_logs,
     test_remote_connection, tool_await, tool_browse_page, tool_copy_path, tool_create_dir, tool_delete_path,
     tool_edit_file, tool_get_workspace_tree, tool_glob, tool_grep, tool_list_dir,     tool_move_path, tool_read_editor_file,
     tool_plan_create, tool_plan_delete, tool_plan_edit, tool_plan_list, tool_plan_read, tool_plan_update,
@@ -146,6 +146,7 @@ pub fn run() {
         .manage(RemoteConnectionPool::new())
         .setup(|app| {
             shell_env::preload_shell_environment();
+            preload_languages();
             configure_main_window(app);
             let pool = app.state::<RemoteConnectionPool>();
             pool.start_idle_reaper();
