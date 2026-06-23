@@ -667,6 +667,7 @@ export type Messages = {
     toolRanking: string;
     durationDistribution: string;
     tokenHeatmap: string;
+    vsPreviousPeriod: string;
     activeSessions: string;
     noData: string;
     less: string;

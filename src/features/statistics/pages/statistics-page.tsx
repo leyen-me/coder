@@ -91,6 +91,13 @@ export function StatisticsPage() {
     stats ? stats.totalTokens.toLocaleString() : "0",
   ];
 
+  const changeValues = [
+    stats?.change.sessionCount ?? null,
+    stats?.change.messageCount ?? null,
+    stats?.change.agentRunCount ?? null,
+    stats?.change.totalTokens ?? null,
+  ];
+
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[1340px] px-7 pb-10 pt-8">
@@ -137,6 +144,46 @@ export function StatisticsPage() {
                 >
                   {statValues[i]}
                 </div>
+                {/* Change indicator */}
+                {changeValues[i] !== null && (
+                  <div className="mt-2 flex items-center gap-1 text-xs font-medium tabular-nums tracking-tight">
+                    {changeValues[i] >= 0 ? (
+                      <span className="inline-flex items-center gap-0.5 text-emerald-500">
+                        <svg
+                          className="h-3 w-3"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polyline points="18 15 12 9 6 15" />
+                        </svg>
+                        {changeValues[i] > 0 ? "+" : ""}
+                        {changeValues[i]}%
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-0.5 text-red-400">
+                        <svg
+                          className="h-3 w-3"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                        {changeValues[i]}%
+                      </span>
+                    )}
+                    <span className="text-muted-foreground">
+                      {t("statistics.vsPreviousPeriod")}
+                    </span>
+                  </div>
+                )}
               </div>
             );
           })}

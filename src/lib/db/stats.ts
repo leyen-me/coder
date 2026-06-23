@@ -6,11 +6,21 @@ import type { MessageRecord } from "./types";
 /*  Types                                                                     */
 /* -------------------------------------------------------------------------- */
 
+export type StatsChange = {
+  /** Percentage change vs previous period. Positive = up, negative = down. */
+  sessionCount: number;
+  messageCount: number;
+  agentRunCount: number;
+  totalTokens: number;
+};
+
 export type PlatformStats = {
   sessionCount: number;
   messageCount: number;
   agentRunCount: number;
   totalTokens: number;
+  /** Period-over-period change percentages. */
+  change: StatsChange;
 };
 
 export type TodayStats = {
@@ -94,7 +104,40 @@ function daysAgo(ts: number, days: number): boolean {
 /*  Queries                                                                   */
 /* -------------------------------------------------------------------------- */
 
-/** Overview cards: total sessions, messages, agent runs, and tokens. */
+/**
+ * Compute aggregate stats for messages falling within a given time window.
+ */
+function computeWindowStats(
+  messages: MessageRecord[],
+  startTs: number,
+  endTs: number,
+): { sessionCount: number; messageCount: number; agentRunCount: number; totalTokens: number } {
+  const sessionSet = new Set<string>();
+  let messageCount = 0;
+  let totalTokens = 0;
+
+  for (const m of messages) {
+    if (m.createdAt < startTs || m.createdAt >= endTs) continue;
+    messageCount++;
+    sessionSet.add(m.sessionId);
+    totalTokens += m.usage?.totalTokens ?? 0;
+  }
+
+  const agentRunCount = new Set(
+    messages.filter(
+      (m) => m.role === "assistant" && m.createdAt >= startTs && m.createdAt < endTs,
+    ).map((m) => m.sessionId),
+  ).size;
+
+  return { sessionCount: sessionSet.size, messageCount, agentRunCount, totalTokens };
+}
+
+function pctChange(current: number, previous: number): number {
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return Math.round(((current - previous) / previous) * 1000) / 10;
+}
+
+/** Overview cards: total sessions, messages, agent runs, and tokens + period-over-period change. */
 export async function getPlatformStats(): Promise<PlatformStats> {
   const db = await getDb();
   const [sessions, messages] = await Promise.all([
@@ -109,11 +152,26 @@ export async function getPlatformStats(): Promise<PlatformStats> {
     return sum + (m.usage?.totalTokens ?? 0);
   }, 0);
 
+  // Period-over-period: compare last 30 days vs the 30 days before that.
+  const now = Date.now();
+  const periodLen = 30 * 86_400_000;
+  const currentStart = now - periodLen;
+  const previousStart = now - 2 * periodLen;
+
+  const current = computeWindowStats(messages, currentStart, now);
+  const previous = computeWindowStats(messages, previousStart, currentStart);
+
   return {
     sessionCount: sessions.length,
     messageCount: messages.length,
     agentRunCount,
     totalTokens,
+    change: {
+      sessionCount: pctChange(current.sessionCount, previous.sessionCount),
+      messageCount: pctChange(current.messageCount, previous.messageCount),
+      agentRunCount: pctChange(current.agentRunCount, previous.agentRunCount),
+      totalTokens: pctChange(current.totalTokens, previous.totalTokens),
+    },
   };
 }
 

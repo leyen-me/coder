@@ -759,6 +759,7 @@ export const zhMessages = {
     toolRanking: "工具调用排行",
     durationDistribution: "Agent 耗时分布",
     tokenHeatmap: "Token 用量热力图",
+    vsPreviousPeriod: "较上期",
     activeSessions: "活跃会话",
     noData: "暂无数据。开始对话后将显示统计信息。",
     less: "少",

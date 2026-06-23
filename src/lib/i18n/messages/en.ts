@@ -778,6 +778,7 @@ export const enMessages = {
     toolRanking: "Tool Ranking",
     durationDistribution: "Agent Duration",
     tokenHeatmap: "Token Usage Heatmap",
+    vsPreviousPeriod: "vs previous period",
     activeSessions: "Active Sessions",
     noData: "No data yet. Start a conversation to see statistics.",
     less: "Less",
