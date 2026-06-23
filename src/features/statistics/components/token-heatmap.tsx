@@ -17,15 +17,42 @@ function getLevel(tokens: number): number {
   return 4;
 }
 
+const LIGHT_THEME = [
+  "hsl(0, 0%, 92%)",
+  "hsl(143, 37%, 76%)",
+  "hsl(143, 47%, 60%)",
+  "hsl(143, 57%, 44%)",
+  "hsl(143, 67%, 30%)",
+];
+
+const DARK_THEME = [
+  "hsl(0, 0%, 20%)",
+  "hsl(143, 30%, 25%)",
+  "hsl(143, 40%, 35%)",
+  "hsl(143, 50%, 45%)",
+  "hsl(143, 60%, 55%)",
+];
+
 export function TokenHeatmap({ data }: Props) {
   const { t } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const [blockSize, setBlockSize] = useState(13);
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.classList.contains("dark")
+  );
+
+  useEffect(() => {
+    const el = document.documentElement;
+    const observer = new MutationObserver(() => {
+      setIsDark(el.classList.contains("dark"));
+    });
+    observer.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
 
   const measure = useCallback(() => {
     if (!containerRef.current) return;
     const width = containerRef.current.clientWidth;
-    // Estimate: ~30px for weekday labels, rest for 53 columns
     const cols = 53;
     const margin = 3;
     const gridWidth = Math.max(width - 40, 200);
@@ -78,22 +105,7 @@ export function TokenHeatmap({ data }: Props) {
       <div ref={containerRef} className="heatmap-svg w-full">
         <ActivityCalendar
           data={activities}
-          theme={{
-            light: [
-              "hsl(0, 0%, 92%)",
-              "hsl(143, 37%, 76%)",
-              "hsl(143, 47%, 60%)",
-              "hsl(143, 57%, 44%)",
-              "hsl(143, 67%, 30%)",
-            ],
-            dark: [
-              "hsl(0, 0%, 20%)",
-              "hsl(143, 30%, 25%)",
-              "hsl(143, 40%, 35%)",
-              "hsl(143, 50%, 45%)",
-              "hsl(143, 60%, 55%)",
-            ],
-          }}
+          theme={{ light: isDark ? DARK_THEME : LIGHT_THEME, dark: isDark ? DARK_THEME : LIGHT_THEME }}
           labels={labels}
           tooltips={{
             activity: {
