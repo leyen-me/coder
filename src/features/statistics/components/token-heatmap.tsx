@@ -6,6 +6,7 @@ import {
   type Activity,
 } from "react-activity-calendar";
 import "react-activity-calendar/tooltips.css";
+import { Flame } from "lucide-react";
 
 type Props = { data: TokenUsageByDateItem[] };
 
@@ -99,7 +100,7 @@ export function TokenHeatmap({ data }: Props) {
   return (
     <>
       <div className="mb-4 flex items-center gap-2 text-sm font-medium">
-        <span className="text-primary">🔥</span>
+        <Flame className="h-4 w-4 text-primary" />
         <span>{t("statistics.tokenHeatmap")}</span>
       </div>
       <div ref={containerRef} className="heatmap-svg w-full">

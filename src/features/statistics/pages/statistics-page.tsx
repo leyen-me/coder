@@ -6,6 +6,8 @@ import {
   MessageCircle,
   Bot,
   Zap,
+  Wrench,
+  BrainCircuit,
 } from "lucide-react";
 
 const statsConfig = [
@@ -164,7 +166,7 @@ export function StatisticsPage() {
           {/* Tool ranking */}
           <div className="rounded-[10px] border bg-card p-6">
             <h3 className="mb-5 flex items-center gap-2 text-sm font-semibold">
-              <span className="text-emerald-500">🔧</span>
+              <Wrench className="h-4 w-4 text-emerald-500" />
               {t("statistics.toolRanking")}
             </h3>
             <div className="flex flex-col gap-3.5">
@@ -197,7 +199,7 @@ export function StatisticsPage() {
           {/* Model distribution */}
           <div className="rounded-[10px] border bg-card p-6">
             <h3 className="mb-5 flex items-center gap-2 text-sm font-semibold">
-              <span className="text-orange-500">🧠</span>
+              <BrainCircuit className="h-4 w-4 text-orange-500" />
               {t("statistics.modelDistribution")}
             </h3>
             <div className="flex flex-col gap-3.5">
