@@ -1,16 +1,8 @@
 use std::path::Path;
-use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
 use super::project_instructions::{load_workspace_agents_md, AgentsMdContent};
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LanguageInfo {
-    pub name: String,
-    pub version: String,
-}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,7 +11,6 @@ pub struct RuntimeEnvironmentResponse {
     pub shell: String,
     pub is_git_repository: bool,
     pub agents_md: Option<AgentsMdContent>,
-    pub languages: Vec<LanguageInfo>,
 }
 
 #[tauri::command]
@@ -41,7 +32,6 @@ pub fn agent_get_runtime_environment(
             .map(is_git_repository)
             .unwrap_or(false),
         agents_md,
-        languages: resolve_installed_languages(),
     })
 }
 
@@ -91,98 +81,4 @@ fn is_git_repository(workspace_dir: &str) -> bool {
     }
 
     Path::new(trimmed).join(".git").exists()
-}
-
-/// Common programming languages/compilers/runtimes to detect.
-const LANGUAGES_TO_DETECT: &[(&str, &[&str])] = &[
-    ("Node.js", &["node", "--version"]),
-    ("Python", &["python3", "--version"]),
-    ("Python 2", &["python", "--version"]),
-    ("Java", &["java", "-version"]),
-    ("Go", &["go", "version"]),
-    ("Rust", &["rustc", "--version"]),
-    ("C/C++ (GCC)", &["gcc", "--version"]),
-    ("C/C++ (Clang)", &["clang", "--version"]),
-    ("Ruby", &["ruby", "--version"]),
-    ("PHP", &["php", "--version"]),
-    ("Swift", &["swift", "--version"]),
-    ("Kotlin", &["kotlin", "-version"]),
-    ("Deno", &["deno", "--version"]),
-    ("Bun", &["bun", "--version"]),
-    ("Zig", &["zig", "version"]),
-    ("Perl", &["perl", "--version"]),
-    ("Elixir", &["elixir", "--version"]),
-    (".NET", &["dotnet", "--version"]),
-    ("Dart", &["dart", "--version"]),
-    ("Julia", &["julia", "--version"]),
-    ("R (lang)", &["R", "--version"]),
-];
-
-/// Overall deadline for language detection (wall-clock).
-const DETECTION_DEADLINE: Duration = Duration::from_secs(8);
-
-fn resolve_installed_languages() -> Vec<LanguageInfo> {
-    /// Cache: detected once per process lifetime.
-    static CACHE: std::sync::OnceLock<Vec<LanguageInfo>> = std::sync::OnceLock::new();
-
-    CACHE
-        .get_or_init(|| {
-            let start = Instant::now();
-            let (tx, rx) = std::sync::mpsc::channel::<LanguageInfo>();
-
-            for &(name, args) in LANGUAGES_TO_DETECT {
-                let tx = tx.clone();
-                let name = name.to_string();
-                let cmd = args[0].to_string();
-                let cmd_args: Vec<String> =
-                    args[1..].iter().map(|s| s.to_string()).collect();
-
-                std::thread::spawn(move || {
-                    match std::process::Command::new(&cmd)
-                        .args(&cmd_args)
-                        .output()
-                    {
-                        Ok(output) if output.status.success() => {
-                            let stdout = String::from_utf8_lossy(&output.stdout);
-                            let stderr = String::from_utf8_lossy(&output.stderr);
-                            let combined = format!("{stdout}{stderr}");
-                            let version = combined
-                                .lines()
-                                .next()
-                                .unwrap_or("")
-                                .trim()
-                                .to_string();
-                            if !version.is_empty() {
-                                let _ = tx.send(LanguageInfo { name, version });
-                            }
-                        }
-                        _ => {
-                            // Command not found or failed — skip silently
-                        }
-                    }
-                });
-            }
-
-            // Drop the original sender so the channel closes when all threads finish.
-            drop(tx);
-
-            let mut results: Vec<LanguageInfo> = Vec::new();
-            while start.elapsed() < DETECTION_DEADLINE {
-                match rx.recv_timeout(Duration::from_millis(50)) {
-                    Ok(info) => results.push(info),
-                    Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
-                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
-                }
-            }
-
-            results.sort_by(|a, b| a.name.cmp(&b.name));
-            results
-        })
-        .clone()
-}
-
-/// Eagerly trigger language detection at app startup so the
-/// [`OnceLock`] cache is populated before any session starts.
-pub fn preload_languages() {
-    resolve_installed_languages();
 }

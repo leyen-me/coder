@@ -60,13 +60,6 @@ export function buildSystemPrompt(
     `- gitRepository: ${gitLine}`,
     `- date: ${environment.today}`,
     `- mode: ${modeLine}`,
-    ...(environment.languages.length
-      ? [
-          `- languages: ${environment.languages
-            .map((l) => `${l.name} ${l.version}`)
-            .join(", ")}`,
-        ]
-      : [`- languages: none detected`]),
     ...buildCoreRulesSection(),
     ...(isWindows ? [""] : []),
     ...buildSystemPromptSections(environment.enabledSystemSkills),
@@ -262,7 +255,6 @@ export function normalizeEnvironment(
     agentsMd: input.agentsMd ?? null,
     enabledSystemSkills: input.enabledSystemSkills ?? [],
     remoteTargets: input.remoteTargets ?? [],
-    languages: input.languages ?? [],
   };
 }
 

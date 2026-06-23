@@ -11,7 +11,6 @@ type RuntimeEnvironmentResponse = {
   shell: string;
   isGitRepository: boolean;
   agentsMd?: AgentProjectInstructions;
-  languages: Array<{ name: string; version: string }>;
 };
 
 export async function resolveAgentEnvironment(
@@ -49,7 +48,6 @@ export async function resolveAgentEnvironment(
         agentsMd: runtime.agentsMd ?? null,
         enabledSystemSkills: skillPayload,
         remoteTargets,
-        languages: runtime.languages,
       });
     } catch {
       // Fall through to browser-style defaults when the command is unavailable.
