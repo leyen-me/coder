@@ -176,7 +176,7 @@
   100% { background-position: 200% 0; }
 }
 
-.heatmap-svg svg {
-  width: 100% !important;
-  height: auto !important;
+.heatmap-svg {
+  width: 100%;
+  overflow-x: auto;
 }

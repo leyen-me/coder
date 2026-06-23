@@ -25,13 +25,12 @@ export function TokenHeatmap({ data }: Props) {
   const measure = useCallback(() => {
     if (!containerRef.current) return;
     const width = containerRef.current.clientWidth;
-    // 53 weeks × (blockSize + blockMargin) + some buffer for labels
-    const margin = 3;
+    // Estimate: ~30px for weekday labels, rest for 53 columns
     const cols = 53;
-    const labelWidth = 30; // left side labels
-    const available = Math.max(width - labelWidth - 16, 200);
-    const computed = Math.floor(available / cols - margin);
-    setBlockSize(Math.max(6, Math.min(computed, 18)));
+    const margin = 3;
+    const gridWidth = Math.max(width - 40, 200);
+    const computed = Math.floor(gridWidth / cols - margin);
+    setBlockSize(Math.max(8, Math.min(computed, 20)));
   }, []);
 
   useEffect(() => {
