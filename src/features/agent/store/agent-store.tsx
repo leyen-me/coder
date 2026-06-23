@@ -1184,6 +1184,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         decisionPolicyVersion: sessionPolicy.decisionPolicyVersion,
         decisionModel: sessionPolicy.decisionModel,
         resolvedConfig: sessionResolved,
+        extraTools: input.extraTools,
       });
 
       return {
