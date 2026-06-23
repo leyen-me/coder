@@ -41,7 +41,7 @@ Use exactly these sections and keep the order:
 export function buildAgentHandoffUserPrompt(input: {
   sessionTitle: string;
   contextUsage: AgentContextUsageSnapshot;
-  sessionKind: "standard" | "long_task";
+  sessionKind: "standard" | "long_task" | "automation";
   autonomyMode: "interactive" | "unattended";
   decisionPolicyVersion: string;
   decisionModel: string | null;
@@ -78,7 +78,7 @@ export function buildStoredHandoffArtifact(input: {
   generatedAt: string;
   model: string;
   contextUsage: AgentContextUsageSnapshot;
-  sessionKind: "standard" | "long_task";
+  sessionKind: "standard" | "long_task" | "automation";
   autonomyMode: "interactive" | "unattended";
   decisionPolicyVersion: string;
   decisionModel: string | null;
@@ -107,7 +107,7 @@ export function buildStoredHandoffArtifact(input: {
 export function buildContinuationPrompt(input: {
   handoffArtifact: string;
   sourceSessionTitle: string;
-  sessionKind: "standard" | "long_task";
+  sessionKind: "standard" | "long_task" | "automation";
   autonomyMode: "interactive" | "unattended";
   decisionPolicyVersion: string;
 }): string {

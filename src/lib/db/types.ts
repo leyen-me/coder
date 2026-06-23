@@ -11,7 +11,7 @@ export type MessageRole = "user" | "assistant";
 /** Distinguishes structured artifact messages from regular chat replies. */
 export type MessageKind = "plan" | "handoff" | "handoff_continuation";
 
-export type SessionKind = "standard" | "long_task";
+export type SessionKind = "standard" | "long_task" | "automation";
 export type SessionAutonomyMode = "interactive" | "unattended";
 
 export const DEFAULT_SESSION_KIND: SessionKind = "standard";
@@ -44,6 +44,8 @@ export type SessionRecord = {
   planFileName?: string | null;
   /** Timestamp (ms) when the plan was built/executed. null/undefined means not yet built. */
   planBuiltAt?: number | null;
+  /** Whether the send_email tool was enabled for this session. */
+  enableEmail?: boolean;
   createdAt: number;
   updatedAt: number;
 };

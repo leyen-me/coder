@@ -187,6 +187,7 @@ export const enMessages = {
     modePlanLabel: "Plan mode — research and write plans to .plan/",
     sessionTypeStandard: "Standard",
     sessionTypeLongTask: "Long task",
+    sessionTypeAutomation: "Automation",
     sessionTypeLabel: "Session type",
     sessionTypeStandardLabel:
       "Standard session — use the default interactive behavior",

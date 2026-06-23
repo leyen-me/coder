@@ -174,6 +174,7 @@ export type Messages = {
     modePlanLabel: string;
     sessionTypeStandard: string;
     sessionTypeLongTask: string;
+    sessionTypeAutomation: string;
     sessionTypeLabel: string;
     sessionTypeStandardLabel: string;
     sessionTypeLongTaskLabel: string;

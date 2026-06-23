@@ -182,6 +182,7 @@ export const zhMessages = {
     modePlanLabel: "规划模式 — 调研并将计划写入 .plan/ 目录",
     sessionTypeStandard: "标准会话",
     sessionTypeLongTask: "长任务",
+    sessionTypeAutomation: "自动化",
     sessionTypeLabel: "会话类型",
     sessionTypeStandardLabel: "标准会话 — 默认按交互式方式执行",
     sessionTypeLongTaskLabel:

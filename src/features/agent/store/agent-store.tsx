@@ -45,7 +45,7 @@ import { createStreamingBufferManager } from "../streaming-buffer";
 import { fileUIPartsToStoredImages } from "../message-content";
 import { messageRecordToAgentMessages } from "../message-history";
 import type { FileUIPart } from "ai";
-import { getAgentToolDefinitions } from "../tools";
+import { getAgentToolDefinitions, SEND_EMAIL_TOOL } from "../tools";
 import type { AgentToolDefinition } from "../tools/types";
 import { ensureSessionWorkspaceForAgent } from "../ensure-session-workspace";
 import { resolveAgentEnvironment } from "../environment";
@@ -1153,6 +1153,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const workspaceDir = session.workspaceDir?.trim() || null;
       const sessionPolicy = resolveAgentSessionPolicy(session);
       const sessionResolved = resolveProviderForModel(input.model) ?? resolved;
+      // Auto-include the email tool when the session was created with enableEmail.
+      const extraTools = session.enableEmail
+        ? [...(input.extraTools ?? []), SEND_EMAIL_TOOL]
+        : input.extraTools;
       const historyMessages = await getMessagesBySession(input.sessionId);
       const environment = await resolveAgentEnvironment(workspaceDir);
       const history = await buildAgentMessages(
@@ -1184,7 +1188,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         decisionPolicyVersion: sessionPolicy.decisionPolicyVersion,
         decisionModel: sessionPolicy.decisionModel,
         resolvedConfig: sessionResolved,
-        extraTools: input.extraTools,
+        extraTools,
       });
 
       return {

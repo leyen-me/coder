@@ -1,3 +1,5 @@
+import type { SessionKind } from "./db/types";
+
 export type DecisionRiskLevel = "low" | "medium" | "high";
 export type DecisionOutcome = "continue" | "complete" | "ask_user" | "stop_path";
 export type DecisionTrigger = "final_answer";
@@ -15,7 +17,7 @@ export type DecisionRequest = {
   question: string;
   options: DecisionOption[];
   riskHints: string[];
-  sessionKind: "standard" | "long_task";
+  sessionKind: SessionKind;
   autonomyMode: "interactive" | "unattended";
   decisionPolicyVersion: string;
   assistantResponse?: string | null;

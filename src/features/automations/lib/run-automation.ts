@@ -59,6 +59,8 @@ export async function executeAutomation(
       model: runConfig.model,
       provider: runConfig.provider,
       workspaceDir: runConfig.workspaceDir,
+      sessionKind: "automation",
+      enableEmail: automation.enableEmail || undefined,
     });
 
     await startAutomationRun(automation.id, session.id);

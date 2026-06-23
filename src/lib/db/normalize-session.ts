@@ -17,6 +17,7 @@ type LegacySessionRecord = {
   handoffMessageId?: string | null;
   planFileName?: string | null;
   planBuiltAt?: number | null;
+  enableEmail?: boolean;
   createdAt: number;
   updatedAt: number;
   gitBranch?: string | null;
@@ -37,7 +38,11 @@ export function normalizeSessionRecord(
     provider: inferProviderFromModel(session.provider, session.model),
     workspaceDir: session.workspaceDir?.trim() || null,
     sessionKind:
-      session.sessionKind === "long_task" ? "long_task" : DEFAULT_SESSION_KIND,
+      session.sessionKind === "long_task"
+        ? "long_task"
+        : session.sessionKind === "automation"
+          ? "automation"
+          : DEFAULT_SESSION_KIND,
     autonomyMode:
       session.autonomyMode === "unattended"
         ? "unattended"
@@ -50,6 +55,7 @@ export function normalizeSessionRecord(
     handoffMessageId: session.handoffMessageId?.trim() || null,
     planFileName: session.planFileName?.trim() || null,
     planBuiltAt: session.planBuiltAt ?? null,
+    enableEmail: session.enableEmail ?? undefined,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   };

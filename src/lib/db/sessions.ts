@@ -36,6 +36,7 @@ export type CreateSessionInput = {
   handoffMessageId?: string | null;
   planFileName?: string | null;
   planBuiltAt?: number | null;
+  enableEmail?: boolean;
 };
 
 export async function createSession(input: CreateSessionInput): Promise<SessionRecord> {
@@ -54,6 +55,7 @@ export async function createSession(input: CreateSessionInput): Promise<SessionR
     handoffFromSessionId: input.handoffFromSessionId ?? null,
     handoffMessageId: input.handoffMessageId ?? null,
     planFileName: input.planFileName ?? null,
+    enableEmail: input.enableEmail ?? undefined,
     createdAt: now,
     updatedAt: now,
   });
