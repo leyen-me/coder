@@ -264,5 +264,6 @@ function formatToday(date: Date): string {
     month: "2-digit",
     day: "2-digit",
     weekday: "long",
+    timeZoneName: "longOffset",
   }).format(date);
 }
