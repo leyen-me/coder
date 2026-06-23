@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useSyncExternalStore,
@@ -53,9 +54,9 @@ import {
   writeLastSelectedModel,
 } from "../model-preference";
 import {
-  DEFAULT_MODEL_CONTEXT_WINDOW,
   findModelDefinition,
 } from "@/lib/model-provider/model-definition";
+import { resolveContextWindowForModel } from "../headless-runner";
 import { buildThinkingRequestExtensions, resolveDefaultThinkingEnabled } from "../thinking-preference";
 import { cancelAgent, startAgent } from "../runner";
 import type {
@@ -157,16 +158,6 @@ type PendingSessionHandoff = {
   decisionModel: ActiveTaskState["decisionModel"];
   agentMode: AgentMode;
 };
-
-function resolveContextWindowForModel(
-  resolved: ResolvedProviderConfig,
-  modelId: string
-): number {
-  return (
-    findModelDefinition(resolved.models, modelId)?.contextWindow ??
-    DEFAULT_MODEL_CONTEXT_WINDOW
-  );
-}
 
 function navigateToSession(sessionId: string): void {
   if (typeof window === "undefined") {
@@ -1377,6 +1368,12 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     ]
   );
 
+  // Expose sendMessage to non-React callers (automations, etc.)
+  useEffect(() => {
+    _setExternalSendMessage(sendMessage);
+    return () => _setExternalSendMessage(null);
+  }, [sendMessage]);
+
   return (
     <AgentStoreContext.Provider value={value}>
       <StreamingOverlaysContext.Provider value={streamingOverlays}>
@@ -1444,4 +1441,27 @@ export function useChatRetryByMessageId(): ReadonlyMap<
     }
     return retries;
   }, [activeTasks]);
+}
+
+// ── External API for non-React callers (automations, etc.) ──────────
+
+type ExternalSendMessage = AgentStoreValue["sendMessage"];
+
+let _externalSendMessage: ExternalSendMessage | null = null;
+
+/** @internal Called by AgentStoreProvider on mount/unmount. */
+export function _setExternalSendMessage(fn: ExternalSendMessage | null): void {
+  _externalSendMessage = fn;
+}
+
+/**
+ * Get the agent store's sendMessage function for use outside React context.
+ * Returns `null` if the AgentStoreProvider is not mounted.
+ *
+ * Used by automations (scheduler / manual run) to route agent execution
+ * through the store, which provides streaming output, task state tracking,
+ * and sidebar activity indication.
+ */
+export function getExternalSendMessage(): ExternalSendMessage | null {
+  return _externalSendMessage;
 }
