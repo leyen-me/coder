@@ -183,6 +183,14 @@ async function openCoderDb(repairAttempted = false): Promise<IDBPDatabase<CoderD
           keyPath: "alias",
         });
       }
+
+      // v13-14: no schema changes — MessageRecord.usage is an optional
+      // field handled by the type system, not by IndexedDB schema.
+      // Version bump only, to recover from VERSION_ERROR caused by
+      // stale database versions in the wild.
+      if (oldVersion > 0 && oldVersion < 14) {
+        // No migration needed.
+      }
     },
   });
 

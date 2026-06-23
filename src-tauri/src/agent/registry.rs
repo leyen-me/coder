@@ -72,7 +72,7 @@ fn debug_emit_log(event: &AgentEvent) {
                 tool_calls.len()
             ));
         }
-        AgentEvent::Done { task_id } => {
+        AgentEvent::Done { task_id, .. } => {
             agent_stream_log(format!("emit task_id={task_id} type=done"));
         }
         AgentEvent::Error { task_id, message } => {

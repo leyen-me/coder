@@ -483,8 +483,20 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           emit();
           return;
         }
-        case "done":
+        case "done": {
+          const task = tasksRef.current.get(event.taskId);
+          // Persist the actual token usage reported by the provider.
+          if (task && event.usage) {
+            await updateMessage(task.assistantMessageId, {
+              usage: {
+                promptTokens: event.usage.promptTokens,
+                completionTokens: event.usage.completionTokens,
+                totalTokens: event.usage.totalTokens,
+              },
+            });
+          }
           return;
+        }
         case "status": {
           const task = tasksRef.current.get(event.taskId);
           if (!task) {

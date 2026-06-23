@@ -61,6 +61,15 @@ function estimateMessageUsage(message: MessageRecord): {
   outputTokens: number;
   reasoningTokens: number;
 } {
+  // When the provider returned actual token usage, use it directly.
+  if (message.usage && message.role === "assistant") {
+    return {
+      inputTokens: 0,
+      outputTokens: message.usage.completionTokens,
+      reasoningTokens: 0,
+    };
+  }
+
   let inputTokens = 0;
   let outputTokens = 0;
   let reasoningTokens = 0;

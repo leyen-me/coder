@@ -64,6 +64,14 @@ pub struct AgentToolFunction {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenUsage {
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
+    pub total_tokens: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(
     tag = "type",
     rename_all = "camelCase",
@@ -93,6 +101,8 @@ pub enum AgentEvent {
     },
     Done {
         task_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        usage: Option<TokenUsage>,
     },
     Error {
         task_id: String,

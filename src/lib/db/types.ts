@@ -115,6 +115,15 @@ export type MessageRecord = {
   createdAt: number;
   /** Agent process duration in ms, persisted on completion for historical view. */
   durationMs?: number;
+  /**
+   * Actual token usage reported by the provider's API response.
+   * Only present on assistant messages, and only when the provider returns usage data.
+   */
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
 };
 
 export type UserSkillRecord = {

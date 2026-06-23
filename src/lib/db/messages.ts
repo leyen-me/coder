@@ -75,6 +75,7 @@ export async function updateMessage(
       | "referencedSkills"
       | "messageKind"
       | "durationMs"
+      | "usage"
     >
   >,
   options: UpdateMessageOptions = {}

@@ -79,7 +79,7 @@ export type AgentEvent =
       options: DecisionOption[];
       response: DecisionResponse;
     }
-  | { type: "done"; taskId: string }
+  | { type: "done"; taskId: string; usage?: TokenUsage }
   | { type: "error"; taskId: string; message: string }
   | {
       type: "chat_retry";
@@ -87,6 +87,12 @@ export type AgentEvent =
       attempt: number;
       maxAttempts: number;
     };
+
+export type TokenUsage = {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+};
 
 export type AgentStartInput = {
   taskId: string;

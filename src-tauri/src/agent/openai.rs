@@ -61,9 +61,21 @@ pub fn chat_completions_url(base_url: &str) -> String {
     }
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct StreamUsage {
+    #[serde(default)]
+    prompt_tokens: u32,
+    #[serde(default)]
+    completion_tokens: u32,
+    #[serde(default)]
+    total_tokens: u32,
+}
+
 #[derive(Debug, Deserialize)]
 struct StreamChunk {
     choices: Vec<StreamChoice>,
+    #[serde(default)]
+    usage: Option<StreamUsage>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -294,6 +306,7 @@ pub async fn stream_chat_completion(
         announced_ids: std::collections::HashSet::new(),
     };
     let mut finish_reason: Option<String> = None;
+    let mut stream_usage: Option<StreamUsage> = None;
 
     loop {
         if cancel.is_cancelled() {
@@ -363,8 +376,9 @@ pub async fn stream_chat_completion(
                 &mut emit,
                 &mut tool_calls,
                 &mut finish_reason,
+                &mut stream_usage,
             ) {
-                return finalize_stream(task_id, tool_calls, finish_reason, emit);
+                return finalize_stream(task_id, tool_calls, finish_reason, stream_usage, emit);
             }
         }
     }
@@ -377,8 +391,9 @@ pub async fn stream_chat_completion(
             &mut emit,
             &mut tool_calls,
             &mut finish_reason,
+            &mut stream_usage,
         ) {
-            return finalize_stream(task_id, tool_calls, finish_reason, emit);
+            return finalize_stream(task_id, tool_calls, finish_reason, stream_usage, emit);
         }
         agent_diagnostic_log(format!(
             "stream_ended_with_buffer task_id={task_id} model={model} url={} bytes_received={bytes_received} chunk_count={chunk_count} line_buffer_len={} line_buffer_preview={:?} finish_reason={finish_reason:?}",
@@ -393,7 +408,7 @@ pub async fn stream_chat_completion(
         ));
     }
 
-    finalize_stream(task_id, tool_calls, finish_reason, emit)
+    finalize_stream(task_id, tool_calls, finish_reason, stream_usage, emit)
 }
 
 fn header_value_for_log(value: Option<&reqwest::header::HeaderValue>) -> String {
@@ -407,14 +422,16 @@ fn finalize_stream(
     task_id: &str,
     tool_calls: ToolCallAccumulator,
     finish_reason: Option<String>,
+    stream_usage: Option<StreamUsage>,
     mut emit: impl FnMut(AgentEvent),
 ) -> Result<(), String> {
     let resolved_tool_calls = tool_calls.finalize();
     agent_stream_log(format!(
-        "finalize task_id={} finish_reason={:?} tool_calls={}",
+        "finalize task_id={} finish_reason={:?} tool_calls={} usage={}",
         task_id,
         finish_reason,
-        resolved_tool_calls.len()
+        resolved_tool_calls.len(),
+        stream_usage.is_some()
     ));
     if finish_reason.as_deref() == Some("tool_calls") || !resolved_tool_calls.is_empty() {
         emit(AgentEvent::TurnComplete {
@@ -423,8 +440,14 @@ fn finalize_stream(
         });
     }
 
+    let usage = stream_usage.map(|s| super::types::TokenUsage {
+        prompt_tokens: s.prompt_tokens,
+        completion_tokens: s.completion_tokens,
+        total_tokens: s.total_tokens,
+    });
     emit(AgentEvent::Done {
         task_id: task_id.to_string(),
+        usage,
     });
     Ok(())
 }
@@ -436,6 +459,7 @@ fn process_sse_line(
     emit: &mut impl FnMut(AgentEvent),
     tool_calls: &mut ToolCallAccumulator,
     finish_reason: &mut Option<String>,
+    stream_usage: &mut Option<StreamUsage>,
 ) -> bool {
     if line.is_empty() || line.starts_with(':') {
         return false;
@@ -451,6 +475,11 @@ fn process_sse_line(
         Ok(value) => value,
         Err(_) => return false,
     };
+
+    // Capture usage from the final chunk (choices may be empty when usage is present).
+    if let Some(usage) = parsed.usage {
+        stream_usage.get_or_insert(usage);
+    }
 
     let Some(choice) = parsed.choices.first() else {
         return false;
@@ -587,16 +616,44 @@ mod tests {
             announced_ids: std::collections::HashSet::new(),
         };
         let mut finish_reason = None;
+        let mut stream_usage = None;
         let done = process_sse_line(
             r#"data: {"choices":[{"delta":{"content":"你好"}}]}"#,
             "task-1",
             &mut |event| events.push(format!("{event:?}")),
             &mut tool_calls,
             &mut finish_reason,
+            &mut stream_usage,
         );
         assert!(!done);
         assert_eq!(events.len(), 1);
         assert!(events[0].contains("ContentDelta"));
         assert!(events[0].contains("你好"));
+        assert!(stream_usage.is_none());
+    }
+
+    #[test]
+    fn captures_usage_from_streaming_chunk() {
+        let mut events = Vec::new();
+        let mut tool_calls = ToolCallAccumulator {
+            calls: BTreeMap::new(),
+            announced_ids: std::collections::HashSet::new(),
+        };
+        let mut finish_reason = None;
+        let mut stream_usage = None;
+        let done = process_sse_line(
+            r#"data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}"#,
+            "task-1",
+            &mut |event| events.push(format!("{event:?}")),
+            &mut tool_calls,
+            &mut finish_reason,
+            &mut stream_usage,
+        );
+        assert!(!done);
+        assert!(events.is_empty());
+        let usage = stream_usage.expect("should capture usage");
+        assert_eq!(usage.prompt_tokens, 10);
+        assert_eq!(usage.completion_tokens, 20);
+        assert_eq!(usage.total_tokens, 30);
     }
 }

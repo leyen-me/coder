@@ -10,7 +10,7 @@ import { toApiToolCalls } from "./tools/api-tool-call";
 import type { AgentToolCall, TavilyConfig } from "./tools/types";
 import type { ModelDefinition } from "@/lib/model-provider/types";
 import { startAgent } from "./runner";
-import type { AgentChatMessage, AgentEvent, AgentEventHandler, AgentMode, AgentStartInput } from "./types";
+import type { AgentChatMessage, AgentEvent, AgentEventHandler, AgentMode, AgentStartInput, TokenUsage } from "./types";
 import {
   AgentChatTurnError,
   buildStreamIdleRecoveryMessages,
@@ -66,6 +66,9 @@ export async function runAgentWithTools(
       : undefined;
   const stallDetector = new ToolCallStallDetector();
 
+  // Accumulate token usage across all turns in a multi-turn agent loop.
+  let cumulativeUsage: TokenUsage | undefined;
+
   // Build spawnSubAgentConfig from input if not already provided,
   // so the spawn_subagent tool can reuse the parent's provider config.
   const toolContext: ToolExecutionContextInput = context.spawnSubAgentConfig
@@ -116,6 +119,18 @@ export async function runAgentWithTools(
         onEvent(event);
       }
     );
+
+    // Accumulate token usage across turns so multi-turn agent runs
+    // (e.g., tool calls → results → follow-up) record the full cost.
+    if (turn.usage) {
+      cumulativeUsage = cumulativeUsage
+        ? {
+            promptTokens: cumulativeUsage.promptTokens + turn.usage.promptTokens,
+            completionTokens: cumulativeUsage.completionTokens + turn.usage.completionTokens,
+            totalTokens: cumulativeUsage.totalTokens + turn.usage.totalTokens,
+          }
+        : turn.usage;
+    }
 
     if (turn.toolCalls.length === 0) {
       if (
@@ -198,7 +213,7 @@ export async function runAgentWithTools(
         }
       }
 
-      onEvent({ type: "done", taskId: input.taskId });
+      onEvent({ type: "done", taskId: input.taskId, usage: cumulativeUsage ?? turn.usage });
       onEvent({ type: "status", taskId: input.taskId, status: "completed" });
       return;
     }
@@ -215,6 +230,8 @@ type AgentTurnResult = {
   toolCalls: AgentToolCall[];
   content: string;
   reasoningContent: string;
+  /** Actual token usage from the provider's API response, if available. */
+  usage?: TokenUsage;
 };
 
 async function runSingleAgentTurn(
@@ -300,6 +317,7 @@ async function runSingleAgentTurnAttempt(
     let toolCalls: AgentToolCall[] = [];
     let content = "";
     let reasoningContent = "";
+    let turnUsage: TokenUsage | undefined;
     let pendingToolName: string | undefined;
     let hadStreamOutput = false;
     let settled = false;
@@ -375,13 +393,15 @@ async function runSingleAgentTurnAttempt(
         return;
       }
 
+      // "done" from the runner carries token usage; capture it for the turn result.
       if (event.type === "done") {
+        turnUsage = event.usage;
         return;
       }
 
       if (event.type === "status") {
         if (event.status === "completed") {
-          finish(() => resolve({ toolCalls, content, reasoningContent }));
+          finish(() => resolve({ toolCalls, content, reasoningContent, usage: turnUsage }));
           return;
         }
 

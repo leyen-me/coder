@@ -18,6 +18,11 @@ type StreamChoice = {
 
 type StreamChunk = {
   choices?: StreamChoice[];
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
 };
 
 const activeControllers = new Map<string, AbortController>();
@@ -76,6 +81,7 @@ export async function startBrowserAgent(
       },
     });
     let finishReason: string | null = null;
+    let chunkUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -93,9 +99,11 @@ export async function startBrowserAgent(
 
         const line = buffer.slice(0, lineBreak).trim();
         buffer = buffer.slice(lineBreak + 1);
-        finishReason =
-          parseSseLine(line, input.taskId, onEvent, toolCalls, finishReason) ??
-          finishReason;
+        const result = parseSseLine(line, input.taskId, onEvent, toolCalls, finishReason);
+        finishReason = result.finishReason ?? finishReason;
+        if (result.usage) {
+          chunkUsage = result.usage;
+        }
       }
     }
 
@@ -113,7 +121,17 @@ export async function startBrowserAgent(
       });
     }
 
-    onEvent({ type: "done", taskId: input.taskId });
+    onEvent({
+      type: "done",
+      taskId: input.taskId,
+      usage: chunkUsage
+        ? {
+            promptTokens: chunkUsage.prompt_tokens,
+            completionTokens: chunkUsage.completion_tokens,
+            totalTokens: chunkUsage.total_tokens,
+          }
+        : undefined,
+    });
     onEvent({ type: "status", taskId: input.taskId, status: "completed" });
   } catch (error) {
     if (controller.signal.aborted) {
@@ -140,23 +158,21 @@ function parseSseLine(
   onEvent: (event: AgentEvent) => void,
   toolCalls: ReturnType<typeof createToolCallAccumulator>,
   previousFinishReason: string | null
-): string | null {
+): { finishReason: string | null; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } } {
   if (!line || line.startsWith(":")) {
-    return previousFinishReason;
+    return { finishReason: previousFinishReason };
   }
 
   const payload = line.startsWith("data:") ? line.slice(5).trim() : line;
   if (payload === "[DONE]") {
-    const event = { type: "done", taskId } as const;
-    onEvent(event);
-    return previousFinishReason;
+    return { finishReason: previousFinishReason };
   }
 
   let parsed: StreamChunk;
   try {
     parsed = JSON.parse(payload) as StreamChunk;
   } catch {
-    return previousFinishReason;
+    return { finishReason: previousFinishReason };
   }
 
   const choice = parsed.choices?.[0];
@@ -187,5 +203,8 @@ function parseSseLine(
     }
   }
 
-  return choice?.finish_reason ?? previousFinishReason;
+  return {
+    finishReason: choice?.finish_reason ?? previousFinishReason,
+    usage: parsed.usage,
+  };
 }
