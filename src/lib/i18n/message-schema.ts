@@ -310,6 +310,7 @@ export type Messages = {
         glm: string;
         agnes: string;
         nvidia: string;
+        minimax: string;
         custom: string;
       };
       endpointLabel: string;

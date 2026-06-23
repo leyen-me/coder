@@ -68,6 +68,7 @@ export function inferProviderFromModel(
     storedProvider !== "deepseek" &&
     storedProvider !== "glm" &&
     storedProvider !== "agnes" &&
+    storedProvider !== "minimax" &&
     storedProvider !== "nvidia" &&
     storedProvider !== "custom"
   ) {

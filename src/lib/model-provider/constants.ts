@@ -3,6 +3,7 @@ import {
   AGNES_THINKING_CONFIG,
   DEEPSEEK_THINKING_CONFIG,
   GLM_THINKING_CONFIG,
+  MINIMAX_THINKING_CONFIG,
 } from "./thinking-config";
 import type {
   ModelProviderSettings,
@@ -18,6 +19,7 @@ export const PROVIDER_IDS = [
   "glm",
   "agnes",
   "nvidia",
+  "minimax",
   "custom",
 ] as const satisfies readonly ProviderId[];
 
@@ -118,6 +120,26 @@ export const PRESET_PROVIDERS = {
     baseUrl: "https://integrate.api.nvidia.com/v1",
     models: [],
     defaultApiKeyEnvVar: "NVIDIA_API_KEY",
+  },
+  minimax: {
+    id: "minimax",
+    baseUrl: "https://api.minimaxi.com/v1",
+    models: [
+      createModelDefinition("MiniMax-M3", {
+        label: "MiniMax-M3",
+        contextWindow: 1_000_000,
+        supportsThinking: true,
+        supportsMultimodal: true,
+        thinkingConfig: MINIMAX_THINKING_CONFIG,
+      }),
+      createModelDefinition("MiniMax-M2.7", {
+        label: "MiniMax-M2.7",
+        contextWindow: 204_800,
+        supportsThinking: false,
+        supportsMultimodal: false,
+      }),
+    ],
+    defaultApiKeyEnvVar: "MINIMAX_API_KEY",
   },
 } as const satisfies Record<
   Exclude<ProviderId, "custom">,

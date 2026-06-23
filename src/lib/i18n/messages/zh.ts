@@ -384,6 +384,7 @@ export const zhMessages = {
         glm: "GLM",
         agnes: "Agnes AI",
         nvidia: "NVIDIA",
+        minimax: "MiniMax",
         custom: "自定义",
       },
       endpointLabel: "API 端点",

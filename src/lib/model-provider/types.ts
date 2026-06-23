@@ -1,6 +1,12 @@
 import type { ModelDefinition } from "./model-definition";
 
-export type ProviderId = "deepseek" | "glm" | "agnes" | "nvidia" | "custom";
+export type ProviderId =
+  | "deepseek"
+  | "glm"
+  | "agnes"
+  | "nvidia"
+  | "minimax"
+  | "custom";
 
 export type ApiKeySource = "manual" | "env";
 

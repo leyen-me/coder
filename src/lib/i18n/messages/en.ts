@@ -394,6 +394,7 @@ export const enMessages = {
         glm: "GLM",
         agnes: "Agnes AI",
         nvidia: "NVIDIA",
+        minimax: "MiniMax",
         custom: "Custom",
       },
       endpointLabel: "API endpoint",

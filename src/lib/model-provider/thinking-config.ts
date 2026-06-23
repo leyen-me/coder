@@ -45,6 +45,17 @@ export const NVIDIA_THINKING_CONFIG: ModelThinkingConfig = {
   defaultEnabled: true,
 };
 
+export const MINIMAX_THINKING_CONFIG: ModelThinkingConfig = {
+  enabled: {
+    thinking: { type: "adaptive" },
+    reasoning_split: true,
+  },
+  disabled: {
+    thinking: { type: "disabled" },
+  },
+  defaultEnabled: true,
+};
+
 export const EMPTY_THINKING_CONFIG: ModelThinkingConfig = {
   enabled: {},
   disabled: {},

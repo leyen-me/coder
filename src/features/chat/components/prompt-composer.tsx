@@ -368,6 +368,7 @@ const PROVIDER_LABELS: Record<ProviderId, string> = {
   glm: "GLM",
   agnes: "Agnes",
   nvidia: "NVIDIA",
+  minimax: "MiniMax",
   custom: "Custom",
 };
 
