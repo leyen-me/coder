@@ -60,6 +60,23 @@ const toolBarColors = [
   "bg-lime-500",
 ];
 
+/** Format large numbers with K / M / B abbreviation. */
+function formatCompact(n: number): string {
+  try {
+    return new Intl.NumberFormat("en", {
+      notation: "compact",
+      compactDisplay: "short",
+      maximumFractionDigits: 1,
+    }).format(n);
+  } catch {
+    // Fallback for environments without Intl.NumberFormat support.
+    if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + "B";
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+    if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
+    return String(n);
+  }
+}
+
 export function StatisticsPage() {
   const { t } = useTranslation();
   const {
@@ -88,7 +105,7 @@ export function StatisticsPage() {
     stats?.sessionCount ?? 0,
     stats?.messageCount ?? 0,
     stats?.agentRunCount ?? 0,
-    stats ? stats.totalTokens.toLocaleString() : "0",
+    stats ? formatCompact(stats.totalTokens) : "0",
   ];
 
   const changeValues = [
