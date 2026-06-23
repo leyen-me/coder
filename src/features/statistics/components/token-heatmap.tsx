@@ -71,7 +71,7 @@ export function TokenHeatmap({ data }: Props) {
 
   return (
     <>
-      <div className="mb-4 flex items-center gap-2 text-sm font-medium">
+      <div className="mb-4 flex items-center justify-center gap-2 text-sm font-medium">
         <span className="text-primary">🔥</span>
         <span>{t("statistics.tokenHeatmap")}</span>
       </div>
