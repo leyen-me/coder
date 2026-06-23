@@ -40,6 +40,14 @@ function formatRole(role: string): string {
   return role === "user" ? "User" : "Assistant";
 }
 
+/** Strip characters that are invalid or undesirable in filenames. */
+function sanitizeFilename(name: string): string {
+  return name
+    .replaceAll(/[/\\:*?"<>|…]/g, "") // remove OS-invalid filename chars & ellipsis
+    .replaceAll(/\s+/g, " ") // collapse whitespace
+    .trim();
+}
+
 async function exportSessionAsMarkdown(sessionId: string): Promise<void> {
   const session = await getSession(sessionId);
   if (!session) return;
@@ -90,7 +98,8 @@ async function exportSessionAsMarkdown(sessionId: string): Promise<void> {
   }
 
   const markdown = lines.join("\n");
-  const defaultName = `${session.title || sessionId}.md`;
+  const cleanTitle = sanitizeFilename(session.title || "");
+  const defaultName = cleanTitle ? `${cleanTitle}.md` : `${sessionId}.md`;
 
   const filePath = await save({
     defaultPath: defaultName,
@@ -99,7 +108,7 @@ async function exportSessionAsMarkdown(sessionId: string): Promise<void> {
 
   if (!filePath) return; // user cancelled
 
-  await invoke("write_text_file", { path: filePath, content: markdown });
+  await invoke("write_text_file", { targetPath: filePath, content: markdown });
 }
 
 export function AppSidebar({ open }: AppSidebarProps) {
