@@ -18,10 +18,14 @@ export function normalizeSessionTitle(
   raw: string,
   maxLength = TITLE_MAX_LENGTH
 ): string {
-  const unquoted = raw
-    .trim()
-    .replace(/^[\"'`「『【]+|[\"'`」』】]+$/g, "")
-    .replace(/\s+/g, " ");
+  // Step 1: strip <think>...</think> tags that some providers (e.g. MiniMax)
+  // embed in the response content when thinking is enabled.
+  const withoutThink = raw.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  // Step 2: remove surrounding quotes and normalize whitespace
+  const unquoted = withoutThink
+    .replace(/^["'`「『【]+|["'`」』】]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
   if (!unquoted) {
     return "";
   }
