@@ -5,6 +5,7 @@ export type ShortcutActionId =
   | "global.settings"
   | "global.skills"
   | "global.automations"
+  | "global.statistics"
   | "global.history"
   | "panel.toggleSidebar"
   | "panel.toggleBottom"

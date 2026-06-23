@@ -24,6 +24,11 @@ const ACTION_MESSAGE_KEYS = {
     description:
       "settings.keyboardShortcuts.actions.global.automations.description",
   },
+  "global.statistics": {
+    label: "settings.keyboardShortcuts.actions.global.statistics.label",
+    description:
+      "settings.keyboardShortcuts.actions.global.statistics.description",
+  },
   "global.newWindow": {
     label: "settings.keyboardShortcuts.actions.global.newWindow.label",
     description:

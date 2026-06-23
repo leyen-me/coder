@@ -12,4 +12,4 @@
 
 ## 告诉你一件有意思的事情
 
-你正在使用 Coder 编写 Coder
+你正在使用 Coder 编写 Coder，项目使用 pnpm 安装依赖

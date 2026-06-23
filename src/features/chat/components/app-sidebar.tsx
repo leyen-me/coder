@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import {
+  BarChart3,
   Plus,
   Search,
   Settings,
@@ -197,6 +198,12 @@ export function AppSidebar({ open }: AppSidebarProps) {
               label={t("sidebar.automations")}
               shortcutActionId="global.automations"
               to={paths.automations}
+            />
+            <SidebarNavItem
+              icon={BarChart3}
+              label={t("sidebar.statistics")}
+              shortcutActionId="global.statistics"
+              to={paths.statistics}
             />
           </nav>
 

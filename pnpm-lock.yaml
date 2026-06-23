@@ -110,6 +110,9 @@ importers:
       react:
         specifier: ^19.1.0
         version: 19.2.6
+      react-activity-calendar:
+        specifier: 3.2.0
+        version: 3.2.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       react-day-picker:
         specifier: ^10.0.1
         version: 10.0.1(@types/react@19.2.14)(react@19.2.6)
@@ -608,6 +611,12 @@ packages:
     peerDependencies:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
+
+  '@floating-ui/react@0.27.19':
+    resolution: {integrity: sha512-31B8h5mm8YxotlE7/AU/PhNAl8eWxAmjL/v2QOxroDNkTFLk3Uu82u63N3b6TXa4EGJeeZLVcd/9AlNlVqzeog==}
+    peerDependencies:
+      react: '>=17.0.0'
+      react-dom: '>=17.0.0'
 
   '@floating-ui/utils@0.2.11':
     resolution: {integrity: sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==}
@@ -3906,6 +3915,11 @@ packages:
     resolution: {integrity: sha512-K5zQjDllxWkf7Z5xJdV0/B0WTNqx6vxG70zJE4N0kBs4LovmEYWJzQGxC9bS9RAKu3bgM40lrd5zoLJ12MQ5BA==}
     engines: {node: '>= 0.10'}
 
+  react-activity-calendar@3.2.0:
+    resolution: {integrity: sha512-v+ZD61h7RB76YMDh1aGAZuoXsSymSixKMOMusMoYWxhDXkFUX6hiftHin/tWqIS9zSNA/NN+vzYDK4hPF0wuxQ==}
+    peerDependencies:
+      react: ^18.0.0 || ^19.0.0
+
   react-day-picker@10.0.1:
     resolution: {integrity: sha512-eNh6BlwcYInWaJtRv18mXQ06Ys/H6rdTZAnTaSdOYJuTpwP1JMCHNd1FDRadA+gbeinq+psdULN5Xnowy9mV8w==}
     engines: {node: '>=18'}
@@ -4291,6 +4305,9 @@ packages:
   supports-preserve-symlinks-flag@1.0.0:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
+
+  tabbable@6.5.0:
+    resolution: {integrity: sha512-wieBHXygIm7OyQOu5hQlkk62/WyCFYGlWg7L6/ZCUZwx0o398Zkn4pVmMyfYhfMG8kGrj/Krt8eIk6UKC6VzwA==}
 
   tagged-tag@1.0.0:
     resolution: {integrity: sha512-yEFYrVhod+hdNyx7g5Bnkkb0G6si8HJurOoOEgC8B/O0uXLHlaey/65KRv6cuWBNhBgHKAROVpc7QyYqE5gFng==}
@@ -5035,6 +5052,14 @@ snapshots:
       '@floating-ui/dom': 1.7.6
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
+
+  '@floating-ui/react@0.27.19(react-dom@19.2.6(react@19.2.6))(react@19.2.6)':
+    dependencies:
+      '@floating-ui/react-dom': 2.1.8(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@floating-ui/utils': 0.2.11
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+      tabbable: 6.5.0
 
   '@floating-ui/utils@0.2.11': {}
 
@@ -8697,6 +8722,14 @@ snapshots:
       iconv-lite: 0.7.2
       unpipe: 1.0.0
 
+  react-activity-calendar@3.2.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
+    dependencies:
+      '@floating-ui/react': 0.27.19(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      date-fns: 4.4.0
+      react: 19.2.6
+    transitivePeerDependencies:
+      - react-dom
+
   react-day-picker@10.0.1(@types/react@19.2.14)(react@19.2.6):
     dependencies:
       '@date-fns/tz': 1.5.0
@@ -9210,6 +9243,8 @@ snapshots:
   stylis@4.4.0: {}
 
   supports-preserve-symlinks-flag@1.0.0: {}
+
+  tabbable@6.5.0: {}
 
   tagged-tag@1.0.0: {}
 
