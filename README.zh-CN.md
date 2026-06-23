@@ -210,6 +210,18 @@ pnpm tauri build      # 构建 Tauri 原生应用
 
 原生安装包将输出到 `src-tauri/target/release/bundle/`。
 
+### 安装（macOS）
+
+1. 从 [Releases](https://github.com/your-org/coder/releases) 页面下载 `.dmg` 文件。
+2. 双击 `.dmg` 挂载，将 `coder.app` 拖入 **应用程序** 文件夹。
+3. 由于应用未经过 Apple Developer 签名，macOS Gatekeeper 会在首次启动时拦截。执行以下命令绕过：
+
+   ```bash
+   xattr -d com.apple.quarantine /Applications/coder.app && open /Applications/coder.app
+   ```
+
+   > **注意：** 每次更新后都需要重新执行此命令，因为新版本会重新打上 quarantine 标记。
+
 ### 自动发布
 
 推送到 `main` 分支会触发[发布工作流](.github/workflows/release.yml)，它会：

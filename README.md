@@ -210,6 +210,18 @@ pnpm tauri build      # Build native Tauri application
 
 The native installers will be placed in `src-tauri/target/release/bundle/`.
 
+### Installation (macOS)
+
+1. Download the `.dmg` from the [Releases](https://github.com/your-org/coder/releases) page.
+2. Double-click the `.dmg` to mount it, then drag `coder.app` into the **Applications** folder.
+3. Since the app is not signed with an Apple Developer certificate, macOS Gatekeeper will block it on first launch. Bypass it with:
+
+   ```bash
+   xattr -d com.apple.quarantine /Applications/coder.app && open /Applications/coder.app
+   ```
+
+   > **Note:** You'll need to run this command again after every update, because each new version gets a fresh quarantine flag.
+
 ### Automatic release
 
 Pushing to the `main` branch triggers the [release workflow](.github/workflows/release.yml), which:
