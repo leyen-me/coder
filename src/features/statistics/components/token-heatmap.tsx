@@ -10,12 +10,30 @@ import { Flame } from "lucide-react";
 
 type Props = { data: TokenUsageByDateItem[] };
 
-function getLevel(tokens: number): number {
-  if (tokens === 0) return 0;
-  if (tokens < 1_000) return 1;
-  if (tokens < 10_000) return 2;
-  if (tokens < 100_000) return 3;
-  return 4;
+/**
+ * Compute 4 dynamic thresholds from non-zero token values using
+ * approximate percentiles (P25, P50, P75, max). This ensures the
+ * heatmap levels are adaptive to the actual usage distribution.
+ */
+function computeThresholds(
+  sorted: number[],
+): [number, number, number, number] {
+  if (sorted.length === 0) return [1_000, 10_000, 100_000, Infinity];
+  if (sorted.length === 1) {
+    const v = sorted[0];
+    return [Math.max(1, Math.round(v * 0.25)), Math.max(1, Math.round(v * 0.5)), v, v];
+  }
+  const p25 = sorted[Math.max(0, Math.min(sorted.length - 1, Math.floor(sorted.length * 0.25)))];
+  const p50 = sorted[Math.max(0, Math.min(sorted.length - 1, Math.floor(sorted.length * 0.50)))];
+  const p75 = sorted[Math.max(0, Math.min(sorted.length - 1, Math.floor(sorted.length * 0.75)))];
+  const max = sorted[sorted.length - 1];
+  // Deduplicate: ensure strictly increasing thresholds so every level is reachable.
+  return [
+    Math.max(1, Math.min(p25, p50 - 1)),
+    Math.max(p25 + 1, Math.min(p50, p75 - 1)),
+    Math.max(p50 + 1, Math.min(p75, max - 1)),
+    Math.max(p75 + 1, max),
+  ] as [number, number, number, number];
 }
 
 const LIGHT_THEME = [
@@ -72,6 +90,21 @@ export function TokenHeatmap({ data }: Props) {
 
   const activities: Activity[] = useMemo(() => {
     const dataMap = new Map(data.map((d) => [d.date, d.totalTokens]));
+
+    // Compute dynamic thresholds from the actual data distribution.
+    const sorted = data
+      .map((d) => d.totalTokens)
+      .filter((t) => t > 0)
+      .sort((a, b) => a - b);
+    const [t1, t2, t3] = computeThresholds(sorted);
+    const levelOf = (tokens: number): number => {
+      if (tokens === 0) return 0;
+      if (tokens <= t1) return 1;
+      if (tokens <= t2) return 2;
+      if (tokens <= t3) return 3;
+      return 4;
+    };
+
     const result: Activity[] = [];
     const now = new Date();
     const start = new Date(now);
@@ -79,7 +112,7 @@ export function TokenHeatmap({ data }: Props) {
     for (let d = new Date(start); d <= now; d.setDate(d.getDate() + 1)) {
       const dateStr = d.toISOString().slice(0, 10);
       const tokens = dataMap.get(dateStr) ?? 0;
-      result.push({ date: dateStr, count: tokens, level: getLevel(tokens) });
+      result.push({ date: dateStr, count: tokens, level: levelOf(tokens) });
     }
     return result;
   }, [data]);
