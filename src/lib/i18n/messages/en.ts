@@ -761,6 +761,7 @@ export const enMessages = {
   statistics: {
     title: "Statistics",
     description: "Platform usage overview",
+    todayTitle: "Today",
     sessionCount: "Sessions",
     messageCount: "Messages",
     agentRunCount: "Agent Runs",

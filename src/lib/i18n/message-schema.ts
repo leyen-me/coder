@@ -650,6 +650,7 @@ export type Messages = {
   statistics: {
     title: string;
     description: string;
+    todayTitle: string;
     sessionCount: string;
     messageCount: string;
     agentRunCount: string;

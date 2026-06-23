@@ -742,6 +742,7 @@ export const zhMessages = {
   statistics: {
     title: "统计",
     description: "平台使用统计概览",
+    todayTitle: "今日",
     sessionCount: "会话数",
     messageCount: "消息数",
     agentRunCount: "Agent 运行次数",
