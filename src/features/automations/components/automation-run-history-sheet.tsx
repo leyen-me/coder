@@ -1,11 +1,11 @@
-import { History, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { History, Loader2, Search, FolderOpen } from "lucide-react";
+import { useMemo, useState, useCallback, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -20,10 +20,20 @@ import { cn } from "@/lib/utils";
 
 import { AutomationRunList } from "./automation-run-list";
 
+type FilterTab = AutomationRunRecord["status"] | "all";
+
 type AutomationRunHistorySheetProps = {
   automationName: string;
   runs: AutomationRunRecord[];
 };
+
+const FILTER_TABS: FilterTab[] = [
+  "all",
+  "completed",
+  "failed",
+  "running",
+  "cancelled",
+];
 
 export function AutomationRunHistorySheet({
   automationName,
@@ -31,11 +41,71 @@ export function AutomationRunHistorySheet({
 }: AutomationRunHistorySheetProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const runningCount = runs.filter((run) => run.status === "running").length;
-  const tooltip =
-    runs.length > 0
-      ? `${t("automations.runHistory")} (${runs.length})`
-      : t("automations.runHistory");
+  const [filter, setFilter] = useState<FilterTab>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const runningCount = useMemo(
+    () => runs.filter((run) => run.status === "running").length,
+    [runs]
+  );
+
+  // Counts per status for tab badges
+  const counts = useMemo(() => {
+    const result: Record<FilterTab, number> = {
+      all: runs.length,
+      completed: 0,
+      failed: 0,
+      running: 0,
+      cancelled: 0,
+    };
+    for (const run of runs) {
+      result[run.status]++;
+    }
+    return result;
+  }, [runs]);
+
+  // Filtered + searched runs
+  const filteredRuns = useMemo(() => {
+    let result = runs;
+    if (filter !== "all") {
+      result = result.filter((r) => r.status === filter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(
+        (r) =>
+          r.summary.toLowerCase().includes(q) ||
+          r.sessionId.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [runs, filter, searchQuery]);
+
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        setSearchQuery(e.target.value);
+      }, 200);
+    },
+    []
+  );
+
+  const handleOpenChange = useCallback((nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      // Reset filter & search when closing
+      setTimeout(() => {
+        setFilter("all");
+        setSearchQuery("");
+        if (searchRef.current) searchRef.current.value = "";
+      }, 200);
+    }
+  }, []);
+
+  const isFiltered = filter !== "all" || searchQuery.trim().length > 0;
 
   return (
     <>
@@ -46,7 +116,7 @@ export function AutomationRunHistorySheet({
             variant="outline"
             size="icon-sm"
             className={cn("relative", runningCount > 0 && "text-primary")}
-            aria-label={tooltip}
+            aria-label={t("automations.runHistory")}
             onClick={() => setOpen(true)}
           >
             {runningCount > 0 ? (
@@ -61,19 +131,110 @@ export function AutomationRunHistorySheet({
             ) : null}
           </Button>
         </TooltipTrigger>
-        <TooltipContent>{tooltip}</TooltipContent>
+        <TooltipContent>
+          {runs.length > 0
+            ? `${t("automations.runHistory")} (${runs.length})`
+            : t("automations.runHistory")}
+        </TooltipContent>
       </Tooltip>
 
-      <Sheet onOpenChange={setOpen} open={open}>
+      <Sheet onOpenChange={handleOpenChange} open={open}>
         <SheetContent className="flex w-full flex-col gap-0 overflow-hidden p-0 data-[side=right]:sm:max-w-md">
-          <SheetHeader className="shrink-0 border-b px-6 py-4 pr-12">
-            <SheetTitle>{t("automations.runHistory")}</SheetTitle>
-            <SheetDescription className="truncate">
-              {automationName}
-            </SheetDescription>
+          {/* Header */}
+          <SheetHeader className="shrink-0 border-b px-5 py-4 pr-12">
+            <div className="flex items-center gap-3">
+              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <History className="size-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <SheetTitle className="flex items-baseline gap-1.5 text-base">
+                  {t("automations.runHistory")}
+                  <span className="text-sm font-normal text-muted-foreground/60">
+                    ({runs.length})
+                  </span>
+                </SheetTitle>
+                <p className="truncate text-xs text-muted-foreground/60">
+                  {automationName}
+                </p>
+              </div>
+            </div>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-            <AutomationRunList runs={runs} />
+
+          {/* Search */}
+          <div className="shrink-0 border-b px-5 py-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/50" />
+              <Input
+                ref={searchRef}
+                type="text"
+                placeholder={t("automations.runHistorySearch")}
+                onChange={handleSearchChange}
+                className="h-9 rounded-md bg-muted/50 pl-9 text-sm placeholder:text-muted-foreground/50"
+              />
+            </div>
+          </div>
+
+          {/* Filter tabs */}
+          <div className="shrink-0 border-b px-5 py-2.5">
+            <div className="flex gap-1" role="tablist">
+              {FILTER_TABS.map((tab) => {
+                const isActive = filter === tab;
+                const count = counts[tab];
+                return (
+                  <button
+                    key={tab}
+                    role="tab"
+                    aria-selected={isActive}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                      isActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    )}
+                    onClick={() => setFilter(tab)}
+                  >
+                    {tab === "all"
+                      ? t("automations.runHistoryFilterAll")
+                      : t(`automations.runStatus.${tab}`)}
+                    <span
+                      className={cn(
+                        "tabular-nums",
+                        isActive
+                          ? "text-primary/60"
+                          : "text-muted-foreground/50"
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* List area */}
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+            {filteredRuns.length > 0 ? (
+              <AutomationRunList runs={filteredRuns} />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <FolderOpen className="mb-3 size-8 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground/60">
+                  {isFiltered
+                    ? t("automations.runHistoryEmptyFilter")
+                    : t("automations.runHistoryEmpty")}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="shrink-0 border-t px-5 py-3">
+            <p className="text-xs text-muted-foreground/50">
+              {t("automations.runHistoryFooter", {
+                count: filteredRuns.length,
+              })}
+            </p>
           </div>
         </SheetContent>
       </Sheet>

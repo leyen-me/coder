@@ -669,7 +669,11 @@ export const enMessages = {
     runNow: "Run now",
     running: "Running…",
     runHistory: "Run history",
+    runHistorySearch: "Search run records…",
+    runHistoryFilterAll: "All",
     runHistoryEmpty: "No runs yet.",
+    runHistoryEmptyFilter: "No matching records found.",
+    runHistoryFooter: "Showing {count} records",
     runStatus: {
       running: "Running",
       completed: "Completed",

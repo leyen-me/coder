@@ -563,7 +563,11 @@ export type Messages = {
     runNow: string;
     running: string;
     runHistory: string;
+    runHistorySearch: string;
+    runHistoryFilterAll: string;
     runHistoryEmpty: string;
+    runHistoryEmptyFilter: string;
+    runHistoryFooter: string;
     runStatus: {
       running: string;
       completed: string;

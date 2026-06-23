@@ -655,7 +655,11 @@ export const zhMessages = {
     runNow: "立即运行",
     running: "运行中…",
     runHistory: "运行记录",
+    runHistorySearch: "搜索记录内容…",
+    runHistoryFilterAll: "全部",
     runHistoryEmpty: "还没有运行记录。",
+    runHistoryEmptyFilter: "没有找到匹配的记录。",
+    runHistoryFooter: "显示 {count} 条记录",
     runStatus: {
       running: "运行中",
       completed: "已完成",
