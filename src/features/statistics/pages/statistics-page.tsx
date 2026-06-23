@@ -191,7 +191,7 @@ export function StatisticsPage() {
               )}
               {toolRanking.map((tool, i) => (
                 <div key={tool.name} className="flex items-center gap-3">
-                  <span className="w-20 shrink-0 text-right font-mono text-xs text-muted-foreground">
+                  <span className="w-[90px] shrink-0 truncate text-right font-mono text-xs text-muted-foreground">
                     {tool.name}
                   </span>
                   <div className="flex-1 overflow-hidden rounded-md bg-muted">
