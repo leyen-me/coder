@@ -22,7 +22,18 @@ import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { SettingRow } from "./setting-row";
 
-const EMPTY_STATS: ChatDataStats = { sessionCount: 0, messageCount: 0 };
+const EMPTY_STATS: ChatDataStats = { sessionCount: 0, messageCount: 0, storageSize: 0 };
+
+function formatStorageSize(bytes: number): string {
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
+  return `${value.toFixed(1)} ${units[unitIndex]}`;
+}
 
 export function DataSettingsPanel() {
   const { t } = useTranslation();
@@ -44,6 +55,9 @@ export function DataSettingsPanel() {
   }, [refreshStats]);
 
   const hasChatData = stats.sessionCount > 0 || stats.messageCount > 0;
+
+  const formattedSize =
+    stats.storageSize > 0 ? formatStorageSize(stats.storageSize) : "";
 
   const handleClear = async () => {
     setIsClearing(true);
@@ -67,6 +81,7 @@ export function DataSettingsPanel() {
           description={t("settings.data.clearChatHistoryDescription", {
             sessionCount: stats.sessionCount,
             messageCount: stats.messageCount,
+            storageSize: formattedSize,
           })}
           control={
             <Button

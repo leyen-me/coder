@@ -5,15 +5,19 @@ import { notifyDbChange } from "./subscriptions";
 export type ChatDataStats = {
   sessionCount: number;
   messageCount: number;
+  storageSize: number;
 };
 
 export async function getChatDataStats(): Promise<ChatDataStats> {
   const db = await getDb();
-  const [sessionCount, messageCount] = await Promise.all([
+  const [sessionCount, messageCount, estimate] = await Promise.all([
     db.count(SESSIONS_STORE),
     db.count(MESSAGES_STORE),
+    navigator.storage?.estimate?.(),
   ]);
-  return { sessionCount, messageCount };
+  const storageSize =
+    estimate?.usage != null ? estimate.usage : 0;
+  return { sessionCount, messageCount, storageSize };
 }
 
 export async function clearAllChatData(): Promise<void> {
