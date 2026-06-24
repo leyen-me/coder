@@ -57,6 +57,7 @@ export type DurationBucketItem = {
 export type TokenUsageByDateItem = {
   date: string;
   totalTokens: number;
+  completionTokens: number;
 };
 
 export type ActiveSessionItem = {
@@ -120,7 +121,7 @@ function computeWindowStats(
     if (m.createdAt < startTs || m.createdAt >= endTs) continue;
     messageCount++;
     sessionSet.add(m.sessionId);
-    totalTokens += m.usage?.totalTokens ?? 0;
+    totalTokens += m.usage?.completionTokens ?? 0;
   }
 
   const agentRunCount = new Set(
@@ -148,8 +149,12 @@ export async function getPlatformStats(): Promise<PlatformStats> {
   const agentMessages = messages.filter((m) => m.role === "assistant");
   const agentRunCount = new Set(agentMessages.map((m) => m.sessionId)).size;
 
+  // Use completionTokens rather than totalTokens to avoid the inflated
+  // double-counting caused by overlapping prompt history across messages
+  // in the same session (totalTokens = prompt + completion, and prompt
+  // includes accumulated history on every request).
   const totalTokens = messages.reduce((sum, m) => {
-    return sum + (m.usage?.totalTokens ?? 0);
+    return sum + (m.usage?.completionTokens ?? 0);
   }, 0);
 
   // Period-over-period: compare last 30 days vs the 30 days before that.
@@ -191,7 +196,7 @@ export async function getTodayStats(): Promise<TodayStats> {
   for (const m of messages) {
     if (isToday(m.createdAt)) {
       todayMessages++;
-      todayTokens += m.usage?.totalTokens ?? 0;
+      todayTokens += m.usage?.completionTokens ?? 0;
       todaySessionSet.add(m.sessionId);
     }
     if (daysAgo(m.createdAt, 7)) {
@@ -335,21 +340,34 @@ export async function getAgentDurationDistribution(): Promise<DurationBucketItem
   return Object.entries(buckets).map(([bucket, count]) => ({ bucket, count }));
 }
 
-/** Daily aggregated token usage for the heatmap. */
+/**
+ * Daily aggregated token usage for the heatmap.
+ *
+ * We aggregate completionTokens instead of totalTokens because totalTokens
+ * (sum of prompt + completion) includes overlapping history context across
+ * messages in the same session. Completion tokens represent actual model
+ * output and are not subject to this double-counting.
+ */
 export async function getTokenUsageByDate(days: number): Promise<TokenUsageByDateItem[]> {
   const db = await getDb();
   const messages = await db.getAll(MESSAGES_STORE);
   const cutoff = Date.now() - days * 86_400_000;
   const filtered = messages.filter((m) => m.createdAt >= cutoff);
 
-  const map = new Map<string, number>();
+  const totalMap = new Map<string, number>();
+  const completionMap = new Map<string, number>();
   for (const m of filtered) {
     const key = formatDate(m.createdAt);
-    map.set(key, (map.get(key) ?? 0) + (m.usage?.totalTokens ?? 0));
+    totalMap.set(key, (totalMap.get(key) ?? 0) + (m.usage?.totalTokens ?? 0));
+    completionMap.set(key, (completionMap.get(key) ?? 0) + (m.usage?.completionTokens ?? 0));
   }
 
-  return [...map.entries()]
-    .map(([date, totalTokens]) => ({ date, totalTokens }))
+  return [...totalMap.entries()]
+    .map(([date, totalTokens]) => ({
+      date,
+      totalTokens,
+      completionTokens: completionMap.get(date) ?? 0,
+    }))
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
@@ -372,7 +390,7 @@ export async function getActiveSessions(limit = 10): Promise<ActiveSessionItem[]
     .slice(0, limit)
     .map((s) => {
       const msgs = msgMap.get(s.id) ?? [];
-      const totalTokens = msgs.reduce((sum, m) => sum + (m.usage?.totalTokens ?? 0), 0);
+      const totalTokens = msgs.reduce((sum, m) => sum + (m.usage?.completionTokens ?? 0), 0);
       return {
         title: s.title || "Untitled",
         messageCount: msgs.length,

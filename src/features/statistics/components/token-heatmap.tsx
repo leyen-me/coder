@@ -89,11 +89,14 @@ export function TokenHeatmap({ data }: Props) {
   }, [measure]);
 
   const activities: Activity[] = useMemo(() => {
-    const dataMap = new Map(data.map((d) => [d.date, d.totalTokens]));
+    // Use completionTokens (actual model output) rather than totalTokens
+    // which includes overlapping prompt history across messages in the same
+    // session and can be 10-100× inflated.
+    const dataMap = new Map(data.map((d) => [d.date, d.completionTokens]));
 
     // Compute dynamic thresholds from the actual data distribution.
     const sorted = data
-      .map((d) => d.totalTokens)
+      .map((d) => d.completionTokens)
       .filter((t) => t > 0)
       .sort((a, b) => a - b);
     const [t1, t2, t3] = computeThresholds(sorted);
