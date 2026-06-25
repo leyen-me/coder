@@ -96,6 +96,7 @@ export function RemoteTargetsSettingsPanel() {
   const { t } = useTranslation();
   const [targets, setTargets] = useState<RemoteTargetConfig[]>([]);
   const [editing, setEditing] = useState<RemoteTargetConfig | null>(null);
+  const [originalAlias, setOriginalAlias] = useState<string | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [deleteAlias, setDeleteAlias] = useState<string | null>(null);
   const [testingAlias, setTestingAlias] = useState<string | null>(null);
@@ -121,6 +122,7 @@ export function RemoteTargetsSettingsPanel() {
 
   function handleEdit(target: RemoteTargetConfig) {
     setEditing({ ...target });
+    setOriginalAlias(target.alias);
     setShowDialog(true);
   }
 
@@ -138,9 +140,14 @@ export function RemoteTargetsSettingsPanel() {
 
   function handleSave() {
     if (!editing) return;
-    saveRemoteTarget(editing).then(() => {
+    const aliasChanged = originalAlias && originalAlias !== editing.alias;
+    const promise = aliasChanged
+      ? deleteRemoteTarget(originalAlias).then(() => saveRemoteTarget(editing))
+      : saveRemoteTarget(editing);
+    promise.then(() => {
       setShowDialog(false);
       setEditing(null);
+      setOriginalAlias(null);
       loadTargets();
     });
   }
