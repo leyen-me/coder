@@ -50,6 +50,13 @@ export const shellHandler: ToolHandler = async (rawArgs, context) => {
         `Remote target "${args.value.target}" not found. Configure it in Settings > Remote Connections first.`
       );
     }
+    if (!config.enabled) {
+      return toolFailure(
+        SHELL_TOOL_NAME,
+        "target_disabled",
+        `Remote target "${args.value.target}" is disabled. Enable it in Settings > Remote Connections to use it.`
+      );
+    }
     targetConfig = config;
   }
 

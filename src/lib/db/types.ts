@@ -205,6 +205,7 @@ export type RemoteTargetConfig = {
   port: number;
   user: string;
   auth: RemoteTargetAuth;
+  enabled: boolean;
 };
 
 export type AgentTodoStatus =

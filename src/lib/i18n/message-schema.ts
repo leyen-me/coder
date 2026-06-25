@@ -498,6 +498,7 @@ export type Messages = {
       keyContentPlaceholder: string;
       deleteConfirmTitle: string;
       deleteConfirmDescription: string;
+      toggleEnabledAria: string;
     };
   };
   lab: {

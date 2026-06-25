@@ -23,13 +23,15 @@ export async function resolveAgentEnvironment(
     content: skill.content,
   }));
 
-  // Load remote targets
-  const remoteTargets = (await listRemoteTargets()).map((t) => ({
-    alias: t.alias,
-    host: t.host,
-    port: t.port,
-    user: t.user,
-  }));
+  // Load remote targets — only expose enabled ones to the agent
+  const remoteTargets = (await listRemoteTargets())
+    .filter((t) => t.enabled)
+    .map((t) => ({
+      alias: t.alias,
+      host: t.host,
+      port: t.port,
+      user: t.user,
+    }));
 
   if (isTauri()) {
     try {

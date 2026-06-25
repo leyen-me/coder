@@ -597,6 +597,7 @@ export const enMessages = {
       deleteConfirmTitle: "Delete remote target?",
       deleteConfirmDescription:
         'This will remove the remote machine "{alias}" from your configuration.',
+      toggleEnabledAria: 'Toggle remote machine "{alias}"',
     },
   },
   lab: {

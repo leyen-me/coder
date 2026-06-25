@@ -3,6 +3,7 @@ import { Loader2, Play, PencilIcon, Trash2Icon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ type RemoteTargetCardProps = {
   onEdit: () => void;
   onDelete: () => void;
   onTest: () => void;
+  onToggleEnabled: () => void;
   isTesting: boolean;
 };
 
@@ -36,6 +38,7 @@ export function RemoteTargetCard({
   onEdit,
   onDelete,
   onTest,
+  onToggleEnabled,
   isTesting,
 }: RemoteTargetCardProps) {
   const { t } = useTranslation();
@@ -56,17 +59,27 @@ export function RemoteTargetCard({
 
         <div
           className={cn(
-            "min-w-0 rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-xs text-muted-foreground"
+            "min-w-0 rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-xs text-muted-foreground",
+            !target.enabled && "opacity-50"
           )}
         >
           {target.user}@{target.host}:{target.port}
         </div>
       </CardContent>
 
-      <CardFooter className="gap-2 border-t pt-(--card-spacing)">
+      <CardFooter className="items-center gap-2 border-t pt-(--card-spacing)">
+        <Switch
+          size="sm"
+          checked={target.enabled}
+          onCheckedChange={onToggleEnabled}
+          aria-label={t("settings.remoteTargets.toggleEnabledAria", {
+            alias: target.alias,
+          })}
+        />
+
         <Button
           className="h-8 px-2 text-muted-foreground"
-          disabled={isTesting}
+          disabled={isTesting || !target.enabled}
           onClick={onTest}
           type="button"
           variant="ghost"

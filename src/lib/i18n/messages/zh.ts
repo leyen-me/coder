@@ -583,6 +583,7 @@ export const zhMessages = {
       keyContentPlaceholder: "在此粘贴您的私钥",
       deleteConfirmTitle: "删除远程目标？",
       deleteConfirmDescription: "这将从配置中删除远程机器 \"{alias}\"。",
+      toggleEnabledAria: "开关远程机器 \"{alias}\"",
     },
   },
   lab: {

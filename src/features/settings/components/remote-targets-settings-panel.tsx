@@ -46,6 +46,7 @@ function createDefaultConfig(): RemoteTargetConfig {
     port: 22,
     user: "",
     auth: { type: "agent" },
+    enabled: true,
   };
 }
 
@@ -175,6 +176,13 @@ export function RemoteTargetsSettingsPanel() {
     }
   }
 
+  function handleToggleEnabled(target: RemoteTargetConfig) {
+    const updated = { ...target, enabled: !target.enabled };
+    saveRemoteTarget(updated).then(() => {
+      loadTargets();
+    });
+  }
+
   return (
     <section className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -209,6 +217,7 @@ export function RemoteTargetsSettingsPanel() {
                 onEdit={() => handleEdit(target)}
                 onDelete={() => handleDelete(target.alias)}
                 onTest={() => void handleTestConnection(target.alias)}
+                onToggleEnabled={() => handleToggleEnabled(target)}
               />
             ))}
           </div>
