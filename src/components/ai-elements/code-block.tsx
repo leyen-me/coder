@@ -487,10 +487,26 @@ export const CodeBlock = ({
 }: CodeBlockProps) => {
   const contextValue = useMemo(() => ({ code }), [code]);
 
+  const defaultHeader = useMemo(
+    () => (
+      <CodeBlockHeader>
+        <CodeBlockTitle>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
+            {language}
+          </span>
+        </CodeBlockTitle>
+        <CodeBlockActions>
+          <CodeBlockCopyButton />
+        </CodeBlockActions>
+      </CodeBlockHeader>
+    ),
+    [language]
+  );
+
   return (
     <CodeBlockContext.Provider value={contextValue}>
       <CodeBlockContainer className={className} language={language} {...props}>
-        {children}
+        {children ?? defaultHeader}
         <CodeBlockContent
           code={code}
           language={language}
