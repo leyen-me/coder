@@ -23,9 +23,9 @@ export function buildSystemPrompt(
 
   const modeLine =
     agentMode === "ask"
-      ? "ask (read-only: can read files, search code, browse the web, and list skills ¡ª cannot modify files or run shell commands)"
+      ? "ask (read-only: can read files, search code, browse the web, and list skills â€” cannot modify files or run shell commands)"
       : agentMode === "plan"
-        ? "plan (planning: can read files, search, browse, manage .plan/ files and todos ¡ª cannot modify project files or run shell commands)"
+        ? "plan (planning: can read files, search, browse, manage .plan/ files and todos â€” cannot modify project files or run shell commands)"
         : "agent (full tool access)";
 
   const modeGuidance =
@@ -33,7 +33,7 @@ export function buildSystemPrompt(
       ? [
           "",
           "## Mode Guidance",
-          "You are in Ask mode ¡ª you can only read files, search, and browse.",
+          "You are in Ask mode â€” you can only read files, search, and browse.",
           "When the user asks you to modify files, run commands, or perform any write operation:",
           "  - Explain that the task requires write access.",
           "  - Tell the user they can switch to Agent mode (click \"Agent\" next to the input) to give you full tool access.",
@@ -87,7 +87,7 @@ function buildRemoteTargetsSection(
     "You have the following remote machines available:",
     ...targetLines,
     "",
-    'Use `shell(target: "<alias>")` to execute commands on a remote machine. The `target` parameter is optional ¡ª omit it to run commands locally.',
+    'Use `shell(target: "<alias>")` to execute commands on a remote machine. The `target` parameter is optional â€” omit it to run commands locally.',
     "",
     "**Limitation:** Only blocking mode (default `block_until_ms=30000`) is supported for remote shells. Background mode (`block_until_ms=0`) does NOT return a usable `shell_id`, so companion tools (`await`, `list_shells`, `kill_shell`, `read_shell_logs`) cannot be used with remote targets. All other tools (file read/write, search, etc.) operate on the local workspace only.",
     "",
@@ -103,10 +103,10 @@ function buildRemoteTargetsSection(
  * - Response formatting expectations
  *
  * What NOT to put here:
- * - Engineering/coding principles ¡ú `## Agent Operating Principles` > `### Core rules`
- * - Tool usage rules ¡ú `## Tool Usage` (system skill)
- * - Mode-specific behavior ¡ú `## Mode Guidance`
- * - Project-specific instructions ¡ú `## Project instructions (AGENTS.md)`
+ * - Engineering/coding principles â†’ `## Agent Operating Principles` > `### Core rules`
+ * - Tool usage rules â†’ `## Tool Usage` (system skill)
+ * - Mode-specific behavior â†’ `## Mode Guidance`
+ * - Project-specific instructions â†’ `## Project instructions (AGENTS.md)`
  *
  * Rules are numbered to maximize model compliance. Add new rules at the
  * bottom of the list to avoid renumbering existing ones.
@@ -125,7 +125,7 @@ function buildPlanModeGuidance(workspaceDir: string | null): string[] {
   const lines = [
     "",
     "## Mode Guidance",
-    "You are in Plan mode ¡ª research, analyze, and write a structured Markdown plan to the .plan/ directory.",
+    "You are in Plan mode â€” research, analyze, and write a structured Markdown plan to the .plan/ directory.",
     "The plan file is the source of truth. The user reviews it in the right panel Plan tab.",
     "",
     "### Plan file workflow",
@@ -162,7 +162,7 @@ function buildPlanModeGuidance(workspaceDir: string | null): string[] {
     "- Do NOT modify project files, run shell commands, or implement changes.",
     "",
     "### Execution",
-    "- When the user asks to implement, tell them to open the right panel Plan tab and click \"Build\" (Ö´ÐÐ) to run the plan in Agent mode.",
+    "- When the user asks to implement, tell them to open the right panel Plan tab and click \"Build\" (æ‰§è¡Œ) to run the plan in Agent mode.",
     "- Do NOT silently attempt implementation. Keep the user in the planning loop until they explicitly build.",
   ];
 
