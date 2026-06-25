@@ -569,6 +569,7 @@ export const enMessages = {
       save: "Save",
       cancel: "Cancel",
       testConnection: "Test connection",
+      test: "Test",
       addDialogTitle: "Add Remote Machine",
       editDialogTitle: "Edit Remote Machine",
       dialogDescription: "Configure SSH connection to a remote server",

@@ -556,6 +556,7 @@ export const zhMessages = {
       save: "保存",
       cancel: "取消",
       testConnection: "测试连接",
+      test: "测试",
       addDialogTitle: "添加远程机器",
       editDialogTitle: "编辑远程机器",
       dialogDescription: "配置与远程服务器的 SSH 连接",

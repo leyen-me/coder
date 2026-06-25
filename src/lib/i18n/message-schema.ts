@@ -471,6 +471,7 @@ export type Messages = {
       save: string;
       cancel: string;
       testConnection: string;
+      test: string;
       addDialogTitle: string;
       editDialogTitle: string;
       dialogDescription: string;

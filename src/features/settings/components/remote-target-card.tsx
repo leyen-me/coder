@@ -2,7 +2,14 @@ import { Loader2, Play, PencilIcon, Trash2Icon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -44,39 +51,40 @@ export function RemoteTargetCard({
   const { t } = useTranslation();
 
   return (
-    <Card className="relative h-full" size="sm">
-      <CardContent className="flex h-full flex-col gap-3 pt-(--card-spacing)">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <h3 className="truncate text-sm font-medium leading-tight">
-              {target.alias}
-            </h3>
-          </div>
+    <Card
+      className={cn(
+        "relative h-full transition-opacity",
+        !target.enabled && "opacity-60"
+      )}
+      size="sm"
+    >
+      <CardHeader className="pb-2">
+        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+          <CardTitle className="truncate text-sm font-medium leading-tight">
+            {target.alias}
+          </CardTitle>
           <Badge variant="secondary" className="shrink-0 text-xs">
             {authTypeLabel(t as (key: string) => string, target.auth.type)}
           </Badge>
         </div>
+        <CardAction>
+          <Switch
+            checked={target.enabled}
+            onCheckedChange={onToggleEnabled}
+            aria-label={t("settings.remoteTargets.toggleEnabledAria", {
+              alias: target.alias,
+            })}
+          />
+        </CardAction>
+      </CardHeader>
 
-        <div
-          className={cn(
-            "min-w-0 rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-xs text-muted-foreground",
-            !target.enabled && "opacity-50"
-          )}
-        >
+      <CardContent className="pb-3">
+        <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-xs text-muted-foreground">
           {target.user}@{target.host}:{target.port}
         </div>
       </CardContent>
 
-      <CardFooter className="items-center gap-2 border-t pt-(--card-spacing)">
-        <Switch
-          size="sm"
-          checked={target.enabled}
-          onCheckedChange={onToggleEnabled}
-          aria-label={t("settings.remoteTargets.toggleEnabledAria", {
-            alias: target.alias,
-          })}
-        />
-
+      <CardFooter className="justify-between">
         <Button
           className="h-8 px-2 text-muted-foreground"
           disabled={isTesting || !target.enabled}
@@ -89,7 +97,7 @@ export function RemoteTargetCard({
           ) : (
             <Play className="size-3.5" />
           )}
-          {t("settings.remoteTargets.testConnection")}
+          {t("settings.remoteTargets.test")}
         </Button>
 
         <Button
