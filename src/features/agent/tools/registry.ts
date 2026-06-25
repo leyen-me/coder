@@ -8,6 +8,7 @@ import {
   BROWSE_PAGE_TOOL_NAME,
   KILL_SHELL_TOOL_NAME,
   READ_SHELL_LOGS_TOOL_NAME,
+  REMOTE_SHELL_TOOL_NAME,
   LIST_DIR_TOOL_NAME,
   LIST_SHELLS_TOOL_NAME,
   CREATE_SKILL_TOOL_NAME,
@@ -53,6 +54,7 @@ import {
 } from "./plan";
 import { readFileHandler } from "./read-file";
 import { readShellLogsHandler } from "./read-shell-logs";
+import { remoteShellHandler } from "./remote-shell";
 import { readSkillHandler } from "./read-skill";
 import { replaceFileHandler } from "./replace-file";
 import { sendEmailHandler } from "./send-email";
@@ -83,6 +85,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [GLOB_TOOL_NAME]: globHandler,
   [GREP_TOOL_NAME]: grepHandler,
   [SHELL_TOOL_NAME]: shellHandler,
+  [REMOTE_SHELL_TOOL_NAME]: remoteShellHandler,
   [AWAIT_TOOL_NAME]: awaitShellHandler,
   [LIST_SHELLS_TOOL_NAME]: listShellsHandler,
   [KILL_SHELL_TOOL_NAME]: killShellHandler,

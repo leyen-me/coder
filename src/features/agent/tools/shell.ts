@@ -4,14 +4,12 @@ import { AgentCancellationError, throwIfAborted } from "../cancellation";
 import { SHELL_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
 import type { ShellData, ToolHandler } from "./types";
-import { getRemoteTarget } from "@/lib/db/remote-targets";
 
 type ShellArgs = {
   command: string;
   description?: string;
   working_directory?: string;
   block_until_ms?: number;
-  target?: string;
 };
 
 export const shellHandler: ToolHandler = async (rawArgs, context) => {
@@ -28,8 +26,7 @@ export const shellHandler: ToolHandler = async (rawArgs, context) => {
     return toolFailure(SHELL_TOOL_NAME, "invalid_arguments", args.message);
   }
 
-  // Remote shells don't need a workspace, only local ones do
-  if (!context.workspaceDir && !args.value.target) {
+  if (!context.workspaceDir) {
     return toolFailure(
       SHELL_TOOL_NAME,
       "workspace_required",
@@ -39,27 +36,6 @@ export const shellHandler: ToolHandler = async (rawArgs, context) => {
 
   throwIfAborted(context.signal, context.taskId);
 
-  // If target is specified, look up the remote config
-  let targetConfig = null;
-  if (args.value.target) {
-    const config = await getRemoteTarget(args.value.target);
-    if (!config) {
-      return toolFailure(
-        SHELL_TOOL_NAME,
-        "unknown_target",
-        `Remote target "${args.value.target}" not found. Configure it in Settings > Remote Connections first.`
-      );
-    }
-    if (!config.enabled) {
-      return toolFailure(
-        SHELL_TOOL_NAME,
-        "target_disabled",
-        `Remote target "${args.value.target}" is disabled. Enable it in Settings > Remote Connections to use it.`
-      );
-    }
-    targetConfig = config;
-  }
-
   try {
     const shellPromise = invoke<ShellData>("tool_shell", {
       workspaceDir: context.workspaceDir,
@@ -68,8 +44,6 @@ export const shellHandler: ToolHandler = async (rawArgs, context) => {
       workingDirectory: args.value.working_directory ?? null,
       blockUntilMs: args.value.block_until_ms ?? null,
       taskId: context.taskId ?? null,
-      target: args.value.target ?? null,
-      targetConfig,
     });
     const data = context.signal
       ? await raceShellWithAbort(shellPromise, context.signal, context.taskId)
@@ -162,11 +136,6 @@ function parseShellArgs(
     return { ok: false, message: "block_until_ms must be a number" };
   }
 
-  const target = record.target;
-  if (target !== undefined && typeof target !== "string") {
-    return { ok: false, message: "target must be a string" };
-  }
-
   return {
     ok: true,
     value: {
@@ -174,7 +143,6 @@ function parseShellArgs(
       description,
       working_directory: workingDirectory,
       block_until_ms: blockUntilMs,
-      target,
     },
   };
 }

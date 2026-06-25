@@ -28,7 +28,7 @@ use tools::{
     tool_read_file,
     tool_rename_path, tool_replace_file, tool_normalize_external_path, tool_read_local_image_bytes,
     tool_resolve_absolute_path, tool_shell,
-    tool_search_workspace_paths, tool_web_search, tool_write_file,
+    tool_search_workspace_paths, tool_remote_shell, tool_web_search, tool_write_file,
     PageCache, PtyRegistry, PtyState, RemoteConnectionPool, ShellRegistry,
     ShellState,
 };
@@ -178,6 +178,7 @@ pub fn run() {
             tool_web_search,
             tool_browse_page,
             tool_shell,
+            tool_remote_shell,
             tool_await,
             shell_kill,
             shell_kill_by_task,

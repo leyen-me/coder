@@ -87,9 +87,10 @@ function buildRemoteTargetsSection(
     "You have the following remote machines available:",
     ...targetLines,
     "",
-    'Use `shell(target: "<alias>")` to execute commands on a remote machine. The `target` parameter is optional — omit it to run commands locally.',
-    "",
-    "**Limitation:** Only blocking mode (default `block_until_ms=30000`) is supported for remote shells. Background mode (`block_until_ms=0`) does NOT return a usable `shell_id`, so companion tools (`await`, `list_shells`, `kill_shell`, `read_shell_logs`) cannot be used with remote targets. All other tools (file read/write, search, etc.) operate on the local workspace only.",
+    'Use `remote_shell(target: "<alias>", command: "...")` to execute commands on a remote machine. ' +
+    "This tool always waits for the command to complete (up to a hard limit of 10 minutes). " +
+    "If the command times out, partial stdout/stderr is returned with `timed_out: true`. " +
+    "To run commands on the local machine, use the regular `shell` tool instead.",
     "",
   ];
 }

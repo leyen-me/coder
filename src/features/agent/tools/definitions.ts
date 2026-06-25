@@ -8,6 +8,7 @@ export const EDIT_FILE_TOOL_NAME = "edit_file";
 export const GLOB_TOOL_NAME = "glob";
 export const GREP_TOOL_NAME = "grep";
 export const SHELL_TOOL_NAME = "shell";
+export const REMOTE_SHELL_TOOL_NAME = "remote_shell";
 export const AWAIT_TOOL_NAME = "await";
 export const LIST_SHELLS_TOOL_NAME = "list_shells";
 export const KILL_SHELL_TOOL_NAME = "kill_shell";
@@ -364,13 +365,37 @@ export const SHELL_TOOL: AgentToolDefinition = {
             "Max wait time in ms. Default 30000. Use 0 for background mode (returns shell_id). Max 600000.",
           default: 30000,
         },
+      },
+      required: ["command"],
+      additionalProperties: false,
+    },
+  },
+};
+
+export const REMOTE_SHELL_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: REMOTE_SHELL_TOOL_NAME,
+    description:
+      "Execute a command on a remote machine via SSH. Use this to run commands on a configured remote target. Always waits for the command to complete (up to a hard limit). Returns partial stdout/stderr if the command times out.",
+    parameters: {
+      type: "object",
+      properties: {
         target: {
           type: "string",
           description:
-            "Target remote machine alias. Omit to run locally on the user's machine.",
+            "Target remote machine alias (configured in Settings > Remote Connections). Required.",
+        },
+        command: {
+          type: "string",
+          description: "The shell command to execute on the remote machine.",
+        },
+        description: {
+          type: "string",
+          description: "Short human-readable description for UI display only.",
         },
       },
-      required: ["command"],
+      required: ["target", "command"],
       additionalProperties: false,
     },
   },
@@ -1028,6 +1053,7 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   GLOB_TOOL,
   GREP_TOOL,
   SHELL_TOOL,
+  REMOTE_SHELL_TOOL,
   AWAIT_TOOL,
   LIST_SHELLS_TOOL,
   KILL_SHELL_TOOL,

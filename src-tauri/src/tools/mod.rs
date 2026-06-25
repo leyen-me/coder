@@ -58,7 +58,7 @@ pub use replace_file::tool_replace_file;
 pub use runtime::agent_get_runtime_environment;
 pub use search_workspace::tool_search_workspace_paths;
 pub use shell_registry::{
-    shell_kill, shell_kill_by_task, shell_list, shell_read_logs, tool_await, tool_shell,
+    shell_kill, shell_kill_by_task, shell_list, shell_read_logs, tool_await, tool_remote_shell, tool_shell,
     ShellRegistry, ShellState,
 };
 pub use web_search::tool_web_search;

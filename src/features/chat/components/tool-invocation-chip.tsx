@@ -29,6 +29,7 @@ import {
   READ_FILE_TOOL_NAME,
   READ_SHELL_LOGS_TOOL_NAME,
   READ_SKILL_TOOL_NAME,
+  REMOTE_SHELL_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
   SHELL_TOOL_NAME,
   TODO_READ_TOOL_NAME,
@@ -135,7 +136,7 @@ export function ToolInvocationChip({
 
   // Tool type checks — used for specialized output rendering inside the Sheet.
   const isShellTool =
-    invocation.name === SHELL_TOOL_NAME || invocation.name === AWAIT_TOOL_NAME;
+    invocation.name === SHELL_TOOL_NAME || invocation.name === AWAIT_TOOL_NAME || invocation.name === REMOTE_SHELL_TOOL_NAME;
   const isBrowsePageTool = invocation.name === BROWSE_PAGE_TOOL_NAME;
   const isFileDiffTool =
     invocation.name === WRITE_FILE_TOOL_NAME ||

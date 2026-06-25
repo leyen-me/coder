@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::Read;
+use std::io::{ErrorKind, Read};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -11,6 +11,11 @@ use tokio::time::sleep;
 const IDLE_TIMEOUT: Duration = Duration::from_secs(5 * 60); // 5 minutes
 const IDLE_SCAN_INTERVAL: Duration = Duration::from_secs(60);
 const SSH_KEEPALIVE_INTERVAL: u32 = 15;
+
+/// Hard limit for remote command execution. Prevents Agent from hanging forever
+/// on interactive commands (top, vim, node, etc.).
+const REMOTE_EXEC_HARD_LIMIT: Duration = Duration::from_secs(600); // 10 minutes
+const STREAM_POLL_INTERVAL: Duration = Duration::from_millis(200);
 
 /// Authentication configuration, matching the frontend type.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,6 +49,8 @@ pub struct RemoteExecResult {
     pub stdout: String,
     pub stderr: String,
     pub exit_code: Option<i32>,
+    /// Whether the command was terminated due to the hard execution time limit.
+    pub timed_out: bool,
 }
 
 /// Result of a connection test.
@@ -160,8 +167,9 @@ impl SshSession {
         session.channel_session().is_ok()
     }
 
-    /// Execute a command on this session and return the output.
-    fn exec(&self, command: &str) -> Result<RemoteExecResult, String> {
+    /// Execute a command on this session with streaming reads and a hard time limit.
+    /// Returns partial stdout/stderr if the command exceeds the limit.
+    fn exec_streaming(&self, command: &str) -> Result<RemoteExecResult, String> {
         // Update last used timestamp
         if let Ok(mut last) = self.last_used.lock() {
             *last = Instant::now();
@@ -172,6 +180,9 @@ impl SshSession {
             .lock()
             .map_err(|_| "SSH session lock poisoned".to_string())?;
 
+        // Set a short timeout so channel.read() returns promptly when no data
+        session.set_timeout(200);
+
         let mut channel: Channel = session
             .channel_session()
             .map_err(|e| format!("Failed to open SSH channel: {e}"))?;
@@ -180,21 +191,78 @@ impl SshSession {
             .exec(command)
             .map_err(|e| format!("Failed to exec command: {e}"))?;
 
-        let mut stdout = String::new();
-        let mut stderr = String::new();
+        let deadline = Instant::now() + REMOTE_EXEC_HARD_LIMIT;
+        let mut stdout_buf: Vec<u8> = Vec::new();
+        let mut stderr_buf: Vec<u8> = Vec::new();
+        let mut read_buf = [0u8; 8192];
+        let mut stdout_eof = false;
+        let mut stderr_eof = false;
 
-        let _ = channel.read_to_string(&mut stdout);
-        let _ = channel.stderr().read_to_string(&mut stderr);
+        loop {
+            // Read stdout with timeout
+            if !stdout_eof {
+                loop {
+                    match channel.read(&mut read_buf) {
+                        Ok(0) => {
+                            stdout_eof = true;
+                            break;
+                        }
+                        Ok(n) => stdout_buf.extend_from_slice(&read_buf[..n]),
+                        Err(e) if e.kind() == ErrorKind::TimedOut
+                            || e.kind() == ErrorKind::WouldBlock => break,
+                        Err(e) => {
+                            return Err(format!("SSH stdout read error: {e}"));
+                        }
+                    }
+                }
+            }
 
-        let exit_code = channel.exit_status().ok();
+            // Read stderr with timeout
+            if !stderr_eof {
+                loop {
+                    match channel.stderr().read(&mut read_buf) {
+                        Ok(0) => {
+                            stderr_eof = true;
+                            break;
+                        }
+                        Ok(n) => stderr_buf.extend_from_slice(&read_buf[..n]),
+                        Err(e) if e.kind() == ErrorKind::TimedOut
+                            || e.kind() == ErrorKind::WouldBlock => break,
+                        Err(e) => {
+                            return Err(format!("SSH stderr read error: {e}"));
+                        }
+                    }
+                }
+            }
 
-        channel.wait_close().ok();
+            // Both streams reached EOF → command completed
+            if stdout_eof && stderr_eof {
+                channel.wait_close().ok();
+                let exit_code = channel.exit_status().ok();
+                // Restore default timeout
+                session.set_timeout(30000);
+                return Ok(RemoteExecResult {
+                    stdout: String::from_utf8_lossy(&stdout_buf).to_string(),
+                    stderr: String::from_utf8_lossy(&stderr_buf).to_string(),
+                    exit_code,
+                    timed_out: false,
+                });
+            }
 
-        Ok(RemoteExecResult {
-            stdout,
-            stderr,
-            exit_code,
-        })
+            // Check hard limit
+            if Instant::now() >= deadline {
+                // Restore default timeout
+                session.set_timeout(30000);
+                return Ok(RemoteExecResult {
+                    stdout: String::from_utf8_lossy(&stdout_buf).to_string(),
+                    stderr: String::from_utf8_lossy(&stderr_buf).to_string(),
+                    exit_code: None,
+                    timed_out: true,
+                });
+            }
+
+            std::thread::sleep(STREAM_POLL_INTERVAL);
+        }
     }
 }
 
@@ -272,13 +340,13 @@ impl RemoteConnectionPool {
         Ok(session)
     }
 
-    /// Execute a command on a remote target, with auto-reconnect (once).
+    /// Execute a command on a remote target with streaming reads and hard time limit.
     pub fn exec(&self, config: &RemoteTargetConfig, command: &str) -> Result<RemoteExecResult, String> {
         let alias = &config.alias;
 
         // First attempt
         let session = self.get_or_connect(alias, config)?;
-        let result = session.exec(command);
+        let result = session.exec_streaming(command);
 
         // On failure, retry once if session seems dead
         if result.is_err() {
@@ -289,7 +357,7 @@ impl RemoteConnectionPool {
             }
             // Retry
             let session = self.get_or_connect(alias, config)?;
-            return session.exec(command);
+            return session.exec_streaming(command);
         }
 
         result

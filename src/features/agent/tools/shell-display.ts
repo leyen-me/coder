@@ -4,6 +4,7 @@ import {
   AWAIT_TOOL_NAME,
   KILL_SHELL_TOOL_NAME,
   LIST_SHELLS_TOOL_NAME,
+  REMOTE_SHELL_TOOL_NAME,
   SHELL_TOOL_NAME,
 } from "./definitions";
 import type { ListShellsData, ShellData, ShellStatus } from "./types";

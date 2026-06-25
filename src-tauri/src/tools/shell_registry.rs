@@ -689,32 +689,13 @@ pub struct ShellState(pub Arc<Mutex<ShellRegistry>>);
 pub async fn tool_shell(
     app: AppHandle,
     state: State<'_, ShellState>,
-    remote_pool: State<'_, RemoteConnectionPool>,
     workspace_dir: String,
     command: String,
     description: Option<String>,
     working_directory: Option<String>,
     block_until_ms: Option<u64>,
     task_id: Option<String>,
-    target: Option<String>,
-    target_config: Option<super::remote_connection::RemoteTargetConfig>,
 ) -> Result<ShellOutput, String> {
-    // If a remote target is specified, execute via SSH
-    if let (Some(_target), Some(config)) = (&target, &target_config) {
-        return exec_remote_shell(
-            &app,
-            state,
-            remote_pool,
-            command,
-            description,
-            block_until_ms,
-            task_id,
-            config.clone(),
-        )
-        .await;
-    }
-
-    // Fall through to local execution
     ShellRegistry::run_shell(
         state.0.clone(),
         &app,
@@ -729,122 +710,44 @@ pub async fn tool_shell(
 }
 
 /// Execute a command on a remote target via SSH.
-async fn exec_remote_shell(
-    app: &AppHandle,
-    _state: State<'_, ShellState>,
+#[tauri::command]
+pub async fn tool_remote_shell(
+    app: AppHandle,
     remote_pool: State<'_, RemoteConnectionPool>,
     command: String,
     description: Option<String>,
-    block_until_ms: Option<u64>,
-    _task_id: Option<String>,
     config: super::remote_connection::RemoteTargetConfig,
 ) -> Result<ShellOutput, String> {
     use std::time::Instant;
     let started_at = Instant::now();
-    let block_ms = normalize_block_until_ms(block_until_ms);
+    let alias = config.alias.clone();
+    let desc = description.clone();
+    let cmd = command.clone();
 
-    // For background mode, spawn a blocking task
-    if block_ms == 0 {
-        let alias = config.alias.clone();
-        let cfg = config.clone();
-        let cmd = command.clone();
-        let desc = description.clone();
-        let app_h = app.clone();
-        let sessions = remote_pool.sessions.clone();
-
-        let shell_id = format!(
-            "shell-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("clock")
-                .as_nanos()
-        );
-
-        // Build a minimal RemoteConnectionPool clone for the blocking task
-        let pool_clone = super::remote_connection::RemoteConnectionPool {
-            sessions: sessions.clone(),
-        };
-
-        tokio::task::spawn_blocking(move || {
-            let result = pool_clone.exec(&cfg, &cmd);
-            match result {
-                Ok(output) => {
-                    let status = if output.exit_code == Some(0) {
-                        ShellStatus::Completed
-                    } else {
-                        ShellStatus::Failed
-                    };
-                    let shell_output = build_shell_output(
-                        cmd,
-                        desc,
-                        format!("remote:{}", alias),
-                        &output.stdout,
-                        &output.stderr,
-                        output.exit_code,
-                        started_at,
-                        status,
-                        Some(shell_id),
-                        "agent".to_string(),
-                    );
-                    let _ = app_h.emit("shell-finished", shell_output);
-                }
-                Err(e) => {
-                    let shell_output = build_shell_output(
-                        cmd,
-                        desc,
-                        format!("remote:{}", alias),
-                        "",
-                        &e,
-                        None,
-                        started_at,
-                        ShellStatus::Failed,
-                        Some(shell_id),
-                        "agent".to_string(),
-                    );
-                    let _ = app_h.emit("shell-finished", shell_output);
-                }
-            }
-        })
-        .await
-        .ok();
-
-        return Ok(build_shell_output(
-            command,
-            description,
-            format!("remote:{}", config.alias),
-            "",
-            "",
-            None,
-            started_at,
-            ShellStatus::Running,
-            None,
-            "agent".to_string(),
-        ));
-    }
-
-    // Blocking execution - run in spawn_blocking since ssh2 is blocking
+    // Run blocking SSH exec on a background thread so the UI thread is not frozen.
     let sessions = remote_pool.sessions.clone();
     let pool_clone = super::remote_connection::RemoteConnectionPool {
         sessions: sessions.clone(),
     };
     let cfg = config.clone();
-    let cmd = command.clone();
 
     let result = tokio::task::spawn_blocking(move || pool_clone.exec(&cfg, &cmd))
         .await
         .map_err(|e| format!("Remote exec task failed: {e}"))?
         .map_err(|e| format!("Remote exec failed: {e}"))?;
 
-    let status = if result.exit_code == Some(0) {
+    let status = if result.timed_out {
+        ShellStatus::Timeout
+    } else if result.exit_code == Some(0) {
         ShellStatus::Completed
     } else {
         ShellStatus::Failed
     };
 
-    Ok(build_shell_output(
+    let output = build_shell_output(
         command,
-        description,
-        format!("remote:{}", config.alias),
+        desc,
+        format!("remote:{}", alias),
         &result.stdout,
         &result.stderr,
         result.exit_code,
@@ -852,7 +755,10 @@ async fn exec_remote_shell(
         status,
         None,
         "agent".to_string(),
-    ))
+    );
+
+    let _ = app.emit("shell-finished", output.clone());
+    Ok(output)
 }
 
 #[tauri::command]
