@@ -191,6 +191,15 @@ async function openCoderDb(repairAttempted = false): Promise<IDBPDatabase<CoderD
       if (oldVersion > 0 && oldVersion < 14) {
         // No migration needed.
       }
+
+      // v15: add pinnedAt field to sessions
+      if (oldVersion > 0 && oldVersion < 15) {
+        const store = transaction.objectStore(SESSIONS_STORE);
+        const sessions = await store.getAll();
+        for (const session of sessions) {
+          await store.put(normalizeSessionRecord(session));
+        }
+      }
     },
   });
 

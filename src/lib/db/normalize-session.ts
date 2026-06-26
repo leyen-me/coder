@@ -18,6 +18,7 @@ type LegacySessionRecord = {
   planFileName?: string | null;
   planBuiltAt?: number | null;
   enableEmail?: boolean;
+  pinnedAt?: number | null;
   createdAt: number;
   updatedAt: number;
   gitBranch?: string | null;
@@ -56,6 +57,7 @@ export function normalizeSessionRecord(
     planFileName: session.planFileName?.trim() || null,
     planBuiltAt: session.planBuiltAt ?? null,
     enableEmail: session.enableEmail ?? undefined,
+    pinnedAt: session.pinnedAt ?? null,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   };

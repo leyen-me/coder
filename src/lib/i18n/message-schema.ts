@@ -46,6 +46,8 @@ export type Messages = {
     deleteChatConfirmDescription: string;
     exportChatSuccess: string;
     deleteChatSuccess: string;
+    pinChat: string;
+    unpinChat: string;
   };
   session: {
     newChat: string;

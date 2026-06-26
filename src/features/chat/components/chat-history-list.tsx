@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { Download, ExternalLink, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 
 import { paths } from "@/app/paths";
 import {
@@ -53,6 +53,8 @@ type ChatHistoryListProps = {
   onDeleteSession: (sessionId: string) => void;
   onExportSession: (sessionId: string) => void;
   onRenameSession: (sessionId: string, title: string) => void;
+  onPinSession?: (sessionId: string) => void;
+  onUnpinSession?: (sessionId: string) => void;
 };
 
 type RenameState = {
@@ -68,6 +70,8 @@ export function ChatHistoryList({
   onDeleteSession,
   onExportSession,
   onRenameSession,
+  onPinSession,
+  onUnpinSession,
 }: ChatHistoryListProps) {
   const { t } = useTranslation();
   const [filters, setFilters] = useState(DEFAULT_CHAT_HISTORY_FILTERS);
@@ -117,7 +121,7 @@ export function ChatHistoryList({
                           to={paths.chat(item.id)}
                           className={cn(
                             "grid w-full min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm transition-colors hover:bg-sidebar-accent",
-                            isRunning
+                            isRunning || (!isRunning && item.pinnedAt)
                               ? "grid-cols-[auto_minmax(0,1fr)_auto]"
                               : "grid-cols-[minmax(0,1fr)_auto]",
                             selectedId === item.id &&
@@ -129,6 +133,9 @@ export function ChatHistoryList({
                               className="size-3 shrink-0 text-muted-foreground"
                               aria-label={t("sidebar.agentRunning")}
                             />
+                          ) : null}
+                          {!isRunning && item.pinnedAt ? (
+                            <Pin className="size-3 shrink-0 text-muted-foreground" />
                           ) : null}
                           <SessionTitleLabel
                             title={item.title}
@@ -161,6 +168,24 @@ export function ChatHistoryList({
                         <ContextMenuItem onClick={() => invoke("create_new_window", { sessionId: item.id })}>
                           <ExternalLink className="size-4" />
                           {t("sidebar.openInNewWindow")}
+                        </ContextMenuItem>
+                      )}
+                      {!isRunning && onPinSession && onUnpinSession && (
+                        <ContextMenuItem
+                          onClick={() =>
+                            item.pinnedAt
+                              ? onUnpinSession(item.id)
+                              : onPinSession(item.id)
+                          }
+                        >
+                          {item.pinnedAt ? (
+                            <PinOff className="size-4" />
+                          ) : (
+                            <Pin className="size-4" />
+                          )}
+                          {item.pinnedAt
+                            ? t("sidebar.unpinChat")
+                            : t("sidebar.pinChat")}
                         </ContextMenuItem>
                       )}
                       <ContextMenuSeparator />

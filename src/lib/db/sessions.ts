@@ -88,6 +88,7 @@ export type SessionPatch = Partial<
     | "handoffMessageId"
     | "planFileName"
     | "planBuiltAt"
+    | "pinnedAt"
   >
 >;
 
@@ -135,10 +136,38 @@ export async function touchSession(sessionId: string): Promise<void> {
 export async function listSessions(limit = 50): Promise<SessionRecord[]> {
   const db = await getDb();
   const sessions = await db.getAllFromIndex(SESSIONS_STORE, "by-updatedAt");
-  return sessions
-    .reverse()
+  return sortSessionsPinnedFirst(sessions)
     .slice(0, limit)
     .map((session) => normalizeSessionRecord(session));
+}
+
+/**
+ * Sort sessions so pinned items appear first (most recently pinned first),
+ * then by updatedAt descending within each group.
+ */
+function sortSessionsPinnedFirst(sessions: SessionRecord[]): SessionRecord[] {
+  return [...sessions].sort((a, b) => {
+    const aPinned = a.pinnedAt ?? 0;
+    const bPinned = b.pinnedAt ?? 0;
+    // Both pinned: most recently pinned first
+    if (aPinned && bPinned) return bPinned - aPinned;
+    // Only a is pinned
+    if (aPinned) return -1;
+    // Only b is pinned
+    if (bPinned) return 1;
+    // Neither pinned: most recently updated first
+    return b.updatedAt - a.updatedAt;
+  });
+}
+
+/** Pin a session so it appears at the top of the chat list. */
+export async function pinSession(sessionId: string): Promise<SessionRecord | null> {
+  return updateSession(sessionId, { pinnedAt: Date.now() });
+}
+
+/** Unpin a session, returning it to natural sort order. */
+export async function unpinSession(sessionId: string): Promise<SessionRecord | null> {
+  return updateSession(sessionId, { pinnedAt: null });
 }
 
 export async function deleteSession(

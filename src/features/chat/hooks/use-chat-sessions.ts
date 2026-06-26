@@ -19,6 +19,7 @@ function toHistoryItem(
     updatedAt: session.updatedAt,
     workspaceDir: session.workspaceDir,
     sessionKind: session.sessionKind,
+    pinnedAt: session.pinnedAt ?? null,
     relativeTime: formatRelativeTime(session.updatedAt, Date.now(), {
       justNow: t("time.justNow"),
       minutesAgo: (count) => t("time.minutesAgo", { count }),

@@ -46,6 +46,8 @@ export type SessionRecord = {
   planBuiltAt?: number | null;
   /** Whether the send_email tool was enabled for this session. */
   enableEmail?: boolean;
+  /** Timestamp (ms) when the session was pinned. null means not pinned. */
+  pinnedAt?: number | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -191,6 +193,7 @@ export type ChatHistoryItem = {
   updatedAt: number;
   workspaceDir: string | null;
   sessionKind: SessionKind;
+  pinnedAt: number | null;
 };
 
 export type RemoteTargetAuth =

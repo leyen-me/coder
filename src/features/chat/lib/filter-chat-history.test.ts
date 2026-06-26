@@ -19,6 +19,7 @@ function item(
     updatedAt: overrides.updatedAt ?? 0,
     workspaceDir: overrides.workspaceDir ?? null,
     sessionKind: overrides.sessionKind ?? "standard",
+    pinnedAt: overrides.pinnedAt ?? null,
   };
 }
 

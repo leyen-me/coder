@@ -49,6 +49,8 @@ export const zhMessages = {
       "此操作将永久删除该聊天及其所有消息，且无法恢复。",
     exportChatSuccess: "聊天已导出成功",
     deleteChatSuccess: "聊天已删除",
+    pinChat: "置顶",
+    unpinChat: "取消置顶",
   },
   session: {
     newChat: "新建聊天",

@@ -19,7 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { useGeneratingSessionTitles } from "@/features/agent/session-title-store";
 import { useRunningSessionIds } from "@/features/agent/store/agent-store";
 import { useChatSessions } from "@/features/chat/hooks/use-chat-sessions";
-import { deleteSession, getMessagesBySession, getSession, updateSessionTitle } from "@/lib/db";
+import { deleteSession, getMessagesBySession, getSession, pinSession, unpinSession, updateSessionTitle } from "@/lib/db";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -154,6 +154,22 @@ export function AppSidebar({ open }: AppSidebarProps) {
     [refresh]
   );
 
+  const handlePinSession = useCallback(
+    async (sessionId: string) => {
+      await pinSession(sessionId);
+      await refresh();
+    },
+    [refresh]
+  );
+
+  const handleUnpinSession = useCallback(
+    async (sessionId: string) => {
+      await unpinSession(sessionId);
+      await refresh();
+    },
+    [refresh]
+  );
+
   return (
     <>
       <div
@@ -217,6 +233,8 @@ export function AppSidebar({ open }: AppSidebarProps) {
             onDeleteSession={handleDeleteSession}
             onExportSession={handleExportSession}
             onRenameSession={handleRenameSession}
+            onPinSession={handlePinSession}
+            onUnpinSession={handleUnpinSession}
           />
 
           <div className="flex shrink-0 flex-col gap-0.5 border-t border-sidebar-border p-2">

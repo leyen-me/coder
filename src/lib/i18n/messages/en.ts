@@ -49,6 +49,8 @@ export const enMessages = {
       "This will permanently delete this chat and all its messages. This cannot be undone.",
     exportChatSuccess: "Chat exported successfully",
     deleteChatSuccess: "Chat deleted",
+    pinChat: "Pin to top",
+    unpinChat: "Unpin",
   },
   session: {
     newChat: "New chat",
