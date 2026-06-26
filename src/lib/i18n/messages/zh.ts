@@ -516,6 +516,10 @@ export const zhMessages = {
       responseStyleMemeName: "玩梗",
       responseStyleRoastName: "嘴臭",
       responseStyleFunnyName: "搞笑",
+      virtualScrollLabel: "虚拟滚动",
+      virtualScrollDescription:
+        "启用消息列表虚拟滚动，长会话时可能提升渲染性能（实验性功能）",
+      virtualScrollAriaLabel: "启用虚拟滚动",
     },
     email: {
       providerLabel: "邮件服务商",

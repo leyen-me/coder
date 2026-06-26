@@ -62,10 +62,16 @@ export function parseLabSettings(value: unknown): LabSettings {
 
   const responseStyle = parseResponseStyle(value.responseStyle);
 
+  const virtualScrollEnabled =
+    typeof value.virtualScrollEnabled === "boolean"
+      ? value.virtualScrollEnabled
+      : DEFAULT_LAB_SETTINGS.virtualScrollEnabled;
+
   return {
     promptRefineEnabled,
     promptRefineSystemPrompt,
     longTaskEnabled,
+    virtualScrollEnabled,
     responseStyle,
   };
 }

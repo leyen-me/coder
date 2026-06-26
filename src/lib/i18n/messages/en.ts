@@ -529,6 +529,10 @@ export const enMessages = {
       responseStyleMemeName: "Meme",
       responseStyleRoastName: "Roast",
       responseStyleFunnyName: "Funny",
+      virtualScrollLabel: "Virtual scroll",
+      virtualScrollDescription:
+        "Enable virtual scrolling for the message list — may improve rendering performance in long sessions (experimental)",
+      virtualScrollAriaLabel: "Enable virtual scroll",
     },
     email: {
       providerLabel: "Email provider",

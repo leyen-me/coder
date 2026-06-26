@@ -8,5 +8,6 @@ export type LabSettings = {
   promptRefineEnabled: boolean;
   promptRefineSystemPrompt: string;
   longTaskEnabled: boolean;
+  virtualScrollEnabled: boolean;
   responseStyle: ResponseStyleConfig;
 };

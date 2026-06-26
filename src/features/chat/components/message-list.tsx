@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   useActiveStreamingMessageIds,
@@ -26,6 +26,7 @@ type MessageListProps = {
   editingMessageId?: string | null;
   onEditUserMessage?: (message: MessageRecord) => void;
   onRegenerateAssistantMessage?: (message: MessageRecord) => void;
+  virtualScrollEnabled?: boolean;
 };
 
 const NEAR_BOTTOM_THRESHOLD_PX = 80;
@@ -45,6 +46,20 @@ function isNearBottom(viewport: HTMLElement): boolean {
   return distanceFromBottom <= NEAR_BOTTOM_THRESHOLD_PX;
 }
 
+function scrollViewportToBottom(
+  viewport: HTMLElement | null,
+  smooth: boolean
+) {
+  if (!viewport) {
+    return;
+  }
+
+  viewport.scrollTo({
+    top: viewport.scrollHeight,
+    behavior: smooth ? "smooth" : "auto",
+  });
+}
+
 export function MessageList({
   messages,
   sessionTitle,
@@ -54,6 +69,7 @@ export function MessageList({
   editingMessageId,
   onEditUserMessage,
   onRegenerateAssistantMessage,
+  virtualScrollEnabled = false,
 }: MessageListProps) {
   const { t } = useTranslation();
   const streamingMessageIds = useActiveStreamingMessageIds();
@@ -78,7 +94,7 @@ export function MessageList({
   const getScrollElement = useCallback(() => scrollViewportRef.current, []);
 
   const rowVirtualizer = useVirtualizer({
-    count: messages.length,
+    count: virtualScrollEnabled ? messages.length : 0,
     estimateSize: ESTIMATED_ITEM_SIZE,
     getItemKey,
     getScrollElement,
@@ -91,13 +107,18 @@ export function MessageList({
         return;
       }
 
-      rowVirtualizer.scrollToIndex(messagesRef.current.length - 1, {
-        align: "end",
-        behavior: smooth ? "smooth" : "auto",
-      });
+      if (virtualScrollEnabled) {
+        rowVirtualizer.scrollToIndex(messagesRef.current.length - 1, {
+          align: "end",
+          behavior: smooth ? "smooth" : "auto",
+        });
+      } else {
+        scrollViewportToBottom(scrollViewportRef.current, smooth);
+      }
     },
-    [rowVirtualizer]
+    [rowVirtualizer, virtualScrollEnabled]
   );
+
   const handoffContinuedSessionId = useMemo(
     () =>
       handoffFromSessionId
@@ -209,11 +230,46 @@ export function MessageList({
     };
   }, [scrollToBottom]);
 
-  const virtualItems = rowVirtualizer.getVirtualItems();
+  const renderBuildBoundarySeparator = (index: number) => {
+    if (buildBoundaryIndex > 0 && index === buildBoundaryIndex) {
+      return (
+        <div className="-mx-4 flex items-center gap-3 px-4">
+          <Separator className="flex-1" />
+          <span className="shrink-0 text-xs font-medium text-muted-foreground">
+            {t("chat.planBuildStart")}
+          </span>
+          <Separator className="flex-1" />
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const renderMessage = (message: MessageRecord) => (
+    <MessageItem
+      chatRetry={chatRetryByMessageId.get(message.id) ?? null}
+      editingMessageId={editingMessageId}
+      handoffFromSessionId={handoffFromSessionId}
+      isStreaming={streamingMessageIds.has(message.id)}
+      key={message.id}
+      message={message}
+      onEditUserMessage={onEditUserMessage}
+      onRegenerateAssistantMessage={onRegenerateAssistantMessage}
+      sessionTitle={sessionTitle}
+    />
+  );
+
+  const virtualItems = virtualScrollEnabled ? rowVirtualizer.getVirtualItems() : [];
 
   return (
     <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-hidden">
-      <ScrollArea className="h-full px-4 py-6 [&_[data-slot=scroll-area-viewport]]:[will-change:transform]">
+      <ScrollArea
+        className={cn(
+          "h-full px-4 py-6",
+          virtualScrollEnabled &&
+            "[&_[data-slot=scroll-area-viewport]]:[will-change:transform]"
+        )}
+      >
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
           {systemPrompt ? (
             <SystemPromptBlock
@@ -227,63 +283,58 @@ export function MessageList({
           {handoffContinuedSessionId ? (
             <HandoffSourceBanner continuedSessionId={handoffContinuedSessionId} />
           ) : null}
-          {messages.length > 0 ? (
-            <div
-              className="relative w-full"
-              style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
-            >
-              {virtualItems.map((virtualItem) => {
-                const index = virtualItem.index;
-                const message = messages[index];
-                if (!message) {
-                  return null;
-                }
 
-                return (
-                  <div
-                    data-index={index}
-                    key={virtualItem.key}
-                    ref={rowVirtualizer.measureElement}
-                    style={{
-                      left: 0,
-                      position: "absolute",
-                      top: 0,
-                      transform: `translateY(${virtualItem.start}px) translateZ(0)`,
-                      width: "100%",
-                      willChange: "transform",
-                    }}
-                  >
+          {virtualScrollEnabled ? (
+            /* ── Virtualized rendering ── */
+            messages.length > 0 ? (
+              <div
+                className="relative w-full"
+                style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+              >
+                {virtualItems.map((virtualItem) => {
+                  const index = virtualItem.index;
+                  const message = messages[index];
+                  if (!message) {
+                    return null;
+                  }
+
+                  return (
                     <div
-                      className={cn(
-                        "flex flex-col gap-6",
-                        index < messages.length - 1 ? "pb-6" : null
-                      )}
+                      data-index={index}
+                      key={virtualItem.key}
+                      ref={rowVirtualizer.measureElement}
+                      style={{
+                        left: 0,
+                        position: "absolute",
+                        top: 0,
+                        transform: `translateY(${virtualItem.start}px) translateZ(0)`,
+                        width: "100%",
+                        willChange: "transform",
+                      }}
                     >
-                      {buildBoundaryIndex > 0 && index === buildBoundaryIndex ? (
-                        <div className="-mx-4 flex items-center gap-3 px-4">
-                          <Separator className="flex-1" />
-                          <span className="shrink-0 text-xs font-medium text-muted-foreground">
-                            {t("chat.planBuildStart")}
-                          </span>
-                          <Separator className="flex-1" />
-                        </div>
-                      ) : null}
-                      <MessageItem
-                        chatRetry={chatRetryByMessageId.get(message.id) ?? null}
-                        editingMessageId={editingMessageId}
-                        handoffFromSessionId={handoffFromSessionId}
-                        isStreaming={streamingMessageIds.has(message.id)}
-                        message={message}
-                        onEditUserMessage={onEditUserMessage}
-                        onRegenerateAssistantMessage={onRegenerateAssistantMessage}
-                        sessionTitle={sessionTitle}
-                      />
+                      <div
+                        className={cn(
+                          "flex flex-col gap-6",
+                          index < messages.length - 1 ? "pb-6" : null
+                        )}
+                      >
+                        {renderBuildBoundarySeparator(index)}
+                        {renderMessage(message)}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
+                  );
+                })}
+              </div>
+            ) : null
+          ) : (
+            /* ── Simple (non-virtualized) rendering ── */
+            messages.map((message, index) => (
+              <Fragment key={message.id}>
+                {renderBuildBoundarySeparator(index)}
+                {renderMessage(message)}
+              </Fragment>
+            ))
+          )}
         </div>
       </ScrollArea>
     </div>

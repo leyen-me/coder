@@ -1,5 +1,6 @@
 import type { MessageRecord } from "@/lib/db";
 
+import { useLabSettings } from "@/features/lab/use-lab-settings";
 import { MessageList } from "./message-list";
 
 type ChatMessageListProps = {
@@ -23,6 +24,8 @@ export function ChatMessageList({
   onEditUserMessage,
   onRegenerateAssistantMessage,
 }: ChatMessageListProps) {
+  const { settings } = useLabSettings();
+
   return (
     <MessageList
       editingMessageId={editingMessageId}
@@ -33,6 +36,7 @@ export function ChatMessageList({
       onSystemPromptExpand={onSystemPromptExpand}
       sessionTitle={sessionTitle}
       systemPrompt={systemPrompt}
+      virtualScrollEnabled={settings.virtualScrollEnabled}
     />
   );
 }

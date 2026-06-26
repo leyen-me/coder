@@ -431,6 +431,9 @@ export type Messages = {
       responseStyleMemeName: string;
       responseStyleRoastName: string;
       responseStyleFunnyName: string;
+      virtualScrollLabel: string;
+      virtualScrollDescription: string;
+      virtualScrollAriaLabel: string;
     };
     email: {
       providerLabel: string;
