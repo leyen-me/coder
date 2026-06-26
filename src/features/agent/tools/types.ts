@@ -145,6 +145,12 @@ export type ShellStatus =
 
 export type SessionSource = "human" | "agent";
 
+/**
+ * Data returned from a remote shell execution.
+ * The Rust backend returns ShellOutput which has the same shape as ShellData.
+ */
+export type RemoteShellData = ShellData;
+
 export type ShellData = {
   command: string;
   description?: string;

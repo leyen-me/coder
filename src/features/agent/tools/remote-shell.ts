@@ -12,7 +12,7 @@ type RemoteShellArgs = {
   description?: string;
 };
 
-export const remoteShellHandler: ToolHandler = async (rawArgs, context) => {
+export const remoteShellHandler: ToolHandler = async (rawArgs, _context) => {
   if (!isTauri()) {
     return toolFailure(
       REMOTE_SHELL_TOOL_NAME,
