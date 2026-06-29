@@ -381,8 +381,9 @@ Do not claim success solely because code was changed.
 
 1. Re-read the changed area when practical.
 2. Review the diff to confirm only intended changes are included.
-3. Run the most relevant verification available.
-4. Report what was verified and what was not.
+3. Before running any verification command, call list_shells first to check whether the user already has a running dev server or relevant process. If one exists, prefer telling the user to reload over starting a new instance. Only run a new verification command when no relevant process is already running.
+4. Run the most relevant verification available.
+5. Report what was verified and what was not.
 
 ### Prefer relevant checks
 
