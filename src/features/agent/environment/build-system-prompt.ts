@@ -31,43 +31,75 @@ export function buildSystemPrompt(
   const modeGuidance =
     agentMode === "ask"
       ? [
-          "",
           "## Mode Guidance",
+          "",
           "You are in Ask mode — you can only read files, search, and browse.",
           "When the user asks you to modify files, run commands, or perform any write operation:",
           "  - Explain that the task requires write access.",
           "  - Tell the user they can switch to Agent mode (click \"Agent\" next to the input) to give you full tool access.",
           "Do NOT silently refuse or just say \"I can't do that.\" Always provide a clear path forward.",
-          "",
         ]
       : agentMode === "plan"
         ? buildPlanModeGuidance(environment.workspaceDir)
         : [];
 
   const stylePrompt = resolveResponseStylePrompt(getLabSettingsSnapshot());
-  const isWindows = environment.os.toLowerCase().startsWith("windows");
 
   const identityLines = stylePrompt
-    ? [stylePrompt, ""]
-    : ["You are Coder, a helpful desktop AI assistant.", ""];
+    ? [stylePrompt]
+    : ["You are Coder, a helpful desktop AI assistant."];
 
-  return [
-    ...identityLines,
-    "## Environment",
-    `- workspaceDir: ${workspaceLine}`,
-    `- os: ${environment.os}`,
-    `- shell: ${environment.shell}`,
-    `- gitRepository: ${gitLine}`,
-    `- date: ${environment.today}`,
-    `- mode: ${modeLine}`,
-    ...buildCoreRulesSection(),
-    ...(isWindows ? [""] : []),
-    ...buildSystemPromptSections(environment.enabledSystemSkills),
-    ...buildUserSkillsSection(agentMode),
-    ...buildProjectInstructionsSection(environment.agentsMd),
-    ...buildRemoteTargetsSection(environment.remoteTargets),
-    ...modeGuidance,
-  ].join("\n");
+  const allBlocks: string[] = [];
+
+  // Block 1: Identity + Environment
+  allBlocks.push(
+    [
+      ...identityLines,
+      "",
+      "## Environment",
+      "",
+      `- workspaceDir: ${workspaceLine}`,
+      `- os: ${environment.os}`,
+      `- shell: ${environment.shell}`,
+      `- gitRepository: ${gitLine}`,
+      `- date: ${environment.today}`,
+      `- mode: ${modeLine}`,
+    ].join("\n")
+  );
+
+  // Block 2: Communication Rules
+  allBlocks.push(buildCoreRulesSection().join("\n"));
+
+  // Blocks 3+: System Skills (one block per skill)
+  for (const skill of environment.enabledSystemSkills) {
+    allBlocks.push(
+      `## ${skill.name}\n\n${stripLeadingMarkdownH1(skill.content)}`
+    );
+  }
+
+  // Block: User Skills
+  allBlocks.push(buildUserSkillsSection(agentMode).join("\n"));
+
+  // Block: Project Instructions
+  if (environment.agentsMd?.content.trim()) {
+    allBlocks.push(
+      buildProjectInstructionsSection(environment.agentsMd).join("\n")
+    );
+  }
+
+  // Block: Remote Machines
+  if (environment.remoteTargets.length) {
+    allBlocks.push(
+      buildRemoteTargetsSection(environment.remoteTargets).join("\n")
+    );
+  }
+
+  // Block: Mode Guidance
+  if (modeGuidance.length) {
+    allBlocks.push(modeGuidance.join("\n"));
+  }
+
+  return allBlocks.join("\n\n---\n\n");
 }
 
 function buildRemoteTargetsSection(
@@ -82,8 +114,8 @@ function buildRemoteTargetsSection(
   );
 
   return [
-    "",
     "## Remote Machines",
+    "",
     "You have the following remote machines available:",
     ...targetLines,
     "",
@@ -91,7 +123,6 @@ function buildRemoteTargetsSection(
     "This tool always waits for the command to complete (up to a hard limit of 10 minutes). " +
     "If the command times out, partial stdout/stderr is returned with `timed_out: true`. " +
     "To run commands on the local machine, use the regular `shell` tool instead.",
-    "",
   ];
 }
 
@@ -114,22 +145,21 @@ function buildRemoteTargetsSection(
  */
 function buildCoreRulesSection(): string[] {
   return [
-    "",
     "## Communication Rules",
     "",
     /* 1 */ "1. Reply in the same language the user uses. Be concise, accurate, and friendly.",
-    "",
   ];
 }
 
 function buildPlanModeGuidance(workspaceDir: string | null): string[] {
   const lines = [
-    "",
     "## Mode Guidance",
+    "",
     "You are in Plan mode — research, analyze, and write a structured Markdown plan to the .plan/ directory.",
     "The plan file is the source of truth. The user reviews it in the right panel Plan tab.",
     "",
     "### Plan file workflow",
+    "",
     "- Before creating or revising, call plan_list (and plan_read when needed) to inspect existing plans.",
     "- Use plan_create only for a new topic with a new filename. It fails if the file already exists.",
     "- Use plan_edit for targeted changes to an existing plan (search-and-replace). Prefer this over plan_update for small edits, appending steps, or revising specific sections.",
@@ -138,9 +168,11 @@ function buildPlanModeGuidance(workspaceDir: string | null): string[] {
     "- Use plan_delete only when the user explicitly asks to remove an obsolete plan.",
     "",
     "### Filename rules",
+    "",
     "- Descriptive slug ending in -plan.md (e.g. refactor-auth-plan.md). Lowercase letters, numbers, and hyphens only.",
     "",
     "### Plan content structure",
+    "",
     "Write the full plan in the file using Markdown with at least:",
     "- # Title",
     "- ## Goal / context",
@@ -149,10 +181,12 @@ function buildPlanModeGuidance(workspaceDir: string | null): string[] {
     "- ## Risks / verification (when relevant)",
     "",
     "### Chat reply",
+    "",
     "- Briefly summarize which plan file was created or updated. Do NOT paste the full plan in chat.",
     "- Do NOT include greetings, process narration, tool-call commentary, or closing questions.",
     "",
     "### Tools in this mode",
+    "",
     "- Read, search, and browse to inform the plan.",
     "- When important requirements or trade-offs are unclear, call ask_question to ask the user a batch of structured clarification questions before you continue.",
     "- Prefer one ask_question call with all necessary questions instead of many one-question rounds.",
@@ -163,6 +197,7 @@ function buildPlanModeGuidance(workspaceDir: string | null): string[] {
     "- Do NOT modify project files, run shell commands, or implement changes.",
     "",
     "### Execution",
+    "",
     "- When the user asks to implement, tell them to open the right panel Plan tab and click \"Build\" (执行) to run the plan in Agent mode.",
     "- Do NOT silently attempt implementation. Keep the user in the planning loop until they explicitly build.",
   ];
@@ -171,25 +206,9 @@ function buildPlanModeGuidance(workspaceDir: string | null): string[] {
     lines.push(
       "",
       "### Workspace required",
+      "",
       "- plan_create/plan_update/plan_edit require a selected workspace. Ask the user to select one if plan file tools fail."
     );
-  }
-
-  lines.push("");
-  return lines;
-}
-
-function buildSystemPromptSections(
-  skills: AgentEnvironment["enabledSystemSkills"]
-): string[] {
-  if (!skills.length) {
-    return [];
-  }
-
-  const lines: string[] = [];
-
-  for (const skill of skills) {
-    lines.push(`## ${skill.name}`, stripLeadingMarkdownH1(skill.content), "");
   }
 
   return lines;
@@ -204,6 +223,7 @@ function buildUserSkillsSection(agentMode?: AgentMode): string[] {
 
   return [
     "## User skills",
+    "",
     "Custom user skills must be enabled by the user before they become available.",
     "They are NOT included in this prompt by default.",
     "- Call list_skills to browse enabled user skills (slug, name, description).",
@@ -216,7 +236,6 @@ function buildUserSkillsSection(agentMode?: AgentMode): string[] {
       : []),
     "- New skills are disabled until the user enables them on the Skills page.",
     "- The user may also reference an enabled user skill via /slug in their message.",
-    "",
   ];
 }
 
@@ -229,6 +248,7 @@ function buildProjectInstructionsSection(
 
   const lines = [
     "## Project instructions (AGENTS.md)",
+    "",
     "Follow these project-specific rules when they do not conflict with the user's current message.",
     agentsMd.content.trimEnd(),
   ];
@@ -240,7 +260,6 @@ function buildProjectInstructionsSection(
     );
   }
 
-  lines.push("");
   return lines;
 }
 
