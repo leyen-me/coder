@@ -43,13 +43,9 @@ export function CollapsibleToolSection({
 }: CollapsibleToolSectionProps) {
   if (!collapsible) {
     return (
-      <div className={cn("group w-full overflow-hidden rounded-md border", className)}>
-        <div className="flex items-center gap-2 overflow-hidden border-b bg-muted/30 px-3 py-1.5 text-xs">
-          {header}
-        </div>
-
+      <div className={cn(className)}>
         {errorText ? (
-          <div className="bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
+          <div className="mb-2 rounded-md bg-destructive/10 p-3 text-xs text-destructive">
             {errorText}
           </div>
         ) : null}
