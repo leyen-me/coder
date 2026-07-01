@@ -36,6 +36,7 @@ import {
 } from "./assistant-process";
 import { AssistantProcessCollapsible } from "./assistant-process-collapsible";
 import { StreamingMessageContent } from "./streaming-message-content";
+import { UserMessageContent } from "./user-message-content";
 import { HandoffContinuationMessage } from "./handoff-continuation-message";
 import { HandoffSourceMessage } from "./handoff-source-message";
 
@@ -318,7 +319,7 @@ export const MessageItem = memo(function MessageItem({
                     !contentExpanded && "line-clamp-6",
                   )}
                 >
-                  {message.content}
+                  <UserMessageContent text={message.content} />
                 </span>
                 {isLongContent ? (
                   <CollapsibleTrigger asChild>

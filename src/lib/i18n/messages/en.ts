@@ -239,6 +239,7 @@ export const enMessages = {
     agentProcess: "Agent process",
     agentToolCalls: "{count} tool calls",
     durationLabel: "took {duration}",
+    skillReferenceTooltip: "View skill details",
     agentProcessSeconds: "{duration}s",
   },
   time: {

@@ -219,6 +219,7 @@ export type Messages = {
     agentProcess: string;
     agentToolCalls: string;
     durationLabel: string;
+    skillReferenceTooltip: string;
     agentProcessSeconds: string;
   };
   time: {

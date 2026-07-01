@@ -229,6 +229,7 @@ export const zhMessages = {
     agentProcess: "Agent 过程",
     agentToolCalls: "{count} 次工具调用",
     durationLabel: "耗时 {duration}",
+    skillReferenceTooltip: "查看技能详情",
     agentProcessSeconds: "{duration}秒",
   },
   time: {
