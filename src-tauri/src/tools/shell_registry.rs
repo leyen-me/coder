@@ -709,56 +709,207 @@ pub async fn tool_shell(
     .await
 }
 
-/// Execute a command on a remote target via SSH.
+/// Execute a command on a remote target via SSH, with streaming output.
+/// Returns immediately with a `remote-` shell_id when `block_until_ms` is 0,
+/// or blocks up to `block_until_ms` then returns current output (background mode).
+/// Supports `await` / `read_shell_logs` / `kill_shell` via `ShellRegistry`.
 #[tauri::command]
 pub async fn tool_remote_shell(
     app: AppHandle,
+    state: State<'_, ShellState>,
     remote_pool: State<'_, RemoteConnectionPool>,
     command: String,
     description: Option<String>,
     config: super::remote_connection::RemoteTargetConfig,
+    block_until_ms: Option<u64>,
+    task_id: Option<String>,
 ) -> Result<ShellOutput, String> {
-    use std::time::Instant;
+    use super::remote_connection::SshStreamEvent;
+
     let started_at = Instant::now();
     let alias = config.alias.clone();
     let desc = description.clone();
     let cmd = command.clone();
+    let block_ms = normalize_block_until_ms(block_until_ms);
 
-    // Run blocking SSH exec on a background thread so the UI thread is not frozen.
-    let sessions = remote_pool.sessions.clone();
-    let pool_clone = super::remote_connection::RemoteConnectionPool {
-        sessions: sessions.clone(),
+    let shell_id = format!(
+        "remote-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos()
+    );
+
+    // --- Build a temporary connection pool to get/create the session ---
+    // We can't hold State<_> across spawn_blocking, so clone the Arc.
+    let sessions_arc = remote_pool.sessions.clone();
+    let get_session = {
+        let sessions = sessions_arc.clone();
+        let cfg = config.clone();
+        let alias_c = alias.clone();
+        move || -> Result<Arc<super::remote_connection::SshSession>, String> {
+            let pool = super::remote_connection::RemoteConnectionPool {
+                sessions: sessions.clone(),
+            };
+            pool.get_or_connect(&alias_c, &cfg)
+        }
     };
-    let cfg = config.clone();
 
-    let result = tokio::task::spawn_blocking(move || pool_clone.exec(&cfg, &cmd))
-        .await
-        .map_err(|e| format!("Remote exec task failed: {e}"))?
-        .map_err(|e| format!("Remote exec failed: {e}"))?;
+    let session = get_session().map_err(|e| format!("Remote exec failed: {e}"))?;
 
-    let status = if result.timed_out {
-        ShellStatus::Timeout
-    } else if result.exit_code == Some(0) {
-        ShellStatus::Completed
-    } else {
-        ShellStatus::Failed
-    };
+    // --- Kill flag shared between Registry and SSH reader thread ---
+    let killed = Arc::new(AtomicBool::new(false));
+    let killed_reader = killed.clone();
 
+    // --- Register running shell ---
+    {
+        let mut reg = state.0.lock().map_err(|_| "Shell registry lock poisoned")?;
+        reg.shells.insert(
+            shell_id.clone(),
+            RunningShell {
+                command: cmd.clone(),
+                description: desc.clone(),
+                working_directory: format!("remote:{}", alias),
+                stdout: String::new(),
+                stderr: String::new(),
+                status: ShellStatus::Running,
+                exit_code: None,
+                started_at,
+                task_id: task_id.clone(),
+                pid: None, // Remote shells have no local PID
+                killed: killed.clone(),
+                child: Arc::new(Mutex::new(None)),
+                child_killer: None,
+                source: "agent".to_string(),
+            },
+        );
+    }
+
+    // --- std mpsc channel: blocking SSH reader → blocking consumer ---
+    let (tx, rx) = std::sync::mpsc::channel::<SshStreamEvent>();
+
+    // --- Spawn blocking SSH reader ---
+    let session_reader = session.clone();
+    let cmd_reader = cmd.clone();
+    tokio::task::spawn_blocking(move || {
+        session_reader.exec_to_channel(&cmd_reader, &killed_reader, tx);
+    });
+
+    // --- Spawn blocking consumer: receives chunks → updates registry + emits events ---
+    let registry = state.0.clone();
+    let app_consumer = app.clone();
+    let sid = shell_id.clone();
+    tokio::task::spawn_blocking(move || {
+        loop {
+            let Ok(event) = rx.recv() else {
+                // All senders dropped, stream ended
+                break;
+            };
+            match event {
+                SshStreamEvent::Stdout(data) => {
+                    let chunk = String::from_utf8_lossy(&data).to_string();
+                    if let Ok(mut reg) = registry.lock() {
+                        if let Some(s) = reg.shells.get_mut(&sid) {
+                            s.stdout.push_str(&chunk);
+                        }
+                    }
+                    let _ = app_consumer.emit(
+                        "shell-output",
+                        ShellOutputEvent {
+                            shell_id: sid.clone(),
+                            stream: "stdout".to_string(),
+                            data: chunk,
+                        },
+                    );
+                }
+                SshStreamEvent::Stderr(data) => {
+                    let chunk = String::from_utf8_lossy(&data).to_string();
+                    if let Ok(mut reg) = registry.lock() {
+                        if let Some(s) = reg.shells.get_mut(&sid) {
+                            s.stderr.push_str(&chunk);
+                        }
+                    }
+                    let _ = app_consumer.emit(
+                        "shell-output",
+                        ShellOutputEvent {
+                            shell_id: sid.clone(),
+                            stream: "stderr".to_string(),
+                            data: chunk,
+                        },
+                    );
+                }
+                SshStreamEvent::ExitCode(code) => {
+                    if let Ok(mut reg) = registry.lock() {
+                        if let Some(s) = reg.shells.get_mut(&sid) {
+                            if s.status == ShellStatus::Running {
+                                s.status = if code == Some(0) {
+                                    ShellStatus::Completed
+                                } else {
+                                    ShellStatus::Failed
+                                };
+                                s.exit_code = code;
+                            }
+                        }
+                    }
+                    if let Ok(reg) = registry.lock() {
+                        if let Ok(output) = reg.snapshot_output(&sid) {
+                            let _ = app_consumer.emit("shell-finished", output);
+                        }
+                    }
+                }
+                SshStreamEvent::Killed => {
+                    if let Ok(mut reg) = registry.lock() {
+                        if let Some(s) = reg.shells.get_mut(&sid) {
+                            if s.status == ShellStatus::Running {
+                                s.status = ShellStatus::Cancelled;
+                            }
+                        }
+                    }
+                    if let Ok(reg) = registry.lock() {
+                        if let Ok(output) = reg.snapshot_output(&sid) {
+                            let _ = app_consumer.emit("shell-finished", output);
+                        }
+                    }
+                }
+                SshStreamEvent::Error(msg) => {
+                    if let Ok(mut reg) = registry.lock() {
+                        if let Some(s) = reg.shells.get_mut(&sid) {
+                            s.stderr.push_str(&msg);
+                            if s.status == ShellStatus::Running {
+                                s.status = ShellStatus::Failed;
+                            }
+                        }
+                    }
+                    if let Ok(reg) = registry.lock() {
+                        if let Ok(output) = reg.snapshot_output(&sid) {
+                            let _ = app_consumer.emit("shell-finished", output);
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // --- Return ShellOutput with shell_id ---
     let output = build_shell_output(
-        command,
+        cmd,
         desc,
         format!("remote:{}", alias),
-        &result.stdout,
-        &result.stderr,
-        result.exit_code,
-        started_at,
-        status,
+        "",
+        "",
         None,
+        started_at,
+        ShellStatus::Running,
+        Some(shell_id.clone()),
         "agent".to_string(),
     );
 
-    let _ = app.emit("shell-finished", output.clone());
-    Ok(output)
+    if block_ms == 0 {
+        return Ok(output);
+    }
+
+    // --- Blocking mode: await ---
+    ShellRegistry::await_shell_shared(state.0.clone(), shell_id, Some(block_ms), true).await
 }
 
 #[tauri::command]

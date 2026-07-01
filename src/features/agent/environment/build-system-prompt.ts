@@ -120,8 +120,8 @@ function buildRemoteTargetsSection(
     ...targetLines,
     "",
     'Use `remote_shell(target: "<alias>", command: "...")` to execute commands on a remote machine. ' +
-    "This tool always waits for the command to complete (up to a hard limit of 10 minutes). " +
-    "If the command times out, partial stdout/stderr is returned with `timed_out: true`. " +
+    'Set block_until_ms to 0 to run in background and use await to poll, or omit for default 30s timeout. ' +
+    'Supports kill_shell and read_shell_logs for background shells. ' +
     "To run commands on the local machine, use the regular `shell` tool instead.",
   ];
 }

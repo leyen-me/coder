@@ -1,5 +1,6 @@
 use std::fs;
 use std::io::{ErrorKind, Read};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -159,9 +160,10 @@ impl SshSession {
     }
 
     /// Check if the session is still alive by trying to open a trivial channel.
+    /// Uses `try_lock` so the reaper does not block when a streaming command holds the lock.
     fn is_alive(&self) -> bool {
-        let Ok(session) = self.session.lock() else {
-            return false;
+        let Ok(session) = self.session.try_lock() else {
+            return true; // In use by a streaming command, assume alive
         };
         // Try to open a channel to check if the connection is still alive
         session.channel_session().is_ok()
@@ -264,6 +266,136 @@ impl SshSession {
             std::thread::sleep(STREAM_POLL_INTERVAL);
         }
     }
+
+    /// Execute a command and stream output chunks through a std mpsc sender.
+    /// Runs in a blocking thread: holds `self.session` lock for the entire duration.
+    /// Checks `killed` before each read iteration so `kill_shell` can interrupt.
+    pub fn exec_to_channel(
+        &self,
+        command: &str,
+        killed: &AtomicBool,
+        sender: std::sync::mpsc::Sender<SshStreamEvent>,
+    ) {
+        // Update last used timestamp
+        if let Ok(mut last) = self.last_used.lock() {
+            *last = Instant::now();
+        }
+
+        let session = match self.session.lock() {
+            Ok(s) => s,
+            Err(_) => {
+                let _ = sender.send(SshStreamEvent::Error(
+                    "SSH session lock poisoned".to_string(),
+                ));
+                return;
+            }
+        };
+
+        session.set_timeout(200);
+
+        let mut channel: Channel = match session.channel_session() {
+            Ok(c) => c,
+            Err(e) => {
+                let _ = sender.send(SshStreamEvent::Error(format!(
+                    "Failed to open SSH channel: {e}"
+                )));
+                return;
+            }
+        };
+
+        if let Err(e) = channel.exec(command) {
+            let _ = sender.send(SshStreamEvent::Error(format!(
+                "Failed to exec command: {e}"
+            )));
+            return;
+        }
+
+        let mut read_buf = [0u8; 8192];
+        let mut stdout_eof = false;
+        let mut stderr_eof = false;
+
+        loop {
+            // Check kill signal before each round
+            if killed.load(Ordering::SeqCst) {
+                let _ = sender.send(SshStreamEvent::Killed);
+                return;
+            }
+
+            // Read stdout chunks
+            if !stdout_eof {
+                loop {
+                    match channel.read(&mut read_buf) {
+                        Ok(0) => {
+                            stdout_eof = true;
+                            break;
+                        }
+                        Ok(n) => {
+                            let chunk = read_buf[..n].to_vec();
+                            if sender.send(SshStreamEvent::Stdout(chunk)).is_err() {
+                                return; // receiver dropped
+                            }
+                        }
+                        Err(e)
+                            if e.kind() == ErrorKind::TimedOut
+                                || e.kind() == ErrorKind::WouldBlock => break,
+                        Err(e) => {
+                            let _ = sender.send(SshStreamEvent::Error(format!(
+                                "SSH stdout read error: {e}"
+                            )));
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // Read stderr chunks
+            if !stderr_eof {
+                loop {
+                    match channel.stderr().read(&mut read_buf) {
+                        Ok(0) => {
+                            stderr_eof = true;
+                            break;
+                        }
+                        Ok(n) => {
+                            let chunk = read_buf[..n].to_vec();
+                            if sender.send(SshStreamEvent::Stderr(chunk)).is_err() {
+                                return; // receiver dropped
+                            }
+                        }
+                        Err(e)
+                            if e.kind() == ErrorKind::TimedOut
+                                || e.kind() == ErrorKind::WouldBlock => break,
+                        Err(e) => {
+                            let _ = sender.send(SshStreamEvent::Error(format!(
+                                "SSH stderr read error: {e}"
+                            )));
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // Both EOF → command completed
+            if stdout_eof && stderr_eof {
+                channel.wait_close().ok();
+                let exit_code = channel.exit_status().ok();
+                let _ = sender.send(SshStreamEvent::ExitCode(exit_code));
+                session.set_timeout(30000);
+                return;
+            }
+
+            std::thread::sleep(STREAM_POLL_INTERVAL);
+        }
+    }
+}
+
+/// Events pushed from the blocking SSH reader thread to the blocking consumer task.
+pub enum SshStreamEvent {
+    Stdout(Vec<u8>),
+    Stderr(Vec<u8>),
+    ExitCode(Option<i32>),
+    Killed,
+    Error(String),
 }
 
 /// Pool of SSH sessions, keyed by alias.

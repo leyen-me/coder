@@ -10,9 +10,10 @@ type RemoteShellArgs = {
   target: string;
   command: string;
   description?: string;
+  block_until_ms?: number;
 };
 
-export const remoteShellHandler: ToolHandler = async (rawArgs, _context) => {
+export const remoteShellHandler: ToolHandler = async (rawArgs, context) => {
   if (!isTauri()) {
     return toolFailure(
       REMOTE_SHELL_TOOL_NAME,
@@ -48,6 +49,8 @@ export const remoteShellHandler: ToolHandler = async (rawArgs, _context) => {
       command: args.value.command,
       description: args.value.description ?? null,
       config,
+      blockUntilMs: args.value.block_until_ms ?? null,
+      taskId: context?.taskId ?? null,
     });
     return toolSuccess(REMOTE_SHELL_TOOL_NAME, data);
   } catch (error) {
@@ -87,8 +90,13 @@ function parseRemoteShellArgs(
     return { ok: false, message: "description must be a string" };
   }
 
+  const block_until_ms = record.block_until_ms;
+  if (block_until_ms !== undefined && typeof block_until_ms !== "number") {
+    return { ok: false, message: "block_until_ms must be a number" };
+  }
+
   return {
     ok: true,
-    value: { target, command, description },
+    value: { target, command, description, block_until_ms },
   };
 }

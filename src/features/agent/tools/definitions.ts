@@ -427,7 +427,9 @@ export const REMOTE_SHELL_TOOL: AgentToolDefinition = {
   function: {
     name: REMOTE_SHELL_TOOL_NAME,
     description:
-      "Execute a command on a remote machine via SSH. Use this to run commands on a configured remote target. Always waits for the command to complete (up to a hard limit). Returns partial stdout/stderr if the command times out.",
+      "Execute a command on a remote machine via SSH. Use for builds, tests, docker, git, and other CLI tasks on remote machines. " +
+      "Set block_until_ms to 0 to run in background and use await to poll, or omit for default 30s timeout. " +
+      "Supports read_shell_logs and kill_shell for background shells.",
     parameters: {
       type: "object",
       properties: {
@@ -443,6 +445,12 @@ export const REMOTE_SHELL_TOOL: AgentToolDefinition = {
         description: {
           type: "string",
           description: "Short human-readable description for UI display only.",
+        },
+        block_until_ms: {
+          type: "integer",
+          description:
+            "Max wait time in ms. Default 30000. Use 0 for background mode (returns shell_id). Max 600000.",
+          default: 30000,
         },
       },
       required: ["target", "command"],
