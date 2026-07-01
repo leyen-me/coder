@@ -47,14 +47,27 @@ describe("isAutomationDue", () => {
     ).toBe(false);
   });
 
-  it("returns true on first run when the previous slot is in the past", () => {
+  it("returns true on first run when a cron slot has passed since creation", () => {
     expect(
       isAutomationDue(
         createAutomation({
+          // createdAt = epoch 0 — every hourly slot since 1970 is well past
           runs: [],
         })
       )
     ).toBe(true);
+  });
+
+  it("returns false on first run when created after the last cron slot", () => {
+    expect(
+      isAutomationDue(
+        createAutomation({
+          // Created at 10:20, after the 10:00 slot — should wait for 11:00
+          createdAt: new Date("2026-06-11T10:20:00").getTime(),
+          runs: [],
+        })
+      )
+    ).toBe(false);
   });
 
   it("returns false when the previous slot was already covered by the latest run", () => {
