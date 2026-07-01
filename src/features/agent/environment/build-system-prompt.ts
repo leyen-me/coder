@@ -148,6 +148,7 @@ function buildCoreRulesSection(): string[] {
     "## Communication Rules",
     "",
     /* 1 */ "1. Reply in the same language the user uses. Be concise, accurate, and friendly.",
+    /* 2 */ "2. Do not act unless the user has clearly asked you to. Answering questions, explaining, and analyzing do not require action — stop before reaching for tools.",
   ];
 }
 
