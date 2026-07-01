@@ -341,21 +341,29 @@ impl RemoteConnectionPool {
     }
 
     /// Execute a command on a remote target with streaming reads and hard time limit.
+    /// Retries once on transient connection or execution failures (e.g. network jitter,
+    /// SSH server momentarily busy).
     pub fn exec(&self, config: &RemoteTargetConfig, command: &str) -> Result<RemoteExecResult, String> {
         let alias = &config.alias;
 
-        // First attempt
-        let session = self.get_or_connect(alias, config)?;
-        let result = session.exec_streaming(command);
-
-        // On failure, retry once if session seems dead
-        if result.is_err() {
-            log::info!("Retrying remote exec on {} after reconnection", alias);
-            // Remove dead session
+        // First attempt — includes both connection and execution
+        let session = self.get_or_connect(alias, config).or_else(|_| {
+            log::info!("Retrying remote exec on {} after connection failure", alias);
+            // Remove any stale session entry
             if let Ok(mut guard) = self.sessions.lock() {
                 guard.retain(|(a, _, _)| a != alias);
             }
-            // Retry
+            self.get_or_connect(alias, config)
+        })?;
+
+        let result = session.exec_streaming(command);
+
+        // On execution failure, retry once after reconnection
+        if result.is_err() {
+            log::info!("Retrying remote exec on {} after reconnection", alias);
+            if let Ok(mut guard) = self.sessions.lock() {
+                guard.retain(|(a, _, _)| a != alias);
+            }
             let session = self.get_or_connect(alias, config)?;
             return session.exec_streaming(command);
         }
