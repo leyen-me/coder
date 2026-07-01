@@ -76,7 +76,7 @@ export function ThinkingBlock({
           <StreamingPlainText
             key={`text:${index}`}
             text={group.text}
-            className="italic text-muted-foreground"
+            className="italic text-muted-foreground/60"
           />
         );
       })}
