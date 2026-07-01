@@ -18,8 +18,9 @@ import {
 } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
-import { CopyIcon, GitForkIcon, PencilIcon, RefreshCwIcon } from "lucide-react";
-import { memo, useCallback, useMemo, useState } from "react";
+import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDownIcon, CopyIcon, GitForkIcon, PencilIcon, RefreshCwIcon } from "lucide-react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { ChatRetryState } from "@/features/agent/types";
@@ -263,12 +264,23 @@ export const MessageItem = memo(function MessageItem({
       />
     );
   }
-
   if (isUser) {
     const images = message.images ?? [];
     const hasCopyContent =
       Boolean(message.content.trim()) || images.length > 0;
     const isEditing = editingMessageId === message.id;
+    const [contentExpanded, setContentExpanded] = useState(false);
+    const contentRef = useRef<HTMLSpanElement>(null);
+    const [isLongContent, setIsLongContent] = useState(false);
+
+    // Check if content exceeds ~6 lines after mount.
+    useEffect(() => {
+      const el = contentRef.current;
+      if (el) {
+        // line-height ~1.5 * 16px (text-sm) ≈ 24px, 6 lines ≈ 144px
+        setIsLongContent(el.scrollHeight > 144);
+      }
+    }, [message.content]);
 
     return (
       <Message from="user">
@@ -297,7 +309,35 @@ export const MessageItem = memo(function MessageItem({
             </Attachments>
           ) : null}
           {message.content.trim() ? (
-            <span className="whitespace-pre-wrap break-words">{message.content}</span>
+            <Collapsible open={contentExpanded} onOpenChange={setContentExpanded}>
+              <div>
+                <span
+                  ref={contentRef}
+                  className={cn(
+                    "block whitespace-pre-wrap break-words",
+                    !contentExpanded && "line-clamp-6",
+                  )}
+                >
+                  {message.content}
+                </span>
+                {isLongContent ? (
+                  <CollapsibleTrigger asChild>
+                    <button
+                      type="button"
+                      className="mt-1 inline-flex items-center gap-0.5 text-xs text-muted-foreground/60 hover:text-muted-foreground"
+                    >
+                      <ChevronDownIcon
+                        className={cn(
+                          "size-3 transition-transform duration-200",
+                          contentExpanded && "rotate-180",
+                        )}
+                      />
+                      {contentExpanded ? t("chat.showLess") : t("chat.showMore")}
+                    </button>
+                  </CollapsibleTrigger>
+                ) : null}
+              </div>
+            </Collapsible>
           ) : null}
         </MessageContent>
         {hasCopyContent ? (

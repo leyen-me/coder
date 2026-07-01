@@ -122,6 +122,8 @@ export const enMessages = {
     cancelEdit: "Cancel",
     forkMessage: "Fork",
     forkSessionTitle: "Fork · {title}",
+    showMore: "Show more",
+    showLess: "Show less",
     regenerateMessage: "Regenerate",
     queueTitle: "Queued messages",
     queueCount: "{count} message(s) will send automatically after the current run",

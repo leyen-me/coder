@@ -116,6 +116,8 @@ export type Messages = {
     cancelEdit: string;
     forkMessage: string;
     forkSessionTitle: string;
+    showMore: string;
+    showLess: string;
     regenerateMessage: string;
     queueTitle: string;
     queueCount: string;
