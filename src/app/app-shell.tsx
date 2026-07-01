@@ -1,5 +1,5 @@
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { Outlet, useNavigate, useNavigationType } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
 
 import { FloatingShellNav } from "@/components/layout/floating-shell-nav";
 import { useSidebarOpen } from "@/features/chat/hooks/use-sidebar-open";
@@ -29,7 +29,7 @@ import type { ShellOutletContext } from "./shell-outlet-context";
 export function AppShell() {
   const { isOpen: isSidebarOpen, toggle: toggleSidebar } = useSidebarOpen();
   const navigate = useNavigate();
-  useLocation(); // Subscribe to route changes so canGoBack recalculates
+  const navigationType = useNavigationType();
   const appWindow = useAppWindow();
   const isMaximized = useWindowMaximized(appWindow);
   const useRoundedShell = appWindow !== null && !isMaximized;
@@ -37,8 +37,39 @@ export function AppShell() {
   const shellContext: ShellOutletContext = { sidebarOpen: isSidebarOpen };
   const workspaceDir = useRouteWorkspaceDir();
 
-  const canGoBack = window.history.length > 1;
   const handleBack = () => navigate(-1);
+
+  // Track navigation depth to determine if back is possible.
+  // Uses React Router's navigationType ('PUSH' | 'POP' | 'REPLACE')
+  // instead of window.history.length, which doesn't shrink on back.
+  const [canGoBack, setCanGoBack] = useState(false);
+  const depthRef = useRef(0);
+  const isFirstNavRef = useRef(true);
+
+  useEffect(() => {
+    if (isFirstNavRef.current) {
+      isFirstNavRef.current = false;
+      return;
+    }
+
+    if (navigationType === 'PUSH') {
+      depthRef.current += 1;
+    } else if (navigationType === 'POP') {
+      depthRef.current = Math.max(0, depthRef.current - 1);
+    }
+    // REPLACE: depth unchanged
+
+    setCanGoBack(depthRef.current > 0);
+
+    // Undo side effects in cleanup for StrictMode double-fire
+    return () => {
+      if (navigationType === 'PUSH') {
+        depthRef.current -= 1;
+      } else if (navigationType === 'POP') {
+        depthRef.current += 1;
+      }
+    };
+  }, [navigationType]);
 
   // Start the automation scheduler on mount; stop on unmount.
   useEffect(() => {
