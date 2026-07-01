@@ -68,7 +68,7 @@ export async function createSession(input: CreateSessionInput): Promise<SessionR
 
 export async function getSession(sessionId: string): Promise<SessionRecord | null> {
   const db = await getDb();
-  const session = await db.get(SESSIONS_STORE, sessionId);
+  const session = await db.get<SessionRecord>(SESSIONS_STORE, sessionId);
   return session ? normalizeSessionRecord(session) : null;
 }
 
@@ -97,7 +97,7 @@ export async function updateSession(
   patch: SessionPatch
 ): Promise<SessionRecord | null> {
   const db = await getDb();
-  const session = await db.get(SESSIONS_STORE, sessionId);
+  const session = await db.get<SessionRecord>(SESSIONS_STORE, sessionId);
   if (!session) {
     return null;
   }
@@ -121,7 +121,7 @@ export async function updateSessionTitle(
 
 export async function touchSession(sessionId: string): Promise<void> {
   const db = await getDb();
-  const session = await db.get(SESSIONS_STORE, sessionId);
+  const session = await db.get<SessionRecord>(SESSIONS_STORE, sessionId);
   if (!session) {
     return;
   }
@@ -135,7 +135,7 @@ export async function touchSession(sessionId: string): Promise<void> {
 
 export async function listSessions(limit = 50): Promise<SessionRecord[]> {
   const db = await getDb();
-  const sessions = await db.getAllFromIndex(SESSIONS_STORE, "by-updatedAt");
+  const sessions = await db.getAllFromIndex<SessionRecord>(SESSIONS_STORE, "by-updatedAt");
   return sortSessionsPinnedFirst(sessions)
     .slice(0, limit)
     .map((session) => normalizeSessionRecord(session));

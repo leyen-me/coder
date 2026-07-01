@@ -24,6 +24,8 @@
         }
       ]
     },
-    "dialog:default"
+    "dialog:default",
+    "fs:default",
+    "sql:default"
   ]
 }

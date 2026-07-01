@@ -1,5 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
+import { getKVStore } from "@/lib/storage";
 import { SEND_EMAIL_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
 import type { ToolHandler } from "./types";
@@ -27,9 +28,8 @@ type SendEmailArgs = {
 };
 
 function readEmailSettings(): EmailSettings | null {
-  if (typeof localStorage === "undefined") return null;
   try {
-    const raw = localStorage.getItem(EMAIL_SETTINGS_KEY);
+    const raw = getKVStore().getItem(EMAIL_SETTINGS_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as EmailSettings;
   } catch {

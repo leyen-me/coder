@@ -1,3 +1,4 @@
+import { getKVStore } from "@/lib/storage";
 import {
   getDefaultApiKeyEnvVar,
   PRESET_PROVIDERS,
@@ -8,19 +9,12 @@ import type { ModelDefinition, ResolvedProviderConfig } from "@/lib/model-provid
 export const LAST_SELECTED_MODEL_KEY = "coder:last-selected-model";
 
 export function readLastSelectedModel(): string | null {
-  if (typeof localStorage === "undefined") {
-    return null;
-  }
-
-  const value = localStorage.getItem(LAST_SELECTED_MODEL_KEY);
+  const value = getKVStore().getItem(LAST_SELECTED_MODEL_KEY);
   return value?.trim() || null;
 }
 
 export function writeLastSelectedModel(model: string): void {
-  if (typeof localStorage === "undefined") {
-    return;
-  }
-  localStorage.setItem(LAST_SELECTED_MODEL_KEY, model.trim());
+  getKVStore().setItem(LAST_SELECTED_MODEL_KEY, model.trim());
 }
 
 export function resolveDefaultModel(

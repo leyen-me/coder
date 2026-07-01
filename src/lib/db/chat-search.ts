@@ -94,8 +94,8 @@ export async function searchChats(
 
   const db = await getDb();
   const [sessions, messages] = await Promise.all([
-    db.getAll(SESSIONS_STORE),
-    db.getAll(MESSAGES_STORE),
+    db.getAll<SessionRecord>(SESSIONS_STORE),
+    db.getAll<MessageRecord>(MESSAGES_STORE),
   ]);
 
   const sessionById = new Map(

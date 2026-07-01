@@ -24,10 +24,6 @@ describe("chatCompletionsUrl", () => {
 
 describe("model preference", () => {
   it("remembers last selected model when still available", () => {
-    if (typeof localStorage === "undefined") {
-      return;
-    }
-
     writeLastSelectedModel("glm-5");
     expect(readLastSelectedModel()).toBe("glm-5");
     expect(

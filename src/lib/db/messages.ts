@@ -31,7 +31,7 @@ export async function getMessagesBySession(
   sessionId: string
 ): Promise<MessageRecord[]> {
   const db = await getDb();
-  const messages = await db.getAllFromIndex(
+  const messages = await db.getAllFromIndex<MessageRecord>(
     MESSAGES_STORE,
     "by-sessionId",
     sessionId
@@ -41,7 +41,7 @@ export async function getMessagesBySession(
 
 export async function getMessage(messageId: string): Promise<MessageRecord | null> {
   const db = await getDb();
-  return (await db.get(MESSAGES_STORE, messageId)) ?? null;
+  return (await db.get<MessageRecord>(MESSAGES_STORE, messageId)) ?? null;
 }
 
 /**
@@ -82,7 +82,7 @@ export async function updateMessage(
 ): Promise<MessageRecord | null> {
   const { silent = false, touch = true } = options;
   const db = await getDb();
-  const existing = await db.get(MESSAGES_STORE, messageId);
+  const existing = await db.get<MessageRecord>(MESSAGES_STORE, messageId);
   if (!existing) {
     return null;
   }
@@ -145,7 +145,7 @@ export async function deleteMessagesBySession(
   sessionId: string
 ): Promise<void> {
   const db = await getDb();
-  const messages = await db.getAllFromIndex(
+  const messages = await db.getAllFromIndex<MessageRecord>(
     MESSAGES_STORE,
     "by-sessionId",
     sessionId
@@ -189,7 +189,7 @@ export async function searchMessages(
   }
 
   const db = await getDb();
-  const messages = await db.getAll(MESSAGES_STORE);
+  const messages = await db.getAll<MessageRecord>(MESSAGES_STORE);
   return messages
     .filter(
       (message) =>

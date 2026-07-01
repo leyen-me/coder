@@ -1,3 +1,4 @@
+import { getKVStore } from "@/lib/storage";
 import { findModelDefinition } from "@/lib/model-provider/model-definition";
 import type { ModelDefinition } from "@/lib/model-provider/types";
 import {
@@ -8,12 +9,8 @@ import {
 const THINKING_PREFERENCES_KEY = "coder:model-thinking-preferences";
 
 function readPreferences(): Record<string, boolean> {
-  if (typeof localStorage === "undefined") {
-    return {};
-  }
-
   try {
-    const raw = localStorage.getItem(THINKING_PREFERENCES_KEY);
+    const raw = getKVStore().getItem(THINKING_PREFERENCES_KEY);
     if (!raw) {
       return {};
     }
@@ -36,11 +33,7 @@ function readPreferences(): Record<string, boolean> {
 }
 
 function writePreferences(preferences: Record<string, boolean>): void {
-  if (typeof localStorage === "undefined") {
-    return;
-  }
-
-  localStorage.setItem(THINKING_PREFERENCES_KEY, JSON.stringify(preferences));
+  getKVStore().setItem(THINKING_PREFERENCES_KEY, JSON.stringify(preferences));
 }
 
 export function readThinkingPreference(modelId: string): boolean | null {

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { useTranslation } from "@/lib/i18n/locale-provider";
+import { getKVStore } from "@/lib/storage";
 
 import { SettingRow } from "./setting-row";
 import { SettingSelect } from "./setting-select";
@@ -45,9 +46,8 @@ const DEFAULT_SETTINGS: EmailSettings = {
 };
 
 function readSettings(): EmailSettings {
-  if (typeof localStorage === "undefined") return DEFAULT_SETTINGS;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = getKVStore().getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<EmailSettings>;
       return { ...DEFAULT_SETTINGS, ...parsed };
@@ -59,7 +59,7 @@ function readSettings(): EmailSettings {
 }
 
 function writeSettings(settings: EmailSettings): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  getKVStore().setItem(STORAGE_KEY, JSON.stringify(settings));
 }
 
 // ---------------------------------------------------------------------------

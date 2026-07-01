@@ -1,7 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import {
-  AGENT_HANDOFF_THRESHOLD_STORAGE_KEY,
   DEFAULT_AGENT_HANDOFF_THRESHOLD,
   MAX_AGENT_HANDOFF_THRESHOLD,
   MIN_AGENT_HANDOFF_THRESHOLD,
@@ -9,8 +8,13 @@ import {
   readAgentHandoffThreshold,
   writeAgentHandoffThreshold,
 } from "./handoff-settings";
+import { resetKVStore } from "@/lib/storage";
 
 describe("handoff-settings", () => {
+  beforeEach(() => {
+    resetKVStore();
+  });
+
   it("defaults to 80 percent", () => {
     expect(DEFAULT_AGENT_HANDOFF_THRESHOLD).toBe(0.8);
   });
@@ -25,12 +29,7 @@ describe("handoff-settings", () => {
     expect(normalizeAgentHandoffThreshold(0.83)).toBe(0.83);
   });
 
-  it("persists and restores the threshold from local storage", () => {
-    if (typeof localStorage === "undefined") {
-      return;
-    }
-
-    localStorage.removeItem(AGENT_HANDOFF_THRESHOLD_STORAGE_KEY);
+  it("persists and restores the threshold", () => {
     writeAgentHandoffThreshold(0.84);
     expect(readAgentHandoffThreshold()).toBe(0.84);
   });

@@ -45,7 +45,7 @@ export async function getAgentTodosBySession(
   sessionId: string
 ): Promise<AgentTodoRecord[]> {
   const db = await getDb();
-  const items = await db.getAllFromIndex(AGENT_TODOS_STORE, "by-sessionId", sessionId);
+  const items = await db.getAllFromIndex<AgentTodoRecord>(AGENT_TODOS_STORE, "by-sessionId", sessionId);
   return items
     .map(normalizeAgentTodoRecord)
     .sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
@@ -55,7 +55,7 @@ export async function clearAgentTodosBySession(
   sessionId: string
 ): Promise<void> {
   const db = await getDb();
-  const existing = await db.getAllFromIndex(
+  const existing = await db.getAllFromIndex<AgentTodoRecord>(
     AGENT_TODOS_STORE,
     "by-sessionId",
     sessionId
@@ -65,11 +65,7 @@ export async function clearAgentTodosBySession(
     return;
   }
 
-  const tx = db.transaction(AGENT_TODOS_STORE, "readwrite");
-  await Promise.all([
-    ...existing.map((item) => tx.store.delete(item.id)),
-    tx.done,
-  ]);
+  await Promise.all(existing.map((item) => db.delete(AGENT_TODOS_STORE, item.id)));
   notifyDbChange();
 }
 
@@ -199,11 +195,9 @@ export async function writeAgentTodos(
   const nextIds = new Set(nextRecords.map((todo) => todo.id));
   const toDelete = existing.filter((todo) => !nextIds.has(todo.id));
 
-  const tx = db.transaction(AGENT_TODOS_STORE, "readwrite");
   await Promise.all([
-    ...toDelete.map((todo) => tx.store.delete(todo.id)),
-    ...nextRecords.map((todo) => tx.store.put(todo)),
-    tx.done,
+    ...toDelete.map((todo) => db.delete(AGENT_TODOS_STORE, todo.id)),
+    ...nextRecords.map((todo) => db.put(AGENT_TODOS_STORE, todo)),
   ]);
 
   notifyDbChange();

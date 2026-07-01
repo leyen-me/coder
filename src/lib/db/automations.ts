@@ -14,7 +14,7 @@ import type {
 
 export async function listAutomations(): Promise<AutomationRecord[]> {
   const db = await getDb();
-  const items = await db.getAll(AUTOMATIONS_STORE);
+  const items = await db.getAll<AutomationRecord>(AUTOMATIONS_STORE);
   return items
     .map(normalizeAutomationRecord)
     .sort((a, b) => b.updatedAt - a.updatedAt);
@@ -29,7 +29,7 @@ export async function getAutomation(
   id: string
 ): Promise<AutomationRecord | null> {
   const db = await getDb();
-  const record = await db.get(AUTOMATIONS_STORE, id);
+  const record = await db.get<AutomationRecord>(AUTOMATIONS_STORE, id);
   return record ? normalizeAutomationRecord(record) : null;
 }
 
@@ -95,7 +95,7 @@ export async function updateAutomation(
   patch: UpdateAutomationInput
 ): Promise<AutomationRecord | null> {
   const db = await getDb();
-  const existing = await db.get(AUTOMATIONS_STORE, id);
+  const existing = await db.get<AutomationRecord>(AUTOMATIONS_STORE, id);
   if (!existing) {
     return null;
   }
@@ -121,7 +121,7 @@ export async function updateAutomation(
 
 export async function deleteAutomation(id: string): Promise<boolean> {
   const db = await getDb();
-  const existing = await db.get(AUTOMATIONS_STORE, id);
+  const existing = await db.get<AutomationRecord>(AUTOMATIONS_STORE, id);
   if (!existing) {
     return false;
   }
@@ -136,7 +136,7 @@ export async function startAutomationRun(
   sessionId: string
 ): Promise<AutomationRecord | null> {
   const db = await getDb();
-  const existing = await db.get(AUTOMATIONS_STORE, id);
+  const existing = await db.get<AutomationRecord>(AUTOMATIONS_STORE, id);
   if (!existing) {
     return null;
   }
@@ -171,7 +171,7 @@ export async function finishAutomationRun(
   }
 ): Promise<AutomationRecord | null> {
   const db = await getDb();
-  const existing = await db.get(AUTOMATIONS_STORE, id);
+  const existing = await db.get<AutomationRecord>(AUTOMATIONS_STORE, id);
   if (!existing) {
     return null;
   }

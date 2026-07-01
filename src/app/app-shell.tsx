@@ -1,5 +1,6 @@
 import { Outlet, useNavigate, useNavigationType } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
+import { isTauri } from "@tauri-apps/api/core";
 
 import { FloatingShellNav } from "@/components/layout/floating-shell-nav";
 import { useSidebarOpen } from "@/features/chat/hooks/use-sidebar-open";
@@ -22,6 +23,7 @@ import {
   startAutomationScheduler,
   stopAutomationScheduler,
 } from "@/features/automations/lib/scheduler";
+import { initCoderStorage } from "@/lib/storage/init";
 
 import type { ShellOutletContext } from "./shell-outlet-context";
 
@@ -62,6 +64,13 @@ export function AppShell() {
     return () => {
       stopAutomationScheduler();
     };
+  }, []);
+
+  // Initialize ~/.coder/ storage when running inside Tauri.
+  useEffect(() => {
+    if (isTauri()) {
+      void initCoderStorage();
+    }
   }, []);
 
   return (

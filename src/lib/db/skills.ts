@@ -14,7 +14,7 @@ export function isValidSkillSlug(slug: string): boolean {
 
 export async function listUserSkills(): Promise<UserSkillRecord[]> {
   const db = await getDb();
-  const skills = await db.getAll(USER_SKILLS_STORE);
+  const skills = await db.getAll<UserSkillRecord>(USER_SKILLS_STORE);
   return skills.sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
@@ -22,14 +22,14 @@ export async function getUserSkillById(
   id: string
 ): Promise<UserSkillRecord | null> {
   const db = await getDb();
-  return (await db.get(USER_SKILLS_STORE, id)) ?? null;
+  return (await db.get<UserSkillRecord>(USER_SKILLS_STORE, id)) ?? null;
 }
 
 export async function getUserSkillBySlug(
   slug: string
 ): Promise<UserSkillRecord | null> {
   const db = await getDb();
-  const skills = await db.getAll(USER_SKILLS_STORE);
+  const skills = await db.getAll<UserSkillRecord>(USER_SKILLS_STORE);
   return skills.find((skill) => skill.slug === slug) ?? null;
 }
 
@@ -80,7 +80,7 @@ export async function updateUserSkill(
   patch: UpdateUserSkillInput
 ): Promise<UserSkillRecord | null> {
   const db = await getDb();
-  const existing = await db.get(USER_SKILLS_STORE, id);
+  const existing = await db.get<UserSkillRecord>(USER_SKILLS_STORE, id);
   if (!existing) {
     return null;
   }
@@ -114,7 +114,7 @@ export async function updateUserSkill(
 
 export async function deleteUserSkill(id: string): Promise<boolean> {
   const db = await getDb();
-  const existing = await db.get(USER_SKILLS_STORE, id);
+  const existing = await db.get<UserSkillRecord>(USER_SKILLS_STORE, id);
   if (!existing) {
     return false;
   }
@@ -128,14 +128,14 @@ export async function listSystemSkillPreferences(): Promise<
   SystemSkillPreference[]
 > {
   const db = await getDb();
-  return db.getAll(SYSTEM_SKILL_PREFERENCES_STORE);
+  return db.getAll<SystemSkillPreference>(SYSTEM_SKILL_PREFERENCES_STORE);
 }
 
 export async function getSystemSkillPreference(
   skillId: string
 ): Promise<SystemSkillPreference | null> {
   const db = await getDb();
-  return (await db.get(SYSTEM_SKILL_PREFERENCES_STORE, skillId)) ?? null;
+  return (await db.get<SystemSkillPreference>(SYSTEM_SKILL_PREFERENCES_STORE, skillId)) ?? null;
 }
 
 export async function setSystemSkillEnabled(

@@ -1,3 +1,4 @@
+import { getKVStore } from "@/lib/storage";
 import {
   DEFAULT_KEYBOARD_SHORTCUTS,
   KEYBOARD_SHORTCUTS_STORAGE_KEY,
@@ -6,12 +7,8 @@ import { parseKeyboardShortcutsSettings } from "./parse-keyboard-shortcuts-setti
 import type { KeyboardShortcutsSettings } from "./types";
 
 export function readKeyboardShortcutsSettings(): KeyboardShortcutsSettings {
-  if (typeof localStorage === "undefined") {
-    return DEFAULT_KEYBOARD_SHORTCUTS;
-  }
-
   try {
-    const raw = localStorage.getItem(KEYBOARD_SHORTCUTS_STORAGE_KEY);
+    const raw = getKVStore().getItem(KEYBOARD_SHORTCUTS_STORAGE_KEY);
     if (!raw) {
       return DEFAULT_KEYBOARD_SHORTCUTS;
     }
@@ -25,7 +22,7 @@ export function readKeyboardShortcutsSettings(): KeyboardShortcutsSettings {
 export function writeKeyboardShortcutsSettings(
   settings: KeyboardShortcutsSettings
 ): void {
-  localStorage.setItem(
+  getKVStore().setItem(
     KEYBOARD_SHORTCUTS_STORAGE_KEY,
     JSON.stringify(settings)
   );

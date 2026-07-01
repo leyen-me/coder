@@ -1,3 +1,4 @@
+import { getKVStore } from "@/lib/storage";
 import {
   DEFAULT_LAB_SETTINGS,
   LAB_STORAGE_KEY,
@@ -8,12 +9,8 @@ import { parseLabSettings } from "./parse-lab-settings";
 import type { LabSettings } from "./types";
 
 function readLegacyPromptRefineEnabled(): boolean | null {
-  if (typeof localStorage === "undefined") {
-    return null;
-  }
-
   try {
-    const raw = localStorage.getItem(LEGACY_PROMPT_REFINE_ENABLED_KEY);
+    const raw = getKVStore().getItem(LEGACY_PROMPT_REFINE_ENABLED_KEY);
     if (raw === null) {
       return null;
     }
@@ -24,12 +21,8 @@ function readLegacyPromptRefineEnabled(): boolean | null {
 }
 
 export function readLabSettings(): LabSettings {
-  if (typeof localStorage === "undefined") {
-    return DEFAULT_LAB_SETTINGS;
-  }
-
   try {
-    const raw = localStorage.getItem(LAB_STORAGE_KEY);
+    const raw = getKVStore().getItem(LAB_STORAGE_KEY);
     if (raw) {
       return parseLabSettings(JSON.parse(raw));
     }
@@ -49,7 +42,7 @@ export function readLabSettings(): LabSettings {
 }
 
 export function writeLabSettings(settings: LabSettings): void {
-  localStorage.setItem(LAB_STORAGE_KEY, JSON.stringify(settings));
+  getKVStore().setItem(LAB_STORAGE_KEY, JSON.stringify(settings));
 }
 
 export function resolvePromptRefineSystemPrompt(settings: LabSettings): string {

@@ -1,3 +1,5 @@
+import { getKVStore } from "@/lib/storage";
+
 export const AGENT_HANDOFF_THRESHOLD_STORAGE_KEY =
   "coder.agentContextHandoffSettings";
 
@@ -28,12 +30,8 @@ export function normalizeAgentHandoffThreshold(
 }
 
 export function readAgentContextHandoffSettings(): AgentContextHandoffSettings {
-  if (typeof localStorage === "undefined") {
-    return DEFAULT_AGENT_CONTEXT_HANDOFF_SETTINGS;
-  }
-
   try {
-    const raw = localStorage.getItem(AGENT_HANDOFF_THRESHOLD_STORAGE_KEY);
+    const raw = getKVStore().getItem(AGENT_HANDOFF_THRESHOLD_STORAGE_KEY);
     if (!raw) {
       return DEFAULT_AGENT_CONTEXT_HANDOFF_SETTINGS;
     }
@@ -55,7 +53,7 @@ export function readAgentContextHandoffSettings(): AgentContextHandoffSettings {
 export function writeAgentContextHandoffSettings(
   settings: AgentContextHandoffSettings
 ): void {
-  localStorage.setItem(
+  getKVStore().setItem(
     AGENT_HANDOFF_THRESHOLD_STORAGE_KEY,
     JSON.stringify({
       triggerThreshold: normalizeAgentHandoffThreshold(
