@@ -15,14 +15,10 @@ import {
 import { useTheme } from "@/lib/theme/theme-provider";
 import { cn } from "@/lib/utils";
 
-import { ExternalLinkIcon } from "lucide-react";
-
 import {
   CollapsibleToolSection,
 } from "@/components/ai-elements/collapsible-tool-section";
 import { ToolStatusIcon } from "./tool-status-icon";
-
-import { OPEN_FILE_IN_PREVIEW_EVENT } from "@/features/right-panel/lib/open-file-event";
 
 type FileDiffToolOutputProps = {
   output: unknown;
@@ -316,25 +312,6 @@ export function FileDiffToolOutput({
           {warning ? (
             <span className="shrink-0 font-mono text-warning">{warning}</span>
           ) : null}
-          <div className="ml-auto shrink-0">
-            <button
-              aria-label="Open in preview"
-              className="flex size-4 items-center justify-center text-muted-foreground/50 transition-colors hover:text-muted-foreground"
-              onClick={(e) => {
-                e.stopPropagation();
-                const name = filePath.split("/").pop() ?? filePath;
-                window.dispatchEvent(
-                  new CustomEvent(OPEN_FILE_IN_PREVIEW_EVENT, {
-                    detail: { path: filePath, name },
-                  }),
-                );
-              }}
-              title="Open file in preview"
-              type="button"
-            >
-              <ExternalLinkIcon className="size-3" />
-            </button>
-          </div>
         </>
       }
     >

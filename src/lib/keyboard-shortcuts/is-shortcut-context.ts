@@ -40,7 +40,6 @@ function isDialogOpen(): boolean {
 export type ShortcutContextInput = {
   pathname: string;
   activeElement: Element | null;
-  rightPanelOpen: boolean;
   bottomPanelOpen: boolean;
 };
 
@@ -63,8 +62,6 @@ export function isShortcutAllowedInContext(
       return onChatRoute;
     case "composer":
       return onChatRoute && Boolean(input.activeElement?.closest("[data-composer-input]"));
-    case "file":
-      return onChatRoute && input.rightPanelOpen;
     case "terminal":
       return onChatRoute && input.bottomPanelOpen;
     default:

@@ -4,7 +4,6 @@ mod replace_lines;
 mod env;
 mod file_modify;
 mod file_ops;
-mod git;
 mod glob;
 mod grep;
 mod list_dir;
@@ -36,12 +35,6 @@ pub use env::resolve_env_var;
 pub use file_ops::{
     tool_copy_path, tool_create_dir, tool_delete_path, tool_move_path, tool_rename_path,
     tool_normalize_external_path, tool_read_local_image_bytes, tool_resolve_absolute_path,
-};
-pub use git::{
-    git_ahead_behind, git_checkout_branch, git_commit, git_create_branch, git_delete_branch,
-    git_discard_all, git_discard_files, git_delete_branch_force, git_diff, git_fetch,
-    git_get_current_branch, git_get_remote_url, git_init, git_list_branches, git_log, git_pull,
-    git_push, git_revert, git_stage_all, git_stage_files, git_status, git_unstage_all, git_unstage_files,
 };
 pub use glob::tool_glob;
 pub use grep::tool_grep;

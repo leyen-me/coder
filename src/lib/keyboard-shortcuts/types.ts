@@ -10,22 +10,17 @@ export type ShortcutActionId =
   | "panel.toggleBottom"
   | "panel.bottomTerminal"
   | "panel.bottomProcesses"
-  | "panel.toggleRight"
   | "chat.send"
   | "chat.cancel"
   | "chat.regenerate"
   | "chat.editLastUser"
   | "chat.copyLastCode"
-  | "file.quickOpen"
-  | "file.closePreview"
-  | "file.save"
   | "terminal.focus";
 
 export type ShortcutScope =
   | "global"
   | "chat"
   | "composer"
-  | "file"
   | "terminal";
 
 export type ShortcutBinding = string;
@@ -41,5 +36,5 @@ export type ShortcutActionDefinition = {
 };
 
 export type ShortcutActionGroup = {
-  id: "navigation" | "panels" | "chat" | "file" | "terminal";
+  id: "navigation" | "panels" | "chat" | "terminal";
 };

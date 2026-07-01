@@ -11,7 +11,6 @@ export const SHORTCUT_ACTION_GROUPS: ShortcutActionGroup[] = [
   { id: "navigation" },
   { id: "panels" },
   { id: "chat" },
-  { id: "file" },
   { id: "terminal" },
 ];
 
@@ -83,12 +82,6 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     allowInInput: true,
   },
   {
-    id: "panel.toggleRight",
-    defaultBinding: "mod+e",
-    scope: "chat",
-    allowInInput: true,
-  },
-  {
     id: "chat.send",
     defaultBinding: "mod+enter",
     scope: "composer",
@@ -115,24 +108,6 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     id: "chat.copyLastCode",
     defaultBinding: "mod+shift+c",
     scope: "chat",
-    allowInInput: true,
-  },
-  {
-    id: "file.quickOpen",
-    defaultBinding: "mod+p",
-    scope: "chat",
-    allowInInput: true,
-  },
-  {
-    id: "file.closePreview",
-    defaultBinding: "mod+w",
-    scope: "file",
-    allowInInput: true,
-  },
-  {
-    id: "file.save",
-    defaultBinding: "mod+s",
-    scope: "file",
     allowInInput: true,
   },
   {
@@ -180,7 +155,6 @@ export function getActionsForGroup(
       "panel.toggleBottom",
       "panel.bottomTerminal",
       "panel.bottomProcesses",
-      "panel.toggleRight",
     ],
     chat: [
       "chat.send",
@@ -189,7 +163,6 @@ export function getActionsForGroup(
       "chat.editLastUser",
       "chat.copyLastCode",
     ],
-    file: ["file.quickOpen", "file.closePreview", "file.save"],
     terminal: ["terminal.focus"],
   };
 

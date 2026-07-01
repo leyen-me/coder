@@ -3,12 +3,11 @@
 import { useMemo } from "react";
 
 
-import { ExternalLinkIcon, FileIcon, SearchIcon } from "lucide-react";
+import { FileIcon, SearchIcon } from "lucide-react";
 
 import { CollapsibleToolSection } from "@/components/ai-elements/collapsible-tool-section";
 import { ToolStatusIcon } from "@/features/chat/components/tool-status-icon";
 
-import { OPEN_FILE_IN_PREVIEW_EVENT } from "@/features/right-panel/lib/open-file-event";
 import { formatGrepOutputForDisplay } from "@/features/agent/tools/grep-display";
 import type { ToolUIPart } from "ai";
 
@@ -100,22 +99,6 @@ export function GrepToolOutput({
             >
               <FileIcon className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="font-mono text-foreground">{file}</span>
-              <button
-                aria-label="Open in preview"
-                className="ml-auto flex size-4 items-center justify-center text-muted-foreground/50 transition-colors hover:text-muted-foreground"
-                onClick={() => {
-                  const name = file.split("/").pop() ?? file;
-                  window.dispatchEvent(
-                    new CustomEvent(OPEN_FILE_IN_PREVIEW_EVENT, {
-                      detail: { path: file, name },
-                    }),
-                  );
-                }}
-                title="Open file in preview"
-                type="button"
-              >
-                <ExternalLinkIcon className="size-3" />
-              </button>
             </div>
           ))}
         </div>
@@ -154,22 +137,6 @@ export function GrepToolOutput({
                   {matches.length} match
                   {matches.length !== 1 ? "es" : ""}
                 </span>
-                <button
-                  aria-label="Open in preview"
-                  className="ml-auto flex size-4 items-center justify-center text-muted-foreground/50 transition-colors hover:text-muted-foreground"
-                  onClick={() => {
-                    const name = filePath.split("/").pop() ?? filePath;
-                    window.dispatchEvent(
-                      new CustomEvent(OPEN_FILE_IN_PREVIEW_EVENT, {
-                        detail: { path: filePath, name },
-                      }),
-                    );
-                  }}
-                  title="Open file in preview"
-                  type="button"
-                >
-                  <ExternalLinkIcon className="size-3" />
-                </button>
               </div>
               {/* Match lines */}
               <div className="font-mono text-xs leading-relaxed">

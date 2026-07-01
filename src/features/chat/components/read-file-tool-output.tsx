@@ -2,14 +2,14 @@
 
 import { useMemo } from "react";
 import type { ToolUIPart } from "ai";
-import { ExternalLinkIcon } from "lucide-react";
+
 
 import { CodeBlock } from "@/components/ai-elements/code-block";
 import {
   CollapsibleToolSection,
 } from "@/components/ai-elements/collapsible-tool-section";
 import { formatReadFileOutputForDisplay } from "@/features/agent/tools/read-file-display";
-import { OPEN_FILE_IN_PREVIEW_EVENT } from "@/features/right-panel/lib/open-file-event";
+
 import { ToolStatusIcon } from "./tool-status-icon";
 
 type ReadFileToolOutputProps = {
@@ -73,25 +73,7 @@ export function ReadFileToolOutput({
               truncated
             </span>
           ) : null}
-          <div className="ml-auto shrink-0">
-            <button
-              aria-label="Open in preview"
-              className="flex size-4 items-center justify-center text-muted-foreground/50 transition-colors hover:text-muted-foreground"
-              onClick={(e) => {
-                e.stopPropagation();
-                const name = filePath.split("/").pop() ?? filePath;
-                window.dispatchEvent(
-                  new CustomEvent(OPEN_FILE_IN_PREVIEW_EVENT, {
-                    detail: { path: filePath, name },
-                  }),
-                );
-              }}
-              title="Open file in preview"
-              type="button"
-            >
-              <ExternalLinkIcon className="size-3" />
-            </button>
-          </div>
+
         </>
       }
     >

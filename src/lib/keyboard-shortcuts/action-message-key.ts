@@ -53,11 +53,6 @@ const ACTION_MESSAGE_KEYS = {
     description:
       "settings.keyboardShortcuts.actions.panel.bottomProcesses.description",
   },
-  "panel.toggleRight": {
-    label: "settings.keyboardShortcuts.actions.panel.toggleRight.label",
-    description:
-      "settings.keyboardShortcuts.actions.panel.toggleRight.description",
-  },
   "chat.send": {
     label: "settings.keyboardShortcuts.actions.chat.send.label",
     description: "settings.keyboardShortcuts.actions.chat.send.description",
@@ -79,19 +74,6 @@ const ACTION_MESSAGE_KEYS = {
     label: "settings.keyboardShortcuts.actions.chat.copyLastCode.label",
     description:
       "settings.keyboardShortcuts.actions.chat.copyLastCode.description",
-  },
-  "file.quickOpen": {
-    label: "settings.keyboardShortcuts.actions.file.quickOpen.label",
-    description: "settings.keyboardShortcuts.actions.file.quickOpen.description",
-  },
-  "file.closePreview": {
-    label: "settings.keyboardShortcuts.actions.file.closePreview.label",
-    description:
-      "settings.keyboardShortcuts.actions.file.closePreview.description",
-  },
-  "file.save": {
-    label: "settings.keyboardShortcuts.actions.file.save.label",
-    description: "settings.keyboardShortcuts.actions.file.save.description",
   },
   "terminal.focus": {
     label: "settings.keyboardShortcuts.actions.terminal.focus.label",

@@ -22,7 +22,11 @@ import {
   isPlanNotFoundError,
   readWorkspacePlan,
 } from "@/features/plan/plan-service";
-import type { PlanBuildActions } from "@/features/right-panel/right-panel-context";
+type PlanBuildActions = {
+  isRunning: boolean;
+  isBuildPending: boolean;
+  onBuild: () => void;
+};
 
 type PlanSheetProps = {
   workspaceDir: string | null;

@@ -7,10 +7,8 @@ import {
   CollapsibleToolSection,
 } from "@/components/ai-elements/collapsible-tool-section";
 import { formatGlobOutputForDisplay } from "@/features/agent/tools/glob-display";
-import { OPEN_FILE_IN_PREVIEW_EVENT } from "@/features/right-panel/lib/open-file-event";
 import { ToolStatusIcon } from "./tool-status-icon";
 import {
-  ExternalLinkIcon,
   FileIcon,
   FolderIcon,
   SearchIcon,
@@ -143,23 +141,7 @@ export function GlobToolOutput({
                       <span className="min-w-0 flex-1 truncate font-mono text-foreground">
                         {name}
                       </span>
-                      <button
-                        aria-label="Open in preview"
-                        className="flex size-4 shrink-0 items-center justify-center text-muted-foreground/30 opacity-0 transition-all hover:text-muted-foreground group-hover:opacity-100"
-                        onClick={() => {
-                          const displayName =
-                            filePath.split("/").pop() ?? filePath;
-                          window.dispatchEvent(
-                            new CustomEvent(OPEN_FILE_IN_PREVIEW_EVENT, {
-                              detail: { path: filePath, name: displayName },
-                            }),
-                          );
-                        }}
-                        title="Open file in preview"
-                        type="button"
-                      >
-                        <ExternalLinkIcon className="size-3" />
-                      </button>
+
                     </div>
                   );
                 })}

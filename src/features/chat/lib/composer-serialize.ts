@@ -1,6 +1,6 @@
 import type { Editor, JSONContent } from "@tiptap/core";
 
-import { basenameTreePath } from "@/features/right-panel/lib/workspace-path-utils";
+import { basenameTreePath } from "@/lib/path";
 
 const WORKSPACE_REFERENCE_NODE = "workspaceReference";
 const SKILL_REFERENCE_NODE = "skillReference";

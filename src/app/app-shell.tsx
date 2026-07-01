@@ -8,7 +8,6 @@ import { KeyboardShortcuts } from "@/features/keyboard-shortcuts/keyboard-shortc
 import { PromptRefineProvider } from "@/features/lab/prompt-refine-provider";
 import { SearchDialogProvider } from "@/features/keyboard-shortcuts/search-dialog-context";
 import { ShellChromeProvider } from "@/features/keyboard-shortcuts/shell-chrome-context";
-import { RightPanelProvider } from "@/features/right-panel/right-panel-context";
 import { BottomPanelProvider } from "@/features/terminal/bottom-panel-context";
 import { BottomPanelPortalProvider } from "@/features/terminal/bottom-panel-portal-context";
 import { PersistentBottomPanel } from "@/features/terminal/components/persistent-bottom-panel";
@@ -98,17 +97,15 @@ export function AppShell() {
           <PromptRefineProvider>
           <HotkeyActionsProvider>
             <BottomPanelProvider>
-              <RightPanelProvider>
-                <BottomPanelPortalProvider>
-                  <ShellProcessesProvider>
-                    <PersistentBottomPanel workspaceDir={workspaceDir} />
-                    <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
-                      <Outlet context={shellContext} />
-                    </div>
-                    <KeyboardShortcuts />
-                  </ShellProcessesProvider>
-                </BottomPanelPortalProvider>
-              </RightPanelProvider>
+              <BottomPanelPortalProvider>
+                <ShellProcessesProvider>
+                  <PersistentBottomPanel workspaceDir={workspaceDir} />
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
+                    <Outlet context={shellContext} />
+                  </div>
+                  <KeyboardShortcuts />
+                </ShellProcessesProvider>
+              </BottomPanelPortalProvider>
             </BottomPanelProvider>
           </HotkeyActionsProvider>
           </PromptRefineProvider>

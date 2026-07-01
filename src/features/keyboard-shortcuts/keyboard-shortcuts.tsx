@@ -13,7 +13,6 @@ import {
 import { matchKeyboardEvent } from "@/lib/keyboard-shortcuts/match";
 import { useKeyboardShortcuts } from "@/lib/keyboard-shortcuts/keyboard-shortcuts-provider";
 import { useBottomPanel } from "@/features/terminal/bottom-panel-context";
-import { useRightPanel } from "@/features/right-panel/right-panel-context";
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 
 import { useHotkeyActions } from "./hotkey-actions-context";
@@ -27,10 +26,6 @@ export function KeyboardShortcuts() {
   const { pathname } = useLocation();
   const { open: openSearch } = useSearchDialog();
   const { toggleSidebar } = useShellChrome();
-  const {
-    isOpen: isRightPanelOpen,
-    toggle: toggleRightPanel,
-  } = useRightPanel();
   const {
     isOpen: isBottomPanelOpen,
     toggle: toggleBottomPanel,
@@ -70,9 +65,6 @@ export function KeyboardShortcuts() {
         case "panel.bottomProcesses":
           toggleBottomPanel();
           return true;
-        case "panel.toggleRight":
-          toggleRightPanel();
-          return true;
         default:
           return false;
       }
@@ -81,7 +73,6 @@ export function KeyboardShortcuts() {
       navigate,
       openSearch,
       toggleBottomPanel,
-      toggleRightPanel,
       toggleSidebar,
     ]
   );
@@ -95,7 +86,6 @@ export function KeyboardShortcuts() {
       const contextInput = {
         pathname,
         activeElement: document.activeElement,
-        rightPanelOpen: isRightPanelOpen,
         bottomPanelOpen: isBottomPanelOpen,
       };
 
@@ -139,7 +129,6 @@ export function KeyboardShortcuts() {
   }, [
     invoke,
     isBottomPanelOpen,
-    isRightPanelOpen,
     pathname,
     runBuiltinAction,
     settings,

@@ -1,4 +1,4 @@
-import { ExternalLink, PanelBottom, PanelRight } from "lucide-react";
+import { ExternalLink, PanelBottom } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -6,7 +6,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useRightPanel } from "@/features/right-panel/right-panel-context";
 import { ProviderUsageTag } from "@/features/lab/provider-usage-tag";
 import { useBottomPanel } from "@/features/terminal/bottom-panel-context";
 import { useRunningSessionIds } from "@/features/agent/store/agent-store";
@@ -24,10 +23,6 @@ export function SessionToolbar({ sessionProvider, sessionId }: SessionToolbarPro
   const { t } = useTranslation();
   const { isOpen, toggle } = useBottomPanel();
   const isBottomActive = isOpen;
-  const {
-    isOpen: isRightPanelOpen,
-    toggle: toggleRightPanel,
-  } = useRightPanel();
   const runningSessionIds = useRunningSessionIds();
   const isSessionRunning = sessionId ? runningSessionIds.has(sessionId) : false;
 
@@ -78,26 +73,6 @@ export function SessionToolbar({ sessionProvider, sessionId }: SessionToolbarPro
           </Button>
         </TooltipTrigger>
         <TooltipContent>{tooltip}</TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className={cn(
-              "text-muted-foreground",
-              isRightPanelOpen && "bg-muted text-foreground"
-            )}
-            aria-label={t("rightPanel.panel")}
-            aria-pressed={isRightPanelOpen}
-            onClick={toggleRightPanel}
-          >
-            <PanelRight className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{t("rightPanel.panel")}</TooltipContent>
       </Tooltip>
     </div>
   );

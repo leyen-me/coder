@@ -1,6 +1,6 @@
 import { isTauri } from "@tauri-apps/api/core";
 
-import { normalizeExternalPathForWorkspace } from "@/features/right-panel/lib/workspace-file-ops";
+import { normalizeExternalPathForWorkspace } from "@/lib/tauri/workspace-file-ops";
 import {
   isImageFile,
   isImagePath,
