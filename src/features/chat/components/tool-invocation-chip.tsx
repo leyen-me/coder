@@ -30,6 +30,8 @@ import {
   READ_SKILL_TOOL_NAME,
   REMOTE_SHELL_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
+  REPLACE_LINES_TOOL_NAME,
+  SEND_EMAIL_TOOL_NAME,
   SHELL_TOOL_NAME,
   TODO_READ_TOOL_NAME,
   TODO_WRITE_TOOL_NAME,
@@ -87,6 +89,7 @@ import { ReadFileToolOutput } from "./read-file-tool-output";
 import { ReadShellLogsToolOutput } from "./read-shell-logs-tool-output";
 
 import { ShellOutput } from "./shell-output";
+import { SendEmailToolOutput } from "./send-email-tool-output";
 import { SkillToolOutput } from "./skill-tool-output";
 import { TodoToolOutput } from "./todo-tool-output";
 import { WebSearchToolOutput } from "./web-search-tool-output";
@@ -139,6 +142,7 @@ export function ToolInvocationChip({
   const isFileDiffTool =
     invocation.name === WRITE_FILE_TOOL_NAME ||
     invocation.name === REPLACE_FILE_TOOL_NAME ||
+    invocation.name === REPLACE_LINES_TOOL_NAME ||
     invocation.name === EDIT_FILE_TOOL_NAME;
   const isReadFileTool = invocation.name === READ_FILE_TOOL_NAME;
   const isGrepTool = invocation.name === GREP_TOOL_NAME;
@@ -165,6 +169,7 @@ export function ToolInvocationChip({
     invocation.name === READ_SKILL_TOOL_NAME ||
     invocation.name === CREATE_SKILL_TOOL_NAME ||
     invocation.name === UPDATE_SKILL_TOOL_NAME;
+  const isSendEmailTool = invocation.name === SEND_EMAIL_TOOL_NAME;
   const isAskQuestionTool = invocation.name === ASK_QUESTION_TOOL_NAME;
   const isSubAgentTool = invocation.name === SPAWN_SUBAGENT_TOOL_NAME;
 
@@ -317,6 +322,15 @@ export function ToolInvocationChip({
             <SkillToolOutput
               collapsible={false}
               errorText={invocation.errorText}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isSendEmailTool ? (
+            <SendEmailToolOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              input={invocation.input}
               output={invocation.output}
               toolName={invocation.name}
               state={invocation.state as ToolUIPart["state"]}

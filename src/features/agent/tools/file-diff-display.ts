@@ -1,6 +1,7 @@
 import {
   EDIT_FILE_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
+  REPLACE_LINES_TOOL_NAME,
   WRITE_FILE_TOOL_NAME,
 } from "./definitions";
 
@@ -23,6 +24,7 @@ export function getFileDiffChipLabel(
   if (
     toolName !== WRITE_FILE_TOOL_NAME &&
     toolName !== REPLACE_FILE_TOOL_NAME &&
+    toolName !== REPLACE_LINES_TOOL_NAME &&
     toolName !== EDIT_FILE_TOOL_NAME
   ) {
     return null;
