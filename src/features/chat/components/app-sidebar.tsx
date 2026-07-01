@@ -48,9 +48,9 @@ function sanitizeFilename(name: string): string {
     .trim();
 }
 
-async function exportSessionAsMarkdown(sessionId: string): Promise<void> {
+async function exportSessionAsMarkdown(sessionId: string): Promise<boolean> {
   const session = await getSession(sessionId);
-  if (!session) return;
+  if (!session) return false;
 
   const messages = await getMessagesBySession(sessionId);
 
@@ -106,9 +106,10 @@ async function exportSessionAsMarkdown(sessionId: string): Promise<void> {
     filters: [{ name: "Markdown", extensions: ["md"] }],
   });
 
-  if (!filePath) return; // user cancelled
+  if (!filePath) return false; // user cancelled
 
   await invoke("write_text_file", { targetPath: filePath, content: markdown });
+  return true;
 }
 
 export function AppSidebar({ open }: AppSidebarProps) {
@@ -136,8 +137,10 @@ export function AppSidebar({ open }: AppSidebarProps) {
   const handleExportSession = useCallback(
     async (sessionId: string) => {
       try {
-        await exportSessionAsMarkdown(sessionId);
-        toast.success(t("sidebar.exportChatSuccess"));
+        const exported = await exportSessionAsMarkdown(sessionId);
+        if (exported) {
+          toast.success(t("sidebar.exportChatSuccess"));
+        }
       } catch (error) {
         console.error("Failed to export session:", error);
       }
