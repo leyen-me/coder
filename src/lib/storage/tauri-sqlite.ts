@@ -72,6 +72,11 @@ export class TauriSqliteBackend implements StoreBackend {
     await this.migrate();
   }
 
+  /** Force initialization (open database, create tables).  Idempotent. */
+  async warmup(): Promise<void> {
+    await this.ensureInit();
+  }
+
   private async migrate(): Promise<void> {
     if (!this.db) return;
 

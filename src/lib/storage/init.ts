@@ -39,7 +39,11 @@ export async function initCoderStorage(): Promise<void> {
   const sqlite = new TauriSqliteBackend();
   setStoreBackend(sqlite);
 
-  // 3. Check whether migration from IndexedDB is needed.
+  // 3. Warm up both backends so ~/.coder/ directory and files
+  //    are created immediately, not lazily on first access.
+  await sqlite.warmup();
+
+  // 4. Check whether migration from IndexedDB is needed.
   //    If `entities` table is empty and IndexedDB has data, migrate.
   await maybeMigrateFromIdb(sqlite);
 }
