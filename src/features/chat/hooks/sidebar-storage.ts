@@ -1,6 +1,6 @@
 import { getKVStore } from "@/lib/storage";
 
-export const SIDEBAR_STORAGE_KEY = "sidebar_open";
+export const SIDEBAR_STORAGE_KEY = "coder:sidebar-open";
 
 export function readSidebarOpen(defaultValue = true): boolean {
   try {

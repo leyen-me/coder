@@ -1,7 +1,7 @@
 import { getKVStore } from "@/lib/storage";
 
 export const AGENT_HANDOFF_THRESHOLD_STORAGE_KEY =
-  "coder.agentContextHandoffSettings";
+  "coder:agent-context-handoff-settings";
 
 export const DEFAULT_AGENT_HANDOFF_THRESHOLD = 0.8;
 export const MIN_AGENT_HANDOFF_THRESHOLD = 0.5;

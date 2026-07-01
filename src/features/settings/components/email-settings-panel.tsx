@@ -25,7 +25,7 @@ type EmailSettings = {
   useTls: boolean;
 };
 
-const STORAGE_KEY = "coder-email-settings";
+const STORAGE_KEY = "coder:email-settings";
 
 const PROVIDER_PRESETS: Record<
   string,

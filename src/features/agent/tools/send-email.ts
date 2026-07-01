@@ -9,7 +9,7 @@ import type { ToolHandler } from "./types";
 // Types
 // ---------------------------------------------------------------------------
 
-const EMAIL_SETTINGS_KEY = "coder-email-settings";
+const EMAIL_SETTINGS_KEY = "coder:email-settings";
 
 type EmailSettings = {
   provider: string;

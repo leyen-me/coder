@@ -5,7 +5,7 @@ import type {
   ShortcutActionId,
 } from "./types";
 
-export const KEYBOARD_SHORTCUTS_STORAGE_KEY = "coder.keyboard-shortcuts.v1";
+export const KEYBOARD_SHORTCUTS_STORAGE_KEY = "coder:keyboard-shortcuts";
 
 export const SHORTCUT_ACTION_GROUPS: ShortcutActionGroup[] = [
   { id: "navigation" },
