@@ -291,19 +291,27 @@ function ComposerContextBar({
           <FolderOpenIcon className="size-4 shrink-0" />
           <span className="truncate">{workspaceName}</span>
           {onClearWorkspace && (
-            <button
+            <span
+              aria-disabled={isRunning}
               aria-label={t("chat.clearWorkspace")}
               className="-mr-0.5 ml-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full opacity-50 transition-all hover:bg-foreground/10 hover:opacity-100"
-              disabled={isRunning}
               onClick={(e) => {
                 e.stopPropagation();
-                onClearWorkspace();
+                if (!isRunning) onClearWorkspace();
               }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (!isRunning) onClearWorkspace();
+                }
+              }}
+              role="button"
+              tabIndex={-1}
               title={t("chat.clearWorkspace")}
-              type="button"
             >
               <XIcon className="size-3" strokeWidth={2} />
-            </button>
+            </span>
           )}
         </Button>
       ) : (

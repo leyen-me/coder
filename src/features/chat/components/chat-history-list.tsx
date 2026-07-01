@@ -78,10 +78,16 @@ export function ChatHistoryList({
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const [renameState, setRenameState] = useState<RenameState | null>(null);
 
-  const filteredItems = useMemo(
-    () => filterChatHistoryItems(items, filters),
-    [items, filters]
-  );
+  const filteredItems = useMemo(() => {
+    const filtered = filterChatHistoryItems(items, filters);
+    // Deduplicate by id to prevent React key warnings in case the source
+    // data contains duplicates (e.g. due to a race condition in the DB).
+    const seen = new Map<string, ChatHistoryItem>();
+    for (const item of filtered) {
+      seen.set(item.id, item);
+    }
+    return [...seen.values()];
+  }, [items, filters]);
   const hasActiveFilters = isChatHistoryFiltersActive(filters);
   const showNoMatches =
     hasActiveFilters && items.length > 0 && filteredItems.length === 0;
