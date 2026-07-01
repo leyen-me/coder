@@ -108,17 +108,19 @@ export const AssistantProcessCollapsible = memo(
         return t("chat.thinkingInProgress");
       }
 
-      const parts: string[] = [];
+      const parts: string[] = [t("chat.thinkingCompleted")];
 
       if (toolCount > 0) {
         parts.push(t("chat.agentToolCalls", { count: toolCount }));
       }
 
       if (duration !== undefined) {
-        parts.push(formatDuration(duration));
+        parts.push(
+          t("chat.durationLabel", { duration: formatDuration(duration) })
+        );
       }
 
-      return parts.length > 0 ? parts.join(" · ") : t("chat.agentProcess");
+      return parts.join(" / ");
     }, [isStreaming, toolCount, duration, t]);
 
     const handleOpenChange = useCallback(

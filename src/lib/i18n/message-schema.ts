@@ -100,6 +100,7 @@ export type Messages = {
     gitBranchLoading: string;
     thinking: string;
     thinkingInProgress: string;
+    thinkingCompleted: string;
     thinkingPlaceholder: string;
     systemPrompt: string;
     thoughtForSeconds: string;
@@ -217,6 +218,7 @@ export type Messages = {
     proxyContinuationNoDetails: string;
     agentProcess: string;
     agentToolCalls: string;
+    durationLabel: string;
     agentProcessSeconds: string;
   };
   time: {

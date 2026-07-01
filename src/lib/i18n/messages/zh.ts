@@ -102,7 +102,8 @@ export const zhMessages = {
     selectGitBranch: "选择分支",
     gitBranchLoading: "加载分支…",
     thinking: "思考过程",
-    thinkingInProgress: "正在思考…",
+    thinkingInProgress: "正在处理…",
+    thinkingCompleted: "处理完成",
     thinkingPlaceholder: "等待思考内容…",
     systemPrompt: "系统提示词",
     thoughtForSeconds: "思考了 {duration} 秒",
@@ -227,6 +228,7 @@ export const zhMessages = {
     proxyContinuationNoDetails: "无可用决策详情。",
     agentProcess: "Agent 过程",
     agentToolCalls: "{count} 次工具调用",
+    durationLabel: "耗时 {duration}",
     agentProcessSeconds: "{duration}秒",
   },
   time: {

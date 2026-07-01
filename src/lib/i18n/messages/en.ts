@@ -103,7 +103,8 @@ export const enMessages = {
     selectGitBranch: "Select branch",
     gitBranchLoading: "Loading branches…",
     thinking: "Thinking",
-    thinkingInProgress: "Thinking…",
+    thinkingInProgress: "Working…",
+    thinkingCompleted: "Done",
     thinkingPlaceholder: "Waiting for reasoning…",
     systemPrompt: "System prompt",
     thoughtForSeconds: "Thought for {duration} seconds",
@@ -237,6 +238,7 @@ export const enMessages = {
     proxyContinuationNoDetails: "No decision details available.",
     agentProcess: "Agent process",
     agentToolCalls: "{count} tool calls",
+    durationLabel: "took {duration}",
     agentProcessSeconds: "{duration}s",
   },
   time: {
