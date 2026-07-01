@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   listAutomations,
@@ -54,7 +54,9 @@ export function useAutomations() {
     [records, runningIds]
   );
 
-  const load = useCallback(async () => {
+  // Separate initial load from background refreshes so chat streaming
+  // doesn't flash a loading state on every DB change.
+  const initialLoad = useCallback(async () => {
     setLoading(true);
     try {
       const nextRecords = await listAutomations();
@@ -66,24 +68,56 @@ export function useAutomations() {
     }
   }, []);
 
+  const refresh = useCallback(async () => {
+    try {
+      const nextRecords = await listAutomations();
+      setRecords(nextRecords);
+    } catch {
+      // Silently handle.
+    }
+  }, []);
+
+  // Debounce the background refresh — coalesce rapid DB changes
+  // (e.g. streaming message chunks) into a single reload.
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleRefresh = useCallback(() => {
+    if (debounceTimer.current !== null) {
+      clearTimeout(debounceTimer.current);
+    }
+    debounceTimer.current = setTimeout(() => {
+      debounceTimer.current = null;
+      void refresh();
+    }, 300);
+  }, [refresh]);
+
+  // Clean up the debounce timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current !== null) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     return subscribeAutomationRuns(setRunningIds);
   }, []);
 
   useEffect(() => {
-    void load();
+    void initialLoad();
     return subscribeDb(() => {
-      void load();
+      scheduleRefresh();
     });
-  }, [load]);
+  }, [initialLoad, scheduleRefresh]);
 
   const create = useCallback(
     async (input: CreateAutomationInput): Promise<AutomationRecord> => {
       const record = await createAutomation(input);
-      await load();
+      // Sync immediately (not debounced) after the user's own mutation.
+      void refresh();
       return record;
     },
-    [load]
+    [refresh]
   );
 
   const update = useCallback(
@@ -93,30 +127,30 @@ export function useAutomations() {
     ): Promise<AutomationRecord | null> => {
       const record = await updateAutomation(id, patch);
       if (record) {
-        await load();
+        void refresh();
       }
       return record;
     },
-    [load]
+    [refresh]
   );
 
   const remove = useCallback(
     async (id: string): Promise<boolean> => {
       const result = await deleteAutomation(id);
       if (result) {
-        await load();
+        void refresh();
       }
       return result;
     },
-    [load]
+    [refresh]
   );
 
   const toggle = useCallback(
     async (id: string, enabled: boolean): Promise<void> => {
       await updateAutomation(id, { enabled });
-      await load();
+      void refresh();
     },
-    [load]
+    [refresh]
   );
 
   const runNow = useCallback(async (id: string) => {
