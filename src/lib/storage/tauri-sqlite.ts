@@ -30,9 +30,20 @@ export class TauriSqliteBackend implements StoreBackend {
   private dbPath: string | null = null;
   private initPromise: Promise<void> | null = null;
 
+  // Map of store names to their primary key field (keyPath in IndexedDB terms).
+  // Not every store uses "id" – remoteTargets uses "alias",
+  // systemSkillPreferences uses "skillId".
+  private static readonly KEY_FIELD: Record<string, string> = {
+    sessions: "id",
+    messages: "id",
+    userSkills: "id",
+    systemSkillPreferences: "skillId",
+    automations: "id",
+    agentTodos: "id",
+    remoteTargets: "alias",
+  };
+
   // Map of (store, indexName) → JSON path expression used to extract
-  // the indexed value from a record.  Only indexes listed here are
-  // maintained and queryable via `getAllFromIndex`.
   private static readonly INDEX_DEFS: Record<
     string,
     Record<string, string>
@@ -164,8 +175,13 @@ export class TauriSqliteBackend implements StoreBackend {
     await this.ensureInit();
     if (!this.db) return;
 
-    const id = (value as Record<string, unknown>).id as string;
-    if (!id) throw new Error(`put: record missing "id" field`);
+    const keyField = TauriSqliteBackend.KEY_FIELD[storeName] ?? "id";
+    const id = String((value as Record<string, unknown>)[keyField] ?? "");
+    if (!id) {
+      throw new Error(
+        `put: record missing key field "${keyField}" for store "${storeName}"`,
+      );
+    }
 
     const json = JSON.stringify(value);
 

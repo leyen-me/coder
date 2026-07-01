@@ -406,6 +406,7 @@ export type Messages = {
     data: {
       clearChatHistoryLabel: string;
       clearChatHistoryDescription: string;
+      clearChatHistoryDescriptionNoSize: string;
       clearButton: string;
       confirmTitle: string;
       confirmDescription: string;

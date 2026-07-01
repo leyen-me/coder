@@ -495,6 +495,8 @@ export const enMessages = {
       clearChatHistoryLabel: "Clear chat history",
       clearChatHistoryDescription:
         "{sessionCount} sessions and {messageCount} messages stored locally ({storageSize}). This cannot be undone.",
+      clearChatHistoryDescriptionNoSize:
+        "{sessionCount} sessions and {messageCount} messages stored locally. This cannot be undone.",
       clearButton: "Clear all",
       confirmTitle: "Clear all chat history?",
       confirmDescription:

@@ -57,7 +57,18 @@ export function DataSettingsPanel() {
   const hasChatData = stats.sessionCount > 0 || stats.messageCount > 0;
 
   const formattedSize =
-    stats.storageSize > 0 ? formatStorageSize(stats.storageSize) : "";
+    stats.storageSize > 0 ? formatStorageSize(stats.storageSize) : null;
+
+  const description = formattedSize
+    ? `${t("settings.data.clearChatHistoryDescription", {
+        sessionCount: stats.sessionCount,
+        messageCount: stats.messageCount,
+        storageSize: formattedSize,
+      })}`
+    : t("settings.data.clearChatHistoryDescriptionNoSize", {
+        sessionCount: stats.sessionCount,
+        messageCount: stats.messageCount,
+      });
 
   const handleClear = async () => {
     setIsClearing(true);
@@ -78,11 +89,7 @@ export function DataSettingsPanel() {
       <section className="divide-y">
         <SettingRow
           label={t("settings.data.clearChatHistoryLabel")}
-          description={t("settings.data.clearChatHistoryDescription", {
-            sessionCount: stats.sessionCount,
-            messageCount: stats.messageCount,
-            storageSize: formattedSize,
-          })}
+          description={description}
           control={
             <Button
               variant="destructive"

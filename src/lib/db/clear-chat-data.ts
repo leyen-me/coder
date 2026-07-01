@@ -10,13 +10,28 @@ export type ChatDataStats = {
 
 export async function getChatDataStats(): Promise<ChatDataStats> {
   const db = await getDb();
-  const [sessionCount, messageCount, estimate] = await Promise.all([
+  const [sessionCount, messageCount] = await Promise.all([
     db.count(SESSIONS_STORE),
     db.count(MESSAGES_STORE),
-    navigator.storage?.estimate?.(),
   ]);
-  const storageSize =
-    estimate?.usage != null ? estimate.usage : 0;
+
+  // Estimate storage used by sessions + messages based on JSON value length.
+  // Not exact (ignores SQLite page/index overhead) but proportional to actual
+  // data volume and reflects how much space clearing would reclaim.
+  let storageSize = 0;
+  try {
+    const [sessions, messages] = await Promise.all([
+      db.getAll<Record<string, unknown>>(SESSIONS_STORE),
+      db.getAll<Record<string, unknown>>(MESSAGES_STORE),
+    ]);
+    storageSize = new Blob([
+      ...sessions.map((s) => JSON.stringify(s)),
+      ...messages.map((m) => JSON.stringify(m)),
+    ]).size;
+  } catch {
+    // estimate not available
+  }
+
   return { sessionCount, messageCount, storageSize };
 }
 

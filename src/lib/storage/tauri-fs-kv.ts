@@ -3,23 +3,14 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type { SyncKVStore } from "./types";
 
-function debounce(fn: () => void, ms: number): () => void {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  return () => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-      timer = null;
-      fn();
-    }, ms);
-  };
-}
-
 /**
  * Synchronous KV store backed by `~/.coder/settings.json`.
  *
  * Uses Tauri IPC commands (`read_text_file`, `write_text_file`, `ensure_dir`)
  * instead of `@tauri-apps/plugin-fs` to avoid scope/permission issues with
  * accessing the user's home directory.
+ *
+ * Every `setItem` / `removeItem` writes to disk immediately (no debounce).
  */
 export class TauriFsKvStore implements SyncKVStore {
   private data: Map<string, string> | null = null;
@@ -27,16 +18,10 @@ export class TauriFsKvStore implements SyncKVStore {
   private filePath: string = "";
   private dirty = false;
 
-  private readonly flush = debounce(() => {
-    this.flushSync().catch(() => {});
-  }, 500);
-
   constructor() {
-    // Eagerly start loading from disk – the first render will see real data.
     this.initPromise = this.init();
   }
 
-  /** Resolves once the settings file has been loaded (or created). */
   async ready(): Promise<void> {
     await this.initPromise;
   }
@@ -47,7 +32,9 @@ export class TauriFsKvStore implements SyncKVStore {
 
   getItem(key: string): string | null {
     void this.ensureLoaded();
-    return this.data?.get(key) ?? null;
+    const val = this.data?.get(key) ?? null;
+    console.log(`[TauriFsKvStore] getItem("${key}") =`, val);
+    return val;
   }
 
   setItem(key: string, value: string): void {
@@ -55,17 +42,17 @@ export class TauriFsKvStore implements SyncKVStore {
     if (!this.data) this.data = new Map();
     this.data.set(key, value);
     this.dirty = true;
-    this.flush();
+    console.log(`[TauriFsKvStore] setItem("${key}") =`, value);
+    void this.flushSync();
   }
 
   removeItem(key: string): void {
     void this.ensureLoaded();
     this.data?.delete(key);
     this.dirty = true;
-    this.flush();
+    void this.flushSync();
   }
 
-  /** Force-flush pending changes to disk. */
   async flushNow(): Promise<void> {
     if (!this.dirty) return;
     await this.flushSync();
@@ -88,8 +75,8 @@ export class TauriFsKvStore implements SyncKVStore {
   private async init(): Promise<void> {
     const home = await homeDir();
     this.filePath = await join(home, ".coder", "settings.json");
+    console.log("[TauriFsKvStore] init, filePath =", this.filePath);
 
-    // Ensure ~/.coder/ directory exists
     const dir = await join(home, ".coder");
     try {
       await invoke("ensure_dir", { targetPath: dir });
@@ -97,14 +84,15 @@ export class TauriFsKvStore implements SyncKVStore {
       // ignore
     }
 
-    // Load existing file
     try {
       const raw = await invoke<string>("read_text_file", {
         targetPath: this.filePath,
       });
+      console.log("[TauriFsKvStore] raw file content =", raw);
       if (raw) {
         const parsed: Record<string, string> = JSON.parse(raw);
         this.data = new Map(Object.entries(parsed));
+        console.log("[TauriFsKvStore] parsed keys =", [...this.data.keys()]);
       }
     } catch {
       this.data = new Map();

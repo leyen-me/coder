@@ -84,6 +84,13 @@ fn ensure_dir(target_path: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to create dir: {e}"))
 }
 
+#[tauri::command]
+fn file_size(target_path: String) -> Result<u64, String> {
+    std::fs::metadata(&target_path)
+        .map(|m| m.len())
+        .map_err(|e| format!("Failed to get file size: {e}"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -155,6 +162,7 @@ pub fn run() {
             write_text_file,
             read_text_file,
             ensure_dir,
+            file_size,
             test_remote_connection,
             create_new_window,
         ])

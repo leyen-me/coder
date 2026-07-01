@@ -483,6 +483,8 @@ export const zhMessages = {
       clearChatHistoryLabel: "清除聊天记录",
       clearChatHistoryDescription:
         "本地共 {sessionCount} 个会话、{messageCount} 条消息（{storageSize}）。清除后无法恢复。",
+      clearChatHistoryDescriptionNoSize:
+        "本地共 {sessionCount} 个会话、{messageCount} 条消息。清除后无法恢复。",
       clearButton: "全部清除",
       confirmTitle: "清除所有聊天记录？",
       confirmDescription:

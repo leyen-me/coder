@@ -3,7 +3,14 @@ import type { LabSettings } from "./types";
 
 const listeners = new Set<() => void>();
 
-let cachedSnapshot: LabSettings = readLabSettings();
+let cachedSnapshot: LabSettings | null = null;
+
+function getSnapshot(): LabSettings {
+  if (!cachedSnapshot) {
+    cachedSnapshot = readLabSettings();
+  }
+  return cachedSnapshot;
+}
 
 function emitChange(): void {
   for (const listener of listeners) {
@@ -19,7 +26,7 @@ export function subscribeLabSettings(listener: () => void): () => void {
 }
 
 export function getLabSettingsSnapshot(): LabSettings {
-  return cachedSnapshot;
+  return getSnapshot();
 }
 
 export function setLabSettings(nextSettings: LabSettings): void {
@@ -30,7 +37,7 @@ export function setLabSettings(nextSettings: LabSettings): void {
 
 export function patchLabSettings(patch: Partial<LabSettings>): void {
   setLabSettings({
-    ...cachedSnapshot,
+    ...getSnapshot(),
     ...patch,
   });
 }
