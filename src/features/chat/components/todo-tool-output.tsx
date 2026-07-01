@@ -67,11 +67,6 @@ export function TodoToolOutput({
   const isError = state === "output-error" && errorText;
   void _input;
 
-  const completedPct =
-    formatted && formatted.total > 0
-      ? Math.round((formatted.completed / formatted.total) * 100)
-      : 0;
-
   return (
     <CollapsibleToolSection
       className={className}
@@ -109,26 +104,6 @@ export function TodoToolOutput({
         </>
       }
     >
-      {/* Progress bar */}
-      {formatted && formatted.total > 0 ? (
-        <div className="border-b bg-muted/20 px-3 py-2">
-          <div className="mb-1 flex items-center justify-between text-xs">
-            <span className="font-medium text-muted-foreground">
-              Progress
-            </span>
-            <span className="font-mono text-muted-foreground/70">
-              {formatted.completed}/{formatted.total} ({completedPct}%)
-            </span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-green-500 transition-all duration-500"
-              style={{ width: `${completedPct}%` }}
-            />
-          </div>
-        </div>
-      ) : null}
-
       {/* Todo list */}
       {formatted && formatted.todos.length > 0 ? (
         <div className="max-h-80 divide-y overflow-y-auto">
