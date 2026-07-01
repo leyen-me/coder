@@ -232,11 +232,11 @@ export const REPLACE_LINES_TOOL: AgentToolDefinition = {
     description:
       "Replace a range of lines in an existing text file by line number. " +
       "Read the file with read_file first to see line numbers, then use this to replace lines " +
-      "start_line through end_line (inclusive, 1-based) with new_content. " +
+      "start_line through end_line (inclusive, 1-based) with content. " +
       "Unlike edit_file, there is NO JSON escaping issue — just provide the replacement text as-is. " +
       "Use this when the replacement content contains special characters (quotes, backslashes) " +
       "or when you need to add/remove multiple lines at once. " +
-      "Set new_content to an empty string to delete the specified lines.",
+      "Set content to an empty string to delete the specified lines.",
     parameters: {
       type: "object",
       properties: {
@@ -250,9 +250,12 @@ export const REPLACE_LINES_TOOL: AgentToolDefinition = {
         },
         end_line: {
           type: "integer",
-          description: "Last line to replace (inclusive, 1-based). Must be >= start_line.",
+          description:
+            "Last line to replace (inclusive, 1-based). Must be >= start_line. " +
+            "Example: to replace lines 3 through 5, set start_line=3, end_line=5. " +
+            "Note: end_line is INCLUSIVE, not exclusive.",
         },
-        new_content: {
+        content: {
           type: "string",
           description:
             "Replacement content for the specified line range. " +
@@ -274,7 +277,7 @@ export const REPLACE_LINES_TOOL: AgentToolDefinition = {
           default: true,
         },
       },
-      required: ["path", "start_line", "end_line", "new_content"],
+      required: ["path", "start_line", "end_line", "content"],
       additionalProperties: false,
     },
   },

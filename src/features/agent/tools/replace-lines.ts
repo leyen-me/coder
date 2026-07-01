@@ -8,7 +8,7 @@ type ReplaceLinesArgs = {
   path: string;
   start_line: number;
   end_line: number;
-  new_content: string;
+  content: string;
   expected_sha256?: string;
   create_backup?: boolean;
   respect_gitignore?: boolean;
@@ -42,7 +42,7 @@ export const replaceLinesHandler: ToolHandler = async (rawArgs, context) => {
       path: args.value.path,
       startLine: args.value.start_line,
       endLine: args.value.end_line,
-      newContent: args.value.new_content,
+      content: args.value.content,
       expectedSha256: args.value.expected_sha256,
       createBackup: args.value.create_backup ?? false,
       respectGitignore: args.value.respect_gitignore ?? true,
@@ -63,7 +63,7 @@ function parseReplaceLinesArgs(
   rawArgs: unknown
 ): { ok: true; value: ReplaceLinesArgs } | { ok: false; message: string } {
   if (rawArgs === undefined || rawArgs === null) {
-    return { ok: false, message: "path, start_line, end_line, and new_content are required" };
+    return { ok: false, message: "path, start_line, end_line, and content are required" };
   }
 
   if (typeof rawArgs !== "object" || Array.isArray(rawArgs)) {
@@ -74,7 +74,7 @@ function parseReplaceLinesArgs(
   const path = record.path;
   const startLine = record.start_line;
   const endLine = record.end_line;
-  const newContent = record.new_content;
+  const newContent = record.content;
 
   if (typeof path !== "string" || path.trim().length === 0) {
     return { ok: false, message: "path is required and must be a non-empty string" };
@@ -93,7 +93,7 @@ function parseReplaceLinesArgs(
   }
 
   if (typeof newContent !== "string") {
-    return { ok: false, message: "new_content is required and must be a string" };
+    return { ok: false, message: "content is required and must be a string" };
   }
 
   const expectedSha256 = record.expected_sha256;
@@ -117,7 +117,7 @@ function parseReplaceLinesArgs(
       path,
       start_line: startLine,
       end_line: endLine,
-      new_content: newContent,
+      content: newContent,
       expected_sha256: expectedSha256,
       create_backup: createBackup,
       respect_gitignore: respectGitignore,

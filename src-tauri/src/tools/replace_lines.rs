@@ -11,7 +11,7 @@ pub fn tool_replace_lines(
     path: String,
     start_line: u32,
     end_line: u32,
-    new_content: String,
+    content: String,
     expected_sha256: Option<String>,
     create_backup: Option<bool>,
     respect_gitignore: Option<bool>,
@@ -71,7 +71,7 @@ pub fn tool_replace_lines(
     let before = &lines[..start_idx];
     let after = &lines[end_idx..];
 
-    // Reconstruct: lines before edit + new_content + lines after edit.
+    // Reconstruct: lines before edit + content + lines after edit.
     // Sections are joined by "\n"; no trailing newline is appended.
     let mut result = String::new();
 
@@ -79,11 +79,11 @@ pub fn tool_replace_lines(
         result.push_str(&before.join("\n"));
     }
 
-    if !new_content.is_empty() {
+    if !content.is_empty() {
         if !result.is_empty() {
             result.push('\n');
         }
-        result.push_str(&new_content);
+        result.push_str(&content);
     }
 
     if !after.is_empty() {

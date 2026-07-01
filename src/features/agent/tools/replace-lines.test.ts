@@ -32,7 +32,7 @@ describe("replaceLinesHandler", () => {
         path: "src/main.ts",
         start_line: 1.5,
         end_line: 3,
-        new_content: "replacement",
+        content: "replacement",
       },
       { workspaceDir: "/tmp/project" }
     );
@@ -51,7 +51,7 @@ describe("replaceLinesHandler", () => {
         path: "src/main.ts",
         start_line: 5,
         end_line: 3,
-        new_content: "replacement",
+        content: "replacement",
       },
       { workspaceDir: "/tmp/project" }
     );
@@ -79,7 +79,7 @@ describe("replaceLinesHandler", () => {
         path: "src/main.ts",
         start_line: 2,
         end_line: 3,
-        new_content: "const b = 2;\nconst c = 3;",
+        content: "const b = 2;\nconst c = 3;",
       },
       { workspaceDir: "/tmp/project" }
     );
@@ -99,7 +99,7 @@ describe("replaceLinesHandler", () => {
       path: "src/main.ts",
       startLine: 2,
       endLine: 3,
-      newContent: "const b = 2;\nconst c = 3;",
+      content: "const b = 2;\nconst c = 3;",
       expectedSha256: undefined,
       createBackup: false,
       respectGitignore: true,
@@ -117,7 +117,7 @@ describe("replaceLinesHandler", () => {
         path: "src/main.ts",
         start_line: 10,
         end_line: 12,
-        new_content: "x",
+        content: "x",
       },
       { workspaceDir: "/tmp/project" }
     );
