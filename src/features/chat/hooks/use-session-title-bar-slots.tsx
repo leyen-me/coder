@@ -31,6 +31,24 @@ export function useSessionTitleBarSlots(pathname: string) {
     };
   }
 
+  if (pathname === paths.automations) {
+    return {
+      leading: (
+        <h1 className="truncate text-sm font-medium">{t("pages.automations.title")}</h1>
+      ),
+      trailing: null,
+    };
+  }
+
+  if (pathname === paths.statistics) {
+    return {
+      leading: (
+        <h1 className="truncate text-sm font-medium">{t("pages.statistics.title")}</h1>
+      ),
+      trailing: null,
+    };
+  }
+
   if (!isChatRoute(pathname)) {
     return null;
   }
