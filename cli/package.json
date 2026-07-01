@@ -1,0 +1,29 @@
+{
+  "name": "@coder/cli",
+  "version": "0.1.0",
+  "description": "Coder CLI — AI-powered coding assistant in the terminal",
+  "type": "module",
+  "bin": {
+    "coder": "./dist/index.cjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node --import tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "node build.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "tsx": "^4.19.0",
+    "typescript": "~5.8.3",
+    "@types/node": "^25.9.1"
+  }
+}
