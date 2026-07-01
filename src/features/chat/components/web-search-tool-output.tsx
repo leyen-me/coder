@@ -16,6 +16,7 @@ type WebSearchToolOutputProps = {
   state: ToolUIPart["state"];
   errorText?: string;
   className?: string;
+  collapsible?: boolean;
 };
 
 function extractDomain(url: string): string {
@@ -34,6 +35,7 @@ export function WebSearchToolOutput({
   state,
   errorText,
   className,
+  collapsible,
 }: WebSearchToolOutputProps) {
   const formatted = formatWebSearchOutputForDisplay(output);
   const isError = state === "output-error" && errorText;
@@ -42,6 +44,7 @@ export function WebSearchToolOutput({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={isError ? errorText : undefined}
       header={
         <>

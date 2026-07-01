@@ -21,6 +21,7 @@ type ListDirToolOutputProps = {
   state: ToolUIPart["state"];
   errorText?: string;
   className?: string;
+  collapsible?: boolean;
 };
 
 function formatSize(bytes: number | undefined): string | null {
@@ -37,6 +38,7 @@ export function ListDirToolOutput({
   state,
   errorText,
   className,
+  collapsible,
 }: ListDirToolOutputProps) {
   const formatted = formatListDirOutputForDisplay(output);
   const isError = state === "output-error" && errorText;
@@ -61,6 +63,7 @@ export function ListDirToolOutput({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={isError ? errorText : undefined}
       header={
         <>

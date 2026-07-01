@@ -11,14 +11,16 @@ import {
 import { cn } from "@/lib/utils";
 
 type CollapsibleToolSectionProps = {
-  /** Header content — always visible, clickable to toggle */
+  /** Header content — always visible, clickable to toggle when collapsible */
   header: ReactNode;
   /** Body content — hidden when collapsed */
   children: ReactNode;
   /** Error text — always visible even when collapsed */
   errorText?: string;
-  /** Whether the body starts open (default: false) */
+  /** Whether the body starts open (default: true) */
   defaultOpen?: boolean;
+  /** Whether the section is collapsible (default: true). When false, content is always visible and header is not clickable. */
+  collapsible?: boolean;
   className?: string;
 };
 
@@ -27,14 +29,36 @@ type CollapsibleToolSectionProps = {
  * The header becomes a clickable trigger; the body content is collapsed by
  * default to reduce initial DOM volume and improve rendering performance.
  * Error banners are always visible regardless of collapse state.
+ *
+ * When `collapsible={false}`, the header is rendered as a static label and
+ * content is always visible — useful when the parent already controls visibility.
  */
 export function CollapsibleToolSection({
   header,
   children,
   errorText,
   defaultOpen = true,
+  collapsible = true,
   className,
 }: CollapsibleToolSectionProps) {
+  if (!collapsible) {
+    return (
+      <div className={cn("group w-full overflow-hidden rounded-md border", className)}>
+        <div className="flex items-center gap-2 overflow-hidden border-b bg-muted/30 px-3 py-1.5 text-xs">
+          {header}
+        </div>
+
+        {errorText ? (
+          <div className="bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
+            {errorText}
+          </div>
+        ) : null}
+
+        {children}
+      </div>
+    );
+  }
+
   return (
     <Collapsible
       defaultOpen={defaultOpen}

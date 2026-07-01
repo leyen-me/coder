@@ -2,11 +2,10 @@
 
 import { ToolInput, ToolOutput } from "@/components/ai-elements/tool";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   ASK_QUESTION_TOOL_NAME,
   AWAIT_TOOL_NAME,
@@ -64,11 +63,11 @@ import { getWebSearchChipLabel } from "@/features/agent/tools/web-search-display
 import { getWorkspaceTreeChipLabel } from "@/features/agent/tools/workspace-tree-display";
 import { getSubAgentChipLabel } from "@/features/agent/tools/spawn-subagent-display";
 import type { MessageToolInvocation } from "@/lib/db";
-import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import type { ToolUIPart } from "ai";
 import {
   CheckCircle2Icon,
+  ChevronDownIcon,
   CircleIcon,
   LoaderCircleIcon,
   XCircleIcon,
@@ -103,7 +102,6 @@ export function ToolInvocationChip({
   invocation,
   className,
 }: ToolInvocationChipProps) {
-  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const chipLabel =
     getShellChipLabel(invocation.name, invocation.input, invocation.output) ??
@@ -134,7 +132,7 @@ export function ToolInvocationChip({
     getSubAgentChipLabel(invocation.name, invocation.input, invocation.output) ??
     invocation.name;
 
-  // Tool type checks — used for specialized output rendering inside the Sheet.
+  // Tool type checks — used for specialized output rendering inside the collapsible.
   const isShellTool =
     invocation.name === SHELL_TOOL_NAME || invocation.name === AWAIT_TOOL_NAME || invocation.name === REMOTE_SHELL_TOOL_NAME;
   const isBrowsePageTool = invocation.name === BROWSE_PAGE_TOOL_NAME;
@@ -171,174 +169,194 @@ export function ToolInvocationChip({
   const isSubAgentTool = invocation.name === SPAWN_SUBAGENT_TOOL_NAME;
 
   return (
-    <>
-      {/* Text-like inline trigger — styled like an <a> tag with a tool-specific color */}
-      <button
+    <Collapsible
+      className={cn("group/tool-chip w-full", className)}
+      onOpenChange={setOpen}
+      open={open}
+    >
+      <CollapsibleTrigger
         className={cn(
-          "inline items-center gap-1 font-mono text-xs",
+          "inline-flex items-center gap-1 font-mono text-xs",
           "text-sky-600 underline decoration-dotted underline-offset-2 transition-colors",
           "hover:text-sky-500 hover:decoration-solid",
           "dark:text-sky-400 dark:hover:text-sky-300",
-          className,
+          "cursor-pointer",
         )}
-        onClick={() => setOpen(true)}
         type="button"
       >
         <ToolStatusIcon state={invocation.state as ToolUIPart["state"]} />
         <span>{chipLabel}</span>
-      </button>
+        <ChevronDownIcon
+          className={cn(
+            "size-3 shrink-0 text-muted-foreground/50 transition-transform duration-200",
+            "group-data-[state=open]/tool-chip:rotate-180",
+          )}
+        />
+      </CollapsibleTrigger>
 
-      {/* Sheet with full tool details */}
-      <Sheet onOpenChange={setOpen} open={open}>
-        <SheetContent className="w-full overflow-y-auto data-[side=right]:sm:max-w-2xl">
-          <SheetHeader>
-            <SheetTitle>
-              {t("chat.toolDetailTitle", { name: invocation.name })}
-            </SheetTitle>
-          </SheetHeader>
-          <div className="space-y-4 px-4 pb-4">
-            {/* 1. Raw input parameters */}
-            <ToolInput input={invocation.input} />
+      <CollapsibleContent>
+        <div className="mt-2 space-y-3 border-l-2 border-muted pl-3">
+          {/* Specialized visualization — the content users actually care about */}
+          {isFileDiffTool ? (
+            <FileDiffToolOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              input={invocation.input}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isShellTool ? (
+            <ShellOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              input={invocation.input}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isReadFileTool ? (
+            <ReadFileToolOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              input={invocation.input}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isGrepTool ? (
+            <GrepToolOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              input={invocation.input}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isWebSearchTool ? (
+            <WebSearchToolOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              input={invocation.input}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isGlobTool ? (
+            <GlobToolOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              input={invocation.input}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isListDirTool ? (
+            <ListDirToolOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              input={invocation.input}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isTodoTool ? (
+            <TodoToolOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              input={invocation.input}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isPlanTool ? (
+            <PlanToolOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              input={invocation.input}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isListShellsTool ? (
+            <ListShellsToolOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              input={invocation.input}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isReadShellLogsTool ? (
+            <ReadShellLogsToolOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              input={invocation.input}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isKillShellTool ? (
+            <KillShellToolOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              input={invocation.input}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isWorkspaceTreeTool ? (
+            <WorkspaceTreeToolOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isSkillTool ? (
+            <SkillToolOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isAskQuestionTool ? (
+            <AskQuestionToolOutput
+              errorText={invocation.errorText}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isSubAgentTool ? (
+            <SubAgentToolOutput
+              errorText={invocation.errorText}
+              input={invocation.input}
+              output={invocation.output}
+            />
+          ) : isBrowsePageTool && invocation.output ? (
+            <BrowsePageToolOutput output={invocation.output} />
+          ) : null}
 
-            {/* 2. Raw result/error */}
-            {invocation.output !== undefined || invocation.errorText ? (
-              <ToolOutput
-                errorText={invocation.errorText}
-                output={invocation.output}
-              />
-            ) : null}
-
-            {/* 3. Specialized visualization */}
-            {isFileDiffTool ? (
-              <FileDiffToolOutput
-                errorText={invocation.errorText}
-                input={invocation.input}
-                output={invocation.output}
-                toolName={invocation.name}
-                state={invocation.state as ToolUIPart["state"]}
-              />
-            ) : isShellTool ? (
-              <ShellOutput
-                errorText={invocation.errorText}
-                input={invocation.input}
-                output={invocation.output}
-                toolName={invocation.name}
-                state={invocation.state as ToolUIPart["state"]}
-              />
-            ) : isReadFileTool ? (
-              <ReadFileToolOutput
-                errorText={invocation.errorText}
-                input={invocation.input}
-                output={invocation.output}
-                toolName={invocation.name}
-                state={invocation.state as ToolUIPart["state"]}
-              />
-            ) : isGrepTool ? (
-              <GrepToolOutput
-                errorText={invocation.errorText}
-                input={invocation.input}
-                output={invocation.output}
-                toolName={invocation.name}
-                state={invocation.state as ToolUIPart["state"]}
-              />
-            ) : isWebSearchTool ? (
-              <WebSearchToolOutput
-                errorText={invocation.errorText}
-                input={invocation.input}
-                output={invocation.output}
-                toolName={invocation.name}
-                state={invocation.state as ToolUIPart["state"]}
-              />
-            ) : isGlobTool ? (
-              <GlobToolOutput
-                errorText={invocation.errorText}
-                input={invocation.input}
-                output={invocation.output}
-                toolName={invocation.name}
-                state={invocation.state as ToolUIPart["state"]}
-              />
-            ) : isListDirTool ? (
-              <ListDirToolOutput
-                errorText={invocation.errorText}
-                input={invocation.input}
-                output={invocation.output}
-                toolName={invocation.name}
-                state={invocation.state as ToolUIPart["state"]}
-              />
-            ) : isTodoTool ? (
-              <TodoToolOutput
-                errorText={invocation.errorText}
-                input={invocation.input}
-                output={invocation.output}
-                toolName={invocation.name}
-                state={invocation.state as ToolUIPart["state"]}
-              />
-            ) : isPlanTool ? (
-              <PlanToolOutput
-                errorText={invocation.errorText}
-                input={invocation.input}
-                output={invocation.output}
-                toolName={invocation.name}
-                state={invocation.state as ToolUIPart["state"]}
-              />
-            ) : isListShellsTool ? (
-              <ListShellsToolOutput
-                errorText={invocation.errorText}
-                input={invocation.input}
-                output={invocation.output}
-                toolName={invocation.name}
-                state={invocation.state as ToolUIPart["state"]}
-              />
-            ) : isReadShellLogsTool ? (
-              <ReadShellLogsToolOutput
-                errorText={invocation.errorText}
-                input={invocation.input}
-                output={invocation.output}
-                toolName={invocation.name}
-                state={invocation.state as ToolUIPart["state"]}
-              />
-            ) : isKillShellTool ? (
-              <KillShellToolOutput
-                errorText={invocation.errorText}
-                input={invocation.input}
-                output={invocation.output}
-                toolName={invocation.name}
-                state={invocation.state as ToolUIPart["state"]}
-              />
-            ) : isWorkspaceTreeTool ? (
-              <WorkspaceTreeToolOutput
-                errorText={invocation.errorText}
-                output={invocation.output}
-                toolName={invocation.name}
-                state={invocation.state as ToolUIPart["state"]}
-              />
-            ) : isSkillTool ? (
-              <SkillToolOutput
-                errorText={invocation.errorText}
-                output={invocation.output}
-                toolName={invocation.name}
-                state={invocation.state as ToolUIPart["state"]}
-              />
-            ) : isAskQuestionTool ? (
-              <AskQuestionToolOutput
-                errorText={invocation.errorText}
-                output={invocation.output}
-                toolName={invocation.name}
-                state={invocation.state as ToolUIPart["state"]}
-              />
-            ) : isSubAgentTool ? (
-              <SubAgentToolOutput
-                errorText={invocation.errorText}
-                input={invocation.input}
-                output={invocation.output}
-              />
-            ) : isBrowsePageTool && invocation.output ? (
-              <BrowsePageToolOutput output={invocation.output} />
-            ) : null}
-          </div>
-        </SheetContent>
-      </Sheet>
-    </>
+          {/* Debug section: raw params/result — collapsed by default, only for troubleshooting */}
+          <Collapsible className="group/debug">
+            <CollapsibleTrigger className="flex cursor-pointer items-center gap-1 text-[10px] text-muted-foreground/40 hover:text-muted-foreground/70">
+              <ChevronDownIcon className="size-3 transition-transform group-data-[state=open]/debug:rotate-180" />
+              Debug
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3 pt-2">
+              <ToolInput input={invocation.input} />
+              {invocation.output !== undefined || invocation.errorText ? (
+                <ToolOutput
+                  errorText={invocation.errorText}
+                  output={invocation.output}
+                />
+              ) : null}
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

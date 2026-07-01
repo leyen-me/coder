@@ -13,6 +13,7 @@ type KillShellToolOutputProps = {
   state: ToolUIPart["state"];
   errorText?: string;
   className?: string;
+  collapsible?: boolean;
 };
 
 export function KillShellToolOutput({
@@ -22,6 +23,7 @@ export function KillShellToolOutput({
   state,
   errorText,
   className,
+  collapsible,
 }: KillShellToolOutputProps) {
   const data = extractKillShellData(output);
   const inputRecord =
@@ -39,6 +41,7 @@ export function KillShellToolOutput({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={isError ? errorText : undefined}
       header={
         <>

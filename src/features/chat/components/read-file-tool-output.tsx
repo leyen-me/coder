@@ -19,6 +19,7 @@ type ReadFileToolOutputProps = {
   state: ToolUIPart["state"];
   errorText?: string;
   className?: string;
+  collapsible?: boolean;
 };
 
 export function ReadFileToolOutput({
@@ -28,6 +29,7 @@ export function ReadFileToolOutput({
   state,
   errorText,
   className,
+  collapsible,
 }: ReadFileToolOutputProps) {
   const formatted = formatReadFileOutputForDisplay(output);
 
@@ -46,6 +48,7 @@ export function ReadFileToolOutput({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={isError ? errorText : undefined}
       header={
         <>

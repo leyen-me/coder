@@ -21,6 +21,7 @@ type GlobToolOutputProps = {
   state: ToolUIPart["state"];
   errorText?: string;
   className?: string;
+  collapsible?: boolean;
 };
 
 /**
@@ -60,6 +61,7 @@ export function GlobToolOutput({
   state,
   errorText,
   className,
+  collapsible,
 }: GlobToolOutputProps) {
   const formatted = formatGlobOutputForDisplay(output);
   const isError = state === "output-error" && errorText;
@@ -80,6 +82,7 @@ export function GlobToolOutput({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={isError ? errorText : undefined}
       header={
         <>

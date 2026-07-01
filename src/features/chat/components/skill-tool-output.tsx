@@ -33,6 +33,7 @@ type SkillToolOutputProps = {
   state: ToolUIPart["state"];
   errorText?: string;
   className?: string;
+  collapsible?: boolean;
 };
 
 export function SkillToolOutput({
@@ -41,12 +42,14 @@ export function SkillToolOutput({
   state,
   errorText,
   className,
+  collapsible,
 }: SkillToolOutputProps) {
   switch (toolName) {
     case LIST_SKILLS_TOOL_NAME:
       return (
         <ListSkillsView
           className={className}
+          collapsible={collapsible}
           errorText={errorText}
           output={output}
           state={state}
@@ -57,6 +60,7 @@ export function SkillToolOutput({
       return (
         <ReadSkillView
           className={className}
+          collapsible={collapsible}
           errorText={errorText}
           output={output}
           state={state}
@@ -67,6 +71,7 @@ export function SkillToolOutput({
       return (
         <CreateSkillView
           className={className}
+          collapsible={collapsible}
           errorText={errorText}
           output={output}
           state={state}
@@ -77,6 +82,7 @@ export function SkillToolOutput({
       return (
         <UpdateSkillView
           className={className}
+          collapsible={collapsible}
           errorText={errorText}
           output={output}
           state={state}
@@ -88,17 +94,15 @@ export function SkillToolOutput({
   }
 }
 
-// ---------------------------------------------------------------------------
-// ListSkills
-// ---------------------------------------------------------------------------
-
 function ListSkillsView({
   className,
+  collapsible,
   output,
   state,
   errorText,
 }: {
   className?: string;
+  collapsible?: boolean;
   output: unknown;
   state: ToolUIPart["state"];
   errorText?: string;
@@ -108,6 +112,7 @@ function ListSkillsView({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={errorText}
       header={
         <>
@@ -170,11 +175,13 @@ function ListSkillsView({
 
 function ReadSkillView({
   className,
+  collapsible,
   output,
   state,
   errorText,
 }: {
   className?: string;
+  collapsible?: boolean;
   output: unknown;
   state: ToolUIPart["state"];
   errorText?: string;
@@ -184,6 +191,7 @@ function ReadSkillView({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={errorText}
       header={
         <>
@@ -235,11 +243,13 @@ function ReadSkillView({
 
 function CreateSkillView({
   className,
+  collapsible,
   output,
   state,
   errorText,
 }: {
   className?: string;
+  collapsible?: boolean;
   output: unknown;
   state: ToolUIPart["state"];
   errorText?: string;
@@ -249,6 +259,7 @@ function CreateSkillView({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={errorText}
       header={
         <>
@@ -298,11 +309,13 @@ function CreateSkillView({
 
 function UpdateSkillView({
   className,
+  collapsible,
   output,
   state,
   errorText,
 }: {
   className?: string;
+  collapsible?: boolean;
   output: unknown;
   state: ToolUIPart["state"];
   errorText?: string;
@@ -312,6 +325,7 @@ function UpdateSkillView({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={errorText}
       header={
         <>

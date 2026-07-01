@@ -40,6 +40,7 @@ type PlanToolOutputProps = {
   state: ToolUIPart["state"];
   errorText?: string;
   className?: string;
+  collapsible?: boolean;
 };
 
 /** Tool types whose result is a PlanFileResult (create, update, edit). */
@@ -219,6 +220,7 @@ export function PlanToolOutput({
   state,
   errorText,
   className,
+  collapsible,
 }: PlanToolOutputProps) {
   const isError = state === "output-error" && errorText;
   void _input;
@@ -232,6 +234,7 @@ export function PlanToolOutput({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={isError ? errorText : undefined}
       header={
         <>

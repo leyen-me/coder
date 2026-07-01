@@ -15,6 +15,7 @@ type WorkspaceTreeToolOutputProps = {
   state: ToolUIPart["state"];
   errorText?: string;
   className?: string;
+  collapsible?: boolean;
 };
 
 export function WorkspaceTreeToolOutput({
@@ -23,6 +24,7 @@ export function WorkspaceTreeToolOutput({
   state,
   errorText,
   className,
+  collapsible,
 }: WorkspaceTreeToolOutputProps) {
   const data = extractWorkspaceTreeData(output);
   const isError = state === "output-error" && errorText;
@@ -30,6 +32,7 @@ export function WorkspaceTreeToolOutput({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={isError ? errorText : undefined}
       header={
         <>

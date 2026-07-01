@@ -21,6 +21,7 @@ type ListShellsToolOutputProps = {
   state: ToolUIPart["state"];
   errorText?: string;
   className?: string;
+  collapsible?: boolean;
 };
 
 export function ListShellsToolOutput({
@@ -30,6 +31,7 @@ export function ListShellsToolOutput({
   state,
   errorText,
   className,
+  collapsible,
 }: ListShellsToolOutputProps) {
   const formatted = useMemo(
     () => formatListShellsOutputForDisplay(output),
@@ -49,6 +51,7 @@ export function ListShellsToolOutput({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={errorText}
       header={
         <>

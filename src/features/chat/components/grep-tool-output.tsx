@@ -18,6 +18,7 @@ type GrepToolOutputProps = {
   state: ToolUIPart["state"];
   errorText?: string;
   className?: string;
+  collapsible?: boolean;
 };
 
 export function GrepToolOutput({
@@ -27,6 +28,7 @@ export function GrepToolOutput({
   state,
   errorText,
   className,
+  collapsible,
 }: GrepToolOutputProps) {
   const formatted = formatGrepOutputForDisplay(output);
   const pattern = formatted?.pattern ?? extractPatternFromInput(input);
@@ -52,6 +54,7 @@ export function GrepToolOutput({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={isError ? errorText : undefined}
       header={
         <>

@@ -21,6 +21,7 @@ type TodoToolOutputProps = {
   state: ToolUIPart["state"];
   errorText?: string;
   className?: string;
+  collapsible?: boolean;
 };
 
 const statusConfig: Record<
@@ -60,6 +61,7 @@ export function TodoToolOutput({
   state,
   errorText,
   className,
+  collapsible,
 }: TodoToolOutputProps) {
   const formatted = formatTodoOutputForDisplay(output);
   const isError = state === "output-error" && errorText;
@@ -73,6 +75,7 @@ export function TodoToolOutput({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={isError ? errorText : undefined}
       header={
         <>

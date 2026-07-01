@@ -17,6 +17,7 @@ type ReadShellLogsToolOutputProps = {
   state: ToolUIPart["state"];
   errorText?: string;
   className?: string;
+  collapsible?: boolean;
 };
 
 export function ReadShellLogsToolOutput({
@@ -26,6 +27,7 @@ export function ReadShellLogsToolOutput({
   state,
   errorText,
   className,
+  collapsible,
 }: ReadShellLogsToolOutputProps) {
   const formatted = useMemo(
     () => formatReadShellLogsOutputForDisplay(output),
@@ -58,6 +60,7 @@ export function ReadShellLogsToolOutput({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={errorText}
       header={
         <>

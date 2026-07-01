@@ -19,6 +19,7 @@ type SendEmailToolOutputProps = {
   state: ToolUIPart["state"];
   errorText?: string;
   className?: string;
+  collapsible?: boolean;
 };
 
 export function SendEmailToolOutput({
@@ -28,6 +29,7 @@ export function SendEmailToolOutput({
   state,
   errorText,
   className,
+  collapsible,
 }: SendEmailToolOutputProps) {
   const result = useMemo(() => extractSendEmailData(output), [output]);
   const inputData = useMemo(() => getSendEmailInputData(input), [input]);
@@ -38,6 +40,7 @@ export function SendEmailToolOutput({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={isError ? errorText : undefined}
       header={
         <>

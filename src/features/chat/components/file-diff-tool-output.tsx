@@ -27,6 +27,7 @@ type FileDiffToolOutputProps = {
   state: ToolUIPart["state"];
   errorText?: string;
   className?: string;
+  collapsible?: boolean;
 };
 
 /**
@@ -240,6 +241,7 @@ export function FileDiffToolOutput({
   state,
   errorText,
   className,
+  collapsible,
 }: FileDiffToolOutputProps) {
   const { resolved } = useTheme();
 
@@ -280,6 +282,7 @@ export function FileDiffToolOutput({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={isError ? errorText : undefined}
       header={
         <>

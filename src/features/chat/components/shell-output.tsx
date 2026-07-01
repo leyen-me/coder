@@ -27,6 +27,7 @@ type ShellOutputProps = {
   state: ToolUIPart["state"];
   errorText?: string;
   className?: string;
+  collapsible?: boolean;
 };
 
 function extractInputValue(
@@ -63,6 +64,7 @@ export function ShellOutput({
   state,
   errorText,
   className,
+  collapsible,
 }: ShellOutputProps) {
   // Live-update state: when a background shell finishes on the Rust side,
   // the component receives the final output via Tauri events.
@@ -236,6 +238,7 @@ export function ShellOutput({
   return (
     <CollapsibleToolSection
       className={className}
+      collapsible={collapsible}
       errorText={errorText}
       defaultOpen={status === "running"}
       header={

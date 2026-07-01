@@ -18,7 +18,7 @@ export function MessageToolList({ message }: MessageToolListProps) {
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-col gap-1">
       {invocations.map((invocation) => (
         <MessageToolItem
           invocation={invocation}
