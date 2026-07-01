@@ -25,8 +25,17 @@ type WorkspaceStoreValue = {
 
 const WorkspaceStoreContext = createContext<WorkspaceStoreValue | null>(null);
 
-let workspaceSnapshot = readWorkspaceDir();
+let workspaceSnapshot: string | null = null;
+let workspaceLoaded = false;
 const listeners = new Set<() => void>();
+
+function getWorkspaceSnapshot(): string | null {
+  if (!workspaceLoaded) {
+    workspaceSnapshot = readWorkspaceDir();
+    workspaceLoaded = true;
+  }
+  return workspaceSnapshot;
+}
 
 function emitWorkspaceChange(): void {
   for (const listener of listeners) {
@@ -42,7 +51,7 @@ function subscribe(listener: () => void): () => void {
 }
 
 function getSnapshot(): string | null {
-  return workspaceSnapshot;
+  return getWorkspaceSnapshot();
 }
 
 function setWorkspaceSnapshot(path: string | null): void {
