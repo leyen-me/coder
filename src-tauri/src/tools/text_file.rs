@@ -29,8 +29,6 @@ pub struct TextFileToolError {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub old_string_hex: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub file_snippet_hex: Option<String>,
 }
 
@@ -41,7 +39,6 @@ impl TextFileToolError {
             message: message.into(),
             mime_type: None,
             size: None,
-            old_string_hex: None,
             file_snippet_hex: None,
         }
     }
@@ -59,7 +56,6 @@ impl TextFileToolError {
             ),
             mime_type: None,
             size: None,
-            old_string_hex: None,
             file_snippet_hex: None,
         }
     }

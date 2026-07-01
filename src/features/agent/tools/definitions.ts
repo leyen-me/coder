@@ -5,6 +5,7 @@ export const READ_FILE_TOOL_NAME = "read_file";
 export const WRITE_FILE_TOOL_NAME = "write_file";
 export const REPLACE_FILE_TOOL_NAME = "replace_file";
 export const EDIT_FILE_TOOL_NAME = "edit_file";
+export const REPLACE_LINES_TOOL_NAME = "replace_lines";
 export const GLOB_TOOL_NAME = "glob";
 export const GREP_TOOL_NAME = "grep";
 export const SHELL_TOOL_NAME = "shell";
@@ -197,14 +198,6 @@ export const EDIT_FILE_TOOL: AgentToolDefinition = {
           type: "string",
           description: "Replacement text.",
         },
-        old_string_hex: {
-          type: "string",
-          description:
-            "Alternative to old_string. Space-separated hex bytes that encode the text to replace. " +
-            "Use this when the text contains special characters (quotes, backslashes) that are hard to " +
-            "escape correctly via old_string. Takes precedence over old_string when provided. " +
-            "Example: '68 65 6c 6c 6f' for 'hello'.",
-        },
         expected_sha256: {
           type: "string",
           description: "SHA256 hash from read_file. Rejects the edit if the file changed.",
@@ -232,6 +225,60 @@ export const EDIT_FILE_TOOL: AgentToolDefinition = {
   },
 };
 
+export const REPLACE_LINES_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: REPLACE_LINES_TOOL_NAME,
+    description:
+      "Replace a range of lines in an existing text file by line number. " +
+      "Read the file with read_file first to see line numbers, then use this to replace lines " +
+      "start_line through end_line (inclusive, 1-based) with new_content. " +
+      "Unlike edit_file, there is NO JSON escaping issue — just provide the replacement text as-is. " +
+      "Use this when the replacement content contains special characters (quotes, backslashes) " +
+      "or when you need to add/remove multiple lines at once. " +
+      "Set new_content to an empty string to delete the specified lines.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Relative or absolute path to the file within the workspace.",
+        },
+        start_line: {
+          type: "integer",
+          description: "First line to replace (1-based). Must be <= end_line.",
+        },
+        end_line: {
+          type: "integer",
+          description: "Last line to replace (inclusive, 1-based). Must be >= start_line.",
+        },
+        new_content: {
+          type: "string",
+          description:
+            "Replacement content for the specified line range. " +
+            "Use an empty string to delete the lines. " +
+            "No JSON escaping needed — pass the text directly.",
+        },
+        expected_sha256: {
+          type: "string",
+          description: "SHA256 hash from read_file. Rejects the edit if the file changed.",
+        },
+        create_backup: {
+          type: "boolean",
+          description: "Whether to save a backup copy under .history before writing.",
+          default: false,
+        },
+        respect_gitignore: {
+          type: "boolean",
+          description: "Whether to refuse editing paths ignored by .gitignore.",
+          default: true,
+        },
+      },
+      required: ["path", "start_line", "end_line", "new_content"],
+      additionalProperties: false,
+    },
+  },
+};
 export const GLOB_TOOL: AgentToolDefinition = {
   type: "function",
   function: {
@@ -1050,6 +1097,7 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   WRITE_FILE_TOOL,
   REPLACE_FILE_TOOL,
   EDIT_FILE_TOOL,
+  REPLACE_LINES_TOOL,
   GLOB_TOOL,
   GREP_TOOL,
   SHELL_TOOL,

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use super::file_modify::{
     commit_text_modification, load_existing_text_file, verify_expected_sha256, FileModifyResult,
 };
-use super::text_file::{apply_text_replacement, hex_str_to_bytes, TextFileToolError};
+use super::text_file::{apply_text_replacement, TextFileToolError};
 
 #[tauri::command]
 pub fn tool_edit_file(
@@ -11,7 +11,6 @@ pub fn tool_edit_file(
     path: String,
     old_string: String,
     new_string: String,
-    old_string_hex: Option<String>,
     expected_sha256: Option<String>,
     replace_all: Option<bool>,
     create_backup: Option<bool>,
@@ -33,41 +32,7 @@ pub fn tool_edit_file(
         load_existing_text_file(&workspace, &path, respect_gitignore)?;
     verify_expected_sha256(&loaded.original_bytes, expected_sha256.as_deref())?;
 
-    // Resolve the effective old_string: old_string_hex takes precedence.
-    let resolved_old = if let Some(hex) = &old_string_hex {
-        let hex = hex.trim();
-        if hex.is_empty() {
-            return Err(TextFileToolError::new(
-                "invalid_arguments",
-                "old_string_hex must not be empty when provided",
-            ));
-        }
-        let bytes = hex_str_to_bytes(hex).map_err(|error| {
-            TextFileToolError::new(
-                "invalid_arguments",
-                format!("old_string_hex is not valid hex: {error}"),
-            )
-        })?;
-        let decoded = String::from_utf8(bytes).map_err(|error| {
-            TextFileToolError::new(
-                "invalid_arguments",
-                format!(
-                    "old_string_hex does not decode to valid UTF-8: {error}"
-                ),
-            )
-        })?;
-        if decoded.is_empty() {
-            return Err(TextFileToolError::new(
-                "invalid_arguments",
-                "old_string_hex decoded to an empty string",
-            ));
-        }
-        decoded
-    } else {
-        old_string.clone()
-    };
-
-    let updated = apply_text_replacement(&loaded.text, &resolved_old, &new_string, replace_all)?;
+    let updated = apply_text_replacement(&loaded.text, &old_string, &new_string, replace_all)?;
 
     commit_text_modification(
         &workspace,
@@ -110,7 +75,6 @@ mod tests {
             "const a = 2;".to_string(),
             None,
             None,
-            None,
             Some(false),
             Some(false),
         )
@@ -137,7 +101,6 @@ mod tests {
             None,
             None,
             None,
-            None,
             Some(false),
         )
         .expect_err("multiple");
@@ -156,7 +119,6 @@ mod tests {
             "sample.txt".to_string(),
             "foo".to_string(),
             "bar".to_string(),
-            None,
             None,
             Some(true),
             None,
@@ -184,7 +146,6 @@ mod tests {
             None,
             None,
             None,
-            None,
             Some(false),
         )
         .expect_err("missing");
@@ -206,115 +167,11 @@ mod tests {
             None,
             None,
             None,
-            None,
             Some(false),
         )
         .expect("edit crlf");
 
         assert_eq!(fs::read(temp.join("sample.txt")).expect("read"), b"x\r\n");
-        let _ = fs::remove_dir_all(temp);
-    }
-
-    #[test]
-    fn matches_using_old_string_hex() {
-        let temp = temp_workspace("hex");
-        // File content: const x = "hello";
-        fs::write(temp.join("sample.txt"), "const x = \"hello\";\n").expect("seed");
-
-        // old_string "hello" encoded as hex: 68 65 6c 6c 6f
-        let result = tool_edit_file(
-            temp.to_string_lossy().into_owned(),
-            "sample.txt".to_string(),
-            "".to_string(), // old_string is ignored when old_string_hex is provided
-            "world".to_string(),
-            Some("68 65 6c 6c 6f".to_string()),
-            None,
-            None,
-            None,
-            Some(false),
-        )
-        .expect("edit with hex");
-
-        assert_eq!(result.action, "modified");
-        assert_eq!(
-            fs::read_to_string(temp.join("sample.txt")).expect("read"),
-            "const x = \"world\";\n"
-        );
-        let _ = fs::remove_dir_all(temp);
-    }
-
-    #[test]
-    fn rejects_invalid_hex() {
-        let temp = temp_workspace("badhex");
-        fs::write(temp.join("sample.txt"), "anything\n").expect("seed");
-
-        let error = tool_edit_file(
-            temp.to_string_lossy().into_owned(),
-            "sample.txt".to_string(),
-            "".to_string(),
-            "x".to_string(),
-            Some("ZZ".to_string()),
-            None,
-            None,
-            None,
-            Some(false),
-        )
-        .expect_err("bad hex");
-
-        assert_eq!(error.code, "invalid_arguments");
-        assert!(error.message.contains("not valid hex"));
-        let _ = fs::remove_dir_all(temp);
-    }
-
-    #[test]
-    fn rejects_empty_hex() {
-        let temp = temp_workspace("emptyhex");
-        fs::write(temp.join("sample.txt"), "anything\n").expect("seed");
-
-        let error = tool_edit_file(
-            temp.to_string_lossy().into_owned(),
-            "sample.txt".to_string(),
-            "".to_string(),
-            "x".to_string(),
-            Some("   ".to_string()),
-            None,
-            None,
-            None,
-            Some(false),
-        )
-        .expect_err("empty hex");
-
-        assert_eq!(error.code, "invalid_arguments");
-        let _ = fs::remove_dir_all(temp);
-    }
-
-    #[test]
-    fn hex_can_match_strings_with_special_chars() {
-        let temp = temp_workspace("spechex");
-        // File content: "escape \" triple" (18 chars with embedded backslash-quote)
-        fs::write(temp.join("sample.txt"), "\"escape \\\" triple\"\n").expect("seed");
-
-        // Encode "escape \" triple" as hex:
-        // 22 65 73 63 61 70 65 20 5C 22 20 74 72 69 70 6C 65 22
-        let hex = "22 65 73 63 61 70 65 20 5C 22 20 74 72 69 70 6C 65 22";
-        let result = tool_edit_file(
-            temp.to_string_lossy().into_owned(),
-            "sample.txt".to_string(),
-            "".to_string(),
-            "REPLACED".to_string(),
-            Some(hex.to_string()),
-            None,
-            None,
-            None,
-            Some(false),
-        )
-        .expect("edit special chars with hex");
-
-        assert_eq!(result.action, "modified");
-        assert_eq!(
-            fs::read_to_string(temp.join("sample.txt")).expect("read"),
-            "REPLACED\n"
-        );
         let _ = fs::remove_dir_all(temp);
     }
 }

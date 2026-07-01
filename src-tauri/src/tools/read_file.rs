@@ -92,7 +92,6 @@ pub fn tool_read_file(
             ),
             mime_type: None,
             size: Some(file_size),
-            old_string_hex: None,
             file_snippet_hex: None,
         });
     }
@@ -111,7 +110,6 @@ pub fn tool_read_file(
             message: format!("Binary file detected ({mime_type})"),
             mime_type: Some(mime_type),
             size: Some(file_size),
-            old_string_hex: None,
             file_snippet_hex: None,
         });
     }

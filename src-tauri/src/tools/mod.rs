@@ -1,5 +1,6 @@
 mod browse_page;
 mod edit_file;
+mod replace_lines;
 mod env;
 mod file_modify;
 mod file_ops;
@@ -30,6 +31,7 @@ mod write_file;
 
 pub use browse_page::tool_browse_page;
 pub use edit_file::tool_edit_file;
+pub use replace_lines::tool_replace_lines;
 pub use env::resolve_env_var;
 pub use file_ops::{
     tool_copy_path, tool_create_dir, tool_delete_path, tool_move_path, tool_rename_path,

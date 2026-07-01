@@ -89,7 +89,6 @@ describe("editFileHandler", () => {
       path: "src/main.ts",
       oldString: "const a = 1;",
       newString: "const a = 2;",
-      oldStringHex: null,
       expectedSha256: undefined,
       replaceAll: false,
       createBackup: false,

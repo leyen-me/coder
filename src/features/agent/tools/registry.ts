@@ -3,6 +3,7 @@ import {
   ASK_QUESTION_TOOL_NAME,
   AWAIT_TOOL_NAME,
   EDIT_FILE_TOOL_NAME,
+  REPLACE_LINES_TOOL_NAME,
   GLOB_TOOL_NAME,
   GREP_TOOL_NAME,
   BROWSE_PAGE_TOOL_NAME,
@@ -36,6 +37,7 @@ import { awaitShellHandler } from "./await-shell";
 import { askQuestionHandler } from "./ask-question";
 import { browsePageHandler } from "./browse-page";
 import { editFileHandler } from "./edit-file";
+import { replaceLinesHandler } from "./replace-lines";
 import { getWorkspaceTreeHandler } from "./get-workspace-tree";
 import { globHandler } from "./glob";
 import { grepHandler } from "./grep";
@@ -82,6 +84,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [WRITE_FILE_TOOL_NAME]: writeFileHandler,
   [REPLACE_FILE_TOOL_NAME]: replaceFileHandler,
   [EDIT_FILE_TOOL_NAME]: editFileHandler,
+  [REPLACE_LINES_TOOL_NAME]: replaceLinesHandler,
   [GLOB_TOOL_NAME]: globHandler,
   [GREP_TOOL_NAME]: grepHandler,
   [SHELL_TOOL_NAME]: shellHandler,
