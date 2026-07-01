@@ -194,7 +194,7 @@ export class TauriSqliteBackend implements StoreBackend {
         const fieldValue = parsed[fieldName];
         if (fieldValue !== undefined && fieldValue !== null) {
           await this.db.execute(
-            "INSERT INTO idx (store, index_name, index_value, id) VALUES ($1, $2, $3, $4)",
+            "INSERT OR REPLACE INTO idx (store, index_name, index_value, id) VALUES ($1, $2, $3, $4)",
             [storeName, indexName, String(fieldValue), id],
           );
         }
@@ -225,12 +225,14 @@ export class TauriSqliteBackend implements StoreBackend {
     if (!this.db) return [];
 
     if (value !== undefined) {
-      // Filtered by index value
+      // Filtered by index value.  LEFT JOIN so entities that exist in
+      // `entities` but somehow lack an `idx` row (e.g. interrupted write)
+      // are still returned instead of silently disappearing.
       const rows = await this.db.select<{ value: string }[]>(
         `SELECT e.value
          FROM entities e
-         INNER JOIN idx i ON i.store = e.store AND i.id = e.id
-         WHERE e.store = $1 AND i.index_name = $2 AND i.index_value = $3
+         LEFT JOIN idx i ON i.store = e.store AND i.id = e.id AND i.index_name = $2
+         WHERE e.store = $1 AND (i.index_value = $3 OR i.id IS NULL)
          ORDER BY i.index_value`,
         [storeName, indexName, String(value)],
       );
