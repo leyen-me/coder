@@ -32,9 +32,7 @@ export class TauriFsKvStore implements SyncKVStore {
 
   getItem(key: string): string | null {
     void this.ensureLoaded();
-    const val = this.data?.get(key) ?? null;
-    console.log(`[TauriFsKvStore] getItem("${key}") =`, val);
-    return val;
+    return this.data?.get(key) ?? null;
   }
 
   setItem(key: string, value: string): void {
@@ -42,7 +40,6 @@ export class TauriFsKvStore implements SyncKVStore {
     if (!this.data) this.data = new Map();
     this.data.set(key, value);
     this.dirty = true;
-    console.log(`[TauriFsKvStore] setItem("${key}") =`, value);
     void this.flushSync();
   }
 
@@ -75,7 +72,6 @@ export class TauriFsKvStore implements SyncKVStore {
   private async init(): Promise<void> {
     const home = await homeDir();
     this.filePath = await join(home, ".coder", "settings.json");
-    console.log("[TauriFsKvStore] init, filePath =", this.filePath);
 
     const dir = await join(home, ".coder");
     try {
@@ -88,11 +84,9 @@ export class TauriFsKvStore implements SyncKVStore {
       const raw = await invoke<string>("read_text_file", {
         targetPath: this.filePath,
       });
-      console.log("[TauriFsKvStore] raw file content =", raw);
       if (raw) {
         const parsed: Record<string, string> = JSON.parse(raw);
         this.data = new Map(Object.entries(parsed));
-        console.log("[TauriFsKvStore] parsed keys =", [...this.data.keys()]);
       }
     } catch {
       this.data = new Map();

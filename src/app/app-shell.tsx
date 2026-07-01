@@ -69,7 +69,6 @@ export function AppShell() {
   // Initialize ~/.coder/ storage when running inside Tauri.
   useEffect(() => {
     const tauri = isTauri();
-    console.log("[app-shell] isTauri():", tauri);
     if (tauri) {
       void initCoderStorageAsync();
     }

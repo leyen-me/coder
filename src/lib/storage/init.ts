@@ -26,8 +26,6 @@ export function initCoderStorageSync(): void {
   if (migrationDone) return;
   migrationDone = true;
 
-  console.log("[storage-init] Swapping backends (sync)...");
-
   // Switch KV store to file-system backed settings.json
   setKVStore(getTauriFsKvStore());
 
@@ -43,12 +41,10 @@ export function onStorageReady(): Promise<void> {
 }
 
 export async function initCoderStorageAsync(): Promise<void> {
-  console.log("[storage-init] Warming up SQLite backend (async)...");
   const backend = getStoreBackend();
   if (backend instanceof TauriSqliteBackend) {
     await backend.warmup();
   }
-  console.log("[storage-init] SQLite backend ready.");
 }
 
 // Phase 1 runs immediately when this module is first imported,
