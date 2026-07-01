@@ -1,15 +1,7 @@
-import {
-  mkdir,
-  readTextFile,
-  writeTextFile,
-  BaseDirectory,
-} from "@tauri-apps/plugin-fs";
+import { homeDir, join } from "@tauri-apps/api/path";
+import { invoke } from "@tauri-apps/api/core";
 
 import type { SyncKVStore } from "./types";
-
-// ---------------------------------------------------------------------------
-// Debounce helper
-// ---------------------------------------------------------------------------
 
 function debounce(fn: () => void, ms: number): () => void {
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -22,32 +14,32 @@ function debounce(fn: () => void, ms: number): () => void {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Tauri filesystem-backed KV store
-// ---------------------------------------------------------------------------
-
-const RELATIVE_PATH = ".coder/settings.json";
-
 /**
  * Synchronous KV store backed by `~/.coder/settings.json`.
  *
- * - Reads the full JSON file into memory on first access.
- * - `getItem` / `setItem` / `removeItem` operate on the in-memory map
- *   synchronously.
- * - Mutations schedule a debounced (500 ms) async write-back to disk.
- * - If the file does not exist (first run), an empty store is assumed.
+ * Uses Tauri IPC commands (`read_text_file`, `write_text_file`, `ensure_dir`)
+ * instead of `@tauri-apps/plugin-fs` to avoid scope/permission issues with
+ * accessing the user's home directory.
  */
 export class TauriFsKvStore implements SyncKVStore {
   private data: Map<string, string> | null = null;
   private initPromise: Promise<void> | null = null;
+  private filePath: string = "";
   private dirty = false;
 
   private readonly flush = debounce(() => {
-    this.flushSync().catch(() => {
-      // File write failures are logged but never thrown – the in-memory
-      // state is the source of truth until the next successful write.
-    });
+    this.flushSync().catch(() => {});
   }, 500);
+
+  constructor() {
+    // Eagerly start loading from disk – the first render will see real data.
+    this.initPromise = this.init();
+  }
+
+  /** Resolves once the settings file has been loaded (or created). */
+  async ready(): Promise<void> {
+    await this.initPromise;
+  }
 
   // -----------------------------------------------------------------------
   // Public API
@@ -60,9 +52,7 @@ export class TauriFsKvStore implements SyncKVStore {
 
   setItem(key: string, value: string): void {
     void this.ensureLoaded();
-    if (!this.data) {
-      this.data = new Map();
-    }
+    if (!this.data) this.data = new Map();
     this.data.set(key, value);
     this.dirty = true;
     this.flush();
@@ -75,7 +65,7 @@ export class TauriFsKvStore implements SyncKVStore {
     this.flush();
   }
 
-  /** Force-flush pending changes to disk.  Useful before app shutdown. */
+  /** Force-flush pending changes to disk. */
   async flushNow(): Promise<void> {
     if (!this.dirty) return;
     await this.flushSync();
@@ -91,39 +81,38 @@ export class TauriFsKvStore implements SyncKVStore {
       await this.initPromise;
       return;
     }
-    this.initPromise = this.loadFromDisk();
+    this.initPromise = this.init();
     await this.initPromise;
   }
 
-  private async loadFromDisk(): Promise<void> {
-    this.data = new Map();
+  private async init(): Promise<void> {
+    const home = await homeDir();
+    this.filePath = await join(home, ".coder", "settings.json");
 
+    // Ensure ~/.coder/ directory exists
+    const dir = await join(home, ".coder");
     try {
-      const raw = await readTextFile(RELATIVE_PATH, {
-        baseDir: BaseDirectory.Home,
+      await invoke("ensure_dir", { targetPath: dir });
+    } catch {
+      // ignore
+    }
+
+    // Load existing file
+    try {
+      const raw = await invoke<string>("read_text_file", {
+        targetPath: this.filePath,
       });
       if (raw) {
         const parsed: Record<string, string> = JSON.parse(raw);
-        for (const [key, value] of Object.entries(parsed)) {
-          this.data.set(key, String(value));
-        }
+        this.data = new Map(Object.entries(parsed));
       }
     } catch {
-      // File does not exist yet – start with an empty store.
+      this.data = new Map();
     }
   }
 
   private async flushSync(): Promise<void> {
     if (!this.dirty || !this.data) return;
-
-    try {
-      await mkdir(".coder", {
-        baseDir: BaseDirectory.Home,
-        recursive: true,
-      });
-    } catch {
-      // Directory may already exist.
-    }
 
     const obj: Record<string, string> = {};
     for (const [key, value] of this.data) {
@@ -131,8 +120,9 @@ export class TauriFsKvStore implements SyncKVStore {
     }
 
     try {
-      await writeTextFile(RELATIVE_PATH, JSON.stringify(obj, null, 2), {
-        baseDir: BaseDirectory.Home,
+      await invoke("write_text_file", {
+        targetPath: this.filePath,
+        content: JSON.stringify(obj, null, 2),
       });
       this.dirty = false;
     } catch (err) {
@@ -147,7 +137,6 @@ export class TauriFsKvStore implements SyncKVStore {
 
 let instance: TauriFsKvStore | null = null;
 
-/** Get or create the singleton Tauri-filesystem KV store. */
 export function getTauriFsKvStore(): TauriFsKvStore {
   if (!instance) {
     instance = new TauriFsKvStore();

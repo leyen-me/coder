@@ -25,7 +25,36 @@
       ]
     },
     "dialog:default",
-    "fs:default",
-    "sql:default"
+    "sql:allow-load",
+    "sql:allow-execute",
+    "sql:allow-select",
+    {
+      "identifier": "fs:allow-mkdir",
+      "allow": [{ "path": "$HOME/.coder" }, { "path": "$HOME/.coder/*" }]
+    },
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [{ "path": "$HOME/.coder" }, { "path": "$HOME/.coder/*" }]
+    },
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [{ "path": "$HOME/.coder" }, { "path": "$HOME/.coder/*" }]
+    },
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [{ "path": "$HOME/.coder" }, { "path": "$HOME/.coder/*" }]
+    },
+    {
+      "identifier": "fs:allow-remove",
+      "allow": [{ "path": "$HOME/.coder" }, { "path": "$HOME/.coder/*" }]
+    },
+    {
+      "identifier": "fs:allow-rename",
+      "allow": [{ "path": "$HOME/.coder" }, { "path": "$HOME/.coder/*" }]
+    },
+    {
+      "identifier": "fs:allow-stat",
+      "allow": [{ "path": "$HOME/.coder" }, { "path": "$HOME/.coder/*" }]
+    }
   ]
 }

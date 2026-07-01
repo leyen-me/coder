@@ -73,6 +73,17 @@ fn write_text_file(target_path: String, content: String) -> Result<(), String> {
     std::fs::write(&target_path, &content).map_err(|e| format!("Failed to write file: {e}"))
 }
 
+#[tauri::command]
+fn read_text_file(target_path: String) -> Result<String, String> {
+    std::fs::read_to_string(&target_path).map_err(|e| format!("Failed to read file: {e}"))
+}
+
+#[tauri::command]
+fn ensure_dir(target_path: String) -> Result<(), String> {
+    std::fs::create_dir_all(&target_path)
+        .map_err(|e| format!("Failed to create dir: {e}"))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -142,6 +153,8 @@ pub fn run() {
             tool_plan_list,
             send_email,
             write_text_file,
+            read_text_file,
+            ensure_dir,
             test_remote_connection,
             create_new_window,
         ])

@@ -1,4 +1,5 @@
-import { homeDir } from "@tauri-apps/api/path";
+import { homeDir, join } from "@tauri-apps/api/path";
+import { invoke } from "@tauri-apps/api/core";
 import Database from "@tauri-apps/plugin-sql";
 
 import type { StoreBackend } from "./types";
@@ -65,11 +66,35 @@ export class TauriSqliteBackend implements StoreBackend {
 
   private async init(): Promise<void> {
     const home = await homeDir();
-    this.dbPath = `${home}.coder/coder.db`;
+    console.log("[tauri-sqlite] homeDir:", home);
 
-    this.db = await Database.load(`sqlite:${this.dbPath}`);
+    const dirPath = await join(home, ".coder");
+    const filePath = await join(home, ".coder", "coder.db");
+    console.log("[tauri-sqlite] dirPath:", dirPath);
+    console.log("[tauri-sqlite] filePath:", filePath);
+
+    // Ensure ~/.coder/ directory exists
+    console.log("[tauri-sqlite] Creating directory...");
+    try {
+      await invoke("ensure_dir", { targetPath: dirPath });
+      console.log("[tauri-sqlite] Directory created (or already exists).");
+    } catch (err) {
+      console.error("[tauri-sqlite] ensure_dir failed:", err);
+      throw err;
+    }
+
+    this.dbPath = filePath;
+    console.log("[tauri-sqlite] Loading database from:", `sqlite:${this.dbPath}`);
+    try {
+      this.db = await Database.load(`sqlite:${this.dbPath}`);
+      console.log("[tauri-sqlite] Database loaded successfully.");
+    } catch (err) {
+      console.error("[tauri-sqlite] Database.load failed:", err);
+      throw err;
+    }
 
     await this.migrate();
+    console.log("[tauri-sqlite] Migration complete.");
   }
 
   /** Force initialization (open database, create tables).  Idempotent. */

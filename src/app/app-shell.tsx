@@ -23,7 +23,7 @@ import {
   startAutomationScheduler,
   stopAutomationScheduler,
 } from "@/features/automations/lib/scheduler";
-import { initCoderStorage } from "@/lib/storage/init";
+import { initCoderStorageAsync } from "@/lib/storage/init";
 
 import type { ShellOutletContext } from "./shell-outlet-context";
 
@@ -68,8 +68,10 @@ export function AppShell() {
 
   // Initialize ~/.coder/ storage when running inside Tauri.
   useEffect(() => {
-    if (isTauri()) {
-      void initCoderStorage();
+    const tauri = isTauri();
+    console.log("[app-shell] isTauri():", tauri);
+    if (tauri) {
+      void initCoderStorageAsync();
     }
   }, []);
 
