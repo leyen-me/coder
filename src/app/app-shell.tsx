@@ -39,7 +39,6 @@ export function AppShell() {
 
   const canGoBack = window.history.length > 1;
   const handleBack = () => navigate(-1);
-  const handleForward = () => navigate(1);
 
   // Start the automation scheduler on mount; stop on unmount.
   useEffect(() => {
@@ -60,7 +59,6 @@ export function AppShell() {
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={toggleSidebar}
         onBack={handleBack}
-        onForward={handleForward}
         canGoBack={canGoBack}
       />
 

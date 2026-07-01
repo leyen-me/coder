@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, PanelLeft } from "lucide-react";
+import { ArrowLeft, PanelLeft } from "lucide-react";
 
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,6 @@ type FloatingShellNavProps = {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   onBack?: () => void;
-  onForward?: () => void;
   canGoBack: boolean;
 };
 
@@ -19,7 +18,6 @@ export function FloatingShellNav({
   isSidebarOpen,
   onToggleSidebar,
   onBack,
-  onForward,
   canGoBack,
 }: FloatingShellNavProps) {
   const { t } = useTranslation();
@@ -49,7 +47,6 @@ export function FloatingShellNav({
           disabled={!canGoBack}
           onClick={onBack}
         />
-        <TitleBarNavButton label={t("titleBar.forward")} icon={ArrowRight} onClick={onForward} />
       </nav>
     </header>
   );
