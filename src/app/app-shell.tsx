@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useNavigationType } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { FloatingShellNav } from "@/components/layout/floating-shell-nav";
 import { useSidebarOpen } from "@/features/chat/hooks/use-sidebar-open";
@@ -38,37 +38,23 @@ export function AppShell() {
 
   const handleBack = () => navigate(-1);
 
-  // Track navigation depth to determine if back is possible.
-  // Uses React Router's navigationType ('PUSH' | 'POP' | 'REPLACE')
-  // instead of window.history.length, which doesn't shrink on back.
-  const [canGoBack, setCanGoBack] = useState(false);
-  const depthRef = useRef(0);
+  // Determine if the user can go back by reading the history index from
+  // React Router's browser history state. This handles page reload correctly
+  // since the browser persists history.state across reloads.
+  // We use window.history.state.idx (set by React Router's createBrowserHistory)
+  // rather than window.history.length, which doesn't shrink after POP.
+  const getHistoryIdx = useCallback(() => {
+    return ((window.history.state as { idx?: number } | null)?.idx ?? -1);
+  }, []);
+
+  const [canGoBack, setCanGoBack] = useState(() => getHistoryIdx() > 0);
 
   useEffect(() => {
-    let changed = false;
-
-    if (navigationType === 'PUSH') {
-      depthRef.current += 1;
-      changed = true;
-    } else if (navigationType === 'POP' && depthRef.current > 0) {
-      depthRef.current -= 1;
-      changed = true;
-    }
-    // REPLACE: depth unchanged
-
-    setCanGoBack(depthRef.current > 0);
-
-    // Undo side effects in cleanup for StrictMode double-fire
-    // Only undo if the effect actually mutated depthRef.
-    return () => {
-      if (!changed) return;
-      if (navigationType === 'PUSH') {
-        depthRef.current -= 1;
-      } else if (navigationType === 'POP') {
-        depthRef.current += 1;
-      }
-    };
-  }, [navigationType]);
+    // After each navigation, re-read the history index.
+    // React Router synchronously updates history.state before this effect runs,
+    // so no delay is needed.
+    setCanGoBack(getHistoryIdx() > 0);
+  }, [navigationType, getHistoryIdx]);
 
   // Start the automation scheduler on mount; stop on unmount.
   useEffect(() => {
