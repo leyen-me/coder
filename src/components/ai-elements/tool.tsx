@@ -1,7 +1,6 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
@@ -11,16 +10,14 @@ import { cn } from "@/lib/utils";
 import type { DynamicToolUIPart, ToolUIPart } from "ai";
 import {
   CheckCircleIcon,
-  CheckIcon,
   ChevronDownIcon,
   CircleIcon,
   ClockIcon,
-  CopyIcon,
   WrenchIcon,
   XCircleIcon,
 } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
-import { isValidElement, useCallback, useEffect, useRef, useState } from "react";
+import { isValidElement } from "react";
 
 import { CodeBlock } from "./code-block";
 
@@ -119,27 +116,6 @@ export type ToolInputProps = ComponentProps<"div"> & {
   input: ToolPart["input"];
 };
 
-function serializeToolOutput(
-  output: ToolPart["output"],
-  errorText?: ToolPart["errorText"]
-): string {
-  const parts: string[] = [];
-
-  if (errorText) {
-    parts.push(errorText);
-  }
-
-  if (output !== undefined && output !== null && output !== "") {
-    if (typeof output === "string") {
-      parts.push(output);
-    } else if (!isValidElement(output)) {
-      parts.push(JSON.stringify(output, null, 2));
-    }
-  }
-
-  return parts.join("\n\n");
-}
-
 const TOOL_OUTPUT_STRING_PREVIEW_CHARS = 8_000;
 
 function truncateDeepStrings(value: unknown, maxLen: number): unknown {
@@ -183,60 +159,12 @@ function formatOutputForDisplay(output: ToolPart["output"]): string {
   return "";
 }
 
-function CopyButton({ text }: { text: string }) {
-  const [isCopied, setIsCopied] = useState(false);
-  const timeoutRef = useRef<number>(0);
-
-  const handleCopy = useCallback(async () => {
-    if (typeof window === "undefined" || !navigator?.clipboard?.writeText) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(text);
-      setIsCopied(true);
-      timeoutRef.current = window.setTimeout(() => setIsCopied(false), 2000);
-    } catch {
-      // Ignore clipboard failures.
-    }
-  }, [text]);
-
-  useEffect(
-    () => () => {
-      window.clearTimeout(timeoutRef.current);
-    },
-    []
-  );
-
-  const Icon = isCopied ? CheckIcon : CopyIcon;
-
+function ToolSectionHeader({ label }: { label: string }) {
   return (
-    <Button
-      aria-label="Copy"
-      className="size-7 shrink-0 text-muted-foreground"
-      onClick={handleCopy}
-      size="icon"
-      type="button"
-      variant="ghost"
-    >
-      <Icon className="size-3.5" />
-    </Button>
-  );
-}
-
-function ToolSectionHeader({
-  label,
-  copyText,
-}: {
-  label: string;
-  copyText: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex items-center gap-2">
       <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
         {label}
       </h4>
-      <CopyButton text={copyText} />
     </div>
   );
 }
@@ -246,7 +174,7 @@ export const ToolInput = ({ className, input, ...props }: ToolInputProps) => {
 
   return (
     <div className={cn("space-y-2 overflow-hidden", className)} {...props}>
-      <ToolSectionHeader copyText={code} label="Parameters" />
+      <ToolSectionHeader label="Parameters" />
       <CodeBlock code={code} language="json" />
     </div>
   );
@@ -267,7 +195,6 @@ export const ToolOutput = ({
     return null;
   }
 
-  const copyText = serializeToolOutput(output, errorText);
   const label = errorText ? "Error" : "Result";
 
   let content: ReactNode;
@@ -291,7 +218,7 @@ export const ToolOutput = ({
 
   return (
     <div className={cn("space-y-2", className)} {...props}>
-      <ToolSectionHeader copyText={copyText} label={label} />
+      <ToolSectionHeader label={label} />
       {errorText ? (
         <div className="rounded-md bg-destructive/10 p-4 text-destructive text-xs">
           {errorText}
