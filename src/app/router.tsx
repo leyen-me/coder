@@ -4,7 +4,6 @@ import { AutomationsPage } from "@/features/automations/pages/automations-page";
 import { ChatPage } from "@/features/chat/pages/chat-page";
 import { HistoryPage } from "@/features/history/pages/history-page";
 import { SkillsPage } from "@/features/skills/pages/skills-page";
-import { StatisticsPage } from "@/features/statistics/pages/statistics-page";
 import { SettingsPage } from "@/features/settings/pages/settings-page";
 
 import { AppShell } from "./app-shell";
@@ -25,7 +24,6 @@ export const router = createBrowserRouter([
           { path: "history", element: <HistoryPage /> },
           { path: "skills", element: <SkillsPage /> },
           { path: "automations", element: <AutomationsPage /> },
-          { path: "statistics", element: <StatisticsPage /> },
         ],
       },
       { path: "settings", element: <SettingsPage /> },

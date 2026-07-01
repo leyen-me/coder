@@ -6,7 +6,6 @@ export const paths = {
   history: "/history",
   skills: "/skills",
   automations: "/automations",
-  statistics: "/statistics",
   settings: "/settings",
 } as const;
 

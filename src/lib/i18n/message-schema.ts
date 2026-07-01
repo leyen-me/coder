@@ -18,7 +18,6 @@ export type Messages = {
     search: string;
     skills: string;
     automations: string;
-    statistics: string;
     settings: string;
     theme: string;
     themeAriaLabel: string;
@@ -278,7 +277,6 @@ export type Messages = {
           settings: { label: string; description: string };
           skills: { label: string; description: string };
           automations: { label: string; description: string };
-          statistics: { label: string; description: string };
           history: { label: string; description: string };
           newWindow: { label: string; description: string };
         };
@@ -550,7 +548,6 @@ export type Messages = {
     skills: { title: string };
     automations: { title: string };
     chatSession: { title: string };
-    statistics: { title: string };
     comingSoon: string;
   };
   automations: {
@@ -658,47 +655,6 @@ export type Messages = {
     deleteConfirmTitle: string;
     deleteConfirmDescription: string;
     loadFailedHint: string;
-  };
-  statistics: {
-    title: string;
-    description: string;
-    todayTitle: string;
-    sessionCount: string;
-    messageCount: string;
-    agentRunCount: string;
-    totalTokens: string;
-    todayMessages: string;
-    weekMessages: string;
-    todayTokens: string;
-    todaySessions: string;
-    activeModel: string;
-    avgDuration: string;
-    messageTrend: string;
-    modelDistribution: string;
-    sessionTypeDistribution: string;
-    toolRanking: string;
-    durationDistribution: string;
-    tokenHeatmap: string;
-    vsPreviousPeriod: string;
-    activeSessions: string;
-    noData: string;
-    less: string;
-    more: string;
-    tokens: string;
-    messages: string;
-    sessions: string;
-    runs: string;
-    seconds: string;
-    sessionType: string;
-    autonomyMode: string;
-    standard: string;
-    longTask: string;
-    interactive: string;
-    unattended: string;
-    toolName: string;
-    toolCount: string;
-    duration: string;
-    count: string;
   };
   rightPanel: {
     explorer: string;
