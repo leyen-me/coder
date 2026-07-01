@@ -44,25 +44,25 @@ export function AppShell() {
   // instead of window.history.length, which doesn't shrink on back.
   const [canGoBack, setCanGoBack] = useState(false);
   const depthRef = useRef(0);
-  const isFirstNavRef = useRef(true);
 
   useEffect(() => {
-    if (isFirstNavRef.current) {
-      isFirstNavRef.current = false;
-      return;
-    }
+    let changed = false;
 
     if (navigationType === 'PUSH') {
       depthRef.current += 1;
-    } else if (navigationType === 'POP') {
-      depthRef.current = Math.max(0, depthRef.current - 1);
+      changed = true;
+    } else if (navigationType === 'POP' && depthRef.current > 0) {
+      depthRef.current -= 1;
+      changed = true;
     }
     // REPLACE: depth unchanged
 
     setCanGoBack(depthRef.current > 0);
 
     // Undo side effects in cleanup for StrictMode double-fire
+    // Only undo if the effect actually mutated depthRef.
     return () => {
+      if (!changed) return;
       if (navigationType === 'PUSH') {
         depthRef.current -= 1;
       } else if (navigationType === 'POP') {
