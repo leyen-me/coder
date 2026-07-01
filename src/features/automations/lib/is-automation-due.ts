@@ -9,7 +9,6 @@ export function isAutomationDue(automation: AutomationRecord): boolean {
     const interval = CronExpressionParser.parse(
       automation.cronExpression.trim(),
     );
-    const now = new Date();
     const prev = interval.prev().toDate();
     const lastRunAt = getLastAutomationRunAt(automation);
 
