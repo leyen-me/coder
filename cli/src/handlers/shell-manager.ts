@@ -322,3 +322,34 @@ export function readShellLogs(
     truncated: offset + limit < totalBytes,
   };
 }
+
+/**
+ * Kill all running background shells. Used on exit to prevent orphan processes.
+ */
+export function killAllShells(): void {
+  for (const shell of shells.values()) {
+    if (shell.status === "running") {
+      try {
+        shell.process.kill("SIGTERM");
+      } catch {
+        // Process already dead
+      }
+    }
+  }
+  shells.clear();
+}
+
+/**
+ * Kill all shells associated with a given task. Used on cancellation.
+ */
+export function killShellsByTask(taskId: string): void {
+  for (const [id, shell] of shells) {
+    if (shell.taskId === taskId && shell.status === "running") {
+      try {
+        shell.process.kill("SIGTERM");
+      } catch {
+        // Process already dead
+      }
+    }
+  }
+}

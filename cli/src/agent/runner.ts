@@ -10,6 +10,7 @@ import type { ToolExecutionContext, ToolResultEnvelope } from "../handlers/types
 import type { AgentChatMessage, AgentEvent, AgentEventHandler, AgentStartInput, AgentMode } from "./types";
 import { startLLMStream } from "./llm-stream";
 import type { ThinkingParamsOverride } from "./thinking-config";
+import { killShellsByTask } from "../handlers/shell-manager";
 
 // ---------------------------------------------------------------------------
 // Multi-turn agent loop
@@ -33,6 +34,7 @@ export async function runAgentWithTools(
   while (true) {
     // Check for cancellation before each turn
     if (input.signal?.aborted) {
+      killShellsByTask(input.taskId);
       onEvent({ type: "status", taskId: input.taskId, status: "cancelled" });
       onEvent({ type: "done", taskId: input.taskId, usage: cumulativeUsage });
       return messages;
@@ -44,6 +46,7 @@ export async function runAgentWithTools(
     } catch (err) {
       // Treat abort errors as graceful cancellation
       if (err instanceof Error && err.name === "AbortError") {
+        killShellsByTask(input.taskId);
         onEvent({ type: "status", taskId: input.taskId, status: "cancelled" });
         onEvent({ type: "done", taskId: input.taskId, usage: cumulativeUsage });
         return messages;

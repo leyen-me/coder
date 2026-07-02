@@ -8,6 +8,7 @@ import { runAgentSession } from "../agent/session";
 import type { AgentChatMessage } from "../agent/types";
 import { bold, dim, info, error, warning, writeLine, writeError } from "../ui";
 import { loadConfig } from "../config";
+import { killAllShells } from "../handlers/shell-manager";
 
 export async function replCommand(options: GlobalOptions): Promise<void> {
   const config = loadConfig();
@@ -128,6 +129,7 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
   });
 
   rl.on("close", () => {
+    killAllShells();
     writeLine(dim("\nGoodbye! 👋"));
     process.exit(0);
   });
