@@ -73,8 +73,13 @@ export async function runAgentSession(
   let messages: AgentChatMessage[];
 
   if (options.existingMessages && options.existingMessages.length > 0) {
-    // Continue conversation: existing messages already contain the system prompt
-    messages = [...options.existingMessages, { role: "user", content: prompt }];
+    // Continue conversation: existing messages already contain the system prompt.
+    // Sanitize the history before reusing it — filter out assistant messages
+    // that have neither content nor tool_calls (e.g. reasoning-only turns).
+    messages = [
+      ...sanitizeMessages(options.existingMessages),
+      { role: "user", content: prompt },
+    ];
   } else {
     // Fresh session: build system prompt
     const env = resolveAgentEnvironment(workspaceDir);
@@ -199,4 +204,22 @@ export async function runAgentSession(
     writeError(error(`Fatal error: ${message}`));
     process.exit(1);
   }
+}
+
+/**
+ * Sanitize conversation history before reusing it.
+ * Filters out assistant messages that have neither content, reasoning_content,
+ * nor tool_calls — these would cause API 400 errors on the next request.
+ * Mirrors the desktop's hasMessagePayload filter in build-agent-messages.ts.
+ */
+function sanitizeMessages(messages: AgentChatMessage[]): AgentChatMessage[] {
+  return messages.filter((msg) => {
+    if (msg.role !== "assistant") return true;
+    const text = typeof msg.content === "string" ? msg.content : undefined;
+    return (
+      Boolean(text?.trim()) ||
+      Boolean(msg.reasoning_content?.trim()) ||
+      Boolean(msg.tool_calls?.length)
+    );
+  });
 }

@@ -48,14 +48,14 @@ export async function runAgentWithTools(
     if (turn.toolCalls.length === 0) {
       // Append the final assistant response to messages for context persistence
       if (turn.content || turn.reasoningContent) {
-        messages = [
-          ...messages,
-          {
-            role: "assistant",
-            content: turn.content || "",
-            reasoning_content: turn.reasoningContent || undefined,
-          },
-        ];
+        const assistantMessage: AgentChatMessage = { role: "assistant" };
+        if (turn.content.trim()) {
+          assistantMessage.content = turn.content;
+        }
+        if (turn.reasoningContent.trim()) {
+          assistantMessage.reasoning_content = turn.reasoningContent;
+        }
+        messages = [...messages, assistantMessage];
       }
       onEvent({ type: "done", taskId: input.taskId, usage: cumulativeUsage ?? turn.usage });
       onEvent({ type: "status", taskId: input.taskId, status: "completed" });
