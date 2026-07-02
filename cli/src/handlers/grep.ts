@@ -35,11 +35,14 @@ export const grepHandler: ToolHandler = async (rawArgs, context) => {
   const ctxAfter = args.context_after ?? args.context ?? 0;
   const flags = args.case_insensitive ? "gi" : "g";
   const outputMode = args.output_mode ?? "content";
+  const multiline = args.multiline ?? false;
 
   try {
     let searchRegex: RegExp;
     try {
-      searchRegex = new RegExp(args.pattern, flags);
+      // For multiline, use s flag so . matches newlines
+      const regexFlags = multiline ? `${flags}s` : flags;
+      searchRegex = new RegExp(args.pattern, regexFlags);
     } catch {
       return toolFailure("grep", "invalid_pattern", `Invalid regex pattern: ${args.pattern}`);
     }
@@ -47,6 +50,8 @@ export const grepHandler: ToolHandler = async (rawArgs, context) => {
     const files = collectFiles(searchPath);
     const matches: NonNullable<GrepData["matches"]> = [];
     const fileMatchSet: Set<string> = new Set();
+    /** Per-file match count for "count" mode. */
+    const fileCountMap: Record<string, number> = {};
     let totalMatches = 0;
     let skippedFiles = 0;
 
@@ -61,50 +66,80 @@ export const grepHandler: ToolHandler = async (rawArgs, context) => {
         continue;
       }
 
-      const lines = content.split("\n");
+      const relativePath = relative(context.workspaceDir, file);
       let fileHasMatch = false;
+      let fileMatchCount = 0;
 
-      for (let lineNum = 0; lineNum < lines.length; lineNum++) {
-        if (searchRegex.test(lines[lineNum])) {
+      if (multiline) {
+        // Multiline mode: test the regex against the full content
+        const lines = content.split("\n");
+        searchRegex.lastIndex = 0;
+        const fullMatch = searchRegex.exec(content);
+        if (fullMatch) {
+          fileHasMatch = true;
+          // Count matches across the full content
+          do {
+            totalMatches++;
+            fileMatchCount++;
+            searchRegex.lastIndex = fullMatch.index + 1;
+          } while (searchRegex.exec(content));
           searchRegex.lastIndex = 0;
-          totalMatches++;
 
-          if (outputMode === "files_with_matches") {
-            fileMatchSet.add(relative(context.workspaceDir, file));
-            fileHasMatch = true;
-            continue;
-          }
-
-          if (outputMode === "count") {
-            fileHasMatch = true;
-            continue;
-          }
-
-          // content mode
-          if (totalMatches > offset && totalMatches <= offset + headLimit) {
-            const contextBeforeLines = ctxBefore > 0
-              ? lines.slice(Math.max(0, lineNum - ctxBefore), lineNum)
-              : undefined;
-            const contextAfterLines = ctxAfter > 0
-              ? lines.slice(lineNum + 1, lineNum + 1 + ctxAfter)
-              : undefined;
-
-            matches!.push({
-              path: relative(context.workspaceDir, file),
-              lineNumber: lineNum + 1,
-              line: lines[lineNum],
-              contextBefore: contextBeforeLines?.length ? contextBeforeLines : undefined,
-              contextAfter: contextAfterLines?.length ? contextAfterLines : undefined,
+          if (outputMode === "content") {
+            matches.push({
+              path: relativePath,
+              lineNumber: 1,
+              line: fullMatch[0].slice(0, 200),
             });
+          }
+        }
+      } else {
+        // Line-by-line mode
+        const lines = content.split("\n");
+        for (let lineNum = 0; lineNum < lines.length; lineNum++) {
+          searchRegex.lastIndex = 0;
+          if (searchRegex.test(lines[lineNum])) {
+            totalMatches++;
+            fileMatchCount++;
+
+            if (outputMode === "files_with_matches") {
+              fileMatchSet.add(relativePath);
+              fileHasMatch = true;
+              continue;
+            }
+
+            if (outputMode === "count") {
+              fileHasMatch = true;
+              continue;
+            }
+
+            // content mode
+            if (totalMatches > offset && totalMatches <= offset + headLimit) {
+              const contextBeforeLines = ctxBefore > 0
+                ? lines.slice(Math.max(0, lineNum - ctxBefore), lineNum)
+                : undefined;
+              const contextAfterLines = ctxAfter > 0
+                ? lines.slice(lineNum + 1, lineNum + 1 + ctxAfter)
+                : undefined;
+
+              matches.push({
+                path: relativePath,
+                lineNumber: lineNum + 1,
+                line: lines[lineNum],
+                contextBefore: contextBeforeLines?.length ? contextBeforeLines : undefined,
+                contextAfter: contextAfterLines?.length ? contextAfterLines : undefined,
+              });
+            }
           }
         }
       }
 
-      if (fileHasMatch && outputMode === "count") {
-        fileMatchSet.add(relative(context.workspaceDir, file));
+      if (fileHasMatch || fileMatchCount > 0) {
+        fileMatchSet.add(relativePath);
+        fileCountMap[relativePath] = fileMatchCount;
       }
 
-      if (fileHasMatch && outputMode === "files_with_matches" && fileMatchSet.size >= headLimit) {
+      if (outputMode === "files_with_matches" && fileMatchSet.size >= headLimit) {
         break;
       }
     }
@@ -118,11 +153,12 @@ export const grepHandler: ToolHandler = async (rawArgs, context) => {
     };
 
     if (outputMode === "content") {
-      result.matches = matches!;
+      result.matches = matches;
     } else if (outputMode === "files_with_matches") {
       result.files = [...fileMatchSet];
     } else if (outputMode === "count") {
       result.files = [...fileMatchSet];
+      result.fileCounts = fileCountMap;
     }
 
     if (skippedFiles > 0) {
@@ -137,6 +173,17 @@ export const grepHandler: ToolHandler = async (rawArgs, context) => {
 };
 
 function collectFiles(dirPath: string): string[] {
+  // If the path points directly to a file, return it as-is
+  try {
+    const stats = statSync(dirPath);
+    if (stats.isFile()) {
+      return [dirPath];
+    }
+  } catch {
+    return [];
+  }
+
+  // Otherwise walk the directory tree
   const results: string[] = [];
 
   function walk(dir: string): void {

@@ -117,6 +117,8 @@ export type GrepData = {
     contextAfter?: string[];
   }>;
   files?: string[];
+  /** Per-file match counts (only populated in "count" mode). */
+  fileCounts?: Record<string, number>;
   totalMatches: number;
   truncated: boolean;
   skippedFiles?: number;
