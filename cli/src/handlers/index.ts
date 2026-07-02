@@ -78,7 +78,7 @@ const AGENT_TOOL_DEFINITIONS: ToolDefinition[] = [
     type: "function",
     function: {
       name: "write_file",
-      description: "Create a new text file. Fails if the file already exists. Use replace_file or edit_file to modify existing files.",
+      description: "Create a new text file. Fails if the file already exists. Use edit_file or replace_lines to modify existing files.",
       parameters: {
         type: "object",
         properties: {
@@ -95,7 +95,7 @@ const AGENT_TOOL_DEFINITIONS: ToolDefinition[] = [
     type: "function",
     function: {
       name: "replace_file",
-      description: "Replace the entire contents of an existing text file. Use expected_sha256 from read_file to avoid overwriting concurrent changes.",
+      description: "Replace an existing text file with new content. Use as a last resort — prefer edit_file or replace_lines first.",
       parameters: {
         type: "object",
         properties: {
@@ -114,7 +114,7 @@ const AGENT_TOOL_DEFINITIONS: ToolDefinition[] = [
     type: "function",
     function: {
       name: "edit_file",
-      description: "Apply a targeted search-and-replace edit to an existing text file. Prefer this over replace_file for small changes.",
+      description: "Apply a search-and-replace edit to an existing text file. The primary file editing tool — use this first.",
       parameters: {
         type: "object",
         properties: {
