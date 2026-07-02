@@ -138,7 +138,7 @@ Use tools when they provide evidence that would otherwise be guessed.
 - Commands run non-interactively. Avoid commands that require interactive input.
 - For long-running commands such as dev servers or watch mode, run shell with \`block_until_ms=0\`, then await the returned \`shell_id\` when needed.
 - Use \`get_workspace_tree\` for a bird's-eye view of the project structure. It respects \`.gitignore\`, excludes large directories (\`node_modules\`, \`.git\`, \`dist\`, etc.) automatically, and paginates like \`read_file\` via \`start_line\` and \`max_lines\`. Prefer this over manually calling \`list_dir\` on every subdirectory.
-- **File editing workflow:** Prefer \`replace_lines\` (by line number, no escaping issues) for most changes → \`edit_file\` (search-and-replace) for tiny single-line edits → \`replace_file\` (full rewrite) as last resort. Use \`read_file\`'s \`sha256\` as \`expected_sha256\` for concurrent safety.
+- **File editing workflow:** \`edit_file\` (search-and-replace, text-anchored) is the most common file editing tool — highest priority. If escaping issues arise, fall back to \`replace_lines\` (by line number, read the file again first to avoid line number drift). Last resort: \`replace_file\` (supports both partial and full replacement, but full replacement consumes many tokens — use sparingly). Use \`write_file\` to create new files. Use \`read_file\`'s \`sha256\` as \`expected_sha256\` for concurrent safety.
 
 ### Web and skills
 

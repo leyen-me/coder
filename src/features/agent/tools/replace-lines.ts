@@ -47,7 +47,12 @@ export const replaceLinesHandler: ToolHandler = async (rawArgs, context) => {
       createBackup: args.value.create_backup ?? false,
       respectGitignore: args.value.respect_gitignore ?? true,
     });
-    return toolSuccess(REPLACE_LINES_TOOL_NAME, data);
+    return toolSuccess(REPLACE_LINES_TOOL_NAME, {
+      ...data,
+      warning: data.warning
+        ? `${data.warning} Rows may have shifted — re-read the file with read_file before your next edit.`
+        : "Rows may have shifted — re-read the file with read_file before your next edit.",
+    });
   } catch (error) {
     const structured = parseFileModifyToolError(error);
     if (structured) {

@@ -111,7 +111,7 @@ export const WRITE_FILE_TOOL: AgentToolDefinition = {
   function: {
     name: WRITE_FILE_TOOL_NAME,
     description:
-      "Create a new text file. Fails if the file already exists. Use replace_file or edit_file to modify existing files.",
+      "Create a new text file. Fails if the file already exists. Use edit_file or replace_lines to modify existing files.",
     parameters: {
       type: "object",
       properties: {
@@ -140,7 +140,7 @@ export const REPLACE_FILE_TOOL: AgentToolDefinition = {
   function: {
     name: REPLACE_FILE_TOOL_NAME,
     description:
-      "Replace the entire contents of an existing text file. Use expected_sha256 from read_file to avoid overwriting concurrent changes.",
+      "Replace an existing text file with new content. Use as a last resort — prefer edit_file or replace_lines first.",
     parameters: {
       type: "object",
       properties: {
@@ -179,7 +179,7 @@ export const EDIT_FILE_TOOL: AgentToolDefinition = {
   function: {
     name: EDIT_FILE_TOOL_NAME,
     description:
-      "Apply a targeted search-and-replace edit to an existing text file. Prefer this over replace_file for small changes.",
+      "Apply a search-and-replace edit to an existing text file. The primary file editing tool — use this first.",
     parameters: {
       type: "object",
       properties: {
@@ -231,12 +231,9 @@ export const REPLACE_LINES_TOOL: AgentToolDefinition = {
     name: REPLACE_LINES_TOOL_NAME,
     description:
       "Replace a range of lines in an existing text file by line number. " +
-      "Read the file with read_file first to see line numbers, then use this to replace lines " +
-      "start_line through end_line (inclusive, 1-based) with content. " +
-      "Unlike edit_file, there is NO JSON escaping issue — just provide the replacement text as-is. " +
-      "Use this when the replacement content contains special characters (quotes, backslashes) " +
-      "or when you need to add/remove multiple lines at once. " +
-      "Set content to an empty string to delete the specified lines.",
+      "Read the file with read_file first for accurate line numbers. " +
+      "Use this when edit_file cannot handle the replacement content due to JSON escaping issues (special characters, quotes, backslashes). " +
+      "No JSON escaping needed — pass the replacement text as-is.",
     parameters: {
       type: "object",
       properties: {

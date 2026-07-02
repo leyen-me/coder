@@ -68,6 +68,8 @@ export const replaceLinesHandler: ToolHandler = async (rawArgs, context) => {
       bytesWritten: Buffer.byteLength(newContent, "utf-8"),
       linesAdded: replacementLines.length,
       linesRemoved: endLine - args.start_line + 1,
+      warning:
+        "Rows may have shifted — re-read the file with read_file before your next edit.",
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
