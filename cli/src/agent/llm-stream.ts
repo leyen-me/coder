@@ -27,6 +27,8 @@ type StreamOptions = {
   thinkingEnabled?: boolean;
   /** Custom override for thinking params (used by custom providers). */
   thinkingOverride?: ThinkingParamsOverride;
+  /** Signal to cancel the stream mid-response. */
+  signal?: AbortSignal;
 };
 
 function chatCompletionsUrl(baseUrl: string): string {
@@ -80,6 +82,7 @@ export async function startLLMStream(
         Accept: "text/event-stream",
       },
       body: JSON.stringify(body),
+      signal: options.signal,
     });
 
     if (!response.ok) {

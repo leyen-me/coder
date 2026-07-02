@@ -60,6 +60,8 @@ export type AgentStartInput = {
   thinkingEnabled?: boolean;
   /** Custom override for thinking params (read from config for custom providers). */
   thinkingParams?: ThinkingParamsOverride | undefined;
+  /** Signal to cancel the agent loop mid-turn. */
+  signal?: AbortSignal;
   maxContextTokens?: number;
   handoffTriggerThreshold?: number;
 };

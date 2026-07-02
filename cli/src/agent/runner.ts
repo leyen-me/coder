@@ -31,7 +31,25 @@ export async function runAgentWithTools(
   let cumulativeUsage: AgentTurnResult["usage"] | undefined;
 
   while (true) {
-    const turn = await runSingleAgentTurn(input, messages, onEvent);
+    // Check for cancellation before each turn
+    if (input.signal?.aborted) {
+      onEvent({ type: "status", taskId: input.taskId, status: "cancelled" });
+      onEvent({ type: "done", taskId: input.taskId, usage: cumulativeUsage });
+      return messages;
+    }
+
+    let turn: AgentTurnResult;
+    try {
+      turn = await runSingleAgentTurn(input, messages, onEvent);
+    } catch (err) {
+      // Treat abort errors as graceful cancellation
+      if (err instanceof Error && err.name === "AbortError") {
+        onEvent({ type: "status", taskId: input.taskId, status: "cancelled" });
+        onEvent({ type: "done", taskId: input.taskId, usage: cumulativeUsage });
+        return messages;
+      }
+      throw err;
+    }
 
     // Accumulate usage
     if (turn.usage) {
@@ -92,6 +110,7 @@ async function runSingleAgentTurn(
         thinkingProvider: input.provider,
         thinkingEnabled: input.thinkingEnabled,
         thinkingOverride: input.thinkingParams,
+        signal: input.signal,
       },
       {
         onContent: (delta: string) => {

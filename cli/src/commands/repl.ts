@@ -6,7 +6,7 @@ import { createInterface } from "node:readline";
 import type { GlobalOptions } from "./common";
 import { runAgentSession } from "../agent/session";
 import type { AgentChatMessage } from "../agent/types";
-import { bold, dim, info, error, writeLine, writeError } from "../ui";
+import { bold, dim, info, error, warning, writeLine, writeError } from "../ui";
 import { loadConfig } from "../config";
 
 export async function replCommand(options: GlobalOptions): Promise<void> {
@@ -26,6 +26,7 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
   // Persistent conversation context across REPL turns
   let conversationMessages: AgentChatMessage[] | undefined;
   let thinkingEnabled = true; // default to enabled for providers that support it
+  let abortController = new AbortController();
 
   const rl = createInterface({
     input: process.stdin,
@@ -57,6 +58,7 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
 
     if (trimmed === "/new") {
       conversationMessages = undefined;
+      abortController = new AbortController();
       writeLine(info("Started a new session. Context has been cleared."));
       rl.prompt();
       return;
@@ -113,6 +115,7 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
         interactive: true,
         thinking: thinkingEnabled,
         existingMessages: conversationMessages,
+        signal: abortController.signal,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -130,6 +133,16 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
   });
 
   rl.on("SIGINT", () => {
-    rl.close();
+    if (abortController.signal.aborted) {
+      // Second Ctrl+C: exit
+      rl.close();
+    } else {
+      // First Ctrl+C: cancel current request
+      abortController.abort();
+      writeLine("");
+      writeLine(warning("⚠ Cancelled"));
+      rl.prompt();
+      rl.resume();
+    }
   });
 }

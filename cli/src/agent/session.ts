@@ -26,6 +26,8 @@ export type SessionOptions = {
    * The new user prompt will be appended.
    */
   existingMessages?: AgentChatMessage[];
+  /** Signal to cancel the agent mid-session. */
+  signal?: AbortSignal;
 };
 
 /**
@@ -124,6 +126,7 @@ export async function runAgentSession(
         provider: providerId,
         thinkingEnabled,
         thinkingParams: thinkingParamsOverride,
+        signal: options.signal,
       },
       toolContext,
       (event: AgentEvent) => {
