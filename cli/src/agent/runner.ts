@@ -87,7 +87,7 @@ async function runSingleAgentTurn(
         apiKey: input.apiKey,
         model: input.model,
         messages,
-        tools: getToolDefinitions(),
+        tools: getToolDefinitions(input.agentMode),
       },
       {
         onContent: (delta: string) => {

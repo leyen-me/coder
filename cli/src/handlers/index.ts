@@ -12,19 +12,17 @@ import { replaceLinesHandler } from "./replace-lines";
 import { globHandler } from "./glob";
 import { grepHandler } from "./grep";
 import { shellHandler } from "./shell";
-import { remoteShellHandler } from "./remote-shell";
 import { awaitShellHandler } from "./await-shell";
 import { listShellsHandler } from "./list-shells";
 import { killShellHandler } from "./kill-shell";
 import { readShellLogsHandler } from "./read-shell-logs";
 import { webSearchHandler } from "./web-search";
 import { browsePageHandler } from "./browse-page";
-import { listSkillsHandler, readSkillHandler, createSkillHandler, updateSkillHandler } from "./skills";
 import { todoReadHandler, todoWriteHandler } from "./todos";
 import { planCreateHandler, planReadHandler, planUpdateHandler, planEditHandler, planDeleteHandler, planListHandler } from "./plans";
 import { getWorkspaceTreeHandler } from "./workspace-tree";
 import { askQuestionHandler } from "./ask-question";
-import { sendEmailHandler } from "./send-email";
+
 import { spawnSubAgentHandler } from "./spawn-subagent";
 
 // ---------------------------------------------------------------------------
@@ -220,24 +218,6 @@ const AGENT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     type: "function",
     function: {
-      name: "remote_shell",
-      description: "Execute a command on a remote machine via SSH.",
-      parameters: {
-        type: "object",
-        properties: {
-          target: { type: "string", description: "Target remote machine alias (configured in coder config)." },
-          command: { type: "string", description: "The shell command to execute on the remote machine." },
-          description: { type: "string", description: "Short human-readable description." },
-          block_until_ms: { type: "integer", description: "Max wait time in ms.", default: 30000 },
-        },
-        required: ["target", "command"],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
       name: "await",
       description: "Poll a background shell started with shell(block_until_ms=0) until it completes or times out.",
       parameters: {
@@ -336,69 +316,6 @@ const AGENT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     type: "function",
     function: {
-      name: "list_skills",
-      description: "List available user skills.",
-      parameters: {
-        type: "object",
-        properties: {},
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "read_skill",
-      description: "Load the full instructions for an enabled skill by slug.",
-      parameters: {
-        type: "object",
-        properties: {
-          slug: { type: "string", description: "Skill slug from list_skills." },
-        },
-        required: ["slug"],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "create_skill",
-      description: "Create a custom user skill with instructions the agent can follow later.",
-      parameters: {
-        type: "object",
-        properties: {
-          slug: { type: "string", description: "Unique identifier. Lowercase letters, numbers, and hyphens only." },
-          name: { type: "string", description: "Short display name." },
-          description: { type: "string", description: "When to use this skill." },
-          content: { type: "string", description: "Full skill instructions." },
-        },
-        required: ["slug", "name", "content"],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "update_skill",
-      description: "Update an existing user skill by slug.",
-      parameters: {
-        type: "object",
-        properties: {
-          slug: { type: "string", description: "Slug of the existing user skill to update." },
-          name: { type: "string", description: "New short display name." },
-          description: { type: "string", description: "New description." },
-          content: { type: "string", description: "New full skill instructions." },
-        },
-        required: ["slug"],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
       name: "todo_read",
       description: "Read the current structured todo list for the session.",
       parameters: {
@@ -455,23 +372,6 @@ const AGENT_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     type: "function",
     function: {
-      name: "send_email",
-      description: "Send an email notification. Configure SMTP settings to enable actual delivery.",
-      parameters: {
-        type: "object",
-        properties: {
-          to: { type: "string", description: "Recipient email address." },
-          subject: { type: "string", description: "Email subject." },
-          body: { type: "string", description: "Email body content." },
-        },
-        required: ["to", "subject", "body"],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
       name: "spawn_subagent",
       description: "Spawn a sub-agent to complete an independent sub-task.",
       parameters: {
@@ -517,21 +417,15 @@ const HANDLER_MAP: Record<string, ToolHandler> = {
   glob: globHandler,
   grep: grepHandler,
   shell: shellHandler,
-  remote_shell: remoteShellHandler,
   await: awaitShellHandler,
   list_shells: listShellsHandler,
   kill_shell: killShellHandler,
   read_shell_logs: readShellLogsHandler,
   web_search: webSearchHandler,
   browse_page: browsePageHandler,
-  list_skills: listSkillsHandler,
-  read_skill: readSkillHandler,
-  create_skill: createSkillHandler,
-  update_skill: updateSkillHandler,
   todo_read: todoReadHandler,
   todo_write: todoWriteHandler,
   get_workspace_tree: getWorkspaceTreeHandler,
-  send_email: sendEmailHandler,
   spawn_subagent: spawnSubAgentHandler,
   ask_question: askQuestionHandler,
   plan_create: planCreateHandler,
@@ -546,8 +440,53 @@ const HANDLER_MAP: Record<string, ToolHandler> = {
 // Public API
 // ---------------------------------------------------------------------------
 
-export function getToolDefinitions(): ToolDefinition[] {
-  return AGENT_TOOL_DEFINITIONS;
+// ---------------------------------------------------------------------------
+// Mode-based tool filtering
+// ---------------------------------------------------------------------------
+
+const ASK_QUESTION_TOOL_NAME = "ask_question";
+
+/** Tools excluded from default "agent" mode. */
+const AGENT_MODE_EXCLUDED_TOOL_NAMES = new Set([
+  ASK_QUESTION_TOOL_NAME,
+]);
+
+/** Tools allowed in \"ask\" mode — only read-only / information-gathering. */
+const ASK_MODE_TOOL_NAMES = new Set([
+  "list_dir",
+  "read_file",
+  "glob",
+  "grep",
+  "web_search",
+  "browse_page",
+  "todo_read",
+  "list_shells",
+  "read_shell_logs",
+  "get_workspace_tree",
+]);
+
+/**
+ * Returns tool definitions filtered by agent mode.
+ * - "agent": all tools except ask_question.
+ * - "plan":   all tools including ask_question.
+ * - "ask":    only read-only tools.
+ * - undefined: all tools (backward-compatible).
+ */
+export function getToolDefinitions(agentMode?: string): ToolDefinition[] {
+  if (agentMode === "ask") {
+    return AGENT_TOOL_DEFINITIONS.filter((t) =>
+      ASK_MODE_TOOL_NAMES.has(t.function.name),
+    );
+  }
+
+  if (agentMode === "plan") {
+    return AGENT_TOOL_DEFINITIONS;
+  }
+
+  // Default agent mode: exclude ask_question
+  return AGENT_TOOL_DEFINITIONS.filter(
+    (t) => !AGENT_MODE_EXCLUDED_TOOL_NAMES.has(t.function.name),
+  );
 }
 
 export function getToolHandler(name: string): ToolHandler | undefined {

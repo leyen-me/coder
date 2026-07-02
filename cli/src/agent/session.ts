@@ -89,6 +89,7 @@ export async function runAgentSession(
         apiKeyEnvVar: resolvedConfig.apiKeyEnvVar,
         model: modelId,
         messages,
+        agentMode: options.agentMode,
       },
       toolContext,
       (event: AgentEvent) => {

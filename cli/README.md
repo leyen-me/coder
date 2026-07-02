@@ -254,12 +254,9 @@ cli/
 │   │   ├── web-search.ts
 │   │   ├── browse-page.ts
 │   │   ├── workspace-tree.ts
-│   │   ├── skills.ts
 │   │   ├── todos.ts
 │   │   ├── plans.ts
 │   │   ├── ask-question.ts
-│   │   ├── send-email.ts
-│   │   ├── remote-shell.ts
 │   │   └── spawn-subagent.ts
 │   └── ui/                   # Terminal UI utilities
 │       └── index.ts

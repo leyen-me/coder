@@ -52,6 +52,7 @@ export type AgentStartInput = {
   apiKeyEnvVar: string;
   model: string;
   messages: AgentChatMessage[];
+  agentMode: AgentMode;
   maxContextTokens?: number;
   handoffTriggerThreshold?: number;
 };
