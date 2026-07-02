@@ -52,7 +52,7 @@ export async function runAgentWithTools(
           ...messages,
           {
             role: "assistant",
-            content: turn.content || undefined,
+            content: turn.content || "",
             reasoning_content: turn.reasoningContent || undefined,
           },
         ];
