@@ -29,7 +29,7 @@ jobs:
       - name: 生成 release 标签
         id: tag
         run: |
-          VERSION="0.0.${{ github.run_number }}"
+          VERSION="0.1.${{ github.run_number }}"
           TAG="v${VERSION}"
           echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"

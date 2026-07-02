@@ -3,9 +3,7 @@
   "version": "0.1.0",
   "description": "Coder CLI — AI-powered coding assistant in the terminal",
   "type": "module",
-  "bin": {
-    "coder": "./dist/index.cjs"
-  },
+  "bin": "./dist/index.cjs",
   "files": [
     "dist"
   ],
@@ -13,7 +11,7 @@
     "build": "node build.mjs",
     "dev": "node --import tsx src/index.ts",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "node build.mjs"
+    "prepack": "node build.mjs"
   },
   "engines": {
     "node": ">=18.0.0"
