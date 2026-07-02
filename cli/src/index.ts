@@ -92,7 +92,7 @@ Options:
   -v, --version              output the version number
   -w, --workspace <path>     Workspace directory
   -y, --yes                  Auto-confirm prompts (unattended mode)
-  --no-stream                Disable streaming output
+      --no-stream            Disable streaming output
   -h, --help                 display help for command
 
 Commands:
