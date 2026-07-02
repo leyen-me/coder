@@ -1,6 +1,5 @@
 /**
- * coder run <prompt> — Run the agent in full mode.
- * coder <prompt> — Shorthand for the same.
+ * coder run <prompt> — Run the agent in full agent mode.
  */
 
 import type { GlobalOptions } from "./common";
