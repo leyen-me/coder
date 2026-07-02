@@ -19,7 +19,6 @@ import { readShellLogsHandler } from "./read-shell-logs";
 import { webSearchHandler } from "./web-search";
 import { browsePageHandler } from "./browse-page";
 import { todoReadHandler, todoWriteHandler } from "./todos";
-import { planCreateHandler, planReadHandler, planUpdateHandler, planEditHandler, planDeleteHandler, planListHandler } from "./plans";
 import { getWorkspaceTreeHandler } from "./workspace-tree";
 import { askQuestionHandler } from "./ask-question";
 
@@ -428,12 +427,6 @@ const HANDLER_MAP: Record<string, ToolHandler> = {
   get_workspace_tree: getWorkspaceTreeHandler,
   spawn_subagent: spawnSubAgentHandler,
   ask_question: askQuestionHandler,
-  plan_create: planCreateHandler,
-  plan_read: planReadHandler,
-  plan_update: planUpdateHandler,
-  plan_edit: planEditHandler,
-  plan_delete: planDeleteHandler,
-  plan_list: planListHandler,
 };
 
 // ---------------------------------------------------------------------------
@@ -468,7 +461,6 @@ const ASK_MODE_TOOL_NAMES = new Set([
 /**
  * Returns tool definitions filtered by agent mode.
  * - "agent": all tools except ask_question.
- * - "plan":   all tools including ask_question.
  * - "ask":    only read-only tools.
  * - undefined: all tools (backward-compatible).
  */
@@ -477,10 +469,6 @@ export function getToolDefinitions(agentMode?: string): ToolDefinition[] {
     return AGENT_TOOL_DEFINITIONS.filter((t) =>
       ASK_MODE_TOOL_NAMES.has(t.function.name),
     );
-  }
-
-  if (agentMode === "plan") {
-    return AGENT_TOOL_DEFINITIONS;
   }
 
   // Default agent mode: exclude ask_question

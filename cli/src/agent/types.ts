@@ -24,7 +24,7 @@ export type AgentChatMessage = {
   name?: string;
 };
 
-export type AgentMode = "agent" | "ask" | "plan";
+export type AgentMode = "agent" | "ask";
 
 export type TokenUsage = {
   promptTokens: number;
