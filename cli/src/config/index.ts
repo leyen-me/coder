@@ -2,11 +2,11 @@
  * Coder CLI Configuration System
  *
  * Stores provider settings, API keys, model preferences, and CLI options
- * in a platform-appropriate config directory (e.g. ~/.config/coder/ on Linux).
+ * in ~/.coder/cli/config.json, alongside the desktop app's ~/.coder/ data.
  */
 
-import { homedir, platform, EOL } from "node:os";
-import { join, dirname } from "node:path";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 
 // ---------------------------------------------------------------------------
@@ -15,21 +15,7 @@ import { mkdirSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 
 function getConfigDir(): string {
   const home = homedir();
-  const p = platform();
-
-  if (p === "win32") {
-    // Windows: %APPDATA%/Coder or fallback to %USERPROFILE%/.config/coder
-    return process.env.APPDATA
-      ? join(process.env.APPDATA, "Coder", "cli")
-      : join(home, ".config", "coder", "cli");
-  }
-
-  // macOS / Linux: $XDG_CONFIG_HOME/coder or ~/.config/coder
-  if (process.env.XDG_CONFIG_HOME) {
-    return join(process.env.XDG_CONFIG_HOME, "coder", "cli");
-  }
-
-  return join(home, ".config", "coder", "cli");
+  return join(home, ".coder", "cli");
 }
 
 // ---------------------------------------------------------------------------
