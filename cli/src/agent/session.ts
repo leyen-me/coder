@@ -96,6 +96,7 @@ export async function runAgentSession(
   let currentContent = "";
   let currentThinking = "";
   let hasContent = false;
+  let streamStarted = false;
 
   // Tool execution context
   const toolContext: ToolExecutionContext = {
@@ -130,20 +131,26 @@ export async function runAgentSession(
           case "thinking_delta": {
             currentThinking += event.delta;
             if (isStreaming && !hasContent) {
+              if (!streamStarted) {
+                streamStarted = true;
+                writeLine("");
+              }
               writeStream(dim(event.delta));
             }
             break;
           }
 
           case "content_delta": {
-            if (!hasContent && currentThinking && isStreaming) {
-              // Transition from thinking to content
-              writeLine("");
-              hasContent = true;
-            }
-            hasContent = true;
-            currentContent += event.delta;
             if (isStreaming) {
+              if (!streamStarted) {
+                streamStarted = true;
+              }
+              if (!hasContent && currentThinking) {
+                // Transition from thinking to content
+                writeLine("");
+              }
+              hasContent = true;
+              currentContent += event.delta;
               writeStream(event.delta);
             }
             break;
@@ -151,7 +158,11 @@ export async function runAgentSession(
 
           case "tool_call_started": {
             if (isStreaming) {
-              if (hasContent || currentThinking) {
+              if (!streamStarted) {
+                streamStarted = true;
+                writeLine("");
+              } else if (hasContent || currentThinking) {
+                // Separator from content or thinking before showing tool
                 writeLine("");
               }
               writeLine(`${dim("🔧")} ${bold(event.name)}${dim("...")}`);
@@ -172,17 +183,17 @@ export async function runAgentSession(
             if (event.status === "completed") {
               if (isStreaming) {
                 writeLine("");
-                writeLine(success(`\n✓ Task completed`));
+                writeLine(success("✓ Task completed"));
               } else {
-                writeLine(success(`✓ Task completed`));
+                writeLine(success("✓ Task completed"));
                 if (currentContent) {
                   writeLine("\n" + currentContent);
                 }
               }
             } else if (event.status === "failed") {
-              writeLine(error(`\n✗ Task failed`));
+              writeLine(error(`✗ Task failed`));
             } else if (event.status === "cancelled") {
-              writeLine(warning(`\n⚠ Task cancelled`));
+              writeLine(warning(`⚠ Task cancelled`));
             }
             break;
           }
@@ -192,7 +203,7 @@ export async function runAgentSession(
           }
 
           case "error": {
-            writeLine(error(`\n✗ Error: ${event.message}`));
+            writeLine(error(`✗ Error: ${event.message}`));
             break;
           }
         }
