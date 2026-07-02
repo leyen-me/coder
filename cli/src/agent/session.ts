@@ -53,7 +53,7 @@ export async function runAgentSession(
   } else {
     // Fresh session: build system prompt
     const env = resolveAgentEnvironment(workspaceDir);
-    const systemPrompt = buildSystemPrompt(env);
+    const systemPrompt = buildSystemPrompt(env, options.agentMode);
     messages = [
       { role: "system", content: systemPrompt },
       { role: "user", content: prompt },
