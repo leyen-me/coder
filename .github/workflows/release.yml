@@ -74,6 +74,10 @@ jobs:
           node-version: lts/*
           registry-url: https://registry.npmjs.org
 
+      - name: Install CLI dependencies
+        working-directory: cli
+        run: npm ci
+
       - name: Set version
         working-directory: cli
         run: npm version --no-git-tag-version "${{ needs.prepare-tag.outputs.version }}"
