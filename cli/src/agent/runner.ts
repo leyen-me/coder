@@ -25,7 +25,7 @@ export async function runAgentWithTools(
   input: AgentStartInput,
   toolContext: ToolExecutionContext,
   onEvent: AgentEventHandler,
-): Promise<void> {
+): Promise<AgentChatMessage[]> {
   let messages = [...input.messages];
   let cumulativeUsage: AgentTurnResult["usage"] | undefined;
 
@@ -45,9 +45,20 @@ export async function runAgentWithTools(
 
     // No tool calls — agent is done
     if (turn.toolCalls.length === 0) {
+      // Append the final assistant response to messages for context persistence
+      if (turn.content || turn.reasoningContent) {
+        messages = [
+          ...messages,
+          {
+            role: "assistant",
+            content: turn.content || undefined,
+            reasoning_content: turn.reasoningContent || undefined,
+          },
+        ];
+      }
       onEvent({ type: "done", taskId: input.taskId, usage: cumulativeUsage ?? turn.usage });
       onEvent({ type: "status", taskId: input.taskId, status: "completed" });
-      return;
+      return messages;
     }
 
     // Execute tools and append results

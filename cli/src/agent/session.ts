@@ -17,12 +17,22 @@ export type SessionOptions = {
   model?: string;
   provider?: string;
   stream?: boolean;
+  /**
+   * Existing conversation history to continue from.
+   * When provided, the system prompt is assumed to already be in the messages.
+   * The new user prompt will be appended.
+   */
+  existingMessages?: AgentChatMessage[];
 };
 
+/**
+ * Run an agent session.
+ * Returns the updated messages array so callers (e.g. REPL) can persist context.
+ */
 export async function runAgentSession(
   prompt: string,
   options: SessionOptions,
-): Promise<void> {
+): Promise<AgentChatMessage[]> {
   const config = loadConfig();
   const workspaceDir = options.workspaceDir || null;
 
@@ -34,15 +44,21 @@ export async function runAgentSession(
   // Resolve model
   const modelId = options.model ?? config.lastModel;
 
-  // Resolve environment
-  const env = resolveAgentEnvironment(workspaceDir);
-  const systemPrompt = buildSystemPrompt(env);
+  // Build messages — either continue from existing or start fresh
+  let messages: AgentChatMessage[];
 
-  // Build messages
-  const messages: AgentChatMessage[] = [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: prompt },
-  ];
+  if (options.existingMessages && options.existingMessages.length > 0) {
+    // Continue conversation: existing messages already contain the system prompt
+    messages = [...options.existingMessages, { role: "user", content: prompt }];
+  } else {
+    // Fresh session: build system prompt
+    const env = resolveAgentEnvironment(workspaceDir);
+    const systemPrompt = buildSystemPrompt(env);
+    messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: prompt },
+    ];
+  }
 
   const taskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const isStreaming = options.stream !== false;
@@ -64,7 +80,7 @@ export async function runAgentSession(
   }
 
   try {
-    await runAgentWithTools(
+    const finalMessages = await runAgentWithTools(
       {
         taskId,
         baseUrl: resolvedConfig.baseUrl,
@@ -153,6 +169,7 @@ export async function runAgentSession(
         }
       },
     );
+    return finalMessages;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     writeError(error(`Fatal error: ${message}`));

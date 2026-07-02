@@ -5,6 +5,7 @@
 import { createInterface } from "node:readline";
 import type { GlobalOptions } from "./common";
 import { runAgentSession } from "../agent/session";
+import type { AgentChatMessage } from "../agent/types";
 import { bold, dim, info, error, writeLine, writeError } from "../ui";
 import { loadConfig } from "../config";
 
@@ -21,6 +22,9 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
   writeLine(dim(`  Type 'exit' or Ctrl+C to quit`));
   writeLine(dim("───────────────────────────────────────"));
   writeLine("");
+
+  // Persistent conversation context across REPL turns
+  let conversationMessages: AgentChatMessage[] | undefined;
 
   const rl = createInterface({
     input: process.stdin,
@@ -78,12 +82,13 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
     rl.pause();
 
     try {
-      await runAgentSession(trimmed, {
+      conversationMessages = await runAgentSession(trimmed, {
         agentMode: "agent",
         workspaceDir,
         interactive: true,
         model: options.model,
         provider: options.provider,
+        existingMessages: conversationMessages,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
