@@ -43,7 +43,6 @@ function showConfig(config: ReturnType<typeof loadConfig>): void {
   writeLine(bold("Active Settings:"));
   writeLine(`  Active provider: ${config.activeProvider}`);
   writeLine(`  Last model:      ${config.lastModel}`);
-  writeLine(`  Show usage:      ${config.showUsage}`);
   const tavilyKey = resolveTavilyApiKey(config);
   writeLine(`  Web search:      ${tavilyKey ? "configured" : "not configured (set via coder config tavilyApiKey <key> or TAVILY_API_KEY env var)"}`);
   writeLine("");

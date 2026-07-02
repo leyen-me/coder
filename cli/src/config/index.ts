@@ -29,7 +29,6 @@ export type ProviderSettings = {
   apiKey: string;
   apiKeyEnvVar: string;
   customBaseUrl: string;
-  showUsage: boolean;
   /** Whether the custom provider/model supports deep thinking. */
   supportsThinking?: boolean;
   /**
@@ -74,8 +73,6 @@ export type CoderCliConfig = {
   providers: Record<ProviderId, ProviderSettings>;
   /** Last used model ID */
   lastModel: string;
-  /** Whether to show token usage after each response */
-  showUsage: boolean;
   /** Tavily API key for web search (falls back to TAVILY_API_KEY env var) */
   tavilyApiKey: string;
 };
@@ -117,7 +114,6 @@ function createDefaultProviderSettings(provider: ProviderId): ProviderSettings {
     apiKey: "",
     apiKeyEnvVar: isCustom ? "CUSTOM_API_KEY" : PRESET_PROVIDERS[provider]?.defaultApiKeyEnvVar ?? "API_KEY",
     customBaseUrl: isCustom ? "https://api.example.com/v1" : "",
-    showUsage: false,
   };
 }
 
@@ -132,7 +128,6 @@ function createDefaultConfig(): CoderCliConfig {
     activeProvider: "deepseek",
     providers,
     lastModel: "deepseek-v4-flash",
-    showUsage: false,
     tavilyApiKey: "",
   };
 }
@@ -181,7 +176,6 @@ function mergeWithDefaults(raw: Record<string, unknown>): CoderCliConfig {
       : defaults.activeProvider,
     providers: mergeProviders(raw.providers as Record<string, unknown> | undefined, defaults.providers),
     lastModel: typeof raw.lastModel === "string" ? raw.lastModel : defaults.lastModel,
-    showUsage: typeof raw.showUsage === "boolean" ? raw.showUsage : defaults.showUsage,
     tavilyApiKey: typeof raw.tavilyApiKey === "string" ? raw.tavilyApiKey : defaults.tavilyApiKey,
   };
 }
@@ -207,7 +201,6 @@ function mergeProviders(
         apiKey: typeof p.apiKey === "string" ? p.apiKey : result[id].apiKey,
         apiKeyEnvVar: typeof p.apiKeyEnvVar === "string" ? p.apiKeyEnvVar : result[id].apiKeyEnvVar,
         customBaseUrl: typeof p.customBaseUrl === "string" ? p.customBaseUrl : result[id].customBaseUrl,
-        showUsage: typeof p.showUsage === "boolean" ? p.showUsage : result[id].showUsage,
         ...(typeof p.supportsThinking === "boolean"
           ? { supportsThinking: p.supportsThinking }
           : {}),

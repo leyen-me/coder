@@ -183,11 +183,6 @@ export async function runAgentSession(
           }
 
           case "done": {
-            if (event.usage && config.showUsage) {
-              writeLine(dim(
-                `  Tokens: ${event.usage.promptTokens}↑ ${event.usage.completionTokens}↓ ${event.usage.totalTokens}∑`,
-              ));
-            }
             break;
           }
 
