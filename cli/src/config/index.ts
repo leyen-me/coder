@@ -30,6 +30,16 @@ export type ProviderSettings = {
   apiKeyEnvVar: string;
   customBaseUrl: string;
   showUsage: boolean;
+  /** Whether the custom provider/model supports deep thinking. */
+  supportsThinking?: boolean;
+  /**
+   * Custom API parameters for enabling thinking (JSON object).
+   * Only meaningful for the "custom" provider. Set by editing
+   * ~/.coder/cli/config.json directly, not via `coder config`.
+   */
+  thinkingEnabledParams?: Record<string, unknown>;
+  /** Custom API parameters for disabling thinking. */
+  thinkingDisabledParams?: Record<string, unknown>;
 };
 
 export type ProviderId =
@@ -176,6 +186,10 @@ function mergeWithDefaults(raw: Record<string, unknown>): CoderCliConfig {
   };
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 function mergeProviders(
   raw: Record<string, unknown> | undefined,
   defaults: Record<ProviderId, ProviderSettings>,
@@ -194,6 +208,15 @@ function mergeProviders(
         apiKeyEnvVar: typeof p.apiKeyEnvVar === "string" ? p.apiKeyEnvVar : result[id].apiKeyEnvVar,
         customBaseUrl: typeof p.customBaseUrl === "string" ? p.customBaseUrl : result[id].customBaseUrl,
         showUsage: typeof p.showUsage === "boolean" ? p.showUsage : result[id].showUsage,
+        ...(typeof p.supportsThinking === "boolean"
+          ? { supportsThinking: p.supportsThinking }
+          : {}),
+        ...(isPlainObject(p.thinkingEnabledParams)
+          ? { thinkingEnabledParams: p.thinkingEnabledParams }
+          : {}),
+        ...(isPlainObject(p.thinkingDisabledParams)
+          ? { thinkingDisabledParams: p.thinkingDisabledParams }
+          : {}),
       };
     }
   }

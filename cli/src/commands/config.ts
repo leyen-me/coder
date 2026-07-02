@@ -2,7 +2,7 @@
  * coder config — View or edit configuration.
  */
 
-import { bold, dim, info, warning, writeLine } from "../ui";
+import { bold, dim, error, info, warning, writeLine } from "../ui";
 import {
   loadConfig,
   saveConfig,
@@ -55,14 +55,31 @@ function showConfig(config: ReturnType<typeof loadConfig>): void {
     writeLine(`  API Key Env Var: ${p.apiKeyEnvVar}`);
     writeLine(`  API Key (stored): ${p.apiKey ? "***" : "(not set)"}`);
     writeLine(`  Custom Base URL: ${p.customBaseUrl || "(default)"}`);
+    if (providerId === "custom") {
+      writeLine(`  Deep Thinking:   ${p.supportsThinking ? "supported" : "not declared"}`);
+      if (p.thinkingEnabledParams) {
+        writeLine(`  Thinking (on):   ${JSON.stringify(p.thinkingEnabledParams)}`);
+      }
+      if (p.thinkingDisabledParams) {
+        writeLine(`  Thinking (off):  ${JSON.stringify(p.thinkingDisabledParams)}`);
+      }
+    }
     writeLine("");
   }
 
   writeLine(dim("To change a value: coder config <key> <value>"));
-  writeLine(dim("Examples:"));
-  writeLine(dim('  coder config activeProvider "deepseek"'));
-  writeLine(dim('  coder config lastModel "deepseek-v4-flash"'));
-  writeLine(dim('  coder config providers.deepseek.apiKeySource "env"'));
+  writeLine(dim(""));
+  writeLine(dim("Quick start — custom provider:"));
+  writeLine(dim('  coder config activeProvider custom'));
+  writeLine(dim('  coder config providers.custom.customBaseUrl "https://api.openai.com/v1"'));
+  writeLine(dim('  coder config providers.custom.apiKeyEnvVar "OPENAI_API_KEY"'));
+  writeLine(dim('  coder config providers.custom.supportsThinking true'));
+  writeLine(dim('  coder config lastModel "gpt-4o"'));
+  writeLine(dim(""));
+  writeLine(dim("View a value:"));
+  writeLine(dim("  coder config activeProvider"));
+  writeLine(dim("  coder config providers.deepseek.customBaseUrl"));
+  writeLine(dim("  coder config providers.custom.thinkingEnabledParams"));
   writeLine("");
 }
 
@@ -80,6 +97,11 @@ async function setConfigValue(
   key: string,
   value: string,
 ): Promise<void> {
+  // Validate activeProvider
+  if (key === "activeProvider" && !PROVIDER_IDS.includes(value as any)) {
+    writeLine(error(`Invalid provider "${value}". Valid providers: ${PROVIDER_IDS.join(", ")}`));
+    return;
+  }
   setNestedValue(config, key, parseValue(value));
   saveConfig(config);
   writeLine(info(`Config updated: ${key} = ${value}`));

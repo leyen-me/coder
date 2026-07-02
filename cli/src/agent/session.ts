@@ -8,6 +8,7 @@ import { runAgentWithTools } from "./runner";
 import { resolveAgentEnvironment, buildSystemPrompt } from "./environment";
 import { resolveProviderConfig, resolveApiKey, loadConfig } from "../config";
 import type { ToolExecutionContext } from "../handlers/types";
+import type { ThinkingParamsOverride } from "./thinking-config";
 import { error, warning, info, dim, bold, success, writeStream, writeLine, writeError } from "../ui";
 
 export type SessionOptions = {
@@ -48,11 +49,25 @@ export async function runAgentSession(
 
   // Determine whether thinking is supported for the resolved model
   const modelDef = resolvedConfig.models.find((m) => m.id === modelId);
+  const supportsThinking =
+    modelDef?.supportsThinking === true ||
+    config.providers[resolvedConfig.provider]?.supportsThinking === true;
   const thinkingEnabled =
-    options.thinking !== undefined &&
-    modelDef?.supportsThinking === true
+    options.thinking !== undefined && supportsThinking
       ? options.thinking
       : undefined;
+
+  // Build custom thinking params override from config (for custom providers)
+  let thinkingParamsOverride: ThinkingParamsOverride | undefined;
+  if (thinkingEnabled !== undefined) {
+    const settings = config.providers[resolvedConfig.provider];
+    if (settings?.thinkingEnabledParams && settings?.thinkingDisabledParams) {
+      thinkingParamsOverride = {
+        enabled: settings.thinkingEnabledParams,
+        disabled: settings.thinkingDisabledParams,
+      };
+    }
+  }
 
   // Build messages — either continue from existing or start fresh
   let messages: AgentChatMessage[];
@@ -102,6 +117,7 @@ export async function runAgentSession(
         agentMode: options.agentMode,
         provider: providerId,
         thinkingEnabled,
+        thinkingParams: thinkingParamsOverride,
       },
       toolContext,
       (event: AgentEvent) => {

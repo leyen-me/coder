@@ -3,6 +3,8 @@
  * Mirrors the types from src/features/agent/types.ts.
  */
 
+import type { ThinkingParamsOverride } from "./thinking-config";
+
 export type AgentStatus =
   | "pending"
   | "running"
@@ -56,6 +58,8 @@ export type AgentStartInput = {
   /** Provider ID used to resolve thinking API params (e.g. "deepseek", "glm"). */
   provider?: string;
   thinkingEnabled?: boolean;
+  /** Custom override for thinking params (read from config for custom providers). */
+  thinkingParams?: ThinkingParamsOverride | undefined;
   maxContextTokens?: number;
   handoffTriggerThreshold?: number;
 };

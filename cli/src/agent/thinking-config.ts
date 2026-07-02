@@ -5,18 +5,28 @@
  * Each provider uses a different API convention for enabling/disabling reasoning.
  */
 
+export type ThinkingParamsOverride = {
+  enabled: Record<string, unknown>;
+  disabled: Record<string, unknown>;
+};
+
 /**
  * Resolve the thinking extension parameters to merge into the chat completions
- * request body. Returns undefined when no parameters are needed (model does not
- * support toggling).
+ * request body. Returns undefined when no parameters are needed (provider does
+ * not have a preset and no custom override was supplied).
  */
 export function resolveThinkingParams(
   provider: string,
   thinkingEnabled: boolean,
+  override?: ThinkingParamsOverride,
 ): Record<string, unknown> | undefined {
-  const config = THINKING_PRESETS[provider];
-  if (!config) return undefined;
-  return thinkingEnabled ? config.enabled : config.disabled;
+  // Custom override takes precedence (for e.g. custom provider)
+  if (override) {
+    return thinkingEnabled ? override.enabled : override.disabled;
+  }
+  const preset = THINKING_PRESETS[provider];
+  if (!preset) return undefined;
+  return thinkingEnabled ? preset.enabled : preset.disabled;
 }
 
 const THINKING_PRESETS: Record<string, { enabled: Record<string, unknown>; disabled: Record<string, unknown> }> = {

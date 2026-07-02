@@ -4,7 +4,7 @@
 
 import type { AgentChatMessage } from "./types";
 import type { ToolDefinition } from "../handlers";
-import { resolveThinkingParams } from "./thinking-config";
+import { resolveThinkingParams, type ThinkingParamsOverride } from "./thinking-config";
 
 type StreamCallbacks = {
   onContent: (delta: string) => void;
@@ -25,6 +25,8 @@ type StreamOptions = {
   thinkingProvider?: string;
   /** When set, explicitly enable/disable deep thinking at the API level. */
   thinkingEnabled?: boolean;
+  /** Custom override for thinking params (used by custom providers). */
+  thinkingOverride?: ThinkingParamsOverride;
 };
 
 function chatCompletionsUrl(baseUrl: string): string {
@@ -62,6 +64,7 @@ export async function startLLMStream(
     const thinkingParams = resolveThinkingParams(
       options.thinkingProvider,
       options.thinkingEnabled,
+      options.thinkingOverride,
     );
     if (thinkingParams) {
       Object.assign(body, thinkingParams);

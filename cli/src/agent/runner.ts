@@ -9,6 +9,7 @@ import { executeToolCall, getToolDefinitions } from "../handlers";
 import type { ToolExecutionContext, ToolResultEnvelope } from "../handlers/types";
 import type { AgentChatMessage, AgentEvent, AgentEventHandler, AgentStartInput, AgentMode } from "./types";
 import { startLLMStream } from "./llm-stream";
+import type { ThinkingParamsOverride } from "./thinking-config";
 
 // ---------------------------------------------------------------------------
 // Multi-turn agent loop
@@ -90,6 +91,7 @@ async function runSingleAgentTurn(
         tools: getToolDefinitions(input.agentMode),
         thinkingProvider: input.provider,
         thinkingEnabled: input.thinkingEnabled,
+        thinkingOverride: input.thinkingParams,
       },
       {
         onContent: (delta: string) => {
