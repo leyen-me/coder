@@ -66,6 +66,8 @@ export type CoderCliConfig = {
   lastModel: string;
   /** Whether to show token usage after each response */
   showUsage: boolean;
+  /** Tavily API key for web search (falls back to TAVILY_API_KEY env var) */
+  tavilyApiKey: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -121,6 +123,7 @@ function createDefaultConfig(): CoderCliConfig {
     providers,
     lastModel: "deepseek-v4-flash",
     showUsage: false,
+    tavilyApiKey: "",
   };
 }
 
@@ -169,6 +172,7 @@ function mergeWithDefaults(raw: Record<string, unknown>): CoderCliConfig {
     providers: mergeProviders(raw.providers as Record<string, unknown> | undefined, defaults.providers),
     lastModel: typeof raw.lastModel === "string" ? raw.lastModel : defaults.lastModel,
     showUsage: typeof raw.showUsage === "boolean" ? raw.showUsage : defaults.showUsage,
+    tavilyApiKey: typeof raw.tavilyApiKey === "string" ? raw.tavilyApiKey : defaults.tavilyApiKey,
   };
 }
 
@@ -266,6 +270,18 @@ export function resolveApiKey(resolved: ResolvedProviderConfig): string {
     );
   }
   return envValue;
+}
+
+// ---------------------------------------------------------------------------
+// Tavily config resolution
+// ---------------------------------------------------------------------------
+
+/** Resolve Tavily API key: config key takes priority, then env var. */
+export function resolveTavilyApiKey(config: CoderCliConfig): string {
+  if (config.tavilyApiKey.trim()) {
+    return config.tavilyApiKey.trim();
+  }
+  return process.env.TAVILY_API_KEY?.trim() ?? "";
 }
 
 // ---------------------------------------------------------------------------

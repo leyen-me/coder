@@ -8,6 +8,7 @@ import {
   saveConfig,
   getConfigDirPath,
   getConfigFilePathExplicit,
+  resolveTavilyApiKey,
   type ProviderId,
   type ProviderSettings,
 } from "../config";
@@ -43,6 +44,8 @@ function showConfig(config: ReturnType<typeof loadConfig>): void {
   writeLine(`  Active provider: ${config.activeProvider}`);
   writeLine(`  Last model:      ${config.lastModel}`);
   writeLine(`  Show usage:      ${config.showUsage}`);
+  const tavilyKey = resolveTavilyApiKey(config);
+  writeLine(`  Web search:      ${tavilyKey ? "configured" : "not configured (set via coder config tavilyApiKey <key> or TAVILY_API_KEY env var)"}`);
   writeLine("");
 
   for (const providerId of PROVIDER_IDS) {

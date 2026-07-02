@@ -1,5 +1,6 @@
 import { toolFailure, toolSuccess } from "./result";
 import type { ToolHandler } from "./types";
+import { loadConfig, resolveTavilyApiKey } from "../config";
 
 type WebSearchArgs = {
   search_term: string;
@@ -14,9 +15,11 @@ export const webSearchHandler: ToolHandler = async (rawArgs, _context) => {
     return toolFailure("web_search", "invalid_arguments", "search_term is required");
   }
 
+  const config = loadConfig();
+  const tavilyKey = resolveTavilyApiKey(config);
+
   try {
-    // Use a free search API (DuckDuckGo-style) or fallback
-    const results = await performWebSearch(args.search_term, args.max_results ?? 5);
+    const results = await performWebSearch(args.search_term, args.max_results ?? 5, tavilyKey);
 
     return toolSuccess("web_search", {
       query: args.search_term,
@@ -31,9 +34,41 @@ export const webSearchHandler: ToolHandler = async (rawArgs, _context) => {
 async function performWebSearch(
   query: string,
   maxResults: number,
+  tavilyKey: string,
 ): Promise<Array<{ title: string; url: string; snippet: string }>> {
-  // Try to use Tavily or fallback to DuckDuckGo scrape
-  // For now, use a simple approach via DuckDuckGo's instant answer API
+  // Try Tavily API first if a key is available
+  if (tavilyKey) {
+    try {
+      const response = await fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: tavilyKey,
+          query,
+          max_results: maxResults,
+          search_depth: "basic",
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (response.ok) {
+        const data = (await response.json()) as {
+          results?: Array<{ title: string; url: string; content: string }>;
+        };
+        if (data.results && data.results.length > 0) {
+          return data.results.map((r) => ({
+            title: r.title,
+            url: r.url,
+            snippet: r.content,
+          }));
+        }
+      }
+    } catch {
+      // Fall through to DuckDuckGo
+    }
+  }
+
+  // Fallback: DuckDuckGo instant answer API
   try {
     const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
     const response = await fetch(url, {
@@ -71,12 +106,14 @@ async function performWebSearch(
       }
     }
 
+    if (results.length === 0) {
+      throw new Error("No results");
+    }
+
     return results.slice(0, maxResults);
   } catch {
-    // Fallback: return a message that web search is unavailable
     throw new Error(
-      "Web search is currently unavailable. Configure a Tavily API key for web search support, " +
-      "or set the TAVILY_API_KEY environment variable.",
+      "Web search is currently unavailable. Configure a Tavily API key via `coder config tavilyApiKey <key>` or set the TAVILY_API_KEY environment variable.",
     );
   }
 }
