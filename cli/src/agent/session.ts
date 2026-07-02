@@ -46,6 +46,14 @@ export async function runAgentSession(
   // Resolve model
   const modelId = options.model ?? config.lastModel;
 
+  // Determine whether thinking is supported for the resolved model
+  const modelDef = resolvedConfig.models.find((m) => m.id === modelId);
+  const thinkingEnabled =
+    options.thinking !== undefined &&
+    modelDef?.supportsThinking === true
+      ? options.thinking
+      : undefined;
+
   // Build messages — either continue from existing or start fresh
   let messages: AgentChatMessage[];
 
@@ -93,7 +101,7 @@ export async function runAgentSession(
         messages,
         agentMode: options.agentMode,
         provider: providerId,
-        thinkingEnabled: options.thinking,
+        thinkingEnabled,
       },
       toolContext,
       (event: AgentEvent) => {
