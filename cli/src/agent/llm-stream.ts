@@ -106,22 +106,23 @@ export async function startLLMStream(
 
     // Cancel the reader when the signal is aborted mid-stream,
     // since reader.read() does not observe the AbortSignal automatically.
-    const detachAbort = options.signal
-      ? () => {
-          try {
-            reader.cancel();
-          } catch {
-            // Reader may already be closed
-          }
-        }
-      : () => {};
-    options.signal?.addEventListener("abort", detachAbort, { once: true });
+    const onAbort = () => {
+      reader.cancel().catch(() => {});
+    };
+    options.signal?.addEventListener("abort", onAbort, { once: true });
 
     while (true) {
       if (options.signal?.aborted) {
         break;
       }
-      const { done, value } = await reader.read();
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await reader.read();
+      } catch {
+        // Stream errored (e.g. from the underlying fetch abort), stop
+        break;
+      }
+      const { done, value } = chunk;
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
