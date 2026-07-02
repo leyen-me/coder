@@ -71,9 +71,17 @@ function showConfig(config: ReturnType<typeof loadConfig>): void {
   writeLine(dim("Quick start — custom provider:"));
   writeLine(dim('  coder config activeProvider custom'));
   writeLine(dim('  coder config providers.custom.customBaseUrl "https://api.openai.com/v1"'));
-  writeLine(dim('  coder config providers.custom.apiKeyEnvVar "OPENAI_API_KEY"'));
   writeLine(dim('  coder config providers.custom.supportsThinking true'));
   writeLine(dim('  coder config lastModel "gpt-4o"'));
+  writeLine(dim(""));
+  writeLine(dim("  # Way 1: env var (recommended)"));
+  writeLine(dim('  coder config providers.custom.apiKeySource env'));
+  writeLine(dim('  coder config providers.custom.apiKeyEnvVar "OPENAI_API_KEY"'));
+  writeLine(dim('  export OPENAI_API_KEY=sk-xxx'));
+  writeLine(dim(""));
+  writeLine(dim("  # Way 2: stored in config"));
+  writeLine(dim('  coder config providers.custom.apiKeySource manual'));
+  writeLine(dim('  coder config providers.custom.apiKey "sk-xxx"'));
   writeLine(dim(""));
   writeLine(dim("View a value:"));
   writeLine(dim("  coder config activeProvider"));
@@ -100,6 +108,13 @@ async function setConfigValue(
   if (key === "activeProvider" && !PROVIDER_IDS.includes(value as any)) {
     writeLine(error(`Invalid provider "${value}". Valid providers: ${PROVIDER_IDS.join(", ")}`));
     return;
+  }
+  // Validate apiKeySource
+  if (key.endsWith(".apiKeySource") || key === "apiKeySource") {
+    if (value !== "env" && value !== "manual") {
+      writeLine(error(`Invalid apiKeySource "${value}". Must be "env" or "manual".`));
+      return;
+    }
   }
   setNestedValue(config, key, parseValue(value));
   saveConfig(config);
