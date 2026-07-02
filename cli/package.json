@@ -7,10 +7,10 @@
     "type": "git",
     "url": "https://github.com/leyen-me/coder.git"
   },
-  "bin": "./bin.cjs",
+  "bin": "./bin",
   "files": [
     "dist",
-    "bin.cjs"
+    "bin"
   ],
   "scripts": {
     "build": "node build.mjs",
