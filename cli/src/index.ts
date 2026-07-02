@@ -20,8 +20,13 @@ import { initCommand } from "./commands/init";
 import { configCommand } from "./commands/config";
 import { setGlobalOptions } from "./commands/common";
 import { error, writeError } from "./ui";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const VERSION = "0.1.0";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf-8"));
+const VERSION = pkg.version;
 
 async function main() {
   // Quick help/version check before commander
