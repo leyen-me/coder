@@ -28,6 +28,7 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
   let conversationMessages: AgentChatMessage[] | undefined;
   let thinkingEnabled = true; // default to enabled for providers that support it
   let abortController = new AbortController();
+  let agentRunning = false; // guards against re-entrance
 
   const rl = createInterface({
     input: process.stdin,
@@ -42,6 +43,14 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
     const trimmed = line.trim();
 
     if (!trimmed) {
+      rl.prompt();
+      return;
+    }
+
+    // Re-entrance guard: if the agent is already running (e.g. user pressed
+    // Enter twice), ignore the input rather than pausing stdin — pausing
+    // stdin prevents readline from detecting Ctrl+C in raw mode.
+    if (agentRunning) {
       rl.prompt();
       return;
     }
@@ -107,7 +116,7 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
     }
 
     // Run the agent with the given prompt
-    rl.pause();
+    agentRunning = true;
 
     try {
       conversationMessages = await runAgentSession(trimmed, {
@@ -122,10 +131,10 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
       const message = err instanceof Error ? err.message : String(err);
       writeError(error(`Error: ${message}`));
     }
+    agentRunning = false;
 
     writeLine("");
     rl.prompt();
-    rl.resume();
   });
 
   rl.on("close", () => {
@@ -143,8 +152,8 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
       abortController.abort();
       writeLine("");
       writeLine(warning("⚠ Cancelled"));
-      rl.prompt();
-      rl.resume();
+      // Don't prompt here — the line handler will show the prompt
+      // when the agent finishes unwinding from the abort.
     }
   });
 }
