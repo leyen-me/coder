@@ -69,11 +69,7 @@ function extractGlobalOptions(args: string[]): Record<string, unknown> {
   const opts: Record<string, unknown> = {};
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
-    if (arg === "-m" || arg === "--model") {
-      opts.model = args[++i] ?? "";
-    } else if (arg === "-p" || arg === "--provider") {
-      opts.provider = args[++i] ?? "";
-    } else if (arg === "-w" || arg === "--workspace") {
+    if (arg === "-w" || arg === "--workspace") {
       opts.workspace = args[++i] ?? "";
     } else if (arg === "-y" || arg === "--yes") {
       opts.yes = true;
@@ -94,8 +90,6 @@ Coder CLI — AI-powered coding assistant in the terminal
 
 Options:
   -v, --version              output the version number
-  -m, --model <model>        Model ID to use
-  -p, --provider <provider>  Provider ID (deepseek, glm, agnes, nvidia, minimax, custom)
   -w, --workspace <path>     Workspace directory
   -y, --yes                  Auto-confirm prompts (unattended mode)
   --no-stream                Disable streaming output

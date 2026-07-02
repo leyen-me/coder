@@ -86,8 +86,6 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
         agentMode: "agent",
         workspaceDir,
         interactive: true,
-        model: options.model,
-        provider: options.provider,
         existingMessages: conversationMessages,
       });
     } catch (err) {
