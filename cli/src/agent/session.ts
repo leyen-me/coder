@@ -10,6 +10,7 @@ import { resolveProviderConfig, resolveApiKey, loadConfig } from "../config";
 import type { ToolExecutionContext } from "../handlers/types";
 import type { ThinkingParamsOverride } from "./thinking-config";
 import { error, warning, info, dim, bold, success, writeStream, writeLine, writeError } from "../ui";
+import { killAllShells } from "../handlers/shell-manager";
 
 export type SessionOptions = {
   agentMode: AgentMode;
@@ -214,6 +215,7 @@ export async function runAgentSession(
     );
     return finalMessages;
   } catch (err) {
+    killAllShells();
     const message = err instanceof Error ? err.message : String(err);
     writeError(error(`Fatal error: ${message}`));
     process.exit(1);
