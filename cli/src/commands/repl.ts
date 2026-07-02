@@ -55,11 +55,19 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
       return;
     }
 
+    if (trimmed === "/new") {
+      conversationMessages = undefined;
+      writeLine(info("Started a new session. Context has been cleared."));
+      rl.prompt();
+      return;
+    }
+
     if (trimmed === "/help") {
       writeLine(bold("\nREPL Commands:"));
       writeLine("  <prompt>             Ask the agent anything");
       writeLine("  /exit, /quit         Exit REPL");
       writeLine("  /clear               Clear screen");
+      writeLine("  /new                 Clear context, start a new session");
       writeLine("  /help                Show this help");
       writeLine("  /model <id>          Switch model");
       writeLine(`  /thinking <on|off>   Toggle deep thinking (currently: ${thinkingEnabled ? "on" : "off"})`);
