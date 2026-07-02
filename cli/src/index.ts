@@ -5,7 +5,6 @@
  *   coder                     Start interactive REPL
  *   coder ask <prompt>        Run in ask (read-only) mode
  *   coder run <prompt>        Run in agent (full access) mode
- *   coder init                Initialize configuration
  *   coder config              Show/edit configuration
  *   coder --version           Show version
  *   coder --help              Show help
@@ -14,7 +13,6 @@
 import { runCommand } from "./commands/run";
 import { askCommand } from "./commands/ask";
 import { replCommand } from "./commands/repl";
-import { initCommand } from "./commands/init";
 import { configCommand } from "./commands/config";
 import { setGlobalOptions } from "./commands/common";
 import { error, info, writeError, writeLine } from "./ui";
@@ -50,9 +48,9 @@ async function main() {
   const knownSubcommands: Record<string, (args: string[], opts: Record<string, unknown>) => Promise<void>> = {
     ask: async (args, opts) => { await askCommand(args.join(" "), opts); },
     run: async (args, opts) => { await runCommand(args.join(" "), opts); },
-    init: async () => { await initCommand(); },
     config: async (args) => { await configCommand(args[0], args[1]); },
   };
+
   if (firstNonFlag && knownSubcommands[firstNonFlag]) {
     const cmdArgs = rawArgs.slice(rawArgs.indexOf(firstNonFlag) + 1).filter((a) => !a.startsWith("-"));
     await knownSubcommands[firstNonFlag](cmdArgs, globalOpts);
@@ -106,7 +104,6 @@ Options:
 Commands:
   ask [prompt...]            Ask a question (read-only mode)
   run [prompt...]            Run in full agent mode (can modify files, run commands)
-  init                       Initialize Coder CLI configuration
   config [key] [value]       View or edit configuration
 `);
 }
