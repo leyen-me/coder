@@ -10,6 +10,8 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+const pkg = JSON.parse(readFileSync(join(__dirname, "package.json"), "utf-8"));
+
 const isWatch = process.argv.includes("--watch");
 
 async function build() {
@@ -33,6 +35,7 @@ async function build() {
     },
     define: {
       "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV || "development"),
+      "process.env.CLI_VERSION": JSON.stringify(pkg.version),
     },
   };
 
