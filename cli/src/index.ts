@@ -31,7 +31,7 @@ async function main() {
     return;
   }
 
-  if (rawArgs.includes("--version") || rawArgs.includes("-V")) {
+  if (rawArgs.includes("--version") || rawArgs.includes("-v")) {
     console.log(VERSION);
     return;
   }
@@ -98,7 +98,7 @@ Usage: coder <command> [options] [prompt...]
 Coder CLI — AI-powered coding assistant in the terminal
 
 Options:
-  -V, --version              output the version number
+  -v, --version              output the version number
   -m, --model <model>        Model ID to use
   -p, --provider <provider>  Provider ID (deepseek, glm, agnes, nvidia, minimax, custom)
   -w, --workspace <path>     Workspace directory
