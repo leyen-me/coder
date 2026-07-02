@@ -104,7 +104,23 @@ export async function startLLMStream(
     });
     let hasToolCalls = false;
 
+    // Cancel the reader when the signal is aborted mid-stream,
+    // since reader.read() does not observe the AbortSignal automatically.
+    const detachAbort = options.signal
+      ? () => {
+          try {
+            reader.cancel();
+          } catch {
+            // Reader may already be closed
+          }
+        }
+      : () => {};
+    options.signal?.addEventListener("abort", detachAbort, { once: true });
+
     while (true) {
+      if (options.signal?.aborted) {
+        break;
+      }
       const { done, value } = await reader.read();
       if (done) break;
 
