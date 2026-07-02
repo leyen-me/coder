@@ -1,5 +1,5 @@
 {
-  "name": "@coder/cli",
+  "name": "@alanwchat/coder",
   "version": "0.1.0",
   "description": "Coder CLI — AI-powered coding assistant in the terminal",
   "type": "module",

@@ -58,6 +58,34 @@ jobs:
             echo "$EOF"
           } >> "$GITHUB_OUTPUT"
 
+  publish-cli:
+    needs:
+      - prepare-tag
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          registry-url: https://registry.npmjs.org
+
+      - name: Set version
+        working-directory: cli
+        run: npm version --no-git-tag-version "${{ needs.prepare-tag.outputs.version }}"
+
+      - name: Build
+        working-directory: cli
+        run: node build.mjs
+
+      - name: Publish to npm
+        working-directory: cli
+        run: npm publish --provenance --access public
+
   publish:
     needs:
       - prepare-tag
