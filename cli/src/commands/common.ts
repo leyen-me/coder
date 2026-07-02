@@ -8,6 +8,7 @@ export type GlobalOptions = {
   workspace?: string;
   yes?: boolean;
   stream?: boolean;
+  thinking?: boolean;
 };
 
 export type CommandContext = GlobalOptions & {

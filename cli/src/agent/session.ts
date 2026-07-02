@@ -17,6 +17,8 @@ export type SessionOptions = {
   model?: string;
   provider?: string;
   stream?: boolean;
+  /** Explicitly enable or disable deep thinking. When undefined, model defaults apply. */
+  thinking?: boolean;
   /**
    * Existing conversation history to continue from.
    * When provided, the system prompt is assumed to already be in the messages.
@@ -90,6 +92,8 @@ export async function runAgentSession(
         model: modelId,
         messages,
         agentMode: options.agentMode,
+        provider: providerId,
+        thinkingEnabled: options.thinking,
       },
       toolContext,
       (event: AgentEvent) => {

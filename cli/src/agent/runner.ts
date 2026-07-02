@@ -88,6 +88,8 @@ async function runSingleAgentTurn(
         model: input.model,
         messages,
         tools: getToolDefinitions(input.agentMode),
+        thinkingProvider: input.provider,
+        thinkingEnabled: input.thinkingEnabled,
       },
       {
         onContent: (delta: string) => {

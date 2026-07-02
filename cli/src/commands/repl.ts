@@ -19,12 +19,13 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
   writeLine(dim(`  Model: ${config.lastModel || "not set"}`));
   writeLine(dim(`  Provider: ${config.activeProvider}`));
   writeLine(dim(`  Workspace: ${workspaceDir}`));
-  writeLine(dim(`  Type 'exit' or Ctrl+C to quit`));
+  writeLine(dim(`  Type '/help' for commands, '/exit' or Ctrl+C to quit`));
   writeLine(dim("───────────────────────────────────────"));
   writeLine("");
 
   // Persistent conversation context across REPL turns
   let conversationMessages: AgentChatMessage[] | undefined;
+  let thinkingEnabled = true; // default to enabled for providers that support it
 
   const rl = createInterface({
     input: process.stdin,
@@ -43,36 +44,52 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
       return;
     }
 
-    if (trimmed === "exit" || trimmed === "quit") {
+    if (trimmed === "/exit" || trimmed === "/quit") {
       rl.close();
       return;
     }
 
-    if (trimmed === "clear") {
+    if (trimmed === "/clear") {
       console.clear();
       rl.prompt();
       return;
     }
 
-    if (trimmed === "help") {
+    if (trimmed === "/help") {
       writeLine(bold("\nREPL Commands:"));
-      writeLine("  <prompt>          Ask the agent anything");
-      writeLine("  exit / quit       Exit REPL");
-      writeLine("  clear             Clear screen");
-      writeLine("  help              Show this help");
-      writeLine("  model <id>        Switch model");
+      writeLine("  <prompt>             Ask the agent anything");
+      writeLine("  /exit, /quit         Exit REPL");
+      writeLine("  /clear               Clear screen");
+      writeLine("  /help                Show this help");
+      writeLine("  /model <id>          Switch model");
+      writeLine(`  /thinking <on|off>   Toggle deep thinking (currently: ${thinkingEnabled ? "on" : "off"})`);
       writeLine("");
       rl.prompt();
       return;
     }
 
-    if (trimmed.startsWith("model ")) {
-      const modelId = trimmed.slice(6).trim();
+    if (trimmed.startsWith("/model ")) {
+      const modelId = trimmed.slice(7).trim();
       if (modelId) {
         config.lastModel = modelId;
         const { saveConfig } = await import("../config");
         saveConfig(config);
         writeLine(info(`Model set to: ${modelId}`));
+      }
+      rl.prompt();
+      return;
+    }
+
+    if (trimmed.startsWith("/thinking ")) {
+      const value = trimmed.slice(10).trim().toLowerCase();
+      if (value === "on" || value === "true") {
+        thinkingEnabled = true;
+        writeLine(info("Deep thinking: on"));
+      } else if (value === "off" || value === "false") {
+        thinkingEnabled = false;
+        writeLine(info("Deep thinking: off"));
+      } else {
+        writeLine(error(`Usage: /thinking <on|off>  (currently: ${thinkingEnabled ? "on" : "off"})`));
       }
       rl.prompt();
       return;
@@ -86,6 +103,7 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
         agentMode: "agent",
         workspaceDir,
         interactive: true,
+        thinking: thinkingEnabled,
         existingMessages: conversationMessages,
       });
     } catch (err) {

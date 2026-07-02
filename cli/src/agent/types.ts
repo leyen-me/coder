@@ -53,6 +53,9 @@ export type AgentStartInput = {
   model: string;
   messages: AgentChatMessage[];
   agentMode: AgentMode;
+  /** Provider ID used to resolve thinking API params (e.g. "deepseek", "glm"). */
+  provider?: string;
+  thinkingEnabled?: boolean;
   maxContextTokens?: number;
   handoffTriggerThreshold?: number;
 };

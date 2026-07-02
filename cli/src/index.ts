@@ -77,6 +77,10 @@ function extractGlobalOptions(args: string[]): Record<string, unknown> {
       opts.stream = false;
     } else if (arg === "--stream") {
       opts.stream = true;
+    } else if (arg === "--thinking") {
+      opts.thinking = true;
+    } else if (arg === "--no-thinking") {
+      opts.thinking = false;
     }
   }
   return opts;
@@ -93,6 +97,8 @@ Options:
   -w, --workspace <path>     Workspace directory
   -y, --yes                  Auto-confirm prompts (unattended mode)
       --no-stream            Disable streaming output
+      --thinking             Enable deep thinking (for supported models)
+      --no-thinking          Disable deep thinking
   -h, --help                 display help for command
 
 Commands:
