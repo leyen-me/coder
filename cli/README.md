@@ -116,8 +116,8 @@ Inside the REPL, you can use:
 
 Configuration is stored in a platform-appropriate directory:
 
-- **macOS / Linux**: `~/.config/coder/cli/config.json`
-- **Windows**: `%APPDATA%/Coder/cli/config.json`
+- **macOS / Linux**: `~/.config/coder/cli/settings.json`
+- **Windows**: `%APPDATA%/Coder/cli/settings.json`
 
 View current configuration:
 

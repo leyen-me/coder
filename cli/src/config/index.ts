@@ -2,7 +2,7 @@
  * Coder CLI Configuration System
  *
  * Stores provider settings, API keys, model preferences, and CLI options
- * in ~/.coder/cli/config.json, alongside the desktop app's ~/.coder/ data.
+ * in ~/.coder/cli/settings.json, alongside the desktop app's ~/.coder/ data.
  */
 
 import { homedir } from "node:os";
@@ -34,7 +34,7 @@ export type ProviderSettings = {
   /**
    * Custom API parameters for enabling thinking (JSON object).
    * Only meaningful for the "custom" provider. Set by editing
-   * ~/.coder/cli/config.json directly, not via `coder config`.
+   * ~/.coder/cli/settings.json directly, not via `coder config`.
    */
   thinkingEnabledParams?: Record<string, unknown>;
   /** Custom API parameters for disabling thinking. */
@@ -136,7 +136,7 @@ function createDefaultConfig(): CoderCliConfig {
 // Config file I/O
 // ---------------------------------------------------------------------------
 
-const CONFIG_FILE = "config.json";
+const CONFIG_FILE = "settings.json";
 
 function getConfigFilePath(): string {
   return join(getConfigDir(), CONFIG_FILE);
