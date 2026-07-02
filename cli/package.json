@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "description": "Coder CLI — AI-powered coding assistant in the terminal",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leyen-me/coder.git"
+  },
   "bin": "./bin.cjs",
   "files": [
     "dist",
