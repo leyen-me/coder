@@ -71,8 +71,6 @@ function extractGlobalOptions(args: string[]): Record<string, unknown> {
     const arg = args[i];
     if (arg === "-w" || arg === "--workspace") {
       opts.workspace = args[++i] ?? "";
-    } else if (arg === "-y" || arg === "--yes") {
-      opts.yes = true;
     } else if (arg === "--no-stream") {
       opts.stream = false;
     } else if (arg === "--stream") {
@@ -95,7 +93,6 @@ Coder CLI — AI-powered coding assistant in the terminal
 Options:
   -v, --version              output the version number
   -w, --workspace <path>     Workspace directory
-  -y, --yes                  Auto-confirm prompts (unattended mode)
       --no-stream            Disable streaming output
       --thinking             Enable deep thinking (for supported models)
       --no-thinking          Disable deep thinking

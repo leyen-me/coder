@@ -6,7 +6,6 @@ import type { AgentMode } from "../agent/types";
 
 export type GlobalOptions = {
   workspace?: string;
-  yes?: boolean;
   stream?: boolean;
   thinking?: boolean;
 };
