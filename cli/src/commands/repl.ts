@@ -132,6 +132,10 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
       writeError(error(`Error: ${message}`));
     }
     agentRunning = false;
+    // Reset the abort controller for the next turn — once aborted,
+    // a signal stays aborted permanently and would cancel the next
+    // request immediately.
+    abortController = new AbortController();
 
     writeLine("");
     rl.prompt();
@@ -144,16 +148,16 @@ export async function replCommand(options: GlobalOptions): Promise<void> {
   });
 
   rl.on("SIGINT", () => {
-    if (abortController.signal.aborted) {
-      // Second Ctrl+C: exit
-      rl.close();
-    } else {
-      // First Ctrl+C: cancel current request
+    if (agentRunning) {
+      // Cancel current request
       abortController.abort();
       writeLine("");
       writeLine(warning("⚠ Cancelled"));
       // Don't prompt here — the line handler will show the prompt
       // when the agent finishes unwinding from the abort.
+    } else {
+      // Not running — Ctrl+C exits
+      rl.close();
     }
   });
 }
