@@ -10,8 +10,7 @@ static SHELL_ENV: OnceLock<HashMap<String, String>> = OnceLock::new();
 
 /// Warm the shell environment cache during app startup.
 pub fn preload_shell_environment() {
-    let env = shell_environment();
-    log::info!("loaded {} variable(s) from login shell environment", env.len());
+    let _env = shell_environment();
 }
 
 /// Build the environment used for spawned commands and PTY shells.

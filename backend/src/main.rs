@@ -76,13 +76,9 @@ async fn main() {
 
     // Print URL and optionally open browser
     println!();
-    println!("  ╔══════════════════════════════════════════╗");
-    println!("  ║     Coder 服务已启动                      ║");
-    println!("  ║                                          ║");
-    println!("  ║     http://127.0.0.1:{}", actual_port);
-    println!("  ║                                          ║");
-    println!("  ║     Workspace: {}", workspace_dir.display());
-    println!("  ╚══════════════════════════════════════════╝");
+    println!("  Coder 服务已启动");
+    println!("  http://127.0.0.1:{}", actual_port);
+    println!("  Workspace: {}", workspace_dir.display());
     println!();
 
     if !cli.no_open {
