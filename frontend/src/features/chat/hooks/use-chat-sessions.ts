@@ -31,7 +31,7 @@ function toHistoryItem(
   };
 }
 
-export function useChatSessions(limit = 50) {
+export function useChatSessions(limit: number | null = null) {
   const { t } = useTranslation();
   const [sessions, setSessions] = useState<ChatHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);

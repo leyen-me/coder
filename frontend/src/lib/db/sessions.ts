@@ -133,7 +133,7 @@ export async function touchSession(sessionId: string): Promise<void> {
   notifyDbChange();
 }
 
-export async function listSessions(limit = 50): Promise<SessionRecord[]> {
+export async function listSessions(limit: number | null = null): Promise<SessionRecord[]> {
   const db = await getDb();
   const sessions = await db.getAllFromIndex<SessionRecord>(SESSIONS_STORE, "by-updatedAt");
   return sortSessionsPinnedFirst(sessions)
