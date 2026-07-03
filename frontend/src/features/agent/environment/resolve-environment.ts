@@ -35,7 +35,7 @@ export async function resolveAgentEnvironment(
 
   try {
     const runtime = await apiPost<RuntimeEnvironmentResponse>(
-      "/api/agent_get_runtime_environment",
+      "/api/runtime_environment",
       {
         workspaceDir,
       }
