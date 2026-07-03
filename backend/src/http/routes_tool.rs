@@ -692,12 +692,21 @@ pub async fn handle_resolve_env_var(
     })?))
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeEnvironmentParams {
+    pub workspace_dir: Option<String>,
+}
+
 /// POST /api/runtime_environment
 pub async fn handle_runtime_environment(
     State(state): State<Arc<AppState>>,
-    Json(_params): Json<Value>,
+    Json(params): Json<RuntimeEnvironmentParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let workspace_dir = Some(state.workspace_dir.to_string_lossy().to_string());
+    let workspace_dir = params
+        .workspace_dir
+        .filter(|d| !d.trim().is_empty())
+        .or_else(|| Some(state.workspace_dir.to_string_lossy().to_string()));
     let result = agent_get_runtime_environment(workspace_dir)
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(serde_json::to_value(result).map_err(|e| {
