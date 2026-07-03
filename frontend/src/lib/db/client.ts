@@ -296,32 +296,15 @@ function wrapDb(db: IDBPDatabase<CoderDbSchema>): StoreBackend {
  * `StoreBackend`, but the method signatures are identical.
  */
 export async function getDb(): Promise<StoreBackend> {
-  // If a custom backend has been registered (e.g. TauriSqliteBackend),
-  // use it instead of IndexedDB.
+  // Use the HTTP store backend registered by initCoderStorageSync().
   const custom = getStoreBackend();
   if (custom) {
     return custom;
   }
 
-  if (backendWrapper && dbPromise && cachedDbVersion === DB_VERSION) {
-    return backendWrapper;
-  }
-
-  if (!dbPromise || cachedDbVersion !== DB_VERSION) {
-    dbPromise = openCoderDb().then((db) => {
-      cachedDbVersion = DB_VERSION;
-      return db;
-    });
-  }
-
-  const db = await dbPromise;
-  if (!backendWrapper) {
-    backendWrapper = wrapDb(db);
-    // Register the IndexedDB wrapper as the global backend so that
-    // other callers who use getStoreBackend() directly get the same instance.
-    setStoreBackend(backendWrapper);
-  }
-  return backendWrapper;
+  throw new Error(
+    "No store backend configured. Call initCoderStorageSync() before getDb().",
+  );
 }
 
 /** Re-open after tests that need a fresh IndexedDB schema. */
