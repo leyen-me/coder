@@ -1,0 +1,80 @@
+pub mod routes_tool;
+pub mod routes_db;
+pub mod routes_settings;
+pub mod routes_sse;
+pub mod routes_ws;
+pub mod static_files;
+
+use axum::{
+    routing::{get, post},
+    Router,
+};
+use std::sync::Arc;
+use tower_http::cors::{Any, CorsLayer};
+
+use crate::AppState;
+
+pub fn build_router(state: Arc<AppState>) -> Router {
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
+    Router::new()
+        // Tool endpoints
+        .route("/api/list_dir", post(routes_tool::handle_list_dir))
+        .route("/api/read_file", post(routes_tool::handle_read_file))
+        .route("/api/write_file", post(routes_tool::handle_write_file))
+        .route("/api/edit_file", post(routes_tool::handle_edit_file))
+        .route("/api/replace_lines", post(routes_tool::handle_replace_lines))
+        .route("/api/replace_file", post(routes_tool::handle_replace_file))
+        .route("/api/glob", post(routes_tool::handle_glob))
+        .route("/api/grep", post(routes_tool::handle_grep))
+        .route("/api/shell", post(routes_tool::handle_shell))
+        .route("/api/remote_shell", post(routes_tool::handle_remote_shell))
+        .route("/api/await_shell", post(routes_tool::handle_await_shell))
+        .route("/api/list_shells", post(routes_tool::handle_list_shells))
+        .route("/api/kill_shell", post(routes_tool::handle_kill_shell))
+        .route("/api/kill_shell_by_task", post(routes_tool::handle_kill_shell_by_task))
+        .route("/api/read_shell_logs", post(routes_tool::handle_read_shell_logs))
+        .route("/api/web_search", post(routes_tool::handle_web_search))
+        .route("/api/browse_page", post(routes_tool::handle_browse_page))
+        .route("/api/get_workspace_tree", post(routes_tool::handle_workspace_tree))
+        .route("/api/search_workspace_paths", post(routes_tool::handle_search_workspace_paths))
+        .route("/api/normalize_external_path", post(routes_tool::handle_normalize_external_path))
+        .route("/api/resolve_absolute_path", post(routes_tool::handle_resolve_absolute_path))
+        .route("/api/read_local_image_bytes", post(routes_tool::handle_read_local_image_bytes))
+        .route("/api/resolve_env_var", post(routes_tool::handle_resolve_env_var))
+        .route("/api/runtime_environment", post(routes_tool::handle_runtime_environment))
+        .route("/api/test_remote_connection", post(routes_tool::handle_test_remote_connection))
+        .route("/api/git_current_branch", post(routes_tool::handle_git_current_branch))
+        .route("/api/send_email", post(routes_tool::handle_send_email))
+        .route("/api/server_info", get(routes_tool::handle_server_info))
+        // Agent streaming
+        .route("/agent/start", post(routes_tool::handle_agent_start))
+        .route("/agent/cancel", post(routes_tool::handle_agent_cancel))
+        .route("/agent/status", post(routes_tool::handle_agent_status))
+        .route("/agent/generate_title", post(routes_tool::handle_generate_session_title))
+        .route("/agent/refine_prompt", post(routes_tool::handle_refine_prompt))
+        .route("/sse/events/{topic}", get(routes_sse::handle_sse_events))
+        // Shell output SSE
+        .route("/sse/shell/{shell_id}", get(routes_sse::handle_shell_sse))
+        // Database
+        .route("/db/get", post(routes_db::handle_db_get))
+        .route("/db/get_all", post(routes_db::handle_db_get_all))
+        .route("/db/put", post(routes_db::handle_db_put))
+        .route("/db/delete", post(routes_db::handle_db_delete))
+        .route("/db/get_all_from_index", post(routes_db::handle_db_get_all_from_index))
+        .route("/db/count", post(routes_db::handle_db_count))
+        .route("/db/clear", post(routes_db::handle_db_clear))
+        // Settings
+        .route("/settings/get", get(routes_settings::handle_settings_get))
+        .route("/settings/set", post(routes_settings::handle_settings_set))
+        .route("/settings/delete", post(routes_settings::handle_settings_delete))
+        // PTY WebSocket
+        .route("/ws/pty", get(routes_ws::handle_pty_ws))
+        // Static files (React SPA) — fallback
+        .fallback(static_files::handle_static_files)
+        .layer(cors)
+        .with_state(state)
+}
