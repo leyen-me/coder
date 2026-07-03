@@ -594,15 +594,8 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             onModelChange={setModel}
             thinkingEnabled={thinkingEnabled}
             onThinkingEnabledChange={onThinkingEnabledChange}
-            showWorkspaceControls={canEditWorkspace}
+            showWorkspaceControls={false}
             workspaceDir={workspaceBinding.workspaceDir}
-            workspaceName={workspaceName}
-            onPickWorkspace={() => {
-              void workspaceBinding.handlePickWorkspace();
-            }}
-            onClearWorkspace={() => {
-              void workspaceBinding.handleClearWorkspace();
-            }}
             gitBranch={gitControls.gitBranch}
             variant="compact"
             isRunning={isRunning}
