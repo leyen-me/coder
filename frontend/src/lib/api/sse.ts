@@ -1,5 +1,5 @@
 // SSE client for streaming agent events from Coder HTTP Server.
-// Replaces Tauri Channel-based event streaming.
+// Uses fetch + ReadableStream to avoid EventSource CORS issues.
 
 export interface AgentEvent {
   type: string;
@@ -29,17 +29,8 @@ export interface ShellFinishedEvent {
 export type SseEvent = AgentEvent | ShellOutputEvent | ShellFinishedEvent;
 
 /**
- * Backend base URL. In development (Vite dev server), the Vite proxy doesn't
- * support SSE streaming correctly, so connect directly to the backend port.
- * In production (backend serves static files), use the same origin.
- */
-function getBackendUrl(): string {
-  return window.location.origin;
-}
-
-/**
- * Connect to the SSE endpoint for agent events.
- * Returns a cleanup function to close the connection.
+ * Connect to the SSE endpoint for agent events via fetch + streaming.
+ * Returns a cleanup function to abort the connection.
  */
 export function connectAgentSse(
   taskId: string,
@@ -47,45 +38,86 @@ export function connectAgentSse(
   onDone: () => void,
   onError: (error: string) => void,
 ): () => void {
-  const baseUrl = getBackendUrl();
-  const eventSource = new EventSource(`${baseUrl}/sse/events/${taskId}`);
+  const controller = new AbortController();
 
-  eventSource.onmessage = (event) => {
+  void (async () => {
     try {
-      const data = JSON.parse(event.data) as SseEvent;
-      onEvent(data);
+      const response = await fetch(`/sse/events/${taskId}`, {
+        signal: controller.signal,
+      });
 
-      // Check if this is a terminal event
-      if (
-        data.type === "agent_event" &&
-        "status" in data &&
-        typeof data.status === "string"
-      ) {
-        const terminalStatuses = ["completed", "cancelled", "failed"];
-        if (terminalStatuses.includes(data.status)) {
-          eventSource.close();
-          onDone();
+      if (!response.ok) {
+        onError(`SSE error: ${response.status}`);
+        onDone();
+        return;
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        onError("SSE: no response body");
+        onDone();
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE lines
+        while (true) {
+          const lineBreak = buffer.indexOf("\n");
+          if (lineBreak === -1) break;
+
+          const line = buffer.slice(0, lineBreak).trim();
+          buffer = buffer.slice(lineBreak + 1);
+
+          if (!line || line.startsWith(":")) continue; // heartbeat / comment
+
+          if (line.startsWith("data:")) {
+            const payload = line.slice(5).trim();
+            try {
+              const data = JSON.parse(payload) as SseEvent;
+              onEvent(data);
+
+              if (
+                data.type === "agent_event" &&
+                "status" in data &&
+                typeof data.status === "string" &&
+                ["completed", "cancelled", "failed"].includes(data.status)
+              ) {
+                controller.abort();
+                onDone();
+                return;
+              }
+            } catch {
+              // malformed JSON — ignore
+            }
+          }
         }
       }
-    } catch (e) {
-      // Heartbeat or malformed data - ignore
-    }
-  };
 
-  eventSource.onerror = () => {
-    eventSource.close();
-    onError("SSE connection error");
-    onDone();
-  };
+      // Stream ended
+      onDone();
+    } catch (err: unknown) {
+      if (controller.signal.aborted) return;
+      const message = err instanceof Error ? err.message : String(err);
+      onError(`SSE connection error: ${message}`);
+      onDone();
+    }
+  })();
 
   return () => {
-    eventSource.close();
+    controller.abort();
   };
 }
 
 /**
  * Connect to the SSE endpoint for shell output events.
- * Returns a cleanup function.
  */
 export function connectShellSse(
   shellId: string,
@@ -93,30 +125,73 @@ export function connectShellSse(
   onDone: () => void,
   onError: (error: string) => void,
 ): () => void {
-  const baseUrl = window.location.origin;
-  const eventSource = new EventSource(`${baseUrl}/sse/shell/${shellId}`);
+  const controller = new AbortController();
 
-  eventSource.onmessage = (event) => {
+  void (async () => {
     try {
-      const data = JSON.parse(event.data) as SseEvent;
-      if (data.type === "shell_output") {
-        onOutput(data.stream, data.data);
-      } else if (data.type === "shell_finished") {
-        eventSource.close();
-        onDone();
-      }
-    } catch {
-      // heartbeat
-    }
-  };
+      const response = await fetch(`/sse/shell/${shellId}`, {
+        signal: controller.signal,
+      });
 
-  eventSource.onerror = () => {
-    eventSource.close();
-    onError("Shell SSE connection error");
-    onDone();
-  };
+      if (!response.ok) {
+        onError(`Shell SSE error: ${response.status}`);
+        onDone();
+        return;
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        onError("Shell SSE: no response body");
+        onDone();
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        while (true) {
+          const lineBreak = buffer.indexOf("\n");
+          if (lineBreak === -1) break;
+
+          const line = buffer.slice(0, lineBreak).trim();
+          buffer = buffer.slice(lineBreak + 1);
+
+          if (!line || line.startsWith(":")) continue;
+
+          if (line.startsWith("data:")) {
+            const payload = line.slice(5).trim();
+            try {
+              const data = JSON.parse(payload) as SseEvent;
+              if (data.type === "shell_output") {
+                onOutput(data.stream, data.data);
+              } else if (data.type === "shell_finished") {
+                controller.abort();
+                onDone();
+                return;
+              }
+            } catch {
+              // ignore
+            }
+          }
+        }
+      }
+
+      onDone();
+    } catch (err: unknown) {
+      if (controller.signal.aborted) return;
+      const message = err instanceof Error ? err.message : String(err);
+      onError(`Shell SSE error: ${message}`);
+      onDone();
+    }
+  })();
 
   return () => {
-    eventSource.close();
+    controller.abort();
   };
 }
