@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { AWAIT_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
@@ -10,13 +9,7 @@ type AwaitArgs = {
 };
 
 export const awaitShellHandler: ToolHandler = async (rawArgs, context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      AWAIT_TOOL_NAME,
-      "unsupported_runtime",
-      "await is only available in the desktop app"
-    );
-  }
+
 
   if (!context.workspaceDir) {
     return toolFailure(

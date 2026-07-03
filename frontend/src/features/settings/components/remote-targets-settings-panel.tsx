@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { invoke, isTauri } from "@tauri-apps/api/core";
 import { Plus } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -156,31 +155,12 @@ export function RemoteTargetsSettingsPanel() {
     setTestingAlias(alias);
     setTestResult(null);
 
-    if (!isTauri()) {
-      setTestResult({
-        alias,
-        ok: false,
-        message: "Test connection is only available in the desktop app",
-      });
-      setTestingAlias(null);
-      return;
-    }
-
-    try {
-      const result = await invoke<{ ok: boolean; message: string }>(
-        "test_remote_connection",
-        { config: targets.find((t) => t.alias === alias) }
-      );
-      setTestResult({ alias, ...result });
-    } catch (error) {
-      setTestResult({
-        alias,
-        ok: false,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    } finally {
-      setTestingAlias(null);
-    }
+    setTestResult({
+      alias,
+      ok: false,
+      message: "Test connection is only available in the desktop app",
+    });
+    setTestingAlias(null);
   }
 
   function handleToggleEnabled(target: RemoteTargetConfig) {

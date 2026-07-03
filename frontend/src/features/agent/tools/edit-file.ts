@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { toolFailure, toolSuccess } from "./result";
 import { EDIT_FILE_TOOL_NAME } from "./definitions";
@@ -15,13 +14,6 @@ type EditFileArgs = {
 };
 
 export const editFileHandler: ToolHandler = async (rawArgs, context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      EDIT_FILE_TOOL_NAME,
-      "unsupported_runtime",
-      "edit_file is only available in the desktop app"
-    );
-  }
 
   if (!context.workspaceDir) {
     return toolFailure(

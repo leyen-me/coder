@@ -4,12 +4,10 @@ import { READ_FILE_TOOL_NAME } from "./definitions";
 import { readFileHandler } from "./read-file";
 import { toolFailure, toolSuccess } from "./result";
 
-vi.mock("@tauri-apps/api/core", () => ({
   isTauri: vi.fn(() => true),
   invoke: vi.fn(),
 }));
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 describe("readFileHandler", () => {
   it("requires a workspace directory", async () => {

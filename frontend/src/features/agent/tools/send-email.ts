@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { getKVStore } from "@/lib/storage";
 import { SEND_EMAIL_TOOL_NAME } from "./definitions";
@@ -42,13 +41,7 @@ function readEmailSettings(): EmailSettings | null {
 // ---------------------------------------------------------------------------
 
 export const sendEmailHandler: ToolHandler = async (rawArgs) => {
-  if (!isTauri()) {
-    return toolFailure(
-      SEND_EMAIL_TOOL_NAME,
-      "unsupported_runtime",
-      "send_email is only available in the desktop app"
-    );
-  }
+
 
   const args = parseSendEmailArgs(rawArgs);
   if (!args.ok) {

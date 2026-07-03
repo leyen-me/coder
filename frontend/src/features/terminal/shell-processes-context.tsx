@@ -1,8 +1,6 @@
 "use client";
 
 import type { ShellInfo, ShellStatus } from "@/features/agent/tools/types";
-import { invoke, isTauri } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 export type ShellProcess = ShellInfo & {
@@ -49,43 +47,18 @@ function getProcessesSnapshot(): ShellProcess[] {
 }
 
 async function refreshProcesses(): Promise<void> {
-  if (!isTauri()) {
-    return;
-  }
-
-  try {
-    const shells = await invoke<ShellInfo[]>("shell_list", {
-      statusFilter: "running",
-    });
-    // Only expose human-terminal shells in the bottom panel.
-    const humanShells = shells.filter(
-      (shell) => shell.source !== "agent",
-    );
-    setProcesses((current) => mergeShellList(humanShells, current));
-  } catch {
-    // Ignore list failures in UI polling.
-  }
+  // Shell process monitoring is handled by the server in browser mode.
+  return;
 }
 
 async function initializeShellProcessStore(): Promise<void> {
-  if (!isTauri() || storeInitialized) {
+  if (storeInitialized) {
     return;
   }
 
   storeInitialized = true;
 
-  unlistenOutput = await listen<ShellOutputEvent>("shell-output", (event) => {
-    const { shellId, stream, data } = event.payload;
-    setProcesses((current) => appendStream(current, shellId, stream, data));
-  });
-
-  unlistenFinished = await listen<ShellFinishedEvent>("shell-finished", (event) => {
-    const { shellId, exitCode, status } = event.payload;
-    setProcesses((current) =>
-      updateFinished(current, shellId, status, exitCode)
-    );
-  });
-
+  // Shell process events are handled by the server in browser mode.
   await refreshProcesses();
 
   if (pollIntervalId === null) {
@@ -146,19 +119,9 @@ export function useShellProcesses() {
     await refreshProcesses();
   }, []);
 
-  const killProcess = useCallback(async (shellId: string) => {
-    if (!isTauri()) {
-      return;
-    }
-
-    await invoke("shell_kill", { shellId });
-    setProcesses((current) =>
-      current.map((process) =>
-        process.shellId === shellId
-          ? { ...process, status: "cancelled" as ShellStatus }
-          : process
-      )
-    );
+  const killProcess = useCallback(async (_shellId: string) => {
+    // Shell kill is handled by the server in browser mode.
+    return;
   }, []);
 
   return {

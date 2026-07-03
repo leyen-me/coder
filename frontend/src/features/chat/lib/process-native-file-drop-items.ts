@@ -1,13 +1,9 @@
-import { isTauri } from "@tauri-apps/api/core";
-
-import { normalizeExternalPathForWorkspace } from "@/lib/tauri/workspace-file-ops";
 import {
   isImageFile,
   isImagePath,
   type NativeFileDropItem,
 } from "@/lib/dnd/external-file-drop";
 
-import { imageFileFromAbsolutePath } from "./composer-image-attachments";
 import { insertFileMentionIntoComposer } from "./composer-insert-store";
 
 type ProcessNativeFileDropMessages = {
@@ -48,16 +44,6 @@ export async function processNativeFileDropItems({
         continue;
       }
 
-      if (path && isTauri()) {
-        const file = await imageFileFromAbsolutePath(path);
-        if (file) {
-          addAttachments([file]);
-        } else {
-          onError(messages.externalDropImageLoadFailed);
-        }
-        continue;
-      }
-
       onError(messages.externalDropPathUnresolved);
       continue;
     }
@@ -67,23 +53,7 @@ export async function processNativeFileDropItems({
       continue;
     }
 
-    if (!isTauri()) {
-      onError(messages.externalDropUnsupportedRuntime);
-      continue;
-    }
-
-    try {
-      const normalized = await normalizeExternalPathForWorkspace(
-        workspaceDir,
-        path
-      );
-      insertFileMentionIntoComposer(normalized.path, {
-        isDir: normalized.isDir,
-        name: normalized.name,
-      });
-    } catch {
-      onError(messages.externalDropInvalidPath);
-    }
+    onError(messages.externalDropUnsupportedRuntime);
   }
 }
 

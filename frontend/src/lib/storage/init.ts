@@ -1,4 +1,3 @@
-import { isTauri } from "@tauri-apps/api/core";
 import {
   setStoreBackend,
   getStoreBackend,
@@ -45,14 +44,4 @@ export async function initCoderStorageAsync(): Promise<void> {
   if (backend instanceof TauriSqliteBackend) {
     await backend.warmup();
   }
-}
-
-// Phase 1 runs immediately when this module is first imported,
-// before any React component renders.  Only in Tauri – browser dev
-// mode still uses IndexedDB / localStorage.
-if (isTauri()) {
-  initCoderStorageSync();
-  // Top-level await – blocks module evaluation (and thus React rendering)
-  // until the settings file has been fully loaded from disk.
-  await onStorageReady();
 }

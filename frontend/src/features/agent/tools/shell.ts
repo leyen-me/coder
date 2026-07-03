@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { AgentCancellationError, throwIfAborted } from "../cancellation";
 import { SHELL_TOOL_NAME } from "./definitions";
@@ -13,13 +12,6 @@ type ShellArgs = {
 };
 
 export const shellHandler: ToolHandler = async (rawArgs, context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      SHELL_TOOL_NAME,
-      "unsupported_runtime",
-      "shell is only available in the desktop app"
-    );
-  }
 
   const args = parseShellArgs(rawArgs);
   if (!args.ok) {

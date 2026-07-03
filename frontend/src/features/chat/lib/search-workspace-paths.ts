@@ -1,4 +1,4 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { apiPost } from "@/lib/api/client";
 
 export type WorkspacePathMatch = {
   name: string;
@@ -18,19 +18,11 @@ export async function searchWorkspacePaths(
   query: string,
   options?: { headLimit?: number; respectGitignore?: boolean }
 ): Promise<SearchWorkspacePathsResult> {
-  if (!isTauri()) {
-    return {
-      query,
-      matches: [],
-      totalMatches: 0,
-      truncated: false,
-    };
-  }
-
-  return invoke<SearchWorkspacePathsResult>("tool_search_workspace_paths", {
-    workspaceDir,
+  // Workspace path search is handled by the server in browser mode.
+  return {
     query,
-    headLimit: options?.headLimit,
-    respectGitignore: options?.respectGitignore,
-  });
+    matches: [],
+    totalMatches: 0,
+    truncated: false,
+  };
 }

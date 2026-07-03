@@ -9,12 +9,10 @@ import {
 import { toolFailure, toolSuccess } from "./result";
 import type { ListShellsData, ShellInfo } from "./types";
 
-vi.mock("@tauri-apps/api/core", () => ({
   isTauri: vi.fn(() => true),
   invoke: vi.fn(),
 }));
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 const sampleShells: ShellInfo[] = [
   {

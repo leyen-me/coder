@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { GREP_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
@@ -22,13 +21,6 @@ type GrepArgs = {
 };
 
 export const grepHandler: ToolHandler = async (rawArgs, context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      GREP_TOOL_NAME,
-      "unsupported_runtime",
-      "grep is only available in the desktop app"
-    );
-  }
 
   if (!context.workspaceDir) {
     return toolFailure(

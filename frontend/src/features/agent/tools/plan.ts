@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { emitPlanFileUpdated } from "@/features/plan/plan-events";
 import { updateSession } from "@/lib/db/sessions";
@@ -71,16 +70,6 @@ function requireWorkspace(
 ):
   | { ok: true; workspaceDir: string }
   | { ok: false; result: ReturnType<typeof toolFailure> } {
-  if (!isTauri()) {
-    return {
-      ok: false,
-      result: toolFailure(
-        tool,
-        "unsupported_runtime",
-        `${tool} is only available in the desktop app`
-      ),
-    };
-  }
 
   if (!workspaceDir?.trim()) {
     return {

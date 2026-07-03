@@ -4,12 +4,10 @@ import { GREP_TOOL_NAME } from "./definitions";
 import { grepHandler } from "./grep";
 import { toolFailure, toolSuccess } from "./result";
 
-vi.mock("@tauri-apps/api/core", () => ({
   isTauri: vi.fn(() => true),
   invoke: vi.fn(),
 }));
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 describe("grepHandler", () => {
   it("requires a workspace directory", async () => {

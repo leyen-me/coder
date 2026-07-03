@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { toolFailure, toolSuccess } from "./result";
 import { LIST_DIR_TOOL_NAME } from "./definitions";
@@ -12,13 +11,6 @@ type ListDirArgs = {
 };
 
 export const listDirHandler: ToolHandler = async (rawArgs, context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      LIST_DIR_TOOL_NAME,
-      "unsupported_runtime",
-      "list_dir is only available in the desktop app"
-    );
-  }
 
   if (!context.workspaceDir) {
     return toolFailure(

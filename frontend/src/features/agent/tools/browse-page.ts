@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { BROWSE_PAGE_TOOL_NAME } from "./definitions";
 import { parseNetworkToolError } from "./network-tool-error";
@@ -13,13 +12,7 @@ type BrowsePageArgs = {
 };
 
 export const browsePageHandler: ToolHandler = async (rawArgs, context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      BROWSE_PAGE_TOOL_NAME,
-      "unsupported_runtime",
-      "browse_page is only available in the desktop app"
-    );
-  }
+
 
   const args = parseBrowsePageArgs(rawArgs);
   if (!args.ok) {

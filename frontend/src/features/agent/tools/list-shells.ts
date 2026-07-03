@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { LIST_SHELLS_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
@@ -20,13 +19,7 @@ type ListShellsArgs = {
 };
 
 export const listShellsHandler: ToolHandler = async (rawArgs, _context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      LIST_SHELLS_TOOL_NAME,
-      "unsupported_runtime",
-      "list_shells is only available in the desktop app"
-    );
-  }
+
 
   const args = parseListShellsArgs(rawArgs);
   if (!args.ok) {

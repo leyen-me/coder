@@ -32,7 +32,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
-import { invoke } from "@tauri-apps/api/core";
 
 import { SessionTitleLabel } from "@/features/chat/components/session-title-label";
 import type { ChatHistoryItem } from "@/lib/db";
@@ -171,7 +170,7 @@ export function ChatHistoryList({
                         {t("sidebar.exportChat")}
                       </ContextMenuItem>
                       {!isRunning && (
-                        <ContextMenuItem onClick={() => invoke("create_new_window", { sessionId: item.id })}>
+                        <ContextMenuItem onClick={undefined} // New window creation only in desktop app>
                           <ExternalLink className="size-4" />
                           {t("sidebar.openInNewWindow")}
                         </ContextMenuItem>

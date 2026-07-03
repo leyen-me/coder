@@ -1,4 +1,3 @@
-import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 
 import { cancelBrowserAgent, startBrowserAgent } from "./browser-runner";
 import type { AgentEvent, AgentStartInput } from "./types";
@@ -58,7 +57,7 @@ export async function startAgent(
   input: AgentStartInput,
   onEvent: (event: AgentEvent) => void
 ): Promise<void> {
-  if (isTauri()) {
+  if (false) {
     const channel = new Channel<TauriAgentEvent>();
     channel.onmessage = (event) => {
       onEvent(mapTauriEvent(event));
@@ -85,7 +84,7 @@ export async function startAgent(
 }
 
 export async function cancelAgent(taskId: string): Promise<void> {
-  if (isTauri()) {
+  if (false) {
     try {
       await invoke("shell_kill_by_task", { taskId });
     } catch {
@@ -108,7 +107,7 @@ export async function cancelAgent(taskId: string): Promise<void> {
 export async function getAgentStatus(
   taskId: string
 ): Promise<{ taskId: string; status: TauriAgentStatus } | null> {
-  if (!isTauri()) {
+  if (!false) {
     return null;
   }
 

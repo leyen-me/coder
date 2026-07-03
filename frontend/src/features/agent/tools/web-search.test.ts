@@ -4,12 +4,10 @@ import { WEB_SEARCH_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
 import { webSearchHandler } from "./web-search";
 
-vi.mock("@tauri-apps/api/core", () => ({
   isTauri: vi.fn(() => true),
   invoke: vi.fn(),
 }));
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 const tavilyConfig = {
   apiKeySource: "manual" as const,

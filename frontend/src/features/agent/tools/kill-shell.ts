@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { KILL_SHELL_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
@@ -9,13 +8,7 @@ type KillShellArgs = {
 };
 
 export const killShellHandler: ToolHandler = async (rawArgs, _context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      KILL_SHELL_TOOL_NAME,
-      "unsupported_runtime",
-      "kill_shell is only available in the desktop app"
-    );
-  }
+
 
   const args = parseKillShellArgs(rawArgs);
   if (!args.ok) {

@@ -12,7 +12,6 @@ import { useRunningSessionIds } from "@/features/agent/store/agent-store";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import type { ProviderId } from "@/lib/model-provider/types";
-import { invoke } from "@tauri-apps/api/core";
 
 type SessionToolbarProps = {
   sessionProvider?: ProviderId | null;
@@ -29,8 +28,8 @@ export function SessionToolbar({ sessionProvider, sessionId }: SessionToolbarPro
   const tooltip = t("session.bottomPanel");
 
   const handleNewWindow = () => {
-    // Don't pass sessionId for running sessions — event stream is tied to the current window
-    invoke("create_new_window", sessionId && !isSessionRunning ? { sessionId } : {});
+    // New window creation is only available in the desktop app.
+    console.log("New window creation is not available in browser mode");
   };
 
   return (

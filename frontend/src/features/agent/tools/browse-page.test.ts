@@ -4,12 +4,10 @@ import { BROWSE_PAGE_TOOL_NAME } from "./definitions";
 import { browsePageHandler } from "./browse-page";
 import { toolFailure, toolSuccess } from "./result";
 
-vi.mock("@tauri-apps/api/core", () => ({
   isTauri: vi.fn(() => true),
   invoke: vi.fn(),
 }));
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 describe("browsePageHandler", () => {
   it("requires url in arguments", async () => {

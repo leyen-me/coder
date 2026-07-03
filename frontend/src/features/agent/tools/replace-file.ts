@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { toolFailure, toolSuccess } from "./result";
 import { REPLACE_FILE_TOOL_NAME } from "./definitions";
@@ -13,13 +12,6 @@ type ReplaceFileArgs = {
 };
 
 export const replaceFileHandler: ToolHandler = async (rawArgs, context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      REPLACE_FILE_TOOL_NAME,
-      "unsupported_runtime",
-      "replace_file is only available in the desktop app"
-    );
-  }
 
   if (!context.workspaceDir) {
     return toolFailure(

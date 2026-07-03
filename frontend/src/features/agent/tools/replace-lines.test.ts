@@ -4,12 +4,10 @@ import { REPLACE_LINES_TOOL_NAME } from "./definitions";
 import { replaceLinesHandler } from "./replace-lines";
 import { toolFailure, toolSuccess } from "./result";
 
-vi.mock("@tauri-apps/api/core", () => ({
   isTauri: vi.fn(() => true),
   invoke: vi.fn(),
 }));
 
-import { invoke } from "@tauri-apps/api/core";
 
 describe("replaceLinesHandler", () => {
   it("requires all arguments", async () => {

@@ -4,12 +4,10 @@ import { WRITE_FILE_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
 import { writeFileHandler } from "./write-file";
 
-vi.mock("@tauri-apps/api/core", () => ({
   isTauri: vi.fn(() => true),
   invoke: vi.fn(),
 }));
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 describe("writeFileHandler", () => {
   it("requires a workspace directory", async () => {

@@ -1,6 +1,5 @@
 import { Outlet, useNavigate, useNavigationType } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
-import { isTauri } from "@tauri-apps/api/core";
 
 import { FloatingShellNav } from "@/components/layout/floating-shell-nav";
 import { useSidebarOpen } from "@/features/chat/hooks/use-sidebar-open";
@@ -16,8 +15,6 @@ import { ShellProcessesProvider } from "@/features/terminal/shell-processes-cont
 import { useRouteWorkspaceDir } from "@/features/terminal/use-route-workspace-dir";
 import { Toaster } from "@/components/ui/sonner";
 import { WorkspacePathDragPreview } from "@/components/dnd/workspace-path-drag-preview";
-import { useAppWindow } from "@/lib/tauri/use-app-window";
-import { useWindowMaximized } from "@/lib/tauri/use-window-maximized";
 import { cn } from "@/lib/utils";
 import {
   startAutomationScheduler,
@@ -31,10 +28,6 @@ export function AppShell() {
   const { isOpen: isSidebarOpen, toggle: toggleSidebar } = useSidebarOpen();
   const navigate = useNavigate();
   const navigationType = useNavigationType();
-  const appWindow = useAppWindow();
-  const isMaximized = useWindowMaximized(appWindow);
-  const useRoundedShell = appWindow !== null && !isMaximized;
-
   const shellContext: ShellOutletContext = { sidebarOpen: isSidebarOpen };
   const workspaceDir = useRouteWorkspaceDir();
 
@@ -66,19 +59,10 @@ export function AppShell() {
     };
   }, []);
 
-  // Initialize ~/.coder/ storage when running inside Tauri.
-  useEffect(() => {
-    const tauri = isTauri();
-    if (tauri) {
-      void initCoderStorageAsync();
-    }
-  }, []);
-
   return (
     <div
       className={cn(
         "relative flex h-svh flex-row overflow-hidden bg-background",
-        useRoundedShell && "rounded-(--window-radius)",
       )}
     >
       <FloatingShellNav

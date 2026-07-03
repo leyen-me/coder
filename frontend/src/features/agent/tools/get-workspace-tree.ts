@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { toolFailure, toolSuccess } from "./result";
 import { GET_WORKSPACE_TREE_TOOL_NAME } from "./definitions";
@@ -13,13 +12,7 @@ export const getWorkspaceTreeHandler: ToolHandler = async (
   rawArgs,
   context
 ) => {
-  if (!isTauri()) {
-    return toolFailure(
-      GET_WORKSPACE_TREE_TOOL_NAME,
-      "unsupported_runtime",
-      "get_workspace_tree is only available in the desktop app"
-    );
-  }
+
 
   if (!context.workspaceDir) {
     return toolFailure(

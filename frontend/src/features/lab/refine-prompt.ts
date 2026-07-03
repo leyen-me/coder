@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { chatCompletionsUrl } from "@/features/agent/openai-url";
 
@@ -101,26 +100,6 @@ async function requestRefinedPrompt(
     userPrompt,
     input.contextMessages ?? []
   );
-
-  if (isTauri()) {
-    try {
-      const raw = await invoke<string | null>("agent_refine_prompt", {
-        params: {
-          baseUrl: input.baseUrl,
-          apiKey: input.apiKey || null,
-          apiKeySource: input.apiKeySource,
-          apiKeyEnvVar: input.apiKeyEnvVar,
-          model: input.model,
-          userPrompt,
-          systemPrompt,
-          contextMessages: input.contextMessages ?? [],
-        },
-      });
-      return raw ? normalizeRefinedPrompt(raw) || null : null;
-    } catch {
-      return null;
-    }
-  }
 
   if (!input.apiKey.trim()) {
     return null;

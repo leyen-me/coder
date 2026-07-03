@@ -1,7 +1,4 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-
-import type { ListDirData } from "@/features/agent/tools/types";
 
 /**
  * Normalizes a workspace path and suppresses stale/nonexistent directories.
@@ -16,46 +13,14 @@ export function useValidatedWorkspaceDir(
   );
 
   useEffect(() => {
-    let cancelled = false;
     const nextWorkspaceDir = workspaceDir?.trim() || null;
 
     if (!nextWorkspaceDir) {
       setValidatedWorkspaceDir(null);
-      return () => {
-        cancelled = true;
-      };
+      return;
     }
 
-    if (!isTauri()) {
-      setValidatedWorkspaceDir(nextWorkspaceDir);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    setValidatedWorkspaceDir(null);
-
-    void invoke<ListDirData>("tool_list_dir", {
-      workspaceDir: nextWorkspaceDir,
-      path: ".",
-      recursive: false,
-      maxDepth: 1,
-      showHidden: false,
-    })
-      .then(() => {
-        if (!cancelled) {
-          setValidatedWorkspaceDir(nextWorkspaceDir);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setValidatedWorkspaceDir(null);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    setValidatedWorkspaceDir(nextWorkspaceDir);
   }, [workspaceDir]);
 
   return validatedWorkspaceDir;

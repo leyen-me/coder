@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { toolFailure, toolSuccess } from "./result";
 import { REPLACE_LINES_TOOL_NAME } from "./definitions";
@@ -15,13 +14,6 @@ type ReplaceLinesArgs = {
 };
 
 export const replaceLinesHandler: ToolHandler = async (rawArgs, context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      REPLACE_LINES_TOOL_NAME,
-      "unsupported_runtime",
-      "replace_lines is only available in the desktop app"
-    );
-  }
 
   if (!context.workspaceDir) {
     return toolFailure(

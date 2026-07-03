@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { AlertCircleIcon, CheckCircleIcon, LoaderIcon, MailIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
@@ -100,28 +99,9 @@ export function EmailSettingsPanel() {
     setTestStatus("sending");
     setTestMessage("");
 
-    try {
-      const result = await invoke<string>("send_email", {
-        request: {
-          settings: {
-            smtpHost: settings.smtpHost,
-            smtpPort: settings.smtpPort,
-            username: settings.username,
-            password: settings.password,
-            fromAddress: settings.fromAddress,
-            useTls: settings.useTls,
-          },
-          to: settings.fromAddress,
-          subject: t("settings.email.testSubject"),
-          body: t("settings.email.testBody"),
-        },
-      });
-      setTestStatus("success");
-      setTestMessage(result);
-    } catch (err) {
-      setTestStatus("error");
-      setTestMessage(typeof err === "string" ? err : String(err));
-    }
+    // Test send is only available in the desktop app.
+    setTestStatus("error");
+    setTestMessage("Test send is only available in the desktop app.");
   }, [settings, t]);
 
   const canTest =

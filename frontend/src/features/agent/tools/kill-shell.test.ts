@@ -4,12 +4,10 @@ import { KILL_SHELL_TOOL_NAME } from "./definitions";
 import { killShellHandler } from "./kill-shell";
 import { toolFailure, toolSuccess } from "./result";
 
-vi.mock("@tauri-apps/api/core", () => ({
   isTauri: vi.fn(() => true),
   invoke: vi.fn(),
 }));
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 describe("killShellHandler", () => {
   it("returns unsupported runtime outside tauri", async () => {

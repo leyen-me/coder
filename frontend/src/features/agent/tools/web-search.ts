@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { WEB_SEARCH_TOOL_NAME } from "./definitions";
 import { parseNetworkToolError } from "./network-tool-error";
@@ -12,13 +11,7 @@ type WebSearchArgs = {
 };
 
 export const webSearchHandler: ToolHandler = async (rawArgs, context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      WEB_SEARCH_TOOL_NAME,
-      "unsupported_runtime",
-      "web_search is only available in the desktop app"
-    );
-  }
+
 
   const args = parseWebSearchArgs(rawArgs);
   if (!args.ok) {

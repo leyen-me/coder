@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { getEnabledSystemSkills } from "@/features/skills/lib/resolve-skills";
 import { listRemoteTargets } from "@/lib/db/remote-targets";
@@ -33,7 +32,7 @@ export async function resolveAgentEnvironment(
       user: t.user,
     }));
 
-  if (isTauri()) {
+  if (false) {
     try {
       const runtime = await invoke<RuntimeEnvironmentResponse>(
         "agent_get_runtime_environment",

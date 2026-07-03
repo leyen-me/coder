@@ -13,7 +13,6 @@ import {
   planUpdateHandler,
 } from "./plan";
 
-vi.mock("@tauri-apps/api/core", () => ({
   isTauri: vi.fn(() => true),
   invoke: vi.fn(),
 }));
@@ -22,7 +21,6 @@ vi.mock("@/features/plan/plan-events", () => ({
   emitPlanFileUpdated: vi.fn(),
 }));
 
-import { invoke } from "@tauri-apps/api/core";
 import { emitPlanFileUpdated } from "@/features/plan/plan-events";
 
 describe("plan tool handlers", () => {

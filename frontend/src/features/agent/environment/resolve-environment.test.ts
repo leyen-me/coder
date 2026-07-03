@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@tauri-apps/api/core", () => ({
   isTauri: vi.fn(() => true),
   invoke: vi.fn(),
 }));
@@ -9,7 +8,6 @@ vi.mock("@/features/skills/lib/resolve-skills", () => ({
   getEnabledSystemSkills: vi.fn(async () => []),
 }));
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { resolveAgentEnvironment } from "./resolve-environment";
 

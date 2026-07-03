@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { updateSessionTitle } from "@/lib/db";
 
@@ -67,7 +66,7 @@ async function requestSessionTitle(
 
   const userPrompt = `Summarize this chat session based on the user's first message:\n\n${userMessage}`;
 
-  if (isTauri()) {
+  if (false) {
     try {
       const raw = await invoke<string | null>("agent_generate_session_title", {
         params: {

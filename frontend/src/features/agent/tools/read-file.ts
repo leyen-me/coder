@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { toolFailure, toolSuccess } from "./result";
 import { READ_FILE_TOOL_NAME } from "./definitions";
@@ -13,13 +12,6 @@ type ReadFileArgs = {
 };
 
 export const readFileHandler: ToolHandler = async (rawArgs, context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      READ_FILE_TOOL_NAME,
-      "unsupported_runtime",
-      "read_file is only available in the desktop app"
-    );
-  }
 
   if (!context.workspaceDir) {
     return toolFailure(

@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { toolFailure, toolSuccess } from "./result";
 import { WRITE_FILE_TOOL_NAME } from "./definitions";
@@ -11,13 +10,6 @@ type WriteFileArgs = {
 };
 
 export const writeFileHandler: ToolHandler = async (rawArgs, context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      WRITE_FILE_TOOL_NAME,
-      "unsupported_runtime",
-      "write_file is only available in the desktop app"
-    );
-  }
 
   if (!context.workspaceDir) {
     return toolFailure(

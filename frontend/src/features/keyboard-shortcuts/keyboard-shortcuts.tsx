@@ -13,7 +13,6 @@ import {
 import { matchKeyboardEvent } from "@/lib/keyboard-shortcuts/match";
 import { useKeyboardShortcuts } from "@/lib/keyboard-shortcuts/keyboard-shortcuts-provider";
 import { useBottomPanel } from "@/features/terminal/bottom-panel-context";
-import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 
 import { useHotkeyActions } from "./hotkey-actions-context";
 import { useSearchDialog } from "./search-dialog-context";

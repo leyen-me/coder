@@ -1,5 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
-
 import { PLAN_DIRECTORY } from "./constants";
 
 export type PlanListEntry = {
@@ -18,46 +16,22 @@ export type PlanReadResult = {
 };
 
 export async function listWorkspacePlans(
-  workspaceDir: string
+  _workspaceDir: string
 ): Promise<PlanListEntry[]> {
-  if (!isTauri()) {
-    return [];
-  }
-
-  const result = await invoke<{ plans: PlanListEntry[] }>("tool_plan_list", {
-    workspaceDir,
-  });
-  return result.plans;
+  return [];
 }
 
 export async function readWorkspacePlan(
-  workspaceDir: string,
-  name: string
+  _workspaceDir: string,
+  _name: string
 ): Promise<PlanReadResult> {
-  return invoke<PlanReadResult>("tool_plan_read", {
-    workspaceDir,
-    name,
-  });
+  throw new Error("Plans are not available in browser mode");
 }
 
 export async function getLatestWorkspacePlan(
   workspaceDir: string
 ): Promise<(PlanListEntry & { content?: string }) | null> {
-  const plans = await listWorkspacePlans(workspaceDir);
-  const latest = plans[0];
-  if (!latest) {
-    return null;
-  }
-
-  try {
-    const read = await readWorkspacePlan(workspaceDir, latest.name);
-    return {
-      ...latest,
-      content: read.content,
-    };
-  } catch {
-    return latest;
-  }
+  return null;
 }
 
 export function formatPlanTabLabel(name: string): string {

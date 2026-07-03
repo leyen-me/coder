@@ -1,7 +1,5 @@
 import type { MouseEvent } from "react";
 
-import { useAppWindow } from "@/lib/tauri/use-app-window";
-import { handleTitleBarMouseDown } from "@/lib/tauri/title-bar-handlers";
 import { cn } from "@/lib/utils";
 
 type TitleBarDragRegionProps = {
@@ -9,14 +7,8 @@ type TitleBarDragRegionProps = {
 };
 
 export function TitleBarDragRegion({ className }: TitleBarDragRegionProps) {
-  const appWindow = useAppWindow();
-
-  const onMouseDown = (event: MouseEvent<HTMLDivElement>) => {
-    if (!appWindow) {
-      return;
-    }
-
-    handleTitleBarMouseDown(event, appWindow);
+  const onMouseDown = (_event: MouseEvent<HTMLDivElement>) => {
+    // Title bar drag is only available in the desktop app.
   };
 
   return (

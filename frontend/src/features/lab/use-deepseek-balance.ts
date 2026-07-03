@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 
 import { PRESET_PROVIDERS } from "@/lib/model-provider/constants";
 import { resolveProviderConfig } from "@/lib/model-provider/resolve-provider-config";

@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { GLOB_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
@@ -12,13 +11,6 @@ type GlobArgs = {
 };
 
 export const globHandler: ToolHandler = async (rawArgs, context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      GLOB_TOOL_NAME,
-      "unsupported_runtime",
-      "glob is only available in the desktop app"
-    );
-  }
 
   if (!context.workspaceDir) {
     return toolFailure(

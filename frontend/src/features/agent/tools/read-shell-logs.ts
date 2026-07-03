@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { READ_SHELL_LOGS_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
@@ -12,13 +11,7 @@ type ReadShellLogsArgs = {
 };
 
 export const readShellLogsHandler: ToolHandler = async (rawArgs, _context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      READ_SHELL_LOGS_TOOL_NAME,
-      "unsupported_runtime",
-      "read_shell_logs is only available in the desktop app"
-    );
-  }
+
 
   const args = parseReadShellLogsArgs(rawArgs);
   if (!args.ok) {

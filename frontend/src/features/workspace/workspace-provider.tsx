@@ -7,8 +7,6 @@ import {
   type ReactNode,
 } from "react";
 
-import { invoke, isTauri } from "@tauri-apps/api/core";
-
 import { pickWorkspaceDir } from "./pick-workspace-dir";
 import {
   getWorkspaceDisplayName,
@@ -58,13 +56,6 @@ function setWorkspaceSnapshot(path: string | null): void {
   workspaceSnapshot = path;
   writeWorkspaceDir(path);
   emitWorkspaceChange();
-
-  // Notify the Rust file watcher about the new workspace directory.
-  if (isTauri() && path) {
-    invoke("set_workspace_dir", { newDir: path }).catch((err) => {
-      console.error("set_workspace_dir failed:", err);
-    });
-  }
 }
 
 type WorkspaceProviderProps = {

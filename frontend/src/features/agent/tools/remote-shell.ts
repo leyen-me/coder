@@ -1,4 +1,3 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
 
 import { AgentCancellationError } from "../cancellation";
 import { REMOTE_SHELL_TOOL_NAME } from "./definitions";
@@ -14,13 +13,6 @@ type RemoteShellArgs = {
 };
 
 export const remoteShellHandler: ToolHandler = async (rawArgs, context) => {
-  if (!isTauri()) {
-    return toolFailure(
-      REMOTE_SHELL_TOOL_NAME,
-      "unsupported_runtime",
-      "remote_shell is only available in the desktop app"
-    );
-  }
 
   const args = parseRemoteShellArgs(rawArgs);
   if (!args.ok) {
