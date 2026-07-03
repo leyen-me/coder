@@ -131,11 +131,12 @@ jobs:
           EOF
 
       - name: Publish platform package to npm
+        shell: bash
         working-directory: npm-packages/${{ matrix.npm_platform }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+          npm config set "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}"
           npm publish --access public
 
   publish-main:
@@ -187,7 +188,7 @@ jobs:
           chmod +x npm-main/cli.mjs
 
           cd npm-main
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+          npm config set "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}"
           npm publish --access public
 
       - name: 创建 GitHub Release（记录版本）
