@@ -10,7 +10,7 @@ export async function getCurrentGitBranch(
   try {
     const result = await apiPost<string | null>(
       "/api/git_current_branch",
-      { workspace_dir: workspaceDir }
+      { workspaceDir }
     );
     return result ?? null;
   } catch {
