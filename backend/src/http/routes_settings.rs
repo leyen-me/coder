@@ -37,6 +37,14 @@ fn save_settings(settings: &Value) -> Result<(), String> {
     std::fs::write(&path, content).map_err(|e| e.to_string())
 }
 
+/// Set a setting key-value pair in settings.json.
+/// This is public so it can be called from main.rs at startup.
+pub fn set_setting(key: &str, value: &str) -> Result<(), String> {
+    let mut settings = load_settings();
+    settings[key] = json!(value);
+    save_settings(&settings)
+}
+
 #[derive(Deserialize)]
 pub struct SetSettingParams {
     pub key: String,

@@ -36,6 +36,13 @@ async fn main() {
     // Initialize all shared state
     let state = coder_lib::initialize_app_state(&workspace_dir);
 
+    // Save the workspace directory to settings.json so the web frontend can read it.
+    // This is the only way to set the workspace dir in browser mode (no native file dialog).
+    let _ = coder_lib::http::routes_settings::set_setting(
+        "coder:workspace-dir",
+        &workspace_dir.to_string_lossy(),
+    );
+
     // Determine port (default: 1421 for dev, 0 = random for release)
     #[cfg(debug_assertions)]
     let default_port = 1421;
