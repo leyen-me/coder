@@ -170,7 +170,7 @@ export function ChatHistoryList({
                         {t("sidebar.exportChat")}
                       </ContextMenuItem>
                       {!isRunning && (
-                        <ContextMenuItem onClick={undefined} // New window creation only in desktop app>
+                        <ContextMenuItem onClick={undefined}>
                           <ExternalLink className="size-4" />
                           {t("sidebar.openInNewWindow")}
                         </ContextMenuItem>
