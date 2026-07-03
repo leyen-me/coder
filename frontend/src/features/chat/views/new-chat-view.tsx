@@ -127,8 +127,9 @@ export function NewChatView() {
           onModelChange={setModel}
           thinkingEnabled={thinkingEnabled}
           onThinkingEnabledChange={onThinkingEnabledChange}
-          showWorkspaceControls={false}
+          showWorkspaceControls
           workspaceDir={workspaceDir}
+          workspaceName={gitControls.workspaceName ?? workspaceName}
           gitBranch={gitControls.gitBranch}
           variant="compact"
           isRunning={isSubmitting}
