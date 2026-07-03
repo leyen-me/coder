@@ -4,6 +4,7 @@ export type Messages = {
     windowNav: string;
     toggleSidebar: string;
     back: string;
+    search: string;
     forward: string;
     newWindow: string;
     openWorkspace: string;

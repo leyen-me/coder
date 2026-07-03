@@ -6,6 +6,7 @@ export const zhMessages = {
     windowNav: "窗口导航",
     toggleSidebar: "切换侧栏",
     back: "后退",
+    search: "搜索",
     forward: "前进",
     newWindow: "新建窗口",
     openWorkspace: "在资源管理器中打开工作区",

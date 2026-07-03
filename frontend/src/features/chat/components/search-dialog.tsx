@@ -123,7 +123,7 @@ export function SearchDialog({ open, onOpenChange }: SearchDialogProps) {
           onValueChange={setQuery}
         />
 
-        <CommandList className="max-h-96 pb-2">
+        <CommandList className="max-h-[60vh] pb-2">
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
               <Spinner className="size-4" />

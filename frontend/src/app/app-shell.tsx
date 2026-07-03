@@ -1,8 +1,10 @@
-import { Outlet, useNavigate, useNavigationType } from "react-router-dom";
-import { useCallback, useEffect, useState } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import { useEffect } from "react";
 
 import { FloatingShellNav } from "@/components/layout/floating-shell-nav";
+import { useSearchDialog } from "@/features/keyboard-shortcuts/search-dialog-context";
 import { useSidebarOpen } from "@/features/chat/hooks/use-sidebar-open";
+import { paths } from "@/app/paths";
 import { HotkeyActionsProvider } from "@/features/keyboard-shortcuts/hotkey-actions-context";
 import { KeyboardShortcuts } from "@/features/keyboard-shortcuts/keyboard-shortcuts";
 import { PromptRefineProvider } from "@/features/lab/prompt-refine-provider";
@@ -28,33 +30,33 @@ import {
 initCoderStorageSync();
 
 import type { ShellOutletContext } from "./shell-outlet-context";
+/** Nav bar that uses useSearchDialog, rendered inside SearchDialogProvider. */
+function ShellFloatingNav({
+  isSidebarOpen,
+  toggleSidebar,
+  showSearch,
+}: {
+  isSidebarOpen: boolean;
+  toggleSidebar: () => void;
+  showSearch: boolean;
+}) {
+  const { open: openSearch } = useSearchDialog();
+  return (
+    <FloatingShellNav
+      isSidebarOpen={isSidebarOpen}
+      onToggleSidebar={toggleSidebar}
+      onSearch={openSearch}
+      showSearch={showSearch}
+    />
+  );
+}
 
 export function AppShell() {
   const { isOpen: isSidebarOpen, toggle: toggleSidebar } = useSidebarOpen();
-  const navigate = useNavigate();
-  const navigationType = useNavigationType();
+  const location = useLocation();
   const shellContext: ShellOutletContext = { sidebarOpen: isSidebarOpen };
   const workspaceDir = useRouteWorkspaceDir();
-
-  const handleBack = () => navigate(-1);
-
-  // Determine if the user can go back by reading the history index from
-  // React Router's browser history state. This handles page reload correctly
-  // since the browser persists history.state across reloads.
-  // We use window.history.state.idx (set by React Router's createBrowserHistory)
-  // rather than window.history.length, which doesn't shrink after POP.
-  const getHistoryIdx = useCallback(() => {
-    return ((window.history.state as { idx?: number } | null)?.idx ?? -1);
-  }, []);
-
-  const [canGoBack, setCanGoBack] = useState(() => getHistoryIdx() > 0);
-
-  useEffect(() => {
-    // After each navigation, re-read the history index.
-    // React Router synchronously updates history.state before this effect runs,
-    // so no delay is needed.
-    setCanGoBack(getHistoryIdx() > 0);
-  }, [navigationType, getHistoryIdx]);
+  const showSearch = location.pathname !== paths.settings;
 
   // Start the automation scheduler on mount; stop on unmount.
   useEffect(() => {
@@ -70,15 +72,13 @@ export function AppShell() {
         "relative flex h-svh flex-row overflow-hidden bg-background",
       )}
     >
-      <FloatingShellNav
-        isSidebarOpen={isSidebarOpen}
-        onToggleSidebar={toggleSidebar}
-        onBack={handleBack}
-        canGoBack={canGoBack}
-      />
-
       <ShellChromeProvider toggleSidebar={toggleSidebar}>
         <SearchDialogProvider>
+          <ShellFloatingNav
+            isSidebarOpen={isSidebarOpen}
+            toggleSidebar={toggleSidebar}
+            showSearch={showSearch}
+          />
           <PromptRefineProvider>
           <HotkeyActionsProvider>
             <BottomPanelProvider>

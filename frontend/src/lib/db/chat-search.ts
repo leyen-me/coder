@@ -84,12 +84,19 @@ function messageResult(
 
 export async function searchChats(
   query: string,
-  limit = 20
+  limit = 50
 ): Promise<ChatSearchResult[]> {
   const normalized = query.trim().toLowerCase();
   if (!normalized) {
     const sessions = await listSessions(limit);
-    return sessions.map(sessionResult);
+    const seen = new Set<string>();
+    return sessions
+      .filter((s) => {
+        if (seen.has(s.id)) return false;
+        seen.add(s.id);
+        return true;
+      })
+      .map(sessionResult);
   }
 
   const db = await getDb();
@@ -106,6 +113,7 @@ export async function searchChats(
 
   const results: ChatSearchResult[] = [];
   const seenMessageIds = new Set<string>();
+  const seenSessionIds = new Set<string>();
 
   for (const rawSession of sessions) {
     const session = normalizeSessionRecord(rawSession);
@@ -113,6 +121,10 @@ export async function searchChats(
       continue;
     }
 
+    if (seenSessionIds.has(session.id)) {
+      continue;
+    }
+    seenSessionIds.add(session.id);
     results.push(sessionResult(session));
   }
 

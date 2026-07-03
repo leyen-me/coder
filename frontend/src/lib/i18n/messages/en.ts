@@ -6,6 +6,7 @@ export const enMessages = {
     windowNav: "Window navigation",
     toggleSidebar: "Toggle sidebar",
     back: "Back",
+    search: "Search",
     forward: "Forward",
     newWindow: "New Window",
     openWorkspace: "Open workspace in file manager",

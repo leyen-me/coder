@@ -1,4 +1,4 @@
-import { ArrowLeft, PanelLeft } from "lucide-react";
+import { PanelLeft, Search } from "lucide-react";
 
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -9,16 +9,16 @@ import { TitleBarNavButton } from "./title-bar-nav-button";
 type FloatingShellNavProps = {
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
-  onBack?: () => void;
-  canGoBack: boolean;
+  onSearch: () => void;
+  showSearch?: boolean;
 };
 
 /** Window nav controls that float above the shell; unaffected by sidebar collapse. */
 export function FloatingShellNav({
   isSidebarOpen,
   onToggleSidebar,
-  onBack,
-  canGoBack,
+  onSearch,
+  showSearch = true,
 }: FloatingShellNavProps) {
   const { t } = useTranslation();
 
@@ -41,12 +41,13 @@ export function FloatingShellNav({
           isActive={isSidebarOpen}
           onClick={onToggleSidebar}
         />
-        <TitleBarNavButton
-          label={t("titleBar.back")}
-          icon={ArrowLeft}
-          disabled={!canGoBack}
-          onClick={onBack}
-        />
+        {showSearch ? (
+          <TitleBarNavButton
+            label={t("titleBar.search")}
+            icon={Search}
+            onClick={onSearch}
+          />
+        ) : null}
       </nav>
     </header>
   );
