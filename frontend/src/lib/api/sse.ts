@@ -36,7 +36,7 @@ export type SseEvent = AgentEvent | ShellOutputEvent | ShellFinishedEvent;
 function getBackendUrl(): string {
   // Dev: frontend on 1420, backend on 1421
   if (window.location.port === "1420") {
-    return "http://127.0.0.1:1421";
+    return "http://localhost:1421";
   }
   return window.location.origin;
 }
