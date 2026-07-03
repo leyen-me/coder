@@ -10,5 +10,4 @@ export {
   resetStoreBackend,
 } from "./env";
 export { BrowserStoreBackend } from "./browser";
-export { TauriFsKvStore, getTauriFsKvStore } from "./tauri-fs-kv";
-export { TauriSqliteBackend } from "./tauri-sqlite";
+export { HttpStoreBackend } from "./http-backend";
