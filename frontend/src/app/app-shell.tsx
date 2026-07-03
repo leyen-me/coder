@@ -67,6 +67,11 @@ export function AppShell() {
     };
   }, []);
 
+  // Initialize storage backends asynchronously (preload settings from backend).
+  useEffect(() => {
+    initCoderStorageAsync();
+  }, []);
+
   return (
     <div
       className={cn(
