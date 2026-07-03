@@ -1,7 +1,9 @@
 import { HttpStoreBackend } from "./http-backend";
+import { createHttpKvStore } from "./http-kv";
 import {
   setStoreBackend,
-  getStoreBackend,
+  setKVStore,
+  getKVStore,
 } from "@/lib/storage";
 
 // ---------------------------------------------------------------------------
@@ -11,24 +13,32 @@ import {
 let migrationDone = false;
 
 /**
- * Initialize the HTTP storage backend that talks to the Rust backend's SQLite.
- * Called synchronously at app startup so the very first render sees a ready store.
+ * Initialize the HTTP storage backend and KV store.
+ * Both talk to the Rust backend (SQLite for entities, settings.json for KV).
+ * Called synchronously at app startup.
  */
 export function initCoderStorageSync(): void {
   if (migrationDone) return;
   migrationDone = true;
 
-  // Register the HTTP store backend (talks to Rust SQLite via /db/* endpoints)
+  // Settings KV → Rust ~/.coder/settings.json
+  const kv = createHttpKvStore();
+  setKVStore(kv);
+
+  // Entity store → Rust SQLite via /db/* endpoints
   const httpBackend = new HttpStoreBackend();
   setStoreBackend(httpBackend);
 }
 
-/** Resolves once the backend is fully initialized. */
+/** Resolves once the KV store has loaded its initial data from the backend. */
 export function onStorageReady(): Promise<void> {
+  const store = getKVStore() as { ready?: () => Promise<void> };
+  if (typeof store?.ready === "function") {
+    return store.ready();
+  }
   return Promise.resolve();
 }
 
 export async function initCoderStorageAsync(): Promise<void> {
-  // The HTTP backend is stateless from the client's perspective —
-  // no warmup needed.
+  // HTTP backend is stateless — no warmup needed.
 }
