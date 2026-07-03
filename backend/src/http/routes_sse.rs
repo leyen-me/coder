@@ -17,10 +17,16 @@ pub async fn handle_sse_events(
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     let rx = state.sse_broadcaster.subscribe(&topic);
 
-    let stream = BroadcastStream::new(rx).map(|result| match result {
-        Ok(data) => Ok(Event::default().data(data)),
-        Err(_) => Ok(Event::default().data(r#"{"type":"close"}"#)),
-    });
+    let stream = async_stream::stream! {
+        // Yield a heartbeat immediately so the proxy / client sees headers
+        yield Ok(Event::default().data(r#"{"type":"heartbeat"}"#));
+
+        let mut rx = rx;
+        use tokio_stream::StreamExt;
+        while let Ok(data) = rx.recv().await {
+            yield Ok(Event::default().data(data));
+        }
+    };
 
     Sse::new(stream).keep_alive(
         KeepAlive::new()
