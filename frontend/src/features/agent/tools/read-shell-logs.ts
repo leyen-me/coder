@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { READ_SHELL_LOGS_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
 import type { ReadShellLogsData, ToolHandler } from "./types";
@@ -19,7 +20,7 @@ export const readShellLogsHandler: ToolHandler = async (rawArgs, _context) => {
   }
 
   try {
-    const data = await invoke<ReadShellLogsData>("shell_read_logs", {
+    const data = await apiPost<ReadShellLogsData>("/api/shell_read_logs", {
       shellId: args.value.shell_id,
       stream: args.value.stream ?? null,
       offset: args.value.offset ?? null,

@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { AgentCancellationError, throwIfAborted } from "../cancellation";
 import { SHELL_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
@@ -29,7 +30,7 @@ export const shellHandler: ToolHandler = async (rawArgs, context) => {
   throwIfAborted(context.signal, context.taskId);
 
   try {
-    const shellPromise = invoke<ShellData>("tool_shell", {
+    const shellPromise = apiPost<ShellData>("/api/tool_shell", {
       workspaceDir: context.workspaceDir,
       command: args.value.command,
       description: args.value.description ?? null,
@@ -86,7 +87,7 @@ async function killShellsForTask(taskId?: string): Promise<void> {
   }
 
   try {
-    await invoke("shell_kill_by_task", { taskId });
+    await apiPost("/api/shell_kill_by_task", { taskId });
   } catch {
     // Best effort only. Cancellation still needs to unblock the agent loop.
   }

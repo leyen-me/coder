@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { WEB_SEARCH_TOOL_NAME } from "./definitions";
 import { parseNetworkToolError } from "./network-tool-error";
 import { toolFailure, toolSuccess } from "./result";
@@ -28,7 +29,7 @@ export const webSearchHandler: ToolHandler = async (rawArgs, context) => {
   }
 
   try {
-    const data = await invoke<WebSearchData>("tool_web_search", {
+    const data = await apiPost<WebSearchData>("/api/tool_web_search", {
       searchTerm: args.value.search_term,
       apiKeySource: tavilyConfig.apiKeySource,
       apiKey: tavilyConfig.apiKeySource === "manual" ? tavilyConfig.apiKey : null,

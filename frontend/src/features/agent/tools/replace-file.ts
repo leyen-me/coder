@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { toolFailure, toolSuccess } from "./result";
 import { REPLACE_FILE_TOOL_NAME } from "./definitions";
 import type { FileModifyData, FileModifyToolErrorPayload, ToolHandler } from "./types";
@@ -27,7 +28,7 @@ export const replaceFileHandler: ToolHandler = async (rawArgs, context) => {
   }
 
   try {
-    const data = await invoke<FileModifyData>("tool_replace_file", {
+    const data = await apiPost<FileModifyData>("/api/tool_replace_file", {
       workspaceDir: context.workspaceDir,
       path: args.value.path,
       content: args.value.content,

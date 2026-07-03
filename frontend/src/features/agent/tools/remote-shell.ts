@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { AgentCancellationError } from "../cancellation";
 import { REMOTE_SHELL_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
@@ -37,7 +38,7 @@ export const remoteShellHandler: ToolHandler = async (rawArgs, context) => {
   }
 
   try {
-    const data = await invoke<RemoteShellData>("tool_remote_shell", {
+    const data = await apiPost<RemoteShellData>("/api/tool_remote_shell", {
       command: args.value.command,
       description: args.value.description ?? null,
       config,

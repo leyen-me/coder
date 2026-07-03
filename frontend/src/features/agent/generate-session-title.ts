@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { updateSessionTitle } from "@/lib/db";
 
 import { chatCompletionsUrl } from "./openai-url";
@@ -65,24 +66,6 @@ async function requestSessionTitle(
   }
 
   const userPrompt = `Summarize this chat session based on the user's first message:\n\n${userMessage}`;
-
-  if (false) {
-    try {
-      const raw = await invoke<string | null>("agent_generate_session_title", {
-        params: {
-          baseUrl: input.baseUrl,
-          apiKey: input.apiKey || null,
-          apiKeySource: input.apiKeySource,
-          apiKeyEnvVar: input.apiKeyEnvVar,
-          model: input.model,
-          userMessage: input.userMessage,
-        },
-      });
-      return raw ? normalizeSessionTitle(raw) || null : null;
-    } catch {
-      return null;
-    }
-  }
 
   if (!input.apiKey.trim()) {
     return null;

@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { toolFailure, toolSuccess } from "./result";
 import { REPLACE_LINES_TOOL_NAME } from "./definitions";
 import type { FileModifyData, FileModifyToolErrorPayload, ToolHandler } from "./types";
@@ -29,7 +30,7 @@ export const replaceLinesHandler: ToolHandler = async (rawArgs, context) => {
   }
 
   try {
-    const data = await invoke<FileModifyData>("tool_replace_lines", {
+    const data = await apiPost<FileModifyData>("/api/tool_replace_lines", {
       workspaceDir: context.workspaceDir,
       path: args.value.path,
       startLine: args.value.start_line,

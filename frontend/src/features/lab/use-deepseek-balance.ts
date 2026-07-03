@@ -1,3 +1,4 @@
+import { apiPost } from "@/lib/api/client";
 import { useCallback, useEffect, useState } from "react";
 
 import { PRESET_PROVIDERS } from "@/lib/model-provider/constants";
@@ -25,8 +26,8 @@ async function resolveApiKey(
   // env-sourced: try reading via Tauri command
   const envVar = resolved.apiKeyEnvVar.trim() || PRESET_PROVIDERS.deepseek.defaultApiKeyEnvVar;
   try {
-    const value = await invoke<string | null>("resolve_env_var", {
-      args: { name: envVar },
+    const value = await apiPost<string | null>("/api/resolve_env_var", {
+      name: envVar,
     });
     if (value) {
       return value;

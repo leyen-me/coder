@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { toolFailure, toolSuccess } from "./result";
 import { WRITE_FILE_TOOL_NAME } from "./definitions";
 import type { ToolHandler, WriteFileData, WriteFileToolErrorPayload } from "./types";
@@ -25,7 +26,7 @@ export const writeFileHandler: ToolHandler = async (rawArgs, context) => {
   }
 
   try {
-    const data = await invoke<WriteFileData>("tool_write_file", {
+    const data = await apiPost<WriteFileData>("/api/tool_write_file", {
       workspaceDir: context.workspaceDir,
       path: args.value.path,
       content: args.value.content,

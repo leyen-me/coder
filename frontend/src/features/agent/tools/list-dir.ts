@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { toolFailure, toolSuccess } from "./result";
 import { LIST_DIR_TOOL_NAME } from "./definitions";
 import type { ListDirData, ToolHandler } from "./types";
@@ -26,7 +27,7 @@ export const listDirHandler: ToolHandler = async (rawArgs, context) => {
   }
 
   try {
-    const data = await invoke<ListDirData>("tool_list_dir", {
+    const data = await apiPost<ListDirData>("/api/tool_list_dir", {
       workspaceDir: context.workspaceDir,
       path: args.value.path,
       recursive: args.value.recursive ?? false,

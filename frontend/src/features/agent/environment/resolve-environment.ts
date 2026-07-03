@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { getEnabledSystemSkills } from "@/features/skills/lib/resolve-skills";
 import { listRemoteTargets } from "@/lib/db/remote-targets";
 
@@ -32,27 +33,25 @@ export async function resolveAgentEnvironment(
       user: t.user,
     }));
 
-  if (false) {
-    try {
-      const runtime = await invoke<RuntimeEnvironmentResponse>(
-        "agent_get_runtime_environment",
-        {
-          workspaceDir,
-        }
-      );
-
-      return normalizeEnvironment({
+  try {
+    const runtime = await apiPost<RuntimeEnvironmentResponse>(
+      "/api/agent_get_runtime_environment",
+      {
         workspaceDir,
-        os: runtime.os,
-        shell: runtime.shell,
-        isGitRepository: runtime.isGitRepository,
-        agentsMd: runtime.agentsMd ?? null,
-        enabledSystemSkills: skillPayload,
-        remoteTargets,
-      });
-    } catch {
-      // Fall through to browser-style defaults when the command is unavailable.
-    }
+      }
+    );
+
+    return normalizeEnvironment({
+      workspaceDir,
+      os: runtime.os,
+      shell: runtime.shell,
+      isGitRepository: runtime.isGitRepository,
+      agentsMd: runtime.agentsMd ?? null,
+      enabledSystemSkills: skillPayload,
+      remoteTargets,
+    });
+  } catch {
+    // Fall through to browser-style defaults when the command is unavailable.
   }
 
   return normalizeEnvironment({

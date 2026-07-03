@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { BROWSE_PAGE_TOOL_NAME } from "./definitions";
 import { parseNetworkToolError } from "./network-tool-error";
 import { toolFailure, toolSuccess } from "./result";
@@ -20,7 +21,7 @@ export const browsePageHandler: ToolHandler = async (rawArgs, context) => {
   }
 
   try {
-    const data = await invoke<BrowsePageData>("tool_browse_page", {
+    const data = await apiPost<BrowsePageData>("/api/tool_browse_page", {
       url: args.value.url,
       startLine: args.value.start_line ?? null,
       maxLines: args.value.max_lines ?? null,

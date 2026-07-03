@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { GREP_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
 import type { GrepData, ToolHandler } from "./types";
@@ -36,7 +37,7 @@ export const grepHandler: ToolHandler = async (rawArgs, context) => {
   }
 
   try {
-    const data = await invoke<GrepData>("tool_grep", {
+    const data = await apiPost<GrepData>("/api/tool_grep", {
       workspaceDir: context.workspaceDir,
       pattern: args.value.pattern,
       path: args.value.path,

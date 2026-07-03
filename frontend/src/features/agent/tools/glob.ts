@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { GLOB_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
 import type { GlobData, ToolHandler } from "./types";
@@ -26,7 +27,7 @@ export const globHandler: ToolHandler = async (rawArgs, context) => {
   }
 
   try {
-    const data = await invoke<GlobData>("tool_glob", {
+    const data = await apiPost<GlobData>("/api/tool_glob", {
       workspaceDir: context.workspaceDir,
       globPattern: args.value.glob_pattern,
       targetDirectory: args.value.target_directory,

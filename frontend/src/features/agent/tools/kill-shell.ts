@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { KILL_SHELL_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
 import type { KillShellData, ToolHandler } from "./types";
@@ -16,7 +17,7 @@ export const killShellHandler: ToolHandler = async (rawArgs, _context) => {
   }
 
   try {
-    await invoke("shell_kill", { shellId: args.value.shell_id });
+    await apiPost("/api/shell_kill", { shellId: args.value.shell_id });
     const data: KillShellData = { shellId: args.value.shell_id, killed: true };
     return toolSuccess(KILL_SHELL_TOOL_NAME, data);
   } catch (error) {

@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { emitPlanFileUpdated } from "@/features/plan/plan-events";
 import { updateSession } from "@/lib/db/sessions";
 
@@ -217,7 +218,7 @@ async function invokePlanTool<TData>(
   args: Record<string, unknown>
 ): Promise<ReturnType<typeof toolSuccess<TData>> | ReturnType<typeof toolFailure>> {
   try {
-    const data = await invoke<TData>(command, {
+    const data = await apiPost<TData>("/api/" + command, {
       workspaceDir,
       ...args,
     });

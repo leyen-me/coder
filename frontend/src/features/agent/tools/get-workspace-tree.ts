@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { toolFailure, toolSuccess } from "./result";
 import { GET_WORKSPACE_TREE_TOOL_NAME } from "./definitions";
 import type { ToolHandler, WorkspaceTreeData } from "./types";
@@ -32,7 +33,7 @@ export const getWorkspaceTreeHandler: ToolHandler = async (
   }
 
   try {
-    const data = await invoke<WorkspaceTreeData>("tool_get_workspace_tree", {
+    const data = await apiPost<WorkspaceTreeData>("/api/tool_get_workspace_tree", {
       workspaceDir: context.workspaceDir,
       startLine: args.value.start_line ?? null,
       maxLines: args.value.max_lines ?? null,

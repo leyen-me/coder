@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { getKVStore } from "@/lib/storage";
 import { SEND_EMAIL_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
@@ -66,7 +67,7 @@ export const sendEmailHandler: ToolHandler = async (rawArgs) => {
   }
 
   try {
-    const result = await invoke<string>("send_email", {
+    const result = await apiPost<string>("/api/send_email", {
       request: {
         settings: {
           smtpHost: settings.smtpHost,

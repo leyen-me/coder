@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { toolFailure, toolSuccess } from "./result";
 import { EDIT_FILE_TOOL_NAME } from "./definitions";
 import type { FileModifyData, FileModifyToolErrorPayload, ToolHandler } from "./types";
@@ -29,7 +30,7 @@ export const editFileHandler: ToolHandler = async (rawArgs, context) => {
   }
 
   try {
-    const data = await invoke<FileModifyData>("tool_edit_file", {
+    const data = await apiPost<FileModifyData>("/api/tool_edit_file", {
       workspaceDir: context.workspaceDir,
       path: args.value.path,
       oldString: args.value.old_string,

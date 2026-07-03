@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { LIST_SHELLS_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
 import type { ListShellsData, ShellInfo, ShellStatus, ToolHandler } from "./types";
@@ -28,7 +29,7 @@ export const listShellsHandler: ToolHandler = async (rawArgs, _context) => {
 
   try {
     const statusFilter = args.value.status_filter ?? "running";
-    const shells = await invoke<ShellInfo[]>("shell_list", {
+    const shells = await apiPost<ShellInfo[]>("/api/shell_list", {
       statusFilter,
     });
     const filtered = filterShells(shells, args.value);

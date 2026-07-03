@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { toolFailure, toolSuccess } from "./result";
 import { READ_FILE_TOOL_NAME } from "./definitions";
 import { parseReadFileToolError } from "./parse-read-file-tool-error";
@@ -27,7 +28,7 @@ export const readFileHandler: ToolHandler = async (rawArgs, context) => {
   }
 
   try {
-    const data = await invoke<ReadFileData>("tool_read_file", {
+    const data = await apiPost<ReadFileData>("/api/tool_read_file", {
       workspaceDir: context.workspaceDir,
       path: args.value.path,
       startLine: args.value.start_line ?? 1,

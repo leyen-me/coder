@@ -1,4 +1,5 @@
 
+import { apiPost } from "@/lib/api/client";
 import { AWAIT_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
 import type { ShellData, ToolHandler } from "./types";
@@ -25,7 +26,7 @@ export const awaitShellHandler: ToolHandler = async (rawArgs, context) => {
   }
 
   try {
-    const data = await invoke<ShellData>("tool_await", {
+    const data = await apiPost<ShellData>("/api/tool_await", {
       shellId: args.value.shell_id,
       blockUntilMs: args.value.block_until_ms ?? null,
     });
