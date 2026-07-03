@@ -8,6 +8,7 @@ export const enMessages = {
     back: "Back",
     forward: "Forward",
     newWindow: "New Window",
+    openWorkspace: "Open workspace in file manager",
   },
   windowControls: {
     minimize: "Minimize",

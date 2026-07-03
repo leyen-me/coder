@@ -1,4 +1,13 @@
+import { ExternalLink } from "lucide-react";
+import { openPath } from "@tauri-apps/plugin-opener";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { SessionKind } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -12,6 +21,8 @@ type SessionTitleLabelProps = {
   className?: string;
   /** Double-click handler, intended for header variant to scroll to bottom. */
   onDoubleClick?: () => void;
+  /** When set, shows a button to open the workspace directory in the file manager. */
+  workspaceDir?: string | null;
 };
 
 export function SessionTitleLabel({
@@ -21,6 +32,7 @@ export function SessionTitleLabel({
   variant = "compact",
   className,
   onDoubleClick,
+  workspaceDir,
 }: SessionTitleLabelProps) {
   const { t } = useTranslation();
 
@@ -29,6 +41,12 @@ export function SessionTitleLabel({
     variant === "header" ? "text-sm font-medium" : "text-sm",
     isGenerating && "text-muted-foreground"
   );
+
+  const handleOpenWorkspace = () => {
+    if (workspaceDir) {
+      void openPath(workspaceDir);
+    }
+  };
 
   if (variant === "header") {
     return (
@@ -48,6 +66,23 @@ export function SessionTitleLabel({
           <Badge variant="secondary">{t("chat.sessionTypeLongTask")}</Badge>
         ) : sessionKind === "automation" ? (
           <Badge variant="outline">{t("chat.sessionTypeAutomation")}</Badge>
+        ) : null}
+        {workspaceDir ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground/50 hover:text-foreground -ml-0.5"
+                aria-label={t("titleBar.openWorkspace")}
+                onClick={handleOpenWorkspace}
+              >
+                <ExternalLink className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("titleBar.openWorkspace")}</TooltipContent>
+          </Tooltip>
         ) : null}
       </div>
     );

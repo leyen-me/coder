@@ -8,6 +8,7 @@ export const zhMessages = {
     back: "后退",
     forward: "前进",
     newWindow: "新建窗口",
+    openWorkspace: "在资源管理器中打开工作区",
   },
   windowControls: {
     minimize: "最小化",

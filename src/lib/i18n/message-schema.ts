@@ -6,6 +6,7 @@ export type Messages = {
     back: string;
     forward: string;
     newWindow: string;
+    openWorkspace: string;
   };
   windowControls: {
     minimize: string;
