@@ -41,8 +41,6 @@ export async function resolveAgentEnvironment(
       }
     );
 
-    console.log("[resolveAgentEnvironment] API success:", runtime);
-
     return normalizeEnvironment({
       workspaceDir,
       os: runtime.os,
@@ -52,8 +50,8 @@ export async function resolveAgentEnvironment(
       enabledSystemSkills: skillPayload,
       remoteTargets,
     });
-  } catch (err) {
-    console.warn("[resolveAgentEnvironment] API call failed, using browser defaults:", err);
+  } catch {
+    // Fall through to browser-style defaults when the command is unavailable.
   }
 
   return normalizeEnvironment({
