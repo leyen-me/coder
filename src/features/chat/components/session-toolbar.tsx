@@ -37,7 +37,7 @@ export function SessionToolbar({ sessionProvider, sessionId }: SessionToolbarPro
     <div className="flex shrink-0 items-center gap-1">
       <ProviderUsageTag providerId={sessionProvider} />
 
-      <div className="mx-1 h-4 w-px bg-border" />
+      {sessionProvider === "deepseek" && <div className="mx-1 h-4 w-px bg-border" />}
 
       <Tooltip>
         <TooltipTrigger asChild>
