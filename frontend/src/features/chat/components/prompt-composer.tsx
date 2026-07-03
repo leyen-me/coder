@@ -304,14 +304,13 @@ function ComposerContextBar({
         <Button
           aria-label={workspacePickerLabel}
           className="h-8 max-w-44 min-w-0 shrink-0 rounded-xl px-2.5"
-          disabled={isRunning || !onPickWorkspace}
-          onClick={onPickWorkspace}
+          disabled
           title={workspacePickerLabel}
           type="button"
           variant="ghost"
         >
           <FolderOpenIcon className="size-4 shrink-0" />
-          <span className="truncate">{t("chat.localWork")}</span>
+          <span className="truncate">{workspaceName ?? t("chat.localWork")}</span>
         </Button>
       )}
 
