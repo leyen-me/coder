@@ -27,7 +27,10 @@ export default defineConfig({
       "/sse": { target: "http://127.0.0.1:1421", changeOrigin: true },
       "/ws": { target: "ws://127.0.0.1:1421", ws: true },
       "/db": { target: "http://127.0.0.1:1421", changeOrigin: true },
-      "/settings": { target: "http://127.0.0.1:1421", changeOrigin: true },
+      // Settings API 端点单独代理，避免前端路由 /settings 被劫持
+      "/settings/get": { target: "http://127.0.0.1:1421", changeOrigin: true },
+      "/settings/set": { target: "http://127.0.0.1:1421", changeOrigin: true },
+      "/settings/delete": { target: "http://127.0.0.1:1421", changeOrigin: true },
     },
   },
   build: {
