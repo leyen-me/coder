@@ -86,6 +86,18 @@ impl SseBroadcaster {
             self.emit(topic, &json);
         }
     }
+
+    /// Emit an AgentEvent directly, wrapped with type="agent_event" for the frontend.
+    pub fn emit_agent_event(&self, topic: &str, event: &agent::AgentEvent) {
+        if let Ok(mut val) = serde_json::to_value(event) {
+            if let Some(obj) = val.as_object_mut() {
+                obj.insert("type".into(), serde_json::Value::String("agent_event".into()));
+            }
+            if let Ok(json) = serde_json::to_string(&val) {
+                self.emit(topic, &json);
+            }
+        }
+    }
 }
 
 pub fn get_coder_data_dir() -> PathBuf {

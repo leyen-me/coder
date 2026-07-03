@@ -311,7 +311,7 @@ impl AgentRegistry {
             status: AgentStatus::Running,
         };
         debug_emit_log(&initial_event);
-        let _ = emit_broadcaster.emit_event(&emit_task_id, &crate::AgentSseEvent::AgentEvent(initial_event));
+        let _ = emit_broadcaster.emit_agent_event(&emit_task_id, &initial_event);
 
         tokio::spawn(async move {
             let result = stream_chat_completion(
@@ -325,7 +325,7 @@ impl AgentRegistry {
                 child_cancel.clone(),
                 |event| {
                     debug_emit_log(&event);
-                    emit_broadcaster.emit_event(&emit_task_id, &crate::AgentSseEvent::AgentEvent(event));
+                    emit_broadcaster.emit_agent_event(&emit_task_id, &event);
                 },
                 &task_id,
             )
@@ -349,7 +349,7 @@ impl AgentRegistry {
                     message,
                 };
                 debug_emit_log(&error_event);
-                emit_broadcaster.emit_event(&task_id, &crate::AgentSseEvent::AgentEvent(error_event));
+                emit_broadcaster.emit_agent_event(&task_id, &error_event);
             }
 
             let final_event = AgentEvent::Status {
@@ -357,7 +357,7 @@ impl AgentRegistry {
                 status: final_status,
             };
             debug_emit_log(&final_event);
-            emit_broadcaster.emit_event(&task_id, &crate::AgentSseEvent::AgentEvent(final_event));
+            emit_broadcaster.emit_agent_event(&task_id, &final_event);
 
             emit_broadcaster.unregister(&task_id);
 
