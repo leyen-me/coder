@@ -74,6 +74,7 @@ jobs:
         with:
           node-version: lts/*
           cache: pnpm
+          registry-url: https://registry.npmjs.org
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
@@ -134,6 +135,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
           npm publish --access public
 
   publish-main:
@@ -185,6 +187,7 @@ jobs:
           chmod +x npm-main/cli.mjs
 
           cd npm-main
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
           npm publish --access public
 
       - name: 创建 GitHub Release（记录版本）
