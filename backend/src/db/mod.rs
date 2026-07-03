@@ -83,7 +83,7 @@ impl Database {
         let json = serde_json::to_string(value).map_err(|e| e.to_string())?;
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         conn.execute(
-            "INSERT OR REPLACE INTO entities (store, id, value, updated_at) VALUES (?1, ?2, ?3, unixepoch())",
+            "INSERT OR REPLACE INTO entities (store, id, value) VALUES (?1, ?2, ?3)",
             params![store, key, json],
         )
         .map_err(|e| e.to_string())?;
