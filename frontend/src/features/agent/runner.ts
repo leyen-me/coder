@@ -22,12 +22,7 @@ export async function startAgent(
     connectAgentSse(
       input.taskId,
       (raw) => {
-        // Backend wraps events in { type: "agent_event", ...fields }.
-        // The fields are the actual AgentEvent fields.
-        if ((raw as any).type === "agent_event") {
-          const { type: _outerType, ...inner } = raw as any;
-          onEvent(inner as AgentEvent);
-        }
+        onEvent(raw as AgentEvent);
       },
       () => resolve(),
       (error) => reject(new Error(error)),

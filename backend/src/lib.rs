@@ -91,7 +91,15 @@ impl SseBroadcaster {
     pub fn emit_agent_event(&self, topic: &str, event: &agent::AgentEvent) {
         if let Ok(mut val) = serde_json::to_value(event) {
             if let Some(obj) = val.as_object_mut() {
-                obj.insert("type".into(), serde_json::Value::String("agent_event".into()));
+                // Lowercase the status value to match frontend expectations
+                if let Some(status) = obj.get_mut("status") {
+                    if let Some(s) = status.as_str() {
+                        *status = serde_json::Value::String(s.to_ascii_lowercase());
+                    }
+                }
+                // The frontend's runner.ts strips the outer "type":"agent_event"
+                // and passes the remaining fields to onEvent. The inner event
+                // already has the correct "type" from serde's tag.
             }
             if let Ok(json) = serde_json::to_string(&val) {
                 self.emit(topic, &json);
