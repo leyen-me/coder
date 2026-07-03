@@ -51,7 +51,6 @@ import {
   pathsToNativeFileDropItems,
   processNativeFileDropItems,
 } from "../lib/process-native-file-drop-items";
-import { useTauriNativeFileDropTarget } from "../hooks/use-tauri-native-file-drop-target";
 import { useWorkspacePathDropTarget } from "../hooks/use-workspace-path-drop-target";
 
 import { useRegisterHotkeyAction } from "@/features/keyboard-shortcuts/hotkey-actions-context";
@@ -236,8 +235,6 @@ function ComposerTauriFileDropBridge({
     },
     [attachments.add, onDropPaths]
   );
-
-  useTauriNativeFileDropTarget(dropTargetRef, handleDrop);
 
   return null;
 }
