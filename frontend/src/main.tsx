@@ -14,28 +14,37 @@ import { WebToolsProvider } from "@/lib/web-tools/web-tools-provider";
 import { ThemeProvider } from "@/lib/theme/theme-provider";
 import { AgentStoreProvider } from "@/features/agent/store/agent-store";
 import { WorkspaceProvider } from "@/features/workspace/workspace-provider";
+import {
+  initCoderStorageSync,
+  initCoderStorageAsync,
+} from "@/lib/storage/init";
 
 initLocaleBeforeRender();
 initThemeBeforeRender();
+initCoderStorageSync();
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <LocaleProvider>
-      <ThemeProvider>
-        <ModelProviderProvider>
-          <KeyboardShortcutsProvider>
-          <WebToolsProvider>
-            <WorkspaceProvider>
-              <AgentStoreProvider>
-                <TooltipProvider>
-                  <App />
-                </TooltipProvider>
-              </AgentStoreProvider>
-            </WorkspaceProvider>
-          </WebToolsProvider>
-          </KeyboardShortcutsProvider>
-        </ModelProviderProvider>
-      </ThemeProvider>
-    </LocaleProvider>
-  </React.StrictMode>,
-);
+// Wait for storage (settings from backend) before rendering React,
+// so all components read the correct initial data.
+initCoderStorageAsync().then(() => {
+  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+    <React.StrictMode>
+      <LocaleProvider>
+        <ThemeProvider>
+          <ModelProviderProvider>
+            <KeyboardShortcutsProvider>
+            <WebToolsProvider>
+              <WorkspaceProvider>
+                <AgentStoreProvider>
+                  <TooltipProvider>
+                    <App />
+                  </TooltipProvider>
+                </AgentStoreProvider>
+              </WorkspaceProvider>
+            </WebToolsProvider>
+            </KeyboardShortcutsProvider>
+          </ModelProviderProvider>
+        </ThemeProvider>
+      </LocaleProvider>
+    </React.StrictMode>,
+  );
+});

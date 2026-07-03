@@ -22,12 +22,9 @@ import {
 } from "@/features/automations/lib/scheduler";
 import {
   initCoderStorageSync,
-  initCoderStorageAsync,
 } from "@/lib/storage/init";
 
 // Initialize storage backends synchronously before React renders.
-// HttpKvStore and HttpStoreBackend must be registered before any component
-// tries to read/write settings or database entities.
 initCoderStorageSync();
 
 import type { ShellOutletContext } from "./shell-outlet-context";
@@ -65,11 +62,6 @@ export function AppShell() {
     return () => {
       stopAutomationScheduler();
     };
-  }, []);
-
-  // Initialize storage backends asynchronously (preload settings from backend).
-  useEffect(() => {
-    initCoderStorageAsync();
   }, []);
 
   return (
