@@ -52,6 +52,16 @@ export function ModelProviderProvider({ children }: ModelProviderProviderProps) 
     readModelProviderSettings
   );
 
+  // Re-read settings when storage finishes loading from backend
+  useEffect(() => {
+    const handleStorageReady = () => {
+      const saved = readModelProviderSettings();
+      setSettingsState(saved);
+    };
+    window.addEventListener("coder:storage-ready", handleStorageReady);
+    return () => window.removeEventListener("coder:storage-ready", handleStorageReady);
+  }, []);
+
   const setSettings = useCallback((nextSettings: ModelProviderSettings) => {
     setSettingsState(nextSettings);
     writeModelProviderSettings(nextSettings);
