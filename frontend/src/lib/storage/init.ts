@@ -42,5 +42,10 @@ export function onStorageReady(): Promise<void> {
 export async function initCoderStorageAsync(): Promise<void> {
   // Preload settings from the backend
   await onStorageReady();
-  // HTTP backend is stateless — no warmup needed.
+
+  // Notify components that storage data has been loaded
+  // so they can re-read from the now-populated cache.
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("coder:storage-ready"));
+  }
 }

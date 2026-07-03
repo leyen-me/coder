@@ -9,5 +9,4 @@ export {
   setStoreBackend,
   resetStoreBackend,
 } from "./env";
-export { BrowserStoreBackend } from "./browser";
 export { HttpStoreBackend } from "./http-backend";

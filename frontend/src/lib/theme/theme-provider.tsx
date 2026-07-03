@@ -53,6 +53,18 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     writeThemePreference(nextPreference);
   }, []);
 
+  // Re-read preference when storage finishes loading from backend
+  useEffect(() => {
+    const handleStorageReady = () => {
+      const saved = readThemePreference();
+      if (saved !== preference) {
+        setPreferenceState(saved);
+      }
+    };
+    window.addEventListener("coder:storage-ready", handleStorageReady);
+    return () => window.removeEventListener("coder:storage-ready", handleStorageReady);
+  }, [preference]);
+
   useEffect(() => {
     applyTheme(resolved);
   }, [resolved]);
