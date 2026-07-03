@@ -115,11 +115,17 @@ jobs:
           VERSION="${{ needs.prepare.outputs.version }}"
           PLATFORM="${{ matrix.npm_platform }}"
 
+          # Determine binary name: .exe on Windows, no extension on Unix
+          case "$PLATFORM" in
+            win32-*) BIN_NAME="coder.exe" ;;
+            *)       BIN_NAME="coder" ;;
+          esac
           cat > npm-packages/$PLATFORM/package.json <<EOF
           {
             "name": "@alanwchat/coder-$PLATFORM",
             "version": "$VERSION",
             "description": "Coder binary for $PLATFORM",
+            "main": "$BIN_NAME",
             "license": "MIT",
             "repository": {
               "type": "git",

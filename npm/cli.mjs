@@ -2,11 +2,9 @@
 
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
 import os from "node:os";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
 const PLATFORM = os.platform();
@@ -29,7 +27,9 @@ if (!key) {
 
 let binaryPath;
 try {
-  binaryPath = require.resolve(`@alanwchat/coder-${key}`);
+  // resolve package.json explicitly because the platform package has no "main" field
+  const pkgJson = require.resolve(`@alanwchat/coder-${key}/package.json`);
+  binaryPath = path.join(path.dirname(pkgJson), PLATFORM === "win32" ? "coder.exe" : "coder");
 } catch {
   console.error(
     `Missing binary for ${PLATFORM} ${ARCH}.\n` +
@@ -38,12 +38,7 @@ try {
   process.exit(1);
 }
 
-const binary = path.join(
-  path.dirname(binaryPath),
-  PLATFORM === "win32" ? "coder.exe" : "coder"
-);
-
-const child = spawn(binary, process.argv.slice(2), {
+const child = spawn(binaryPath, process.argv.slice(2), {
   stdio: "inherit",
 });
 
