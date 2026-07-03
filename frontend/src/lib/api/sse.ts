@@ -34,10 +34,6 @@ export type SseEvent = AgentEvent | ShellOutputEvent | ShellFinishedEvent;
  * In production (backend serves static files), use the same origin.
  */
 function getBackendUrl(): string {
-  // Dev: frontend on 1420, backend on 1421
-  if (window.location.port === "1420") {
-    return "http://localhost:1421";
-  }
   return window.location.origin;
 }
 
