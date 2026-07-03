@@ -1,9 +1,7 @@
+import { HttpStoreBackend } from "./http-backend";
 import {
   setStoreBackend,
   getStoreBackend,
-  setKVStore,
-  getTauriFsKvStore,
-  TauriSqliteBackend,
 } from "@/lib/storage";
 
 // ---------------------------------------------------------------------------
@@ -13,35 +11,24 @@ import {
 let migrationDone = false;
 
 /**
- * Initialize the `~/.coder/` storage backends.
- *
- * **Phase 1 (synchronous):** swapped at module level so the very first
- * component render already sees the file-backed stores.
- *
- * **Phase 2 (asynchronous):** warms up the SQLite database.  Called from
- * `useEffect` so it does not block rendering.
+ * Initialize the HTTP storage backend that talks to the Rust backend's SQLite.
+ * Called synchronously at app startup so the very first render sees a ready store.
  */
 export function initCoderStorageSync(): void {
   if (migrationDone) return;
   migrationDone = true;
 
-  // Switch KV store to file-system backed settings.json
-  setKVStore(getTauriFsKvStore());
-
-  // Create and register the SQLite backend
-  const sqlite = new TauriSqliteBackend();
-  setStoreBackend(sqlite);
+  // Register the HTTP store backend (talks to Rust SQLite via /db/* endpoints)
+  const httpBackend = new HttpStoreBackend();
+  setStoreBackend(httpBackend);
 }
 
-/** Resolves once both backends are fully initialized. */
+/** Resolves once the backend is fully initialized. */
 export function onStorageReady(): Promise<void> {
-  const kv = getTauriFsKvStore();
-  return kv.ready();
+  return Promise.resolve();
 }
 
 export async function initCoderStorageAsync(): Promise<void> {
-  const backend = getStoreBackend();
-  if (backend instanceof TauriSqliteBackend) {
-    await backend.warmup();
-  }
+  // The HTTP backend is stateless from the client's perspective —
+  // no warmup needed.
 }
