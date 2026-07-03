@@ -72,38 +72,41 @@ pub struct TokenUsage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(
-    tag = "type",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
+#[serde(tag = "type", rename_all_fields = "camelCase")]
 pub enum AgentEvent {
+    #[serde(rename = "status")]
     Status {
         task_id: String,
         status: AgentStatus,
     },
+    #[serde(rename = "thinking_delta")]
     ThinkingDelta {
         task_id: String,
         delta: String,
     },
+    #[serde(rename = "content_delta")]
     ContentDelta {
         task_id: String,
         delta: String,
     },
+    #[serde(rename = "tool_call_pending")]
     ToolCallPending {
         task_id: String,
         tool_call_id: String,
         name: String,
     },
+    #[serde(rename = "turn_complete")]
     TurnComplete {
         task_id: String,
         tool_calls: Vec<ToolCall>,
     },
+    #[serde(rename = "done")]
     Done {
         task_id: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         usage: Option<TokenUsage>,
     },
+    #[serde(rename = "error")]
     Error {
         task_id: String,
         message: String,
