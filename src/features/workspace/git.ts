@@ -1,33 +1,21 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
-export type GitBranchesResponse = {
-  currentBranch: string | null;
-  branches: string[];
-};
-
-export async function fetchGitBranches(
+/**
+ * Returns the current Git branch name for the given workspace directory.
+ * Returns `null` when the directory is not a Git repository or Git is not available.
+ */
+export async function getCurrentGitBranch(
   workspaceDir: string
-): Promise<GitBranchesResponse | null> {
+): Promise<string | null> {
   if (!isTauri()) {
     return null;
   }
 
   try {
-    return await invoke<GitBranchesResponse>("git_list_branches", {
+    return await invoke<string | null>("git_current_branch", {
       workspaceDir,
     });
   } catch {
     return null;
   }
-}
-
-export async function checkoutGitBranch(
-  workspaceDir: string,
-  branch: string
-): Promise<void> {
-  if (!isTauri()) {
-    throw new Error("Git checkout is only available in the desktop app");
-  }
-
-  await invoke("git_checkout_branch", { workspaceDir, branch });
 }

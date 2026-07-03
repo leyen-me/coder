@@ -134,13 +134,7 @@ export function NewChatView() {
             void pickWorkspace();
           }}
           onClearWorkspace={clearWorkspace}
-          isGitRepository={gitControls.isGitRepository}
           gitBranch={gitControls.gitBranch}
-          gitBranches={gitControls.gitBranches}
-          onGitBranchChange={(branch) => {
-            void gitControls.checkoutBranch(branch);
-          }}
-          isGitLoading={gitControls.isGitLoading}
           variant="compact"
           isRunning={isSubmitting}
           agentMode={agentMode}

@@ -603,15 +603,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             onClearWorkspace={() => {
               void workspaceBinding.handleClearWorkspace();
             }}
-            isGitRepository={gitControls.isGitRepository}
             gitBranch={gitControls.gitBranch}
-            gitBranches={gitControls.gitBranches}
-            onGitBranchChange={(branch) => {
-              void workspaceBinding
-                .handleBranchChange(branch)
-                .then(() => gitControls.refreshGit());
-            }}
-            isGitLoading={gitControls.isGitLoading}
             variant="compact"
             isRunning={isRunning}
             contextUsage={contextUsage}

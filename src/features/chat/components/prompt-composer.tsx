@@ -102,9 +102,6 @@ type PromptComposerProps = {
   onClearWorkspace?: () => void;
   isGitRepository?: boolean;
   gitBranch?: string | null;
-  gitBranches?: readonly string[];
-  onGitBranchChange?: (branch: string) => void;
-  isGitLoading?: boolean;
   variant?: "full" | "compact";
   isRunning?: boolean;
   className?: string;
@@ -250,11 +247,7 @@ type ComposerContextBarProps = {
   onPickWorkspace?: () => void;
   onClearWorkspace?: () => void;
   isRunning: boolean;
-  showBranch: boolean;
   gitBranch?: string | null;
-  gitBranches: readonly string[];
-  onGitBranchChange?: (branch: string) => void;
-  isGitLoading: boolean;
 };
 
 function ComposerContextBar({
@@ -262,11 +255,7 @@ function ComposerContextBar({
   onPickWorkspace,
   onClearWorkspace,
   isRunning,
-  showBranch,
   gitBranch,
-  gitBranches,
-  onGitBranchChange,
-  isGitLoading,
 }: ComposerContextBarProps) {
   const { t } = useTranslation();
   const showClearWorkspace =
@@ -329,43 +318,11 @@ function ComposerContextBar({
         </Button>
       )}
 
-      {showBranch ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              aria-label={t("chat.selectGitBranch")}
-              className="h-8 max-w-36 shrink-0 rounded-xl px-2.5"
-              disabled={isRunning || isGitLoading || !onGitBranchChange}
-              title={gitBranch ?? t("chat.selectGitBranch")}
-              type="button"
-              variant="ghost"
-            >
-              <GitBranchIcon className="size-4 shrink-0" />
-              <span className="truncate">
-                {isGitLoading
-                  ? t("chat.gitBranchLoading")
-                  : (gitBranch ?? t("chat.selectGitBranch"))}
-              </span>
-              <ChevronDownIcon className="size-3.5 shrink-0 opacity-60" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-h-64 min-w-40 overflow-y-auto">
-            <DropdownMenuRadioGroup
-              value={gitBranch ?? ""}
-              onValueChange={(branch) => {
-                if (branch && branch !== gitBranch) {
-                  onGitBranchChange?.(branch);
-                }
-              }}
-            >
-              {gitBranches.map((branch) => (
-                <DropdownMenuRadioItem key={branch} value={branch}>
-                  {branch}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      {gitBranch ? (
+        <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-xs text-muted-foreground">
+          <GitBranchIcon className="size-3.5 shrink-0" />
+          <span className="truncate">{gitBranch}</span>
+        </span>
       ) : null}
     </div>
   );
@@ -448,11 +405,7 @@ export const PromptComposer = memo(function PromptComposer({
   workspaceName,
   onPickWorkspace,
   onClearWorkspace,
-  isGitRepository = false,
   gitBranch,
-  gitBranches = [],
-  onGitBranchChange,
-  isGitLoading = false,
   variant = "full",
   isRunning = false,
   className,
@@ -486,8 +439,6 @@ export const PromptComposer = memo(function PromptComposer({
   const editorRef = useRef<Editor | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const submitStatus = resolveSubmitStatus(isRunning, Boolean(onStop));
-  const showBranch =
-    showWorkspaceControls && isGitRepository && Boolean(onGitBranchChange);
   const selectedModel = findModelDefinition(models, model);
   const supportsMultimodal = selectedModel?.supportsMultimodal ?? false;
   const showThinkingToggle =
@@ -901,13 +852,9 @@ export const PromptComposer = memo(function PromptComposer({
         {showWorkspaceControls ? (
           <ComposerContextBar
             gitBranch={gitBranch}
-            gitBranches={gitBranches}
-            isGitLoading={isGitLoading}
             isRunning={isRunning}
-            onGitBranchChange={onGitBranchChange}
             onClearWorkspace={onClearWorkspace}
             onPickWorkspace={onPickWorkspace}
-            showBranch={showBranch}
             workspaceName={workspaceName}
           />
         ) : null}

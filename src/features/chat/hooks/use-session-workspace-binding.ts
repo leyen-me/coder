@@ -1,6 +1,5 @@
 import { useCallback } from "react";
 
-import { checkoutGitBranch } from "@/features/workspace/git";
 import { readWorkspaceDir } from "@/features/workspace/storage";
 import { useValidatedWorkspaceDir } from "@/features/workspace/use-validated-workspace-dir";
 import { useWorkspace } from "@/features/workspace/workspace-provider";
@@ -53,22 +52,10 @@ export function useSessionWorkspaceBinding({
     }
   }, [canEdit, session, setWorkspaceDir]);
 
-  const handleBranchChange = useCallback(
-    async (branch: string) => {
-      if (!canEdit || !effectiveWorkspaceDir?.trim()) {
-        return;
-      }
-
-      await checkoutGitBranch(effectiveWorkspaceDir.trim(), branch);
-    },
-    [canEdit, effectiveWorkspaceDir]
-  );
-
   return {
     workspaceDir: effectiveWorkspaceDir,
     handlePickWorkspace,
     handleClearWorkspace,
-    handleBranchChange,
   };
 }
 

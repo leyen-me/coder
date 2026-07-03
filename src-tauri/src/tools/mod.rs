@@ -1,5 +1,6 @@
 mod browse_page;
 mod edit_file;
+mod git;
 mod replace_lines;
 mod env;
 mod file_modify;
@@ -59,3 +60,4 @@ pub use shell_registry::{
 pub use web_search::tool_web_search;
 pub use workspace_tree::tool_get_workspace_tree;
 pub use write_file::tool_write_file;
+pub use git::git_current_branch;

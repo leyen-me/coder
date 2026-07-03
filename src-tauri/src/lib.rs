@@ -14,6 +14,7 @@ use tauri::{Manager, RunEvent};
 use tools::{
     agent_get_runtime_environment,
     pty_close, pty_create, pty_resize, pty_write, resolve_env_var, send_email, shell_kill, shell_kill_by_task, shell_list, shell_read_logs,
+    git_current_branch,
     test_remote_connection, tool_await, tool_browse_page, tool_copy_path, tool_create_dir, tool_delete_path,
     tool_edit_file, tool_replace_lines, tool_get_workspace_tree, tool_glob, tool_grep, tool_list_dir,     tool_move_path, tool_read_editor_file,
     tool_plan_create, tool_plan_delete, tool_plan_edit, tool_plan_list, tool_plan_read, tool_plan_update,
@@ -165,6 +166,7 @@ pub fn run() {
             file_size,
             test_remote_connection,
             create_new_window,
+            git_current_branch,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

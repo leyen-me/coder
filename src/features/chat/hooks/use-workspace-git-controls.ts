@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  checkoutGitBranch,
-  fetchGitBranches,
-  type GitBranchesResponse,
-} from "@/features/workspace/git";
+import { getCurrentGitBranch } from "@/features/workspace/git";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 
 type UseWorkspaceGitControlsInput = {
@@ -15,10 +11,7 @@ type UseWorkspaceGitControlsInput = {
 type UseWorkspaceGitControlsResult = {
   workspaceName: string | null;
   gitBranch: string | null;
-  gitBranches: readonly string[];
   isGitRepository: boolean;
-  isGitLoading: boolean;
-  checkoutBranch: (branch: string) => Promise<void>;
   refreshGit: () => Promise<void>;
 };
 
@@ -26,83 +19,58 @@ export function useWorkspaceGitControls({
   workspaceDir,
   enabled,
 }: UseWorkspaceGitControlsInput): UseWorkspaceGitControlsResult {
-  const [gitState, setGitState] = useState<GitBranchesResponse | null>(null);
-  const [isGitLoading, setIsGitLoading] = useState(false);
+  const [gitBranch, setGitBranch] = useState<string | null>(null);
   const workspaceDirRef = useRef(workspaceDir);
   workspaceDirRef.current = workspaceDir;
 
-  const loadGitState = useCallback(async (targetDir: string | null) => {
+  const loadGitBranch = useCallback(async (targetDir: string | null) => {
     const trimmed = targetDir?.trim() ?? "";
     if (!trimmed) {
-      setGitState(null);
-      setIsGitLoading(false);
+      setGitBranch(null);
       return;
     }
 
-    setIsGitLoading(true);
     try {
-      const response = await fetchGitBranches(trimmed);
+      const branch = await getCurrentGitBranch(trimmed);
       if (workspaceDirRef.current?.trim() === trimmed) {
-        setGitState(response);
+        setGitBranch(branch);
       }
-    } finally {
+    } catch {
       if (workspaceDirRef.current?.trim() === trimmed) {
-        setIsGitLoading(false);
+        setGitBranch(null);
       }
     }
   }, []);
 
   const refreshGit = useCallback(async () => {
     if (!enabled) {
-      setGitState(null);
-      setIsGitLoading(false);
+      setGitBranch(null);
       return;
     }
 
-    await loadGitState(workspaceDirRef.current);
-  }, [enabled, loadGitState]);
+    await loadGitBranch(workspaceDirRef.current);
+  }, [enabled, loadGitBranch]);
 
   useEffect(() => {
     if (!enabled) {
-      setGitState(null);
-      setIsGitLoading(false);
+      setGitBranch(null);
       return;
     }
 
     const trimmed = workspaceDir?.trim() ?? "";
-    setGitState(null);
+    setGitBranch(null);
 
     if (!trimmed) {
-      setIsGitLoading(false);
       return;
     }
 
-    void loadGitState(trimmed);
-  }, [enabled, loadGitState, workspaceDir]);
-
-  const checkoutBranch = useCallback(
-    async (branch: string) => {
-      const trimmed = workspaceDirRef.current?.trim();
-      if (!trimmed) {
-        return;
-      }
-
-      await checkoutGitBranch(trimmed, branch);
-      await loadGitState(trimmed);
-    },
-    [loadGitState]
-  );
-
-  const currentBranch = gitState?.currentBranch ?? null;
-  const branches = gitState?.branches ?? [];
+    void loadGitBranch(trimmed);
+  }, [enabled, loadGitBranch, workspaceDir]);
 
   return {
     workspaceName: workspaceDir ? getWorkspaceDisplayName(workspaceDir) : null,
-    gitBranch: currentBranch,
-    gitBranches: branches,
-    isGitRepository: branches.length > 0,
-    isGitLoading,
-    checkoutBranch,
+    gitBranch,
+    isGitRepository: gitBranch != null,
     refreshGit,
   };
 }
