@@ -1,5 +1,10 @@
-# push 到 main 后自动构建并发布到 GitHub Release（macOS .dmg / Windows .exe）。
-name: Build and release
+# 推送 main 后自动构建全平台二进制并发布到 npm。
+# 发布策略：主包 @alanwchat/coder + 各平台 optional 包。
+#
+# 首次使用前需要在仓库设置中添加 Secrets:
+#   NPM_TOKEN — npm automation token（publish 权限）
+#
+name: Release to npm
 
 on:
   push:
@@ -15,102 +20,50 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  prepare-tag:
+  prepare:
     runs-on: ubuntu-latest
     outputs:
-      tag_name: ${{ steps.tag.outputs.TAG }}
-      version: ${{ steps.tag.outputs.VERSION }}
-      changelog: ${{ steps.changelog.outputs.CHANGELOG }}
+      version: ${{ steps.version.outputs.VERSION }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: 生成 release 标签
-        id: tag
+      - name: 提取版本号
+        id: version
         run: |
           VERSION="0.1.${{ github.run_number }}"
-          TAG="v${VERSION}"
-          echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "本次发布: $TAG"
+          echo "本次发布版本: $VERSION"
 
-      - name: 生成上次发布以来的变更日志
-        id: changelog
-        run: |
-          # 取最后一个 tag（兼容新旧格式），如果没有则从项目开始算
-          LAST_TAG=$(git tag --list 'v0.0.*' 'release-*' --sort=-creatordate | head -1 || true)
-          if [ -z "$LAST_TAG" ]; then
-            RANGE="HEAD"
-            echo "首个发布，无历史 tag"
-          else
-            RANGE="$LAST_TAG..HEAD"
-            echo "对比范围: $RANGE"
-          fi
-
-          CHANGELOG=$(git log --oneline --no-decorate $RANGE 2>/dev/null || echo "（尚无提交记录）")
-
-          # 用 EOF 定界符传递多行文本，保留换行
-          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-          {
-            echo "CHANGELOG<<$EOF"
-            echo "$CHANGELOG"
-            echo "$EOF"
-          } >> "$GITHUB_OUTPUT"
-
-  publish-cli:
+  build:
     needs:
-      - prepare-tag
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          registry-url: https://registry.npmjs.org
-
-      - name: Install CLI dependencies
-        working-directory: cli
-        run: npm ci
-
-      - name: Set version
-        working-directory: cli
-        run: npm version --no-git-tag-version "${{ needs.prepare-tag.outputs.version }}"
-
-      - name: Build
-        working-directory: cli
-        run: node build.mjs
-
-      - name: Publish to npm
-        working-directory: cli
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --provenance --access public
-
-  publish:
-    needs:
-      - prepare-tag
-    env:
-      # Vite 打包 monaco/mermaid/shiki 等重型依赖时易触达 Node 默认 ~2GB 堆上限
-      NODE_OPTIONS: --max-old-space-size=4096
+      - prepare
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest
-            args: --bundles dmg
-          - platform: windows-latest
-            args: --bundles nsis
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            npm_platform: darwin-arm64
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            npm_platform: darwin-x64
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            npm_platform: linux-x64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            npm_platform: win32-x64
 
-    runs-on: ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    env:
+      BINARY_NAME: coder${{ startsWith(matrix.target, 'x86_64-pc-windows') && '.exe' || '' }}
+
     steps:
       - uses: actions/checkout@v4
 
+      # ---- Frontend build (needed for rust-embed) ----
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -125,37 +78,126 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Rust stable
+      - name: Build frontend
+        run: pnpm build:frontend
+
+      # ---- Rust build ----
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: backend
 
-      - name: Write version to tauri.conf.json and package.json
+      - name: Build release binary
+        working-directory: backend
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Strip binary (macOS / Linux)
+        if: matrix.os != 'windows-latest'
+        run: strip backend/target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}
+
+      - name: Package binary
         shell: bash
         run: |
-          VERSION="${{ needs.prepare-tag.outputs.version }}"
-          echo "Setting app version to $VERSION"
+          mkdir -p npm-packages/${{ matrix.npm_platform }}
+          cp backend/target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} \
+             npm-packages/${{ matrix.npm_platform }}/${{ env.BINARY_NAME }}
 
-          jq ".version = \"$VERSION\"" src-tauri/tauri.conf.json > tmp.json \
-            && mv tmp.json src-tauri/tauri.conf.json
+      # ---- Generate platform-specific package.json ----
+      - name: Generate platform npm package
+        shell: bash
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          PLATFORM="${{ matrix.npm_platform }}"
 
-          npm version --no-git-tag-version "$VERSION"
+          cat > npm-packages/$PLATFORM/package.json <<EOF
+          {
+            "name": "@alanwchat/coder-$PLATFORM",
+            "version": "$VERSION",
+            "description": "Coder binary for $PLATFORM",
+            "license": "MIT",
+            "repository": {
+              "type": "git",
+              "url": "git+https://github.com/${{ github.repository }}.git"
+            },
+            "os": ["$(echo $PLATFORM | cut -d- -f1)"],
+            "cpu": ["$(echo $PLATFORM | cut -d- -f2)"]
+          }
+          EOF
 
-      - uses: tauri-apps/tauri-action@v0
+      - name: Publish platform package to npm
+        working-directory: npm-packages/${{ matrix.npm_platform }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # 可选：配置仓库 Secrets 后启用代码签名 / 更新器
-          # TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm publish --access public
+
+  publish-main:
+    needs:
+      - prepare
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          projectPath: src-tauri
-          tagName: ${{ needs.prepare-tag.outputs.tag_name }}
-          releaseName: ${{ needs.prepare-tag.outputs.tag_name }}
-          releaseBody: |
-            ${{ needs.prepare-tag.outputs.changelog }}
-          releaseDraft: false
+          node-version: lts/*
+          registry-url: https://registry.npmjs.org
+
+      - name: Generate and publish main package @alanwchat/coder
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+
+          mkdir -p npm-main
+
+          cat > npm-main/package.json <<EOF
+          {
+            "name": "@alanwchat/coder",
+            "version": "$VERSION",
+            "description": "Coder — AI-powered coding assistant",
+            "license": "MIT",
+            "repository": {
+              "type": "git",
+              "url": "git+https://github.com/${{ github.repository }}.git"
+            },
+            "bin": {
+              "coder": "cli.mjs"
+            },
+            "optionalDependencies": {
+              "@alanwchat/coder-darwin-arm64": "$VERSION",
+              "@alanwchat/coder-darwin-x64": "$VERSION",
+              "@alanwchat/coder-linux-x64": "$VERSION",
+              "@alanwchat/coder-win32-x64": "$VERSION"
+            }
+          }
+          EOF
+
+          cp npm/cli.mjs npm-main/cli.mjs
+          chmod +x npm-main/cli.mjs
+
+          cd npm-main
+          npm publish --access public
+
+      - name: 创建 GitHub Release（记录版本）
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.prepare.outputs.version }}
+          name: v${{ needs.prepare.outputs.version }}
+          body: |
+            v${{ needs.prepare.outputs.version }} 发布到 npm
+
+            ```
+            npm i -g @alanwchat/coder
+            coder --help
+            ```
+          draft: false
           prerelease: false
-          args: ${{ matrix.args }}

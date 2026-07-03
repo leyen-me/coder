@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "cd frontend && vite",
     "dev:server": "cd backend && cargo run",
-    "build:frontend": "cd frontend && pnpm install && pnpm build",
+    "build:frontend": "cd frontend && vite build",
     "build:backend": "cd backend && cargo build --release",
     "test": "cd frontend && vitest run",
     "test:watch": "cd frontend && vitest",
