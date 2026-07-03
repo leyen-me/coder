@@ -88,7 +88,7 @@ impl SseBroadcaster {
     }
 }
 
-fn get_coder_data_dir() -> PathBuf {
+pub fn get_coder_data_dir() -> PathBuf {
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .unwrap_or_else(|_| ".".to_string());

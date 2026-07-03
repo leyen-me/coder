@@ -375,13 +375,37 @@ fn resolve_api_key(
     manual_key: Option<&str>,
     env_var: &str,
 ) -> Result<String, String> {
-    match source {
-        "env" => crate::shell_env::get_env_var(env_var)
-            .ok_or_else(|| format!("Environment variable not set: {env_var}")),
-        _ => manual_key
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(str::to_string)
-            .ok_or_else(|| "API key is required".to_string()),
+    // 1. Try explicit manual key from frontend
+    if let Some(key) = manual_key {
+        let trimmed = key.trim();
+        if !trimmed.is_empty() {
+            return Ok(trimmed.to_string());
+        }
     }
+
+    // 2. Try environment variable
+    if source == "env" {
+        if let Some(val) = crate::shell_env::get_env_var(env_var) {
+            return Ok(val);
+        }
+    }
+
+    // 3. Fallback: read from ~/.coder/settings.json (legacy Tauri settings)
+    if let Ok(settings) = std::fs::read_to_string(
+        crate::get_coder_data_dir().join("settings.json"),
+    ) {
+        if let Ok(map) = serde_json::from_str::<serde_json::Value>(&settings) {
+            // Try the env_var key first, then common API key keys
+            for key in &[env_var, "OPENAI_API_KEY", "apiKey", "api_key"] {
+                if let Some(val) = map.get(*key).and_then(|v| v.as_str()) {
+                    let trimmed = val.trim();
+                    if !trimmed.is_empty() {
+                        return Ok(trimmed.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    Err(format!("API key is required. Set the {env_var} environment variable or configure it in settings."))
 }
