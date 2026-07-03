@@ -136,9 +136,8 @@ export async function touchSession(sessionId: string): Promise<void> {
 export async function listSessions(limit: number | null = null): Promise<SessionRecord[]> {
   const db = await getDb();
   const sessions = await db.getAllFromIndex<SessionRecord>(SESSIONS_STORE, "by-updatedAt");
-  return sortSessionsPinnedFirst(sessions)
-    .slice(0, limit)
-    .map((session) => normalizeSessionRecord(session));
+  const sorted = sortSessionsPinnedFirst(sessions).map((session) => normalizeSessionRecord(session));
+  return limit !== null ? sorted.slice(0, limit) : sorted;
 }
 
 /**
