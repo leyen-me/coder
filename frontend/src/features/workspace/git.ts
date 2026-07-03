@@ -1,9 +1,19 @@
+import { apiPost } from "@/lib/api/client";
+
 /**
  * Returns the current Git branch name for the given workspace directory.
- * Returns `null` when the directory is not a Git repository or Git is not available.
+ * Delegates to the Rust backend which has filesystem access.
  */
 export async function getCurrentGitBranch(
-  _workspaceDir: string
+  workspaceDir: string
 ): Promise<string | null> {
-  return null;
+  try {
+    const result = await apiPost<string | null>(
+      "/api/git_current_branch",
+      { workspace_dir: workspaceDir }
+    );
+    return result ?? null;
+  } catch {
+    return null;
+  }
 }
