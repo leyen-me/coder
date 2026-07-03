@@ -57,7 +57,6 @@ export function useSessionTitleBarSlots(pathname: string) {
         isGenerating={isGeneratingTitle}
         variant="header"
         onDoubleClick={handleDoubleClick}
-        workspaceDir={session?.workspaceDir}
       />
     ),
     trailing: <SessionToolbar sessionProvider={session?.provider ?? null} sessionId={chatId} />,
