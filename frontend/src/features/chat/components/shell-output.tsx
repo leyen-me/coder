@@ -5,8 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { extractShellData } from "@/features/agent/tools/shell-display";
 import { stripAnsi } from "@/lib/strip-ansi";
 import { cn } from "@/lib/utils";
-import { invoke, isTauri } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { apiPost } from "@/lib/api/client";
 import type { ToolUIPart } from "ai";
 
 import {
@@ -106,15 +105,15 @@ export function ShellOutput({
   useEffect(() => {
     if (liveOutput) return; // Already has live data — no recovery needed.
     if (status !== "running") return;
-    if (!shellId || !isTauri()) return;
+    if (!shellId) return;
 
     let cancelled = false;
 
     void (async () => {
       try {
-        const shells = await invoke<
+        const shells = await apiPost<
           { shellId: string; status: string; exitCode?: number | null }[]
-        >("shell_list", { statusFilter: "all" });
+        >("/api/list_shells", { statusFilter: "all" });
         if (cancelled) return;
 
         const found = shells.find((s) => s.shellId === shellId);
@@ -151,47 +150,6 @@ export function ShellOutput({
       cancelled = true;
     };
   }, [liveOutput, status, shellId]);
-
-  // Subscribe to shell events for real-time updates.
-  useEffect(() => {
-    if (status !== "running" || !shellId || !isTauri()) return;
-
-    let unlisteners: (() => void)[] = [];
-    let cancelled = false;
-
-    // Listen for streaming output chunks.
-    listen<Record<string, unknown>>("shell-output", (event) => {
-      if (cancelled) return;
-      const payload = event.payload as Record<string, unknown>;
-      if (payload.shellId !== shellId) return;
-      const chunk = typeof payload.data === "string" ? payload.data : "";
-      if (chunk) {
-        setLiveStreamBuffer((prev) => prev + chunk);
-      }
-    }).then((unlisten) => {
-      unlisteners.push(unlisten);
-    });
-
-    // Listen for shell completion (carries the full final ShellOutput).
-    listen<Record<string, unknown>>("shell-finished", (event) => {
-      if (cancelled) return;
-      const payload = event.payload as Record<string, unknown>;
-      if (payload.shellId !== shellId) return;
-      // Wrap in the tool-result envelope so extractShellData can parse it.
-      setLiveOutput({
-        ok: true,
-        tool: "shell",
-        data: payload,
-      });
-    }).then((unlisten) => {
-      unlisteners.push(unlisten);
-    });
-
-    return () => {
-      cancelled = true;
-      for (const fn of unlisteners) fn();
-    };
-  }, [status, shellId]);
 
   const formattedLog = useMemo(() => {
     const parts: string[] = [];
@@ -265,7 +223,7 @@ export function ShellOutput({
 
             <div className="ml-auto flex items-center gap-x-2">
               {/* Stop button for running shells */}
-              {status === "running" && shellId && isTauri() ? (
+              {status === "running" && shellId ? (
                 <button
                   aria-label="Stop shell"
                   className={cn(
@@ -277,11 +235,9 @@ export function ShellOutput({
                   onClick={(e) => {
                     e.stopPropagation();
                     setKilling(true);
-                    invoke("shell_kill", { shellId }).then(
+                    apiPost("/api/kill_shell", { shellId }).then(
                       () => {
-                        // Shell killed successfully — "shell-finished" event
-                        // will update the UI. Re-enable button after 5s
-                        // in case the event never arrives.
+                        // Shell killed successfully.
                         setTimeout(() => setKilling(false), 5000);
                       },
                       (error) => {

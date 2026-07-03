@@ -1,16 +1,7 @@
-import { isTauri } from "@tauri-apps/api/core";
-import { homeDir } from "@tauri-apps/api/path";
-
 export async function resolveHomeDirectory(): Promise<string | null> {
-  if (!isTauri()) {
-    return null;
-  }
-
-  try {
-    return await homeDir();
-  } catch {
-    return null;
-  }
+  // In browser mode, we don't have direct access to the home directory.
+  // Use the workspace dir as-is or return null.
+  return null;
 }
 
 export async function resolveTerminalCwd(

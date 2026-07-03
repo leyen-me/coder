@@ -8,8 +8,6 @@ import {
 } from "lucide-react";
 import { useMatch } from "react-router-dom";
 import { toast } from "sonner";
-import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
 
 import { paths } from "@/app/paths";
 import { APP_SIDEBAR_WIDTH_PX } from "@/components/layout/constants";
@@ -84,7 +82,7 @@ async function exportSessionAsMarkdown(sessionId: string): Promise<boolean> {
     if (message.thinking) {
       lines.push("> **Thinking**");
       lines.push(">");
-      lines.push(`> ${message.thinking.replace(/\n/g, "\n> ")}`);
+      lines.push(`> ${message.thinking.replace(/\n/g, "\\n> ")}`);
       lines.push("");
     }
 
@@ -101,14 +99,16 @@ async function exportSessionAsMarkdown(sessionId: string): Promise<boolean> {
   const cleanTitle = sanitizeFilename(session.title || "");
   const defaultName = cleanTitle ? `${cleanTitle}.md` : `${sessionId}.md`;
 
-  const filePath = await save({
-    defaultPath: defaultName,
-    filters: [{ name: "Markdown", extensions: ["md"] }],
-  });
-
-  if (!filePath) return false; // user cancelled
-
-  await invoke("write_text_file", { targetPath: filePath, content: markdown });
+  // Download via blob URL (browser-compatible)
+  const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = defaultName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
   return true;
 }
 

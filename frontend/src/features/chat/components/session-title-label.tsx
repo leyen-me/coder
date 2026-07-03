@@ -1,5 +1,4 @@
 import { ExternalLink } from "lucide-react";
-import { openPath } from "@tauri-apps/plugin-opener";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -44,7 +43,7 @@ export function SessionTitleLabel({
 
   const handleOpenWorkspace = () => {
     if (workspaceDir) {
-      void openPath(workspaceDir);
+      window.open(workspaceDir, "_blank");
     }
   };
 
