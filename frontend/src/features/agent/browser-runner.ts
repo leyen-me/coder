@@ -31,10 +31,6 @@ export async function startBrowserAgent(
   input: AgentStartInput,
   onEvent: (event: AgentEvent) => void
 ): Promise<void> {
-  if (!input.apiKey.trim()) {
-    throw new Error("API key is required");
-  }
-
   const controller = new AbortController();
   activeControllers.set(input.taskId, controller);
 
