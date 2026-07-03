@@ -7,7 +7,7 @@ use clap::Parser;
 #[derive(Parser)]
 #[command(name = "coder", about = "Coder — AI-powered coding assistant")]
 struct Cli {
-    /// Port to listen on (default: random available port)
+    /// Port to listen on (default: 1421 in dev, random in release)
     #[arg(short, long)]
     port: Option<u16>,
 
@@ -36,8 +36,12 @@ async fn main() {
     // Initialize all shared state
     let state = coder_lib::initialize_app_state(&workspace_dir);
 
-    // Determine port
-    let port = cli.port.unwrap_or(0);
+    // Determine port (default: 1421 for dev, 0 = random for release)
+    #[cfg(debug_assertions)]
+    let default_port = 1421;
+    #[cfg(not(debug_assertions))]
+    let default_port = 0;
+    let port = cli.port.unwrap_or(default_port);
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
 
     let listener = tokio::net::TcpListener::bind(addr)

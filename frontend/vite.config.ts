@@ -19,6 +19,16 @@ export default defineConfig({
   clearScreen: false,
   server: {
     port: 1420,
+    strictPort: true,
+    proxy: {
+      // API 请求全部转发到 Rust 后端
+      "/api": { target: "http://127.0.0.1:1421", changeOrigin: true },
+      "/agent": { target: "http://127.0.0.1:1421", changeOrigin: true },
+      "/sse": { target: "http://127.0.0.1:1421", changeOrigin: true, ws: true },
+      "/ws": { target: "ws://127.0.0.1:1421", ws: true },
+      "/db": { target: "http://127.0.0.1:1421", changeOrigin: true },
+      "/settings": { target: "http://127.0.0.1:1421", changeOrigin: true },
+    },
   },
   build: {
     outDir: "dist",
