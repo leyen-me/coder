@@ -29,6 +29,19 @@ export interface ShellFinishedEvent {
 export type SseEvent = AgentEvent | ShellOutputEvent | ShellFinishedEvent;
 
 /**
+ * Backend base URL. In development (Vite dev server), the Vite proxy doesn't
+ * support SSE streaming correctly, so connect directly to the backend port.
+ * In production (backend serves static files), use the same origin.
+ */
+function getBackendUrl(): string {
+  // Dev: frontend on 1420, backend on 1421
+  if (window.location.port === "1420") {
+    return "http://127.0.0.1:1421";
+  }
+  return window.location.origin;
+}
+
+/**
  * Connect to the SSE endpoint for agent events.
  * Returns a cleanup function to close the connection.
  */
@@ -38,7 +51,7 @@ export function connectAgentSse(
   onDone: () => void,
   onError: (error: string) => void,
 ): () => void {
-  const baseUrl = window.location.origin;
+  const baseUrl = getBackendUrl();
   const eventSource = new EventSource(`${baseUrl}/sse/events/${taskId}`);
 
   eventSource.onmessage = (event) => {
