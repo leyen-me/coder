@@ -45,7 +45,16 @@ impl Database {
                 ON idx(store, index_name, index_value);
             ",
         )
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+        // Compatibility: add updated_at column if it doesn't exist (e.g. when
+        // upgrading from the old Tauri version that created the table without it).
+        conn.execute_batch(
+            "ALTER TABLE entities ADD COLUMN updated_at INTEGER NOT NULL DEFAULT (unixepoch());",
+        )
+        .ok();
+
+        Ok(())
     }
 
     pub fn get<T: DeserializeOwned>(&self, store: &str, key: &str) -> Result<Option<T>, String> {
