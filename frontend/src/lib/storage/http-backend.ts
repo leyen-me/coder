@@ -59,11 +59,18 @@ export class HttpStoreBackend implements StoreBackend {
     return (result ?? []) as T[];
   }
 
-  async put<T>(storeName: string, value: T & { id: string }): Promise<void> {
+  async put<T>(storeName: string, value: T & { id?: string }): Promise<void> {
     const indexes = buildIndexes(storeName, value as unknown as Record<string, unknown>);
+    // Different stores use different key fields; resolve the id accordingly.
+    const KEY_FIELDS: Record<string, string> = {
+      remoteTargets: "alias",
+      systemSkillPreferences: "skillId",
+    };
+    const keyField = KEY_FIELDS[storeName] ?? "id";
+    const id = String((value as Record<string, unknown>)[keyField] ?? value.id ?? "");
     await apiPost("/db/put", {
       store: storeName,
-      id: value.id,
+      id,
       value,
       indexes,
     });
