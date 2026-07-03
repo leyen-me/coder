@@ -6,7 +6,6 @@ export type Messages = {
     back: string;
     search: string;
     forward: string;
-    newWindow: string;
     openWorkspace: string;
   };
   windowControls: {
@@ -38,7 +37,6 @@ export type Messages = {
     agentRunning: string;
     exportChat: string;
     editChat: string;
-    openInNewWindow: string;
     editChatTitle: string;
     editChatTitleLabel: string;
     editChatTitleSave: string;
@@ -285,7 +283,6 @@ export type Messages = {
           skills: { label: string; description: string };
           automations: { label: string; description: string };
           history: { label: string; description: string };
-          newWindow: { label: string; description: string };
         };
         panel: {
           toggleSidebar: { label: string; description: string };

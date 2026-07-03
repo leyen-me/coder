@@ -39,9 +39,6 @@ export function KeyboardShortcuts() {
         case "global.newChat":
           navigate(paths.chatNew);
           return true;
-        case "global.newWindow":
-          tauriInvoke("create_new_window");
-          return true;
         case "global.settings":
           navigate(paths.settings);
           return true;

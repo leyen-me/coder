@@ -1,4 +1,4 @@
-import { ExternalLink, PanelBottom } from "lucide-react";
+import { PanelBottom } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,32 +27,11 @@ export function SessionToolbar({ sessionProvider, sessionId }: SessionToolbarPro
 
   const tooltip = t("session.bottomPanel");
 
-  const handleNewWindow = () => {
-    // New window creation is only available in the desktop app.
-    console.log("New window creation is not available in browser mode");
-  };
-
   return (
     <div className="flex shrink-0 items-center gap-1">
       <ProviderUsageTag providerId={sessionProvider} />
 
       {sessionProvider === "deepseek" && <div className="mx-1 h-4 w-px bg-border" />}
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="text-muted-foreground"
-            aria-label={t("titleBar.newWindow")}
-            onClick={handleNewWindow}
-          >
-            <ExternalLink className="size-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{t("titleBar.newWindow")}</TooltipContent>
-      </Tooltip>
 
       <Tooltip>
         <TooltipTrigger asChild>

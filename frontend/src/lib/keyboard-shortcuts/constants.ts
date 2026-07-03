@@ -46,12 +46,6 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     allowInInput: true,
   },
   {
-    id: "global.newWindow",
-    defaultBinding: "mod+shift+n",
-    scope: "global",
-    allowInInput: true,
-  },
-  {
     id: "global.history",
     defaultBinding: "mod+shift+h",
     scope: "global",
@@ -144,7 +138,6 @@ export function getActionsForGroup(
     navigation: [
       "global.search",
       "global.newChat",
-      "global.newWindow",
       "global.settings",
       "global.skills",
       "global.automations",

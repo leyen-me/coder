@@ -8,7 +8,6 @@ export const zhMessages = {
     back: "后退",
     search: "搜索",
     forward: "前进",
-    newWindow: "新建窗口",
     openWorkspace: "在资源管理器中打开工作区",
   },
   windowControls: {
@@ -40,7 +39,6 @@ export const zhMessages = {
     agentRunning: "Agent 运行中",
     exportChat: "导出",
     editChat: "编辑标题",
-    openInNewWindow: "在新窗口中打开",
     editChatTitle: "编辑聊天标题",
     editChatTitleLabel: "聊天名称",
     editChatTitleSave: "保存",
@@ -313,10 +311,6 @@ export const zhMessages = {
           history: {
             label: "打开历史记录",
             description: "进入历史记录页面",
-          },
-          newWindow: {
-            label: "新建窗口",
-            description: "打开一个新的应用窗口",
           },
         },
         panel: {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, ExternalLink, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
+import { Download, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 
 import { paths } from "@/app/paths";
 import {
@@ -169,12 +169,6 @@ export function ChatHistoryList({
                         <Download className="size-4" />
                         {t("sidebar.exportChat")}
                       </ContextMenuItem>
-                      {!isRunning && (
-                        <ContextMenuItem onClick={undefined}>
-                          <ExternalLink className="size-4" />
-                          {t("sidebar.openInNewWindow")}
-                        </ContextMenuItem>
-                      )}
                       {!isRunning && onPinSession && onUnpinSession && (
                         <ContextMenuItem
                           onClick={() =>

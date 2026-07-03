@@ -8,7 +8,6 @@ export const enMessages = {
     back: "Back",
     search: "Search",
     forward: "Forward",
-    newWindow: "New Window",
     openWorkspace: "Open workspace in file manager",
   },
   windowControls: {
@@ -40,7 +39,6 @@ export const enMessages = {
     agentRunning: "Agent running",
     exportChat: "Export",
     editChat: "Rename",
-    openInNewWindow: "Open in New Window",
     editChatTitle: "Rename chat",
     editChatTitleLabel: "Chat name",
     editChatTitleSave: "Save",
@@ -323,10 +321,6 @@ export const enMessages = {
           history: {
             label: "Open history",
             description: "Go to the history page",
-          },
-          newWindow: {
-            label: "New Window",
-            description: "Open a new application window",
           },
         },
         panel: {
