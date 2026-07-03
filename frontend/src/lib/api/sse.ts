@@ -42,7 +42,7 @@ export function connectAgentSse(
 
   void (async () => {
     try {
-      const response = await fetch(`/sse/events/${taskId}`, {
+      const response = await fetch(`/sse/events/${encodeURIComponent(taskId)}`, {
         signal: controller.signal,
       });
 

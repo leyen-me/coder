@@ -21,7 +21,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .allow_headers(Any);
 
     Router::new()
-        // Tool endpoints
+        // ── Tool endpoints (canonical paths) ──────────────────────────────
         .route("/api/list_dir", post(routes_tool::handle_list_dir))
         .route("/api/read_file", post(routes_tool::handle_read_file))
         .route("/api/write_file", post(routes_tool::handle_write_file))
@@ -50,6 +50,33 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/git_current_branch", post(routes_tool::handle_git_current_branch))
         .route("/api/send_email", post(routes_tool::handle_send_email))
         .route("/api/server_info", get(routes_tool::handle_server_info))
+        // ── Compat: `tool_` prefix (used by frontend agent tools) ────────
+        .route("/api/tool_list_dir", post(routes_tool::handle_list_dir))
+        .route("/api/tool_read_file", post(routes_tool::handle_read_file))
+        .route("/api/tool_write_file", post(routes_tool::handle_write_file))
+        .route("/api/tool_edit_file", post(routes_tool::handle_edit_file))
+        .route("/api/tool_replace_lines", post(routes_tool::handle_replace_lines))
+        .route("/api/tool_replace_file", post(routes_tool::handle_replace_file))
+        .route("/api/tool_glob", post(routes_tool::handle_glob))
+        .route("/api/tool_grep", post(routes_tool::handle_grep))
+        .route("/api/tool_shell", post(routes_tool::handle_shell))
+        .route("/api/tool_remote_shell", post(routes_tool::handle_remote_shell))
+        .route("/api/tool_await", post(routes_tool::handle_await_shell))
+        .route("/api/tool_browse_page", post(routes_tool::handle_browse_page))
+        .route("/api/tool_get_workspace_tree", post(routes_tool::handle_workspace_tree))
+        .route("/api/tool_web_search", post(routes_tool::handle_web_search))
+        // ── Compat: `shell_*` prefix (used by frontend agent tools) ──────
+        .route("/api/shell_list", post(routes_tool::handle_list_shells))
+        .route("/api/shell_kill", post(routes_tool::handle_kill_shell))
+        .route("/api/shell_kill_by_task", post(routes_tool::handle_kill_shell_by_task))
+        .route("/api/shell_read_logs", post(routes_tool::handle_read_shell_logs))
+        // ── Plan endpoints (canonical + tool_ compat) ────────────────────
+        .route("/api/tool_plan_create", post(routes_tool::handle_plan_create))
+        .route("/api/tool_plan_read", post(routes_tool::handle_plan_read))
+        .route("/api/tool_plan_update", post(routes_tool::handle_plan_update))
+        .route("/api/tool_plan_edit", post(routes_tool::handle_plan_edit))
+        .route("/api/tool_plan_delete", post(routes_tool::handle_plan_delete))
+        .route("/api/tool_plan_list", post(routes_tool::handle_plan_list))
         // Agent streaming
         .route("/agent/start", post(routes_tool::handle_agent_start))
         .route("/agent/cancel", post(routes_tool::handle_agent_cancel))

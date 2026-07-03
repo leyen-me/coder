@@ -865,3 +865,110 @@ pub async fn handle_refine_prompt(
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
     })?))
 }
+
+// ---------------------------------------------------------------------------
+// Plan handlers
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanNameParams {
+    pub workspace_dir: String,
+    pub name: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanContentParams {
+    pub workspace_dir: String,
+    pub name: String,
+    pub content: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanEditParams {
+    pub workspace_dir: String,
+    pub name: String,
+    pub old_string: String,
+    pub new_string: String,
+    pub replace_all: Option<bool>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanListParams {
+    pub workspace_dir: String,
+}
+
+/// POST /api/tool_plan_create
+pub async fn handle_plan_create(
+    Json(params): Json<PlanContentParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let result = tool_plan_create(params.workspace_dir, params.name, params.content)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| {
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })?))
+}
+
+/// POST /api/tool_plan_read
+pub async fn handle_plan_read(
+    Json(params): Json<PlanNameParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let result = tool_plan_read(params.workspace_dir, params.name)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| {
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })?))
+}
+
+/// POST /api/tool_plan_update
+pub async fn handle_plan_update(
+    Json(params): Json<PlanContentParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let result = tool_plan_update(params.workspace_dir, params.name, params.content)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| {
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })?))
+}
+
+/// POST /api/tool_plan_edit
+pub async fn handle_plan_edit(
+    Json(params): Json<PlanEditParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let result = tool_plan_edit(
+        params.workspace_dir,
+        params.name,
+        params.old_string,
+        params.new_string,
+        params.replace_all,
+    )
+    .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| {
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })?))
+}
+
+/// POST /api/tool_plan_delete
+pub async fn handle_plan_delete(
+    Json(params): Json<PlanNameParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let result = tool_plan_delete(params.workspace_dir, params.name)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| {
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })?))
+}
+
+/// POST /api/tool_plan_list
+pub async fn handle_plan_list(
+    Json(params): Json<PlanListParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let result = tool_plan_list(params.workspace_dir)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| {
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })?))
+}
