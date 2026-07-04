@@ -37,6 +37,17 @@ fn save_settings(settings: &Value) -> Result<(), String> {
     std::fs::write(&path, content).map_err(|e| e.to_string())
 }
 
+/// Read a setting value from settings.json.
+pub fn get_setting(key: &str) -> Option<String> {
+    let settings = load_settings();
+    settings
+        .get(key)
+        .and_then(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+}
+
 /// Set a setting key-value pair in settings.json.
 /// This is public so it can be called from main.rs at startup.
 pub fn set_setting(key: &str, value: &str) -> Result<(), String> {

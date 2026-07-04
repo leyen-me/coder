@@ -1,5 +1,24 @@
 use std::path::{Path, PathBuf};
 
+/// Validates that `path` refers to an existing directory on disk.
+pub fn validate_workspace_dir(path: &str) -> Result<String, String> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return Err("workspaceDir is required".to_string());
+    }
+
+    let workspace = PathBuf::from(trimmed);
+    let canonical = workspace
+        .canonicalize()
+        .map_err(|error| format!("Invalid workspaceDir: {error}"))?;
+
+    if !canonical.is_dir() {
+        return Err("workspaceDir must be a directory".to_string());
+    }
+
+    Ok(canonical.to_string_lossy().into_owned())
+}
+
 /// Resolves a relative or absolute path against the workspace root.
 ///
 /// Relative paths are joined with `workspace`. Absolute paths are accepted when
@@ -267,6 +286,29 @@ mod tests {
         let error = resolve_workspace_path(&temp, "   ").expect_err("empty path");
         assert!(error.contains("required"));
         let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn validate_workspace_dir_accepts_existing_directory() {
+        let temp = temp_workspace("validate");
+        let validated =
+            super::validate_workspace_dir(temp.to_string_lossy().as_ref()).expect("validate");
+        assert_eq!(validated, temp.canonicalize().expect("canonical").to_string_lossy());
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn validate_workspace_dir_rejects_missing_path() {
+        let missing = std::env::temp_dir().join(format!(
+            "coder-missing-workspace-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let error = super::validate_workspace_dir(missing.to_string_lossy().as_ref())
+            .expect_err("missing path");
+        assert!(error.contains("Invalid workspaceDir"));
     }
 
     #[test]

@@ -26,21 +26,29 @@ async fn main() {
 
     let cli = Cli::parse();
 
-    // Determine workspace directory
-    let workspace_dir = cli
+    const WORKSPACE_SETTING_KEY: &str = "coder:workspace-dir";
+
+    // Startup directory: CLI flag or current working directory.
+    let startup_dir = cli
         .workspace
         .map(PathBuf::from)
         .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
 
+    // User-saved preference wins; startup dir is only a cold-start fallback.
+    let workspace_dir = coder_lib::http::routes_settings::get_setting(WORKSPACE_SETTING_KEY)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| startup_dir.clone());
+
+    // Seed settings on first run only — never overwrite an existing user choice.
+    if coder_lib::http::routes_settings::get_setting(WORKSPACE_SETTING_KEY).is_none() {
+        let _ = coder_lib::http::routes_settings::set_setting(
+            WORKSPACE_SETTING_KEY,
+            &startup_dir.to_string_lossy(),
+        );
+    }
+
     // Initialize all shared state
     let state = coder_lib::initialize_app_state(&workspace_dir);
-
-    // Save the workspace directory to settings.json so the web frontend can read it.
-    // This is the only way to set the workspace dir in browser mode (no native file dialog).
-    let _ = coder_lib::http::routes_settings::set_setting(
-        "coder:workspace-dir",
-        &workspace_dir.to_string_lossy(),
-    );
 
     // Determine port (default: 1421 for dev, 0 = random for release)
     #[cfg(debug_assertions)]

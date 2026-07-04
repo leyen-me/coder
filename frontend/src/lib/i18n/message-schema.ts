@@ -91,6 +91,17 @@ export type Messages = {
     selectWorkspace: string;
     clearWorkspace: string;
     workspaceSelected: string;
+    pickWorkspaceTitle: string;
+    pickWorkspaceDescription: string;
+    pickWorkspaceLocations: string;
+    pickWorkspaceGoUp: string;
+    pickWorkspaceLoading: string;
+    pickWorkspaceEmpty: string;
+    pickWorkspaceCurrentSelection: string;
+    pickWorkspaceSelectFolder: string;
+    pickWorkspaceConfirm: string;
+    pickWorkspaceCancel: string;
+    pickWorkspaceValidating: string;
     selectGitBranch: string;
     gitBranchLoading: string;
     thinking: string;

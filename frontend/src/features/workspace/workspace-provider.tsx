@@ -13,6 +13,7 @@ import {
   readWorkspaceDir,
   writeWorkspaceDir,
 } from "./storage";
+import { WorkspacePickerHost } from "./workspace-picker-host";
 
 type WorkspaceStoreValue = {
   workspaceDir: string | null;
@@ -90,6 +91,7 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   return (
     <WorkspaceStoreContext.Provider value={value}>
       {children}
+      <WorkspacePickerHost />
     </WorkspaceStoreContext.Provider>
   );
 }

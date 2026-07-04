@@ -1,3 +1,4 @@
+mod browse_directories;
 mod browse_page;
 mod edit_file;
 mod git;
@@ -28,6 +29,7 @@ mod web_search;
 mod workspace_path;
 mod write_file;
 
+pub use browse_directories::tool_browse_directories;
 pub use browse_page::tool_browse_page;
 pub use edit_file::tool_edit_file;
 pub use replace_lines::tool_replace_lines;
@@ -56,6 +58,7 @@ pub use shell_registry::{
     ShellRegistry,
 };
 pub use web_search::tool_web_search;
+pub use workspace_path::validate_workspace_dir;
 pub use workspace_tree::tool_get_workspace_tree;
 pub use write_file::tool_write_file;
 pub use git::git_current_branch;

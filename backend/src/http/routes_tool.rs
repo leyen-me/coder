@@ -765,6 +765,37 @@ pub async fn handle_git_current_branch(
     })?))
 }
 
+#[derive(Deserialize)]
+pub struct ValidateWorkspaceDirParams {
+    pub path: String,
+}
+
+/// POST /api/validate_workspace_dir
+pub async fn handle_validate_workspace_dir(
+    State(_state): State<Arc<AppState>>,
+    Json(params): Json<ValidateWorkspaceDirParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let path = validate_workspace_dir(&params.path).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(serde_json::json!({ "path": path })))
+}
+
+#[derive(Deserialize)]
+pub struct BrowseDirectoriesParams {
+    pub path: Option<String>,
+}
+
+/// POST /api/browse_directories
+pub async fn handle_browse_directories(
+    State(_state): State<Arc<AppState>>,
+    Json(params): Json<BrowseDirectoriesParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let result = tool_browse_directories(params.path)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| {
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })?))
+}
+
 /// POST /api/send_email
 pub async fn handle_send_email(
     State(_state): State<Arc<AppState>>,
