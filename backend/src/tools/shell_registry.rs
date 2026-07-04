@@ -269,25 +269,7 @@ impl ShellRegistry {
                         reg.stop(&shell_id, ShellStatus::Timeout)?;
                     }
 
-                    let settle_deadline = Instant::now() + Duration::from_millis(POST_KILL_WAIT_MS);
-                    loop {
-                        let current_status = {
-                            let reg = registry
-                                .lock()
-                                .map_err(|_| "Shell registry lock poisoned")?;
-                            reg.shells
-                                .get(&shell_id)
-                                .map(|shell| shell.status)
-                                .ok_or_else(|| format!("Unknown shell_id: {shell_id}"))?
-                        };
-
-                        if current_status != ShellStatus::Running
-                            || Instant::now() >= settle_deadline
-                        {
-                            break;
-                        }
-                        sleep(Duration::from_millis(50)).await;
-                    }
+                    sleep(Duration::from_millis(POST_KILL_WAIT_MS)).await;
 
                     let reg = registry
                         .lock()
@@ -295,15 +277,20 @@ impl ShellRegistry {
                     return reg.snapshot_output(&shell_id);
                 }
 
-                let mut reg = registry
-                    .lock()
-                    .map_err(|_| "Shell registry lock poisoned")?;
-                if let Some(shell) = reg.shells.get_mut(&shell_id) {
-                    if shell.status == ShellStatus::Running {
-                        shell.status = ShellStatus::Timeout;
+                {
+                    let mut reg = registry
+                        .lock()
+                        .map_err(|_| "Shell registry lock poisoned")?;
+                    if let Some(shell) = reg.shells.get_mut(&shell_id) {
+                        if shell.status == ShellStatus::Running {
+                            shell.status = ShellStatus::Timeout;
+                            if shell_id.starts_with("remote-") {
+                                kill_running_shell(shell);
+                            }
+                        }
                     }
+                    return reg.snapshot_output(&shell_id);
                 }
-                return reg.snapshot_output(&shell_id);
             }
 
             sleep(Duration::from_millis(100)).await;
