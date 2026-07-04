@@ -17,6 +17,23 @@ vi.mock("./lab-settings-store", () => ({
 }));
 
 describe("refinePrompt", () => {
+  it("strips redacted thinking blocks from provider output", async () => {
+    vi.mocked(apiPost).mockResolvedValue(
+      `<${"think"}>internal reasoning</${"think"}>Refined prompt`
+    );
+
+    const result = await refinePrompt({
+      baseUrl: "https://api.example.com/v1",
+      apiKey: "sk-test",
+      apiKeySource: "manual",
+      apiKeyEnvVar: "OPENAI_API_KEY",
+      model: "gpt-4.1",
+      userPrompt: "Make this clearer",
+    });
+
+    expect(result).toBe("Refined prompt");
+  });
+
   it("calls the server refine_prompt endpoint without a client-side api key", async () => {
     vi.mocked(apiPost).mockResolvedValue("Refined prompt");
 

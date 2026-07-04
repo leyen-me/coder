@@ -15,8 +15,11 @@ export type RefineContextMessage = {
 };
 
 export function normalizeRefinedPrompt(raw: string): string {
-  return raw
-    .trim()
+  const withoutThink = raw
+    .replace(new RegExp(`<${"think"}>[\\s\\S]*?<\\/${"think"}>`, "gi"), "")
+    .trim();
+
+  return withoutThink
     .replace(/^["'`「『【]+|["'`」』】]+$/g, "")
     .trim();
 }
