@@ -113,7 +113,7 @@ fn collect_entries(
             .file_type()
             .map_err(|error| format!("Failed to inspect entry: {error}"))?;
         let entry_path = entry.path();
-        let is_dir = file_type.is_dir();
+        let is_dir = file_type.is_dir() && !file_type.is_symlink();
         let size = if file_type.is_file() {
             entry.metadata().ok().map(|metadata| metadata.len())
         } else {
@@ -228,5 +228,49 @@ mod tests {
             .iter()
             .any(|entry| entry.path == "src/components/button.tsx"));
         let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn does_not_recurse_into_directory_symlinks() {
+        let temp = temp_workspace("symlink");
+        let outside = temp.parent().unwrap().join(format!(
+            "coder-list-dir-outside-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        fs::create_dir_all(&outside).expect("create outside");
+        fs::write(outside.join("leaked.txt"), "secret").expect("write leaked");
+
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&outside, temp.join("escape")).expect("symlink");
+
+        #[cfg(windows)]
+        if std::os::windows::fs::symlink_dir(&outside, temp.join("escape")).is_err() {
+            let _ = fs::remove_dir_all(&outside);
+            let _ = fs::remove_dir_all(&temp);
+            return;
+        }
+
+        let result = tool_list_dir(
+            temp.to_string_lossy().into_owned(),
+            ".".to_string(),
+            Some(true),
+            Some(3),
+            None,
+        )
+        .expect("list dir");
+
+        assert!(
+            !result
+                .entries
+                .iter()
+                .any(|entry| entry.path.contains("leaked.txt")),
+            "should not list files through directory symlinks"
+        );
+
+        let _ = fs::remove_dir_all(&outside);
+        let _ = fs::remove_dir_all(&temp);
     }
 }
