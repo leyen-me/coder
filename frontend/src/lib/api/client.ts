@@ -20,6 +20,66 @@ export class ApiError extends Error {
   }
 }
 
+type ParsedApiError = {
+  code?: string;
+  message?: string;
+};
+
+function parseApiErrorBody(raw: string): ParsedApiError {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (typeof parsed === "object" && parsed !== null) {
+      const record = parsed as Record<string, unknown>;
+      return {
+        code: typeof record.code === "string" ? record.code : undefined,
+        message: typeof record.message === "string" ? record.message : undefined,
+      };
+    }
+  } catch {
+    // Fall through to plain-text parsing.
+  }
+
+  const match = trimmed.match(/^\[([^\]]+)\]\s*(.*)$/s);
+  if (match) {
+    return {
+      code: match[1],
+      message: match[2]?.trim() || trimmed,
+    };
+  }
+
+  return { message: trimmed };
+}
+
+async function readResponseBody(response: Response): Promise<string> {
+  if (typeof response.text === "function") {
+    return response.text();
+  }
+
+  if (typeof response.json === "function") {
+    try {
+      return JSON.stringify(await response.json());
+    } catch {
+      return "";
+    }
+  }
+
+  return "";
+}
+
+async function readApiError(response: Response): Promise<ApiError> {
+  const parsed = parseApiErrorBody(await readResponseBody(response));
+  return new ApiError(
+    response.status,
+    parsed.code || "unknown_error",
+    parsed.message || response.statusText,
+  );
+}
+
 export async function apiPost<T>(
   path: string,
   body?: unknown,
@@ -33,12 +93,7 @@ export async function apiPost<T>(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new ApiError(
-      response.status,
-      error.code || "unknown_error",
-      error.message || response.statusText,
-    );
+    throw await readApiError(response);
   }
 
   return response.json();
@@ -54,12 +109,7 @@ export async function apiGet<T>(
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new ApiError(
-      response.status,
-      error.code || "unknown_error",
-      error.message || response.statusText,
-    );
+    throw await readApiError(response);
   }
 
   return response.json();
@@ -71,12 +121,7 @@ export async function apiGetText(
 ): Promise<string> {
   const response = await fetch(`${getApiBase()}${path}`, { method: "GET", signal });
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new ApiError(
-      response.status,
-      error.code || "unknown_error",
-      error.message || response.statusText,
-    );
+    throw await readApiError(response);
   }
   return response.text();
 }
