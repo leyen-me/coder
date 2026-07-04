@@ -195,10 +195,12 @@ export async function writeAgentTodos(
   const nextIds = new Set(nextRecords.map((todo) => todo.id));
   const toDelete = existing.filter((todo) => !nextIds.has(todo.id));
 
-  await Promise.all([
-    ...toDelete.map((todo) => db.delete(AGENT_TODOS_STORE, todo.id)),
-    ...nextRecords.map((todo) => db.put(AGENT_TODOS_STORE, todo)),
-  ]);
+  await Promise.all(
+    nextRecords.map((todo) => db.put(AGENT_TODOS_STORE, todo)),
+  );
+  await Promise.all(
+    toDelete.map((todo) => db.delete(AGENT_TODOS_STORE, todo.id)),
+  );
 
   notifyDbChange();
   return nextRecords;
