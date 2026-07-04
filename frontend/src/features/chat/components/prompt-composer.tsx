@@ -58,7 +58,7 @@ import { useRegisterHotkeyAction } from "@/features/keyboard-shortcuts/hotkey-ac
 import { ComposerContextUsage } from "./composer-context-usage";
 import { ComposerEditTag } from "./composer-edit-tag";
 import { ComposerRichInput } from "./composer-rich-input";
-import { extractSkillSlugsFromEditor } from "../lib/composer-serialize";
+import { extractSkillSlugsFromEditor, serializeEditorToAgentText } from "../lib/composer-serialize";
 import {
   composerFooterControlActiveClassName,
   composerFooterControlClassName,
@@ -161,13 +161,23 @@ function ComposerAttachmentError({
 function ComposerHotkeyActions({
   onSubmit,
   supportsMultimodal,
+  editorRef,
 }: {
   onSubmit: (message: PromptInputMessage) => void;
   supportsMultimodal: boolean;
+  editorRef: RefObject<Editor | null>;
 }) {
   const attachments = usePromptInputAttachments();
 
   useRegisterHotkeyAction("chat.send", () => {
+    const editorText = editorRef.current
+      ? serializeEditorToAgentText(editorRef.current).trim()
+      : "";
+    const hasFiles = supportsMultimodal && attachments.files.length > 0;
+    if (!editorText && !hasFiles) {
+      return false;
+    }
+
     onSubmit({
       text: "",
       files: supportsMultimodal ? attachments.files : [],
@@ -522,8 +532,10 @@ export const PromptComposer = memo(function PromptComposer({
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
-      // Read current value from ref to avoid stale closures
-      const text = valueRef.current.trim() || message.text.trim();
+      const editorText = editorRef.current
+        ? serializeEditorToAgentText(editorRef.current)
+        : valueRef.current;
+      const text = editorText.trim() || message.text.trim();
       const hasText = text.length > 0;
       const hasFiles = supportsMultimodal && message.files.length > 0;
       if (!hasText && !hasFiles) {
@@ -587,6 +599,7 @@ export const PromptComposer = memo(function PromptComposer({
       <ComposerHotkeyActions
         onSubmit={handleSubmit}
         supportsMultimodal={supportsMultimodal}
+        editorRef={editorRef}
       />
       <ComposerTauriFileDropBridge
         dropTargetRef={dropTargetRef}
