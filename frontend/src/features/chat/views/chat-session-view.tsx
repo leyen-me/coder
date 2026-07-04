@@ -598,6 +598,12 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             workspaceDir={workspaceBinding.workspaceDir}
             workspaceName={workspaceName}
             gitBranch={gitControls.gitBranch}
+            onPickWorkspace={() => {
+              void workspaceBinding.handlePickWorkspace();
+            }}
+            onClearWorkspace={() => {
+              void workspaceBinding.handleClearWorkspace();
+            }}
             variant="compact"
             isRunning={isRunning}
             contextUsage={contextUsage}
