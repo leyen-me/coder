@@ -200,7 +200,13 @@ export const MessageItem = memo(function MessageItem({
     if (!answerText) {
       return;
     }
-    await navigator.clipboard.writeText(answerText);
+    try {
+      await navigator.clipboard.writeText(answerText);
+    } catch (error) {
+      if (error instanceof Error && error.message) {
+        toast.error(error.message);
+      }
+    }
   }, [answerText]);
 
   const handleUserCopy = useCallback(async () => {
@@ -215,7 +221,13 @@ export const MessageItem = memo(function MessageItem({
     if (parts.length === 0) {
       return;
     }
-    await navigator.clipboard.writeText(parts.join("\n"));
+    try {
+      await navigator.clipboard.writeText(parts.join("\n"));
+    } catch (error) {
+      if (error instanceof Error && error.message) {
+        toast.error(error.message);
+      }
+    }
   }, [message.content, message.images]);
 
   const handleUserEdit = useCallback(() => {
@@ -255,6 +267,10 @@ export const MessageItem = memo(function MessageItem({
     setIsRegenerating(true);
     try {
       await onRegenerateAssistantMessage(message);
+    } catch (error) {
+      if (error instanceof Error && error.message) {
+        toast.error(error.message);
+      }
     } finally {
       setIsRegenerating(false);
     }
