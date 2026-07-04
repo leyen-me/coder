@@ -70,6 +70,25 @@ describe("isAutomationDue", () => {
     ).toBe(false);
   });
 
+  it("returns false while a run is still in progress", () => {
+    expect(
+      isAutomationDue(
+        createAutomation({
+          runs: [
+            {
+              id: "run-1",
+              sessionId: "session-1",
+              startedAt: new Date("2026-06-11T10:15:00").getTime(),
+              completedAt: null,
+              summary: "",
+              status: "running",
+            },
+          ],
+        })
+      )
+    ).toBe(false);
+  });
+
   it("returns false when the previous slot was already covered by the latest run", () => {
     expect(
       isAutomationDue(

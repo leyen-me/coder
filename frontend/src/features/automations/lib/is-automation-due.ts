@@ -5,6 +5,10 @@ import { getLastAutomationRunAt } from "@/lib/db/automation-runs";
 
 /** Determine whether an automation is due to run on the next scheduler tick. */
 export function isAutomationDue(automation: AutomationRecord): boolean {
+  if (automation.runs.some((run) => run.status === "running")) {
+    return false;
+  }
+
   try {
     const interval = CronExpressionParser.parse(
       automation.cronExpression.trim(),
