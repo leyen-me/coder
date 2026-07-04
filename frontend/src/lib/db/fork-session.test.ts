@@ -26,6 +26,10 @@ describe("forkSessionFromMessage", () => {
       title: "Chat",
       model: "gpt-test",
       provider: "custom",
+      workspaceDir: null,
+      sessionKind: "standard",
+      autonomyMode: "interactive",
+      decisionPolicyVersion: "mvp-v1",
       createdAt: 1,
       updatedAt: 1,
     });
@@ -55,6 +59,10 @@ describe("forkSessionFromMessage", () => {
       title: "Fork",
       model: "gpt-test",
       provider: "custom",
+      workspaceDir: null,
+      sessionKind: "standard",
+      autonomyMode: "interactive",
+      decisionPolicyVersion: "mvp-v1",
       createdAt: 2,
       updatedAt: 2,
     });
