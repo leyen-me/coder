@@ -1,7 +1,16 @@
+import { apiGet } from "@/lib/api/client";
+
+type ServerInfo = {
+  workspaceDir?: string;
+};
+
 export async function resolveHomeDirectory(): Promise<string | null> {
-  // In browser mode, we don't have direct access to the home directory.
-  // Use the workspace dir as-is or return null.
-  return null;
+  try {
+    const info = await apiGet<ServerInfo>("/api/server_info");
+    return info.workspaceDir?.trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function resolveTerminalCwd(
