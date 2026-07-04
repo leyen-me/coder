@@ -105,6 +105,7 @@ async function storeExecuteAutomation(
       content: automation.prompt,
       model: runConfig.model,
       agentMode: runConfig.agentMode,
+      thinkingEnabled: runConfig.thinkingEnabled,
     });
 
     const status = await waitForAgentTaskCompletion(
