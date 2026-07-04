@@ -81,24 +81,26 @@ impl Database {
         indexes: &[IndexEntry],
     ) -> Result<(), String> {
         let json = serde_json::to_string(value).map_err(|e| e.to_string())?;
-        let conn = self.conn.lock().map_err(|e| e.to_string())?;
-        conn.execute(
+        let mut conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let tx = conn.transaction().map_err(|e| e.to_string())?;
+        tx.execute(
             "INSERT OR REPLACE INTO entities (store, id, value) VALUES (?1, ?2, ?3)",
             params![store, key, json],
         )
         .map_err(|e| e.to_string())?;
-        conn.execute(
+        tx.execute(
             "DELETE FROM idx WHERE store = ?1 AND id = ?2",
             params![store, key],
         )
         .map_err(|e| e.to_string())?;
         for idx in indexes {
-            conn.execute(
+            tx.execute(
                 "INSERT OR REPLACE INTO idx (store, index_name, index_value, id) VALUES (?1, ?2, ?3, ?4)",
                 params![store, idx.name, idx.value, key],
             )
             .map_err(|e| e.to_string())?;
         }
+        tx.commit().map_err(|e| e.to_string())?;
         Ok(())
     }
 
