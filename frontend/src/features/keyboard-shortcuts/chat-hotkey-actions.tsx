@@ -106,32 +106,25 @@ export function ChatHotkeyActions({
     return true;
   }, [isRunning, messages, onEditUserMessage]);
 
-  const handleCopyLastCode = useCallback(async () => {
+  const handleCopyLastCode = useCallback(() => {
     const lastAssistant = getLastAssistantMessage(messages);
     if (!lastAssistant) {
       return false;
     }
 
-    const answerText = getAssistantAnswerText(lastAssistant);
-    const codeBlock = extractLastCodeBlock(answerText);
+    const codeBlock = extractLastCodeBlock(getAssistantAnswerText(lastAssistant));
     if (!codeBlock) {
       return false;
     }
 
-    await navigator.clipboard.writeText(codeBlock);
+    void navigator.clipboard.writeText(codeBlock);
     return true;
   }, [messages]);
 
   useRegisterHotkeyAction("chat.cancel", handleCancel);
   useRegisterHotkeyAction("chat.regenerate", handleRegenerate);
   useRegisterHotkeyAction("chat.editLastUser", handleEditLastUser);
-  useRegisterHotkeyAction(
-    "chat.copyLastCode",
-    () => {
-      void handleCopyLastCode();
-      return true;
-    }
-  );
+  useRegisterHotkeyAction("chat.copyLastCode", handleCopyLastCode);
 
   return null;
 }
