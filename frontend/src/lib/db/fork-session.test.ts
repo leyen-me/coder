@@ -15,11 +15,66 @@ vi.mock("./subscriptions", () => ({
   notifyDbChange: vi.fn(),
 }));
 
+import { createMessage, getMessagesBySession } from "./messages";
 import { createSession, getSession } from "./sessions";
-import { getMessagesBySession } from "./messages";
 import { forkSessionFromMessage } from "./fork-session";
 
 describe("forkSessionFromMessage", () => {
+  it("copies message metadata into forked messages", async () => {
+    vi.mocked(getSession).mockResolvedValue({
+      id: "source-session",
+      title: "Chat",
+      model: "gpt-test",
+      provider: "custom",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    vi.mocked(getMessagesBySession).mockResolvedValue([
+      {
+        id: "msg-1",
+        sessionId: "source-session",
+        role: "assistant",
+        content: "done",
+        referencedSkills: ["review"],
+        thinking: "hmm",
+        toolInvocations: [],
+        status: "completed",
+        taskId: "task-1",
+        error: null,
+        durationMs: 1200,
+        usage: {
+          promptTokens: 10,
+          completionTokens: 5,
+          totalTokens: 15,
+        },
+        createdAt: 1,
+      },
+    ]);
+    vi.mocked(createSession).mockResolvedValue({
+      id: "fork-session",
+      title: "Fork",
+      model: "gpt-test",
+      provider: "custom",
+      createdAt: 2,
+      updatedAt: 2,
+    });
+
+    await forkSessionFromMessage("source-session", "msg-1", "Fork");
+
+    expect(createMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        referencedSkills: ["review"],
+        durationMs: 1200,
+        usage: {
+          promptTokens: 10,
+          completionTokens: 5,
+          totalTokens: 15,
+        },
+        taskId: null,
+      }),
+    );
+  });
+
   it("copies plan binding fields into the forked session", async () => {
     vi.mocked(getSession).mockResolvedValue({
       id: "source-session",

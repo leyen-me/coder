@@ -57,12 +57,15 @@ export async function forkSessionFromMessage(
         messageKind: message.messageKind,
         content: message.content,
         images: message.images,
+        referencedSkills: message.referencedSkills,
         thinking: message.thinking,
         processSteps: message.processSteps ?? [],
         toolInvocations: message.toolInvocations ?? [],
         status: normalizeForkedMessageStatus(message.status),
         taskId: null,
         error: message.error,
+        durationMs: message.durationMs,
+        usage: message.usage,
         createdAt: message.createdAt,
       })
     )
