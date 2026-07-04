@@ -4,6 +4,7 @@ import {
   canKillShellProcess,
   formatShellOutputForDisplay,
   getShellChipLabel,
+  preferLongerShellStream,
 } from "./shell-display";
 
 describe("shell-display", () => {
@@ -188,5 +189,10 @@ describe("shell-display", () => {
 
     expect(output).toContain("status: timeout");
     expect(output).toContain("create-vite");
+  });
+
+  it("prefers the longer shell stream when merging final output", () => {
+    expect(preferLongerShellStream("abc", "abcdef")).toBe("abcdef");
+    expect(preferLongerShellStream("abcdef", "abc")).toBe("abcdef");
   });
 });

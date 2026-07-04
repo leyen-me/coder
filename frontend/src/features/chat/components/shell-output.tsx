@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { extractShellData } from "@/features/agent/tools/shell-display";
+import { extractShellData, preferLongerShellStream } from "@/features/agent/tools/shell-display";
 import { stripAnsi } from "@/lib/strip-ansi";
 import { cn } from "@/lib/utils";
 import { apiPost } from "@/lib/api/client";
@@ -71,6 +71,8 @@ export function ShellOutput({
   const [liveOutput, setLiveOutput] = useState<unknown | null>(null);
   const [liveStdout, setLiveStdout] = useState("");
   const [liveStderr, setLiveStderr] = useState("");
+  const liveStdoutRef = useRef("");
+  const liveStderrRef = useRef("");
   // Track whether the user clicked stop.
   const [killing, setKilling] = useState(false);
 
@@ -96,10 +98,18 @@ export function ShellOutput({
   const stderrTotalBytes = data?.stderrTotalBytes ?? 0;
 
   // Merge live streaming chunks into the display output.
-  const displayStdout = liveOutput ? stdout : stdout + liveStdout;
-  const displayStderr = liveOutput ? stderr : stderr + liveStderr;
+  const streamedStdout = `${stdout}${liveStdout}`;
+  const streamedStderr = `${stderr}${liveStderr}`;
+  const displayStdout = liveOutput
+    ? preferLongerShellStream(stdout, streamedStdout)
+    : streamedStdout;
+  const displayStderr = liveOutput
+    ? preferLongerShellStream(stderr, streamedStderr)
+    : streamedStderr;
 
   useEffect(() => {
+    liveStdoutRef.current = "";
+    liveStderrRef.current = "";
     setLiveStdout("");
     setLiveStderr("");
   }, [shellId]);
@@ -141,10 +151,20 @@ export function ShellOutput({
             ...data,
             status: found.status,
             exitCode: found.exitCode ?? data?.exitCode,
-            stdout: found.stdout ?? data?.stdout,
-            stderr: found.stderr ?? data?.stderr,
+            stdout: preferLongerShellStream(
+              found.stdout ?? data?.stdout,
+              `${data?.stdout ?? ""}${liveStdoutRef.current}`
+            ),
+            stderr: preferLongerShellStream(
+              found.stderr ?? data?.stderr,
+              `${data?.stderr ?? ""}${liveStderrRef.current}`
+            ),
           },
         });
+        liveStdoutRef.current = "";
+        liveStderrRef.current = "";
+        setLiveStdout("");
+        setLiveStderr("");
       } catch {
         // Best effort — keep streaming chunks visible if refresh fails.
       }
@@ -158,11 +178,13 @@ export function ShellOutput({
         }
 
         if (stream === "stderr") {
-          setLiveStderr((current) => current + chunk);
+          liveStderrRef.current += chunk;
+          setLiveStderr(liveStderrRef.current);
           return;
         }
 
-        setLiveStdout((current) => current + chunk);
+        liveStdoutRef.current += chunk;
+        setLiveStdout(liveStdoutRef.current);
       },
       () => {
         void refreshFinalOutput();

@@ -262,3 +262,14 @@ export function getShellStatusColor(status: ShellStatus): string {
       return "text-foreground";
   }
 }
+
+export function preferLongerShellStream(
+  primary: string | undefined,
+  secondary: string | undefined
+): string {
+  const primaryValue = primary ?? "";
+  const secondaryValue = secondary ?? "";
+  return primaryValue.length >= secondaryValue.length
+    ? primaryValue
+    : secondaryValue;
+}
