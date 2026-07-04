@@ -7,6 +7,19 @@ use crate::agent;
 use crate::tools::*;
 use crate::AppState;
 
+fn resolve_workspace_dir(requested: Option<String>, fallback: &std::path::Path) -> String {
+    requested
+        .and_then(|dir| {
+            let trimmed = dir.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        })
+        .unwrap_or_else(|| fallback.to_string_lossy().into_owned())
+}
+
 // ---------------------------------------------------------------------------
 // Params (one struct per POST route)
 // ---------------------------------------------------------------------------
@@ -14,6 +27,7 @@ use crate::AppState;
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListDirParams {
+    pub workspace_dir: Option<String>,
     pub path: String,
     pub recursive: Option<bool>,
     pub max_depth: Option<u32>,
@@ -23,6 +37,7 @@ pub struct ListDirParams {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReadFileParams {
+    pub workspace_dir: Option<String>,
     pub path: String,
     pub start_line: Option<u32>,
     pub max_lines: Option<u32>,
@@ -33,6 +48,7 @@ pub struct ReadFileParams {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WriteFileParams {
+    pub workspace_dir: Option<String>,
     pub path: String,
     pub content: String,
     pub create_parent_dirs: Option<bool>,
@@ -41,6 +57,7 @@ pub struct WriteFileParams {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EditFileParams {
+    pub workspace_dir: Option<String>,
     pub path: String,
     pub old_string: String,
     pub new_string: String,
@@ -53,6 +70,7 @@ pub struct EditFileParams {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReplaceLinesParams {
+    pub workspace_dir: Option<String>,
     pub path: String,
     pub start_line: u32,
     pub end_line: u32,
@@ -65,6 +83,7 @@ pub struct ReplaceLinesParams {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReplaceFileParams {
+    pub workspace_dir: Option<String>,
     pub path: String,
     pub content: String,
     pub expected_sha256: Option<String>,
@@ -75,6 +94,7 @@ pub struct ReplaceFileParams {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GlobParams {
+    pub workspace_dir: Option<String>,
     pub glob_pattern: String,
     pub target_directory: Option<String>,
     pub head_limit: Option<u32>,
@@ -84,6 +104,7 @@ pub struct GlobParams {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GrepParams {
+    pub workspace_dir: Option<String>,
     pub pattern: String,
     pub path: Option<String>,
     pub glob: Option<String>,
@@ -101,6 +122,7 @@ pub struct GrepParams {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShellParams {
+    pub workspace_dir: Option<String>,
     pub command: String,
     pub description: Option<String>,
     pub working_directory: Option<String>,
@@ -174,6 +196,7 @@ pub struct BrowsePageParams {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkspaceTreeParams {
+    pub workspace_dir: Option<String>,
     pub start_line: Option<u32>,
     pub max_lines: Option<u32>,
 }
@@ -181,6 +204,7 @@ pub struct WorkspaceTreeParams {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchWorkspacePathsParams {
+    pub workspace_dir: Option<String>,
     pub query: Option<String>,
     pub head_limit: Option<u32>,
     pub respect_gitignore: Option<bool>,
@@ -196,6 +220,7 @@ pub struct NormalizeExternalPathParams {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolveAbsolutePathParams {
+    pub workspace_dir: Option<String>,
     pub path: String,
 }
 
@@ -291,7 +316,7 @@ pub async fn handle_list_dir(
     State(state): State<Arc<AppState>>,
     Json(params): Json<ListDirParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let workspace_dir = state.workspace_dir.to_string_lossy().to_string();
+    let workspace_dir = resolve_workspace_dir(params.workspace_dir, &state.workspace_dir);
     let result = tool_list_dir(
         workspace_dir,
         params.path,
@@ -310,7 +335,7 @@ pub async fn handle_read_file(
     State(state): State<Arc<AppState>>,
     Json(params): Json<ReadFileParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let workspace_dir = state.workspace_dir.to_string_lossy().to_string();
+    let workspace_dir = resolve_workspace_dir(params.workspace_dir, &state.workspace_dir);
     let result = tool_read_file(
         workspace_dir,
         params.path,
@@ -330,7 +355,7 @@ pub async fn handle_write_file(
     State(state): State<Arc<AppState>>,
     Json(params): Json<WriteFileParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let workspace_dir = state.workspace_dir.to_string_lossy().to_string();
+    let workspace_dir = resolve_workspace_dir(params.workspace_dir, &state.workspace_dir);
     let result = tool_write_file(workspace_dir, params.path, params.content, params.create_parent_dirs)
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
     Ok(Json(serde_json::to_value(result).map_err(|e| {
@@ -343,7 +368,7 @@ pub async fn handle_edit_file(
     State(state): State<Arc<AppState>>,
     Json(params): Json<EditFileParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let workspace_dir = state.workspace_dir.to_string_lossy().to_string();
+    let workspace_dir = resolve_workspace_dir(params.workspace_dir, &state.workspace_dir);
     let result = tool_edit_file(
         workspace_dir,
         params.path,
@@ -365,7 +390,7 @@ pub async fn handle_replace_lines(
     State(state): State<Arc<AppState>>,
     Json(params): Json<ReplaceLinesParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let workspace_dir = state.workspace_dir.to_string_lossy().to_string();
+    let workspace_dir = resolve_workspace_dir(params.workspace_dir, &state.workspace_dir);
     let result = tool_replace_lines(
         workspace_dir,
         params.path,
@@ -387,7 +412,7 @@ pub async fn handle_replace_file(
     State(state): State<Arc<AppState>>,
     Json(params): Json<ReplaceFileParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let workspace_dir = state.workspace_dir.to_string_lossy().to_string();
+    let workspace_dir = resolve_workspace_dir(params.workspace_dir, &state.workspace_dir);
     let result = tool_replace_file(
         workspace_dir,
         params.path,
@@ -407,7 +432,7 @@ pub async fn handle_glob(
     State(state): State<Arc<AppState>>,
     Json(params): Json<GlobParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let workspace_dir = state.workspace_dir.to_string_lossy().to_string();
+    let workspace_dir = resolve_workspace_dir(params.workspace_dir, &state.workspace_dir);
     let result = tool_glob(
         workspace_dir,
         params.glob_pattern,
@@ -426,7 +451,7 @@ pub async fn handle_grep(
     State(state): State<Arc<AppState>>,
     Json(params): Json<GrepParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let workspace_dir = state.workspace_dir.to_string_lossy().to_string();
+    let workspace_dir = resolve_workspace_dir(params.workspace_dir, &state.workspace_dir);
     let result = tool_grep(
         workspace_dir,
         params.pattern,
@@ -453,7 +478,7 @@ pub async fn handle_shell(
     State(state): State<Arc<AppState>>,
     Json(params): Json<ShellParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let workspace_dir = state.workspace_dir.to_string_lossy().to_string();
+    let workspace_dir = resolve_workspace_dir(params.workspace_dir, &state.workspace_dir);
     let result = tool_shell(
         state.shell_registry.clone(),
         Some(state.sse_broadcaster.clone()),
@@ -617,7 +642,7 @@ pub async fn handle_workspace_tree(
     State(state): State<Arc<AppState>>,
     Json(params): Json<WorkspaceTreeParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let workspace_dir = state.workspace_dir.to_string_lossy().to_string();
+    let workspace_dir = resolve_workspace_dir(params.workspace_dir, &state.workspace_dir);
     let result = tool_get_workspace_tree(workspace_dir, params.start_line, params.max_lines)
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(serde_json::to_value(result).map_err(|e| {
@@ -630,7 +655,7 @@ pub async fn handle_search_workspace_paths(
     State(state): State<Arc<AppState>>,
     Json(params): Json<SearchWorkspacePathsParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let workspace_dir = state.workspace_dir.to_string_lossy().to_string();
+    let workspace_dir = resolve_workspace_dir(params.workspace_dir, &state.workspace_dir);
     let result = tool_search_workspace_paths(
         workspace_dir,
         params.query,
@@ -645,10 +670,14 @@ pub async fn handle_search_workspace_paths(
 
 /// POST /api/normalize_external_path
 pub async fn handle_normalize_external_path(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Json(params): Json<NormalizeExternalPathParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let result = tool_normalize_external_path(params.workspace_dir, params.absolute_path)
+    let workspace_dir = Some(resolve_workspace_dir(
+        params.workspace_dir,
+        &state.workspace_dir,
+    ));
+    let result = tool_normalize_external_path(workspace_dir, params.absolute_path)
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
     Ok(Json(serde_json::to_value(result).map_err(|e| {
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
@@ -660,7 +689,7 @@ pub async fn handle_resolve_absolute_path(
     State(state): State<Arc<AppState>>,
     Json(params): Json<ResolveAbsolutePathParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let workspace_dir = state.workspace_dir.to_string_lossy().to_string();
+    let workspace_dir = resolve_workspace_dir(params.workspace_dir, &state.workspace_dir);
     let result = tool_resolve_absolute_path(workspace_dir, params.path)
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
     Ok(Json(serde_json::to_value(result).map_err(|e| {
@@ -703,10 +732,7 @@ pub async fn handle_runtime_environment(
     State(state): State<Arc<AppState>>,
     Json(params): Json<RuntimeEnvironmentParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let workspace_dir = params
-        .workspace_dir
-        .filter(|d| !d.trim().is_empty())
-        .or_else(|| Some(state.workspace_dir.to_string_lossy().to_string()));
+    let workspace_dir = Some(resolve_workspace_dir(params.workspace_dir, &state.workspace_dir));
     let result = agent_get_runtime_environment(workspace_dir)
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(serde_json::to_value(result).map_err(|e| {
