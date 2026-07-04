@@ -1,4 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { ArrowDownIcon } from "lucide-react";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -8,11 +9,19 @@ import {
 import { cn } from "@/lib/utils";
 import { resolveContinuedSessionIdFromMessages } from "@/features/agent/handoff";
 import type { MessageRecord } from "@/lib/db";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { MessageItem } from "./message-item";
+import {
+  isNearBottom,
+  isUserScrollDownIntent,
+  isUserScrollUpIntent,
+  NEAR_BOTTOM_THRESHOLD_PX,
+  shouldFollowStream,
+} from "./message-list-scroll";
 import { SystemPromptBlock } from "./system-prompt-block";
 import { HandoffContinuationBanner } from "./handoff-continuation-banner";
 import { HandoffSourceBanner } from "./handoff-source-banner";
@@ -29,7 +38,6 @@ type MessageListProps = {
   virtualScrollEnabled?: boolean;
 };
 
-const NEAR_BOTTOM_THRESHOLD_PX = 80;
 const ESTIMATED_MESSAGE_HEIGHT_PX = 220;
 const MESSAGE_OVERSCAN = 4;
 const ESTIMATED_ITEM_SIZE = () => ESTIMATED_MESSAGE_HEIGHT_PX;
@@ -39,21 +47,16 @@ function getScrollViewport(container: HTMLElement): HTMLElement | null {
   return viewport instanceof HTMLElement ? viewport : null;
 }
 
-function isNearBottom(viewport: HTMLElement): boolean {
-  const distanceFromBottom =
-    viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
-
-  return distanceFromBottom <= NEAR_BOTTOM_THRESHOLD_PX;
-}
-
 function scrollViewportToBottom(
   viewport: HTMLElement | null,
-  smooth: boolean
+  smooth: boolean,
+  onProgrammaticScroll?: () => void
 ) {
   if (!viewport) {
     return;
   }
 
+  onProgrammaticScroll?.();
   viewport.scrollTo({
     top: viewport.scrollHeight,
     behavior: smooth ? "smooth" : "auto",
@@ -106,10 +109,13 @@ export function MessageList({
   const chatRetryByMessageId = useChatRetryByMessageId();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [scrollViewport, setScrollViewport] = useState<HTMLElement | null>(null);
+  const [isPinnedToBottom, setIsPinnedToBottom] = useState(true);
   const previousMessageCountRef = useRef(messages.length);
   const isPinnedToBottomRef = useRef(true);
+  const isAutoScrollingRef = useRef(false);
   const isStreamingRef = useRef(false);
   const scrollRafRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
   const sessionId = messages[0]?.sessionId;
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
@@ -164,6 +170,18 @@ export function MessageList({
     overscan: MESSAGE_OVERSCAN,
   });
 
+  const markProgrammaticScroll = useCallback(() => {
+    isAutoScrollingRef.current = true;
+    requestAnimationFrame(() => {
+      isAutoScrollingRef.current = false;
+    });
+  }, []);
+
+  const setPinnedToBottom = useCallback((pinned: boolean) => {
+    isPinnedToBottomRef.current = pinned;
+    setIsPinnedToBottom(pinned);
+  }, []);
+
   const scrollToBottom = useCallback(
     (smooth: boolean) => {
       if (messagesRef.current.length === 0) {
@@ -171,15 +189,20 @@ export function MessageList({
       }
 
       if (shouldVirtualize) {
+        markProgrammaticScroll();
         rowVirtualizer.scrollToIndex(messagesRef.current.length - 1, {
           align: "end",
           behavior: smooth ? "smooth" : "auto",
         });
       } else {
-        scrollViewportToBottom(scrollViewportRef.current, smooth);
+        scrollViewportToBottom(
+          scrollViewportRef.current,
+          smooth,
+          markProgrammaticScroll
+        );
       }
     },
-    [rowVirtualizer, shouldVirtualize]
+    [markProgrammaticScroll, rowVirtualizer, shouldVirtualize]
   );
 
   const handoffContinuedSessionId = useMemo(
@@ -219,9 +242,9 @@ export function MessageList({
   }, []);
 
   useEffect(() => {
-    isPinnedToBottomRef.current = true;
+    setPinnedToBottom(true);
     previousMessageCountRef.current = messages.length;
-  }, [sessionId]);
+  }, [sessionId, setPinnedToBottom]);
 
   useEffect(() => {
     if (!scrollViewport) {
@@ -229,20 +252,60 @@ export function MessageList({
     }
 
     const handleScroll = () => {
-      const wasPinned = isPinnedToBottomRef.current;
-      const pinned = isNearBottom(scrollViewport);
-      isPinnedToBottomRef.current = pinned;
+      if (isAutoScrollingRef.current) {
+        return;
+      }
 
-      if (!wasPinned && pinned && isStreamingRef.current) {
-        scrollToBottom(false);
+      const pinned = isNearBottom(scrollViewport);
+      setPinnedToBottom(pinned);
+    };
+
+    const handleWheel = (event: WheelEvent) => {
+      if (isUserScrollUpIntent(event.deltaY)) {
+        setPinnedToBottom(false);
+        return;
+      }
+
+      if (
+        isUserScrollDownIntent(event.deltaY) &&
+        isNearBottom(scrollViewport)
+      ) {
+        setPinnedToBottom(true);
+      }
+    };
+
+    const handleTouchStart = (event: TouchEvent) => {
+      touchStartYRef.current = event.touches[0]?.clientY ?? null;
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const touchStartY = touchStartYRef.current;
+      const currentY = event.touches[0]?.clientY;
+      if (touchStartY === null || currentY === undefined) {
+        return;
+      }
+
+      if (currentY > touchStartY + NEAR_BOTTOM_THRESHOLD_PX / 4) {
+        setPinnedToBottom(false);
       }
     };
 
     scrollViewport.addEventListener("scroll", handleScroll, { passive: true });
+    scrollViewport.addEventListener("wheel", handleWheel, { passive: true });
+    scrollViewport.addEventListener("touchstart", handleTouchStart, {
+      passive: true,
+    });
+    scrollViewport.addEventListener("touchmove", handleTouchMove, {
+      passive: true,
+    });
+
     return () => {
       scrollViewport.removeEventListener("scroll", handleScroll);
+      scrollViewport.removeEventListener("wheel", handleWheel);
+      scrollViewport.removeEventListener("touchstart", handleTouchStart);
+      scrollViewport.removeEventListener("touchmove", handleTouchMove);
     };
-  }, [scrollToBottom, scrollViewport]);
+  }, [scrollViewport, setPinnedToBottom]);
 
   useLayoutEffect(() => {
     if (!shouldVirtualize || pendingVirtualizationAnchorRef.current === null) {
@@ -263,10 +326,15 @@ export function MessageList({
     const userJustSent = didAppendMessage && lastMessage?.role === "user";
 
     if (userJustSent) {
-      isPinnedToBottomRef.current = true;
+      setPinnedToBottom(true);
     }
 
-    if (!isPinnedToBottomRef.current && !userJustSent) {
+    if (
+      !shouldFollowStream({
+        isPinnedToBottom: isPinnedToBottomRef.current,
+        userJustSent,
+      })
+    ) {
       return;
     }
 
@@ -276,6 +344,16 @@ export function MessageList({
 
     scrollRafRef.current = requestAnimationFrame(() => {
       scrollRafRef.current = null;
+
+      if (
+        !shouldFollowStream({
+          isPinnedToBottom: isPinnedToBottomRef.current,
+          userJustSent,
+        })
+      ) {
+        return;
+      }
+
       scrollToBottom(didAppendMessage && !isStreaming);
     });
 
@@ -285,19 +363,33 @@ export function MessageList({
         scrollRafRef.current = null;
       }
     };
-  }, [isStreaming, lastMessage?.role, lastMessageSignature, messages.length, scrollToBottom]);
+  }, [
+    isStreaming,
+    lastMessage?.role,
+    lastMessageSignature,
+    messages.length,
+    scrollToBottom,
+    setPinnedToBottom,
+  ]);
 
   // Listen for custom DOM event dispatched from the title bar.
   useEffect(() => {
     const handler = () => {
-      isPinnedToBottomRef.current = true;
+      setPinnedToBottom(true);
       scrollToBottom(true);
     };
     window.addEventListener("chat:scroll-to-bottom", handler);
     return () => {
       window.removeEventListener("chat:scroll-to-bottom", handler);
     };
-  }, [scrollToBottom]);
+  }, [scrollToBottom, setPinnedToBottom]);
+
+  const showScrollToLatest = isStreaming && !isPinnedToBottom;
+
+  const handleScrollToLatest = useCallback(() => {
+    setPinnedToBottom(true);
+    scrollToBottom(true);
+  }, [scrollToBottom, setPinnedToBottom]);
 
   const renderBuildBoundarySeparator = (index: number) => {
     if (buildBoundaryIndex > 0 && index === buildBoundaryIndex) {
@@ -332,7 +424,10 @@ export function MessageList({
   const virtualItems = shouldVirtualize ? rowVirtualizer.getVirtualItems() : [];
 
   return (
-    <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-hidden">
+    <div
+      ref={scrollContainerRef}
+      className="relative min-h-0 flex-1 overflow-hidden"
+    >
       <ScrollArea
         className={cn(
           "h-full px-4 py-6",
@@ -407,6 +502,22 @@ export function MessageList({
           )}
         </div>
       </ScrollArea>
+
+      {showScrollToLatest ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center">
+          <Button
+            aria-label={t("chat.scrollToLatest")}
+            className="pointer-events-auto h-8 rounded-full px-3 shadow-md"
+            onClick={handleScrollToLatest}
+            size="sm"
+            type="button"
+            variant="secondary"
+          >
+            <ArrowDownIcon className="size-4" />
+            {t("chat.scrollToLatest")}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

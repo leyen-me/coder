@@ -131,6 +131,7 @@ export const zhMessages = {
     showMore: "展开",
     showLess: "收起",
     regenerateMessage: "重新生成",
+    scrollToLatest: "回到最新",
     queueTitle: "待发送队列",
     queueCount: "还有 {count} 条消息会在当前任务结束后自动发送",
     queueExpand: "展开待发送队列",

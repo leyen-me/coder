@@ -127,6 +127,7 @@ export type Messages = {
     showMore: string;
     showLess: string;
     regenerateMessage: string;
+    scrollToLatest: string;
     queueTitle: string;
     queueCount: string;
     queueExpand: string;

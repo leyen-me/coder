@@ -133,6 +133,7 @@ export const enMessages = {
     showMore: "Show more",
     showLess: "Show less",
     regenerateMessage: "Regenerate",
+    scrollToLatest: "Jump to latest",
     queueTitle: "Queued messages",
     queueCount: "{count} message(s) will send automatically after the current run",
     queueExpand: "Expand queued messages",
