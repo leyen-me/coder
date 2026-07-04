@@ -262,7 +262,13 @@ fn is_local_hostname(host: &str) -> bool {
 }
 
 fn is_always_blocked_ip(ip: IpAddr) -> bool {
-    matches!(ip, IpAddr::V4(v4) if v4.octets() == [169, 254, 169, 254])
+    match ip {
+        IpAddr::V4(v4) if v4.octets() == [169, 254, 169, 254] => true,
+        IpAddr::V6(v6) => v6
+            .to_ipv4_mapped()
+            .is_some_and(|v4| v4.octets() == [169, 254, 169, 254]),
+        _ => false,
+    }
 }
 
 fn parse_literal_ip(host: &str) -> Option<IpAddr> {
@@ -291,10 +297,17 @@ fn is_private_or_local_ipv4(ip: Ipv4Addr) -> bool {
 }
 
 fn is_private_or_local_ipv6(ip: Ipv6Addr) -> bool {
-    ip.is_loopback()
+    if ip.is_loopback()
         || ip.is_unspecified()
         || ip.is_multicast()
+        || ip.is_unicast_link_local()
         || (ip.segments()[0] & 0xfe00) == 0xfc00
+    {
+        return true;
+    }
+
+    ip.to_ipv4_mapped()
+        .is_some_and(is_private_or_local_ipv4)
 }
 
 #[cfg(test)]
@@ -334,6 +347,28 @@ mod tests {
     #[test]
     fn rejects_cloud_metadata_even_when_private_network_enabled() {
         let error = validate_public_url("http://169.254.169.254/latest/meta-data", true).unwrap_err();
+        assert_eq!(error.code, "blocked_url");
+    }
+
+    #[test]
+    fn rejects_ipv4_mapped_cloud_metadata_even_when_private_network_enabled() {
+        let error = validate_public_url(
+            "http://[::ffff:169.254.169.254]/latest/meta-data",
+            true,
+        )
+        .unwrap_err();
+        assert_eq!(error.code, "blocked_url");
+    }
+
+    #[test]
+    fn rejects_ipv4_mapped_private_ipv6_when_private_network_disabled() {
+        let error = validate_public_url("http://[::ffff:192.168.1.1]/test", false).unwrap_err();
+        assert_eq!(error.code, "blocked_url");
+    }
+
+    #[test]
+    fn rejects_link_local_ipv6_when_private_network_disabled() {
+        let error = validate_public_url("http://[fe80::1]/test", false).unwrap_err();
         assert_eq!(error.code, "blocked_url");
     }
 
