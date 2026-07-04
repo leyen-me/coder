@@ -295,12 +295,15 @@ impl ShellRegistry {
                     return reg.snapshot_output(&shell_id);
                 }
 
-                let reg = registry
+                let mut reg = registry
                     .lock()
                     .map_err(|_| "Shell registry lock poisoned")?;
-                let mut output = reg.snapshot_output(&shell_id)?;
-                output.status = ShellStatus::Timeout;
-                return Ok(output);
+                if let Some(shell) = reg.shells.get_mut(&shell_id) {
+                    if shell.status == ShellStatus::Running {
+                        shell.status = ShellStatus::Timeout;
+                    }
+                }
+                return reg.snapshot_output(&shell_id);
             }
 
             sleep(Duration::from_millis(100)).await;
@@ -658,7 +661,9 @@ async fn wait_for_child(
 
     if let Ok(mut reg) = registry.lock() {
         if let Some(shell) = reg.shells.get_mut(&shell_id) {
-            if shell.status == ShellStatus::Running {
+            if shell.status == ShellStatus::Running
+                || shell.status == ShellStatus::Timeout
+            {
                 shell.status = status;
                 shell.exit_code = exit_code;
             }
