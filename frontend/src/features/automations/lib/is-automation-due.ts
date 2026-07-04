@@ -1,11 +1,14 @@
 import { CronExpressionParser } from "cron-parser";
 
 import type { AutomationRecord } from "@/lib/db";
-import { getLastAutomationRunAt } from "@/lib/db/automation-runs";
+import {
+  getLastAutomationRunAt,
+  isBlockingRunningRun,
+} from "@/lib/db/automation-runs";
 
 /** Determine whether an automation is due to run on the next scheduler tick. */
 export function isAutomationDue(automation: AutomationRecord): boolean {
-  if (automation.runs.some((run) => run.status === "running")) {
+  if (automation.runs.some((run) => isBlockingRunningRun(run))) {
     return false;
   }
 

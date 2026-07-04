@@ -1,5 +1,7 @@
 import { isAutomationDue } from "./is-automation-due";
 import { queueAutomationRun } from "./run-automation";
+import { getStaleRunningRuns } from "@/lib/db/automation-runs";
+import { finishAutomationRun } from "@/lib/db";
 
 /** How often the scheduler checks for due automations (ms). */
 export const SCHEDULER_INTERVAL_MS = 30_000;
@@ -31,6 +33,17 @@ async function tick(): Promise<void> {
     const automations = await listEnabledAutomations();
 
     for (const automation of automations) {
+      for (const staleRun of getStaleRunningRuns(automation)) {
+        await finishAutomationRun(automation.id, staleRun.sessionId, {
+          summary: "[failed] Run interrupted before completion",
+          status: "failed",
+        });
+      }
+    }
+
+    const refreshed = await listEnabledAutomations();
+
+    for (const automation of refreshed) {
       if (isAutomationDue(automation)) {
         queueAutomationRun(automation);
       }

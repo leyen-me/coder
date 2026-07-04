@@ -78,7 +78,7 @@ describe("isAutomationDue", () => {
             {
               id: "run-1",
               sessionId: "session-1",
-              startedAt: new Date("2026-06-11T10:15:00").getTime(),
+              startedAt: Date.now() - 5 * 60 * 1000,
               completedAt: null,
               summary: "",
               status: "running",
@@ -87,6 +87,25 @@ describe("isAutomationDue", () => {
         })
       )
     ).toBe(false);
+  });
+
+  it("returns true when only stale running runs remain", () => {
+    expect(
+      isAutomationDue(
+        createAutomation({
+          runs: [
+            {
+              id: "run-1",
+              sessionId: "session-1",
+              startedAt: Date.now() - 3 * 60 * 60 * 1000,
+              completedAt: null,
+              summary: "",
+              status: "running",
+            },
+          ],
+        })
+      )
+    ).toBe(true);
   });
 
   it("returns false when the previous slot was already covered by the latest run", () => {
