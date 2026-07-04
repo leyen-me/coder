@@ -78,7 +78,10 @@ export function ShellOutput({
 
   // Use the live event data when available, falling back to the stored output.
   const effectiveOutput = liveOutput ?? output;
-  const data = effectiveOutput ? extractShellData(effectiveOutput) : null;
+  const data = useMemo(
+    () => (effectiveOutput ? extractShellData(effectiveOutput) : null),
+    [effectiveOutput]
+  );
 
   const command =
     data?.command ?? extractInputValue(input, "command");
