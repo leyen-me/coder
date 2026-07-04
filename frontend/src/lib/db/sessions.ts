@@ -1,6 +1,7 @@
 import { getDb } from "./client";
 import { SESSIONS_STORE } from "./constants";
 import { deleteMessagesBySession } from "./messages";
+import { clearAgentTodosBySession } from "./agent-todos";
 import { normalizeSessionRecord } from "./normalize-session";
 import { notifyDbChange } from "./subscriptions";
 import type {
@@ -173,6 +174,7 @@ export async function deleteSession(
   sessionId: string
 ): Promise<void> {
   const db = await getDb();
+  await clearAgentTodosBySession(sessionId);
   await db.delete(SESSIONS_STORE, sessionId);
   // Also delete all messages belonging to this session
   await deleteMessagesBySession(sessionId);
