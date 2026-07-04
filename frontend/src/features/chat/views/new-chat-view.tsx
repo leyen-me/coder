@@ -29,7 +29,7 @@ export function NewChatView() {
   const { refineIfEnabled } = usePromptRefiner();
   const { settings: labSettings } = useLabSettings();
   const longTaskEnabled = labSettings.longTaskEnabled;
-  const { workspaceDir } = useNewChatWorkspace();
+  const { workspaceDir, pickWorkspace, clearWorkspace } = useNewChatWorkspace();
   const [model, setModel] = useState(() => resolveDefaultModel({ models: allModels }));
   const { thinkingEnabled, onThinkingEnabledChange } = useComposerThinking(
     model,
@@ -131,6 +131,10 @@ export function NewChatView() {
           workspaceDir={workspaceDir}
           workspaceName={gitControls.workspaceName ?? workspaceName}
           gitBranch={gitControls.gitBranch}
+          onPickWorkspace={() => {
+            void pickWorkspace();
+          }}
+          onClearWorkspace={clearWorkspace}
           variant="compact"
           isRunning={isSubmitting}
           agentMode={agentMode}
