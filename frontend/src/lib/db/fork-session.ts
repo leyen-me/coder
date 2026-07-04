@@ -43,6 +43,9 @@ export async function forkSessionFromMessage(
     autonomyMode: session.autonomyMode,
     decisionPolicyVersion: session.decisionPolicyVersion,
     decisionModel: session.decisionModel ?? null,
+    planFileName: session.planFileName ?? null,
+    planBuiltAt: session.planBuiltAt ?? null,
+    enableEmail: session.enableEmail,
   });
 
   await Promise.all(
