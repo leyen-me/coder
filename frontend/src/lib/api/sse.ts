@@ -27,18 +27,42 @@ export interface ShellFinishedEvent {
 }
 
 export type SseEvent = AgentEvent | ShellOutputEvent | ShellFinishedEvent;
+export type AgentSseConnection = {
+  close: () => void;
+  ready: Promise<void>;
+};
 
 /**
  * Connect to the SSE endpoint for agent events via fetch + streaming.
- * Returns a cleanup function to abort the connection.
+ * The returned `ready` promise resolves once the HTTP stream is established and
+ * subscribed on the server, which lets callers avoid missing the first events.
  */
 export function connectAgentSse(
   taskId: string,
   onEvent: (event: SseEvent) => void,
   onDone: () => void,
   onError: (error: string) => void,
-): () => void {
+): AgentSseConnection {
   const controller = new AbortController();
+  let resolveReady!: () => void;
+  let rejectReady!: (error: Error) => void;
+  let readySettled = false;
+  const ready = new Promise<void>((resolve, reject) => {
+    resolveReady = () => {
+      if (readySettled) {
+        return;
+      }
+      readySettled = true;
+      resolve();
+    };
+    rejectReady = (error: Error) => {
+      if (readySettled) {
+        return;
+      }
+      readySettled = true;
+      reject(error);
+    };
+  });
 
   void (async () => {
     try {
@@ -47,17 +71,23 @@ export function connectAgentSse(
       });
 
       if (!response.ok) {
-        onError(`SSE error: ${response.status}`);
+        const error = new Error(`SSE error: ${response.status}`);
+        rejectReady(error);
+        onError(error.message);
         onDone();
         return;
       }
 
       const reader = response.body?.getReader();
       if (!reader) {
-        onError("SSE: no response body");
+        const error = new Error("SSE: no response body");
+        rejectReady(error);
+        onError(error.message);
         onDone();
         return;
       }
+
+      resolveReady();
 
       const decoder = new TextDecoder();
       let buffer = "";
@@ -85,7 +115,7 @@ export function connectAgentSse(
               onEvent(data);
 
               if (
-                data.type === "agent_event" &&
+                data.type === "status" &&
                 "status" in data &&
                 typeof data.status === "string" &&
                 ["completed", "cancelled", "failed"].includes(data.status)
@@ -104,15 +134,21 @@ export function connectAgentSse(
       // Stream ended
       onDone();
     } catch (err: unknown) {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) {
+        return;
+      }
       const message = err instanceof Error ? err.message : String(err);
+      rejectReady(new Error(message));
       onError(`SSE connection error: ${message}`);
       onDone();
     }
   })();
 
-  return () => {
-    controller.abort();
+  return {
+    ready,
+    close: () => {
+      controller.abort();
+    },
   };
 }
 
