@@ -1,12 +1,11 @@
 
-import { chatCompletionsUrl } from "@/features/agent/openai-url";
+import { apiPost } from "@/lib/api/client";
 
 import { resolvePromptRefineSystemPrompt } from "./storage";
 import { getLabSettingsSnapshot } from "./lab-settings-store";
 import type { LabSettings } from "./types";
 
 export const PROMPT_REFINE_TIMEOUT_MS = 60_000;
-const REFINE_MAX_TOKENS = 2048;
 const CONTEXT_MESSAGE_LIMIT = 10;
 const CONTEXT_CONTENT_MAX_LENGTH = 800;
 
@@ -20,16 +19,6 @@ export function normalizeRefinedPrompt(raw: string): string {
     .trim()
     .replace(/^["'`「『【]+|["'`」』】]+$/g, "")
     .trim();
-}
-
-function parseRefinedPromptFromCompletionBody(body: unknown): string | null {
-  const content = (
-    body as { choices?: Array<{ message?: { content?: unknown } }> }
-  ).choices?.[0]?.message?.content;
-  if (typeof content !== "string") {
-    return null;
-  }
-  return normalizeRefinedPrompt(content) || null;
 }
 
 export function buildRefineContextMessages(
@@ -50,22 +39,6 @@ export function buildRefineContextMessages(
       };
     })
     .filter((message) => message.content.length > 0);
-}
-
-function buildRefineUserPrompt(
-  userPrompt: string,
-  contextMessages: RefineContextMessage[]
-): string {
-  const trimmedPrompt = userPrompt.trim();
-  if (contextMessages.length === 0) {
-    return `User prompt:\n${trimmedPrompt}`;
-  }
-
-  const contextBlock = contextMessages
-    .map((message) => `${message.role}: ${message.content}`)
-    .join("\n\n");
-
-  return `Conversation context:\n${contextBlock}\n\nUser prompt:\n${trimmedPrompt}`;
 }
 
 type RefinePromptRequest = {
@@ -96,39 +69,30 @@ async function requestRefinedPrompt(
     return null;
   }
 
-  const userContent = buildRefineUserPrompt(
-    userPrompt,
-    input.contextMessages ?? []
-  );
+  try {
+    const rawPrompt = await apiPost<string | null>(
+      "/agent/refine_prompt",
+      {
+        baseUrl: input.baseUrl,
+        apiKey: input.apiKey.trim() || null,
+        apiKeySource: input.apiKeySource,
+        apiKeyEnvVar: input.apiKeyEnvVar,
+        model: input.model,
+        userPrompt,
+        systemPrompt,
+        contextMessages: input.contextMessages ?? [],
+      },
+      input.signal
+    );
 
-  if (!input.apiKey.trim()) {
+    if (typeof rawPrompt !== "string") {
+      return null;
+    }
+
+    return normalizeRefinedPrompt(rawPrompt) || null;
+  } catch {
     return null;
   }
-
-  const response = await fetch(chatCompletionsUrl(input.baseUrl), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: input.model,
-      stream: false,
-      max_tokens: REFINE_MAX_TOKENS,
-      temperature: 0.3,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-    }),
-    signal: input.signal,
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  return parseRefinedPromptFromCompletionBody(await response.json());
 }
 
 export async function refinePrompt(
