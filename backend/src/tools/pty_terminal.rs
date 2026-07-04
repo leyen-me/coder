@@ -16,6 +16,7 @@ pub struct PtySessionInfo {
 struct PtySession {
     master: Box<dyn portable_pty::MasterPty + Send>,
     writer: Box<dyn Write + Send>,
+    child: Box<dyn portable_pty::Child + Send + Sync>,
 }
 
 pub struct PtyRegistry {
@@ -75,7 +76,6 @@ impl PtyRegistry {
         let writer = master
             .take_writer()
             .map_err(|error| format!("Failed to take PTY writer: {error}"))?;
-        let _killer = child.clone_killer();
 
         let pty_id = self.next_pty_id();
         self.sessions.insert(
@@ -83,6 +83,7 @@ impl PtyRegistry {
             PtySession {
                 master,
                 writer,
+                child,
             },
         );
 
@@ -170,6 +171,7 @@ impl PtyRegistry {
             .sessions
             .remove(pty_id)
             .ok_or_else(|| format!("Unknown pty_id: {pty_id}"))?;
+        let _ = session.child.clone_killer().kill();
         // Drop session — master is closed, writer is dropped,
         // the PTY reader thread will detect EOF and update via broadcaster.
         drop(session);
