@@ -9,16 +9,7 @@ type AwaitArgs = {
   block_until_ms?: number;
 };
 
-export const awaitShellHandler: ToolHandler = async (rawArgs, context) => {
-
-
-  if (!context.workspaceDir) {
-    return toolFailure(
-      AWAIT_TOOL_NAME,
-      "workspace_required",
-      "Select a workspace directory before awaiting shell commands"
-    );
-  }
+export const awaitShellHandler: ToolHandler = async (rawArgs, _context) => {
 
   const args = parseAwaitArgs(rawArgs);
   if (!args.ok) {
