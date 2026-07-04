@@ -7,7 +7,7 @@ import {
   TITLE_BAR_CLASS,
 } from "./constants";
 import { TitleBarDragRegion } from "./title-bar-drag-region";
-import { WindowControls } from "./window-controls";
+import { HAS_WINDOW_CONTROLS, WindowControls } from "./window-controls";
 
 type ContentTitleBarProps = {
   leading?: ReactNode;
@@ -53,11 +53,13 @@ export function ContentTitleBar({
       {trailing ? (
         <>
           <div className="flex shrink-0 items-center gap-1 px-1">{trailing}</div>
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            className="mx-1 h-4 w-px shrink-0 self-center bg-border"
-          />
+          {HAS_WINDOW_CONTROLS ? (
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              className="mx-1 h-4 w-px shrink-0 self-center bg-border"
+            />
+          ) : null}
         </>
       ) : null}
 
