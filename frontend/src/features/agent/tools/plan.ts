@@ -389,7 +389,10 @@ export const planDeleteHandler: ToolHandler = async (rawArgs, context) => {
     if (context.sessionId) {
       const session = await getSession(context.sessionId);
       if (session?.planFileName === result.data.name) {
-        void updateSession(context.sessionId, { planFileName: null });
+        void updateSession(context.sessionId, {
+          planFileName: null,
+          planBuiltAt: null,
+        });
       }
     }
   }

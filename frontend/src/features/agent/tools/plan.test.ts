@@ -175,6 +175,7 @@ describe("plan tool handlers", () => {
 
     expect(updateSession).toHaveBeenCalledWith("session-1", {
       planFileName: null,
+      planBuiltAt: null,
     });
   });
 
