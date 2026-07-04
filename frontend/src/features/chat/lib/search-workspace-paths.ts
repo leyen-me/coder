@@ -1,5 +1,3 @@
-import { apiPost } from "@/lib/api/client";
-
 export type WorkspacePathMatch = {
   name: string;
   path: string;
@@ -14,9 +12,9 @@ export type SearchWorkspacePathsResult = {
 };
 
 export async function searchWorkspacePaths(
-  workspaceDir: string,
+  _workspaceDir: string,
   query: string,
-  options?: { headLimit?: number; respectGitignore?: boolean }
+  _options?: { headLimit?: number; respectGitignore?: boolean }
 ): Promise<SearchWorkspacePathsResult> {
   // Workspace path search is handled by the server in browser mode.
   return {

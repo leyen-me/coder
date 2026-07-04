@@ -4,8 +4,6 @@ import {
   type NativeFileDropItem,
 } from "@/lib/dnd/external-file-drop";
 
-import { insertFileMentionIntoComposer } from "./composer-insert-store";
-
 type ProcessNativeFileDropMessages = {
   externalDropImageLoadFailed: string;
   externalDropInvalidPath: string;
@@ -23,7 +21,7 @@ type ProcessNativeFileDropItemsOptions = {
 
 export async function processNativeFileDropItems({
   items,
-  workspaceDir,
+  workspaceDir: _workspaceDir,
   addAttachments,
   onError,
   messages,

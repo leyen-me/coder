@@ -155,7 +155,7 @@ export function connectAgentSse(
         const error = new Error(`SSE error: ${response.status}`);
         rejectReady(error);
         onError(error.message);
-        onDone();
+        signalDone({ reason: "stream_end" });
         return;
       }
 
@@ -164,7 +164,7 @@ export function connectAgentSse(
         const error = new Error("SSE: no response body");
         rejectReady(error);
         onError(error.message);
-        onDone();
+        signalDone({ reason: "stream_end" });
         return;
       }
 
@@ -191,7 +191,7 @@ export function connectAgentSse(
             const data = JSON.parse(payload) as SseEvent;
             if (data.type === "close") {
               controller.abort();
-              signalDone({ reason: "server_close", closeEvent: data });
+              signalDone({ reason: "server_close", closeEvent: data as SseCloseEvent });
               return;
             }
 
@@ -277,7 +277,8 @@ export function connectShellSse(
           try {
             const data = JSON.parse(payload) as SseEvent;
             if (data.type === "shell_output") {
-              onOutput(data.stream, data.data);
+              const output = data as ShellOutputEvent;
+              onOutput(output.stream, output.data);
             } else if (data.type === "shell_finished" || data.type === "close") {
               controller.abort();
               onDone();

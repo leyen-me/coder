@@ -1,7 +1,7 @@
 // HTTP-based store backend for Coder Server mode.
 // Replaces Tauri SQLite and Tauri KV storage.
 
-import { apiPost, apiGet } from "@/lib/api/client";
+import { apiPost } from "@/lib/api/client";
 
 export interface IndexEntry {
   name: string;

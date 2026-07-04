@@ -1,5 +1,4 @@
 
-import { apiPost } from "@/lib/api/client";
 import { updateSessionTitle } from "@/lib/db";
 
 import { chatCompletionsUrl } from "./openai-url";

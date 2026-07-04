@@ -595,7 +595,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
             appEventBus.emit("agent:task_completed", {
               taskId: event.taskId,
-              status: event.status,
+              status: effectiveStatus,
             });
           }
 

@@ -659,7 +659,7 @@ mod tests {
         let result = tool_grep(
             workspace.to_string_lossy().into_owned(),
             "tool_glob".to_string(),
-            Some("src-tauri/src".to_string()),
+            Some("backend/src".to_string()),
             Some("**/*.rs".to_string()),
             Some("files_with_matches".to_string()),
             None,
@@ -674,6 +674,6 @@ mod tests {
         .expect("grep project");
 
         let files = result.files.expect("files");
-        assert!(files.iter().any(|path| path.ends_with("lib.rs")));
+        assert!(files.iter().any(|path| path.ends_with("mod.rs")));
     }
 }

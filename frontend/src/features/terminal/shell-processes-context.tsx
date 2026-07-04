@@ -2,24 +2,12 @@
 
 import { apiPost } from "@/lib/api/client";
 import { connectShellSse } from "@/lib/api/sse";
-import type { ShellInfo, ShellStatus } from "@/features/agent/tools/types";
+import type { ShellInfo } from "@/features/agent/tools/types";
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 export type ShellProcess = ShellInfo & {
   stdout: string;
   stderr: string;
-};
-
-type ShellOutputEvent = {
-  shellId: string;
-  stream: string;
-  data: string;
-};
-
-type ShellFinishedEvent = {
-  shellId: string;
-  exitCode?: number;
-  status: ShellStatus;
 };
 
 const EMPTY_PROCESSES: ShellProcess[] = [];
@@ -203,19 +191,6 @@ function appendStream(
 
     return { ...process, stdout: process.stdout + data };
   });
-}
-
-function updateFinished(
-  current: ShellProcess[],
-  shellId: string,
-  status: ShellStatus,
-  exitCode?: number
-): ShellProcess[] {
-  return current.map((process) =>
-    process.shellId === shellId
-      ? { ...process, status, exitCode }
-      : process
-  );
 }
 
 function syncShellSubscriptions(shells: ShellInfo[]) {

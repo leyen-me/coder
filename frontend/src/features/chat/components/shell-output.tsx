@@ -69,7 +69,7 @@ export function ShellOutput({
   // the component receives the final output via Tauri events.
   const [liveOutput, setLiveOutput] = useState<unknown | null>(null);
   // Streaming buffer: accumulates shell-output events before shell-finished.
-  const [liveStreamBuffer, setLiveStreamBuffer] = useState("");
+  const [liveStreamBuffer] = useState("");
   // Track whether the user clicked stop.
   const [killing, setKilling] = useState(false);
 

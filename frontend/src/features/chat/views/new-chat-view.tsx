@@ -29,7 +29,7 @@ export function NewChatView() {
   const { refineIfEnabled } = usePromptRefiner();
   const { settings: labSettings } = useLabSettings();
   const longTaskEnabled = labSettings.longTaskEnabled;
-  const { workspaceDir, pickWorkspace, clearWorkspace } = useNewChatWorkspace();
+  const { workspaceDir } = useNewChatWorkspace();
   const [model, setModel] = useState(() => resolveDefaultModel({ models: allModels }));
   const { thinkingEnabled, onThinkingEnabledChange } = useComposerThinking(
     model,

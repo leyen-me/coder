@@ -29,7 +29,7 @@ export async function readWorkspacePlan(
 }
 
 export async function getLatestWorkspacePlan(
-  workspaceDir: string
+  _workspaceDir: string
 ): Promise<(PlanListEntry & { content?: string }) | null> {
   return null;
 }

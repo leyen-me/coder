@@ -35,7 +35,7 @@ describe("startAgent", () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({ ok: true }),
-        } as Response);
+        } as unknown as Response);
       }
 
       throw new Error(`Unexpected fetch: ${url} (${init?.method ?? "GET"})`);
@@ -72,7 +72,7 @@ describe("startAgent", () => {
             .mockResolvedValueOnce({ done: true, value: undefined }),
         }),
       },
-    } as Response);
+    } as unknown as Response);
 
     await Promise.resolve();
     await Promise.resolve();
@@ -109,7 +109,7 @@ describe("startAgent", () => {
               ),
             }),
           },
-        } as Response);
+        } as unknown as Response);
       }
 
       if (url.endsWith("/agent/start")) {
@@ -121,7 +121,7 @@ describe("startAgent", () => {
             code: "start_failed",
             message: "backend boom",
           }),
-        } as Response);
+        } as unknown as Response);
       }
 
       throw new Error(`Unexpected fetch: ${url}`);
@@ -165,21 +165,21 @@ describe("startAgent", () => {
                 .mockResolvedValueOnce({ done: true, value: undefined }),
             }),
           },
-        } as Response);
+        } as unknown as Response);
       }
 
       if (url.endsWith("/agent/start")) {
         return Promise.resolve({
           ok: true,
           json: async () => ({ ok: true }),
-        } as Response);
+        } as unknown as Response);
       }
 
       if (url.endsWith("/agent/status")) {
         return Promise.resolve({
           ok: true,
           json: async () => ({ taskId: "task-3", status: "completed" }),
-        } as Response);
+        } as unknown as Response);
       }
 
       throw new Error(`Unexpected fetch: ${url}`);
@@ -220,21 +220,21 @@ describe("startAgent", () => {
               read: vi.fn().mockResolvedValueOnce({ done: true, value: undefined }),
             }),
           },
-        } as Response);
+        } as unknown as Response);
       }
 
       if (url.endsWith("/agent/start")) {
         return Promise.resolve({
           ok: true,
           json: async () => ({ ok: true }),
-        } as Response);
+        } as unknown as Response);
       }
 
       if (url.endsWith("/agent/status")) {
         return Promise.resolve({
           ok: true,
           json: async () => ({ taskId: "task-4", status: "running" }),
-        } as Response);
+        } as unknown as Response);
       }
 
       throw new Error(`Unexpected fetch: ${url}`);

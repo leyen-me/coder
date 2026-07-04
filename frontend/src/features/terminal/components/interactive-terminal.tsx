@@ -11,9 +11,9 @@ type InteractiveTerminalProps = {
 };
 
 export function InteractiveTerminal({
-  _cwd,
+  cwd: _cwd,
   className,
-  _isActive = true,
+  isActive: _isActive = true,
 }: InteractiveTerminalProps) {
   return (
     <div className={cn("flex h-full items-center justify-center text-sm text-muted-foreground", className)}>

@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/tooltip";
 import { ProviderUsageTag } from "@/features/lab/provider-usage-tag";
 import { useBottomPanel } from "@/features/terminal/bottom-panel-context";
-import { useRunningSessionIds } from "@/features/agent/store/agent-store";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import type { ProviderId } from "@/lib/model-provider/types";
@@ -18,12 +17,10 @@ type SessionToolbarProps = {
   sessionId?: string | null;
 };
 
-export function SessionToolbar({ sessionProvider, sessionId }: SessionToolbarProps) {
+export function SessionToolbar({ sessionProvider, sessionId: _sessionId }: SessionToolbarProps) {
   const { t } = useTranslation();
   const { isOpen, toggle } = useBottomPanel();
   const isBottomActive = isOpen;
-  const runningSessionIds = useRunningSessionIds();
-  const isSessionRunning = sessionId ? runningSessionIds.has(sessionId) : false;
 
   const tooltip = t("session.bottomPanel");
 

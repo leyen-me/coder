@@ -224,18 +224,9 @@ type ComposerTauriFileDropBridgeProps = {
 };
 
 function ComposerTauriFileDropBridge({
-  dropTargetRef,
-  onDropPaths,
+  dropTargetRef: _dropTargetRef,
+  onDropPaths: _onDropPaths,
 }: ComposerTauriFileDropBridgeProps) {
-  const attachments = usePromptInputAttachments();
-
-  const handleDrop = useCallback(
-    (paths: string[]) => {
-      onDropPaths(paths, attachments.add);
-    },
-    [attachments.add, onDropPaths]
-  );
-
   return null;
 }
 

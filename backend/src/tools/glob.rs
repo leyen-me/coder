@@ -204,7 +204,7 @@ mod tests {
         let result = tool_glob(
             workspace.to_string_lossy().into_owned(),
             "**/*.rs".to_string(),
-            Some("src-tauri/src/tools".to_string()),
+            Some("backend/src/tools".to_string()),
             Some(10),
             None,
         )
