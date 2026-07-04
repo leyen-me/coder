@@ -94,7 +94,7 @@ impl ShellRegistry {
             .get_mut(shell_id)
             .ok_or_else(|| format!("Unknown shell_id: {shell_id}"))?;
 
-        if shell.status == ShellStatus::Running {
+        if matches!(shell.status, ShellStatus::Running | ShellStatus::Timeout) {
             kill_running_shell(shell);
             shell.status = status;
         }
@@ -107,9 +107,9 @@ impl ShellRegistry {
             .get_mut(shell_id)
             .ok_or_else(|| format!("Unknown shell_id: {shell_id}"))?;
 
-        if shell.status != ShellStatus::Running {
+        if !matches!(shell.status, ShellStatus::Running | ShellStatus::Timeout) {
             return Err(format!(
-                "Only running shells can be killed: {shell_id} is {}",
+                "Only running or timed-out shells can be killed: {shell_id} is {}",
                 shell_status_label(shell.status)
             ));
         }
@@ -1060,7 +1060,7 @@ mod tests {
             .expect_err("completed shell should not be killable");
         assert_eq!(
             error,
-            "Only running shells can be killed: shell-completed is completed"
+            "Only running or timed-out shells can be killed: shell-completed is completed"
         );
 
         registry
@@ -1072,6 +1072,30 @@ mod tests {
                 .get("shell-running")
                 .map(|shell| shell.status),
             Some(ShellStatus::Cancelled)
+        );
+    }
+
+    #[test]
+    fn kill_by_task_cancels_timeout_shells() {
+        let mut registry = ShellRegistry::new();
+        let mut shell = test_shell(ShellStatus::Timeout);
+        shell.task_id = Some("task-1".to_string());
+        registry.shells.insert("shell-timeout".to_string(), shell);
+
+        let killed = registry.kill_by_task("task-1");
+        assert_eq!(killed, 1);
+        assert_eq!(
+            registry.shells.get("shell-timeout").map(|entry| entry.status),
+            Some(ShellStatus::Cancelled)
+        );
+        assert!(
+            registry
+                .shells
+                .get("shell-timeout")
+                .unwrap()
+                .killed
+                .load(std::sync::atomic::Ordering::SeqCst),
+            "kill flag should be set"
         );
     }
 
