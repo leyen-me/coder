@@ -87,6 +87,11 @@ impl Database {
             params![store, key, json],
         )
         .map_err(|e| e.to_string())?;
+        conn.execute(
+            "DELETE FROM idx WHERE store = ?1 AND id = ?2",
+            params![store, key],
+        )
+        .map_err(|e| e.to_string())?;
         for idx in indexes {
             conn.execute(
                 "INSERT OR REPLACE INTO idx (store, index_name, index_value, id) VALUES (?1, ?2, ?3, ?4)",
@@ -178,5 +183,62 @@ impl Database {
         conn.execute("DELETE FROM idx WHERE store = ?1", params![store])
             .map_err(|e| e.to_string())?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_db() -> (Database, std::path::PathBuf) {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("coder-db-test-{stamp}"));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        (Database::new(&dir).expect("open db"), dir)
+    }
+
+    #[test]
+    fn put_replaces_stale_index_values_for_same_id() {
+        let (db, dir) = temp_db();
+
+        db.put(
+            "sessions",
+            "session-1",
+            &json!({ "id": "session-1", "updatedAt": 100 }),
+            &[IndexEntry {
+                name: "by-updatedAt".to_string(),
+                value: "100".to_string(),
+            }],
+        )
+        .expect("initial put");
+
+        db.put(
+            "sessions",
+            "session-1",
+            &json!({ "id": "session-1", "updatedAt": 200 }),
+            &[IndexEntry {
+                name: "by-updatedAt".to_string(),
+                value: "200".to_string(),
+            }],
+        )
+        .expect("updated put");
+
+        let all = db
+            .get_all_from_index::<serde_json::Value>("sessions", "by-updatedAt", None)
+            .expect("query index");
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0]["updatedAt"], 200);
+
+        let old = db
+            .get_all_from_index::<serde_json::Value>("sessions", "by-updatedAt", Some("100"))
+            .expect("query stale index value");
+        assert!(old.is_empty());
+
+        let _ = std::fs::remove_dir_all(dir);
     }
 }
