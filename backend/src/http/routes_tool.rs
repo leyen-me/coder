@@ -829,8 +829,9 @@ pub async fn handle_agent_cancel(
     State(state): State<Arc<AppState>>,
     Json(params): Json<AgentCancelParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    agent::agent_cancel(&state.agent_registry, params.task_id)
+    agent::agent_cancel(&state.agent_registry, params.task_id.clone())
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    let _ = shell_kill_by_task(&state.shell_registry, params.task_id);
     Ok(Json(serde_json::to_value(serde_json::json!({"ok": true})).map_err(
         |e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
     )?))
