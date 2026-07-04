@@ -1307,6 +1307,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         input.model,
         input.thinkingEnabled
       );
+      const extraTools = session.enableEmail ? [SEND_EMAIL_TOOL] : undefined;
       const { assistantMessageId, taskId } = await startAgentTask({
         sessionId: input.sessionId,
         model: input.model,
@@ -1324,6 +1325,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         decisionPolicyVersion: sessionPolicy.decisionPolicyVersion,
         decisionModel: sessionPolicy.decisionModel,
         resolvedConfig: sessionResolved,
+        extraTools,
       });
 
       return {
