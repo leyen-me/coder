@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/api/client", () => ({
   apiPost: vi.fn(),
@@ -22,9 +22,20 @@ vi.mock("@/features/plan/plan-events", () => ({
   emitPlanFileUpdated: vi.fn(),
 }));
 
+vi.mock("@/lib/db/sessions", () => ({
+  getSession: vi.fn(),
+  updateSession: vi.fn(),
+}));
+
 import { emitPlanFileUpdated } from "@/features/plan/plan-events";
+import { getSession, updateSession } from "@/lib/db/sessions";
 
 describe("plan tool handlers", () => {
+  beforeEach(() => {
+    vi.mocked(getSession).mockReset();
+    vi.mocked(updateSession).mockReset();
+  });
+
   it("plan_create requires a workspace directory", async () => {
     const result = await planCreateHandler(
       { name: "auth-plan.md", content: "# Plan" },
@@ -126,6 +137,44 @@ describe("plan tool handlers", () => {
       path: ".plan/refactor-auth-plan.md",
       name: "refactor-auth-plan.md",
       action: "deleted",
+    });
+  });
+
+  it("plan_delete clears session binding only for the active plan", async () => {
+    vi.mocked(apiPost).mockResolvedValueOnce({
+      path: ".plan/other-plan.md",
+      name: "other-plan.md",
+    });
+    vi.mocked(getSession).mockResolvedValueOnce({
+      id: "session-1",
+      planFileName: "auth-plan.md",
+    } as Awaited<ReturnType<typeof getSession>>);
+
+    await planDeleteHandler(
+      { name: "other-plan.md" },
+      { workspaceDir: "/tmp/project", sessionId: "session-1" },
+    );
+
+    expect(updateSession).not.toHaveBeenCalled();
+  });
+
+  it("plan_delete clears session binding when deleting the bound plan", async () => {
+    vi.mocked(apiPost).mockResolvedValueOnce({
+      path: ".plan/auth-plan.md",
+      name: "auth-plan.md",
+    });
+    vi.mocked(getSession).mockResolvedValueOnce({
+      id: "session-1",
+      planFileName: "auth-plan.md",
+    } as Awaited<ReturnType<typeof getSession>>);
+
+    await planDeleteHandler(
+      { name: "auth-plan.md" },
+      { workspaceDir: "/tmp/project", sessionId: "session-1" },
+    );
+
+    expect(updateSession).toHaveBeenCalledWith("session-1", {
+      planFileName: null,
     });
   });
 

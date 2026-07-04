@@ -1,7 +1,7 @@
 
 import { apiPost } from "@/lib/api/client";
 import { emitPlanFileUpdated } from "@/features/plan/plan-events";
-import { updateSession } from "@/lib/db/sessions";
+import { updateSession, getSession } from "@/lib/db/sessions";
 
 import {
   PLAN_CREATE_TOOL_NAME,
@@ -385,9 +385,12 @@ export const planDeleteHandler: ToolHandler = async (rawArgs, context) => {
       action: "deleted",
     });
 
-    // Clear the plan binding from the current session
+    // Clear the plan binding only when deleting the session's active plan.
     if (context.sessionId) {
-      void updateSession(context.sessionId, { planFileName: null });
+      const session = await getSession(context.sessionId);
+      if (session?.planFileName === result.data.name) {
+        void updateSession(context.sessionId, { planFileName: null });
+      }
     }
   }
 
