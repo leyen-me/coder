@@ -264,8 +264,11 @@ impl AgentRegistry {
         broadcaster: Arc<crate::SseBroadcaster>,
         registry: Arc<Mutex<AgentRegistry>>,
     ) -> Result<(), String> {
-        if self.runs.contains_key(&params.task_id) {
-            return Err(format!("Task already exists: {}", params.task_id));
+        if let Some(existing) = self.runs.get(&params.task_id) {
+            if is_active_run_status(&existing.status) {
+                return Err(format!("Task already exists: {}", params.task_id));
+            }
+            self.runs.remove(&params.task_id);
         }
 
         let api_key = resolve_api_key(
@@ -354,7 +357,7 @@ impl AgentRegistry {
 
             let final_event = AgentEvent::Status {
                 task_id: task_id.clone(),
-                status: final_status,
+                status: final_status.clone(),
             };
             debug_emit_log(&final_event);
             emit_broadcaster.emit_agent_event(&task_id, &final_event);
@@ -362,7 +365,9 @@ impl AgentRegistry {
             emit_broadcaster.unregister(&task_id);
 
             if let Ok(mut registry) = registry.lock() {
-                registry.runs.remove(&task_id);
+                if let Some(run) = registry.runs.get_mut(&task_id) {
+                    run.status = final_status;
+                }
             }
         });
 
@@ -408,4 +413,30 @@ fn resolve_api_key(
     }
 
     Err(format!("API key is required. Set the {env_var} environment variable or configure it in settings."))
+}
+
+fn is_active_run_status(status: &AgentStatus) -> bool {
+    matches!(
+        status,
+        AgentStatus::Pending | AgentStatus::Running | AgentStatus::Cancelling
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn terminal_run_status_is_not_active() {
+        assert!(!is_active_run_status(&AgentStatus::Completed));
+        assert!(!is_active_run_status(&AgentStatus::Cancelled));
+        assert!(!is_active_run_status(&AgentStatus::Failed));
+    }
+
+    #[test]
+    fn in_flight_run_status_is_active() {
+        assert!(is_active_run_status(&AgentStatus::Running));
+        assert!(is_active_run_status(&AgentStatus::Cancelling));
+        assert!(is_active_run_status(&AgentStatus::Pending));
+    }
 }
