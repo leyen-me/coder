@@ -73,28 +73,44 @@ export function EmailSettingsPanel() {
   const [testMessage, setTestMessage] = useState("");
 
   useEffect(() => {
-    writeSettings(settings);
-  }, [settings]);
+    const handleStorageReady = () => {
+      setSettings(readSettings());
+    };
+    window.addEventListener("coder:storage-ready", handleStorageReady);
+    return () => window.removeEventListener("coder:storage-ready", handleStorageReady);
+  }, []);
+
+  const persistSettings = useCallback((next: EmailSettings) => {
+    writeSettings(next);
+  }, []);
 
   const updateField = useCallback(
     <K extends keyof EmailSettings>(key: K, value: EmailSettings[K]) => {
-      setSettings((prev) => ({ ...prev, [key]: value }));
+      setSettings((prev) => {
+        const next = { ...prev, [key]: value };
+        persistSettings(next);
+        return next;
+      });
     },
-    [],
+    [persistSettings],
   );
 
   const handleProviderChange = useCallback((provider: string) => {
     const preset = PROVIDER_PRESETS[provider];
     if (preset) {
-      setSettings((prev) => ({
-        ...prev,
-        provider,
-        smtpHost: preset.smtpHost,
-        smtpPort: preset.smtpPort,
-        useTls: preset.useTls,
-      }));
+      setSettings((prev) => {
+        const next = {
+          ...prev,
+          provider,
+          smtpHost: preset.smtpHost,
+          smtpPort: preset.smtpPort,
+          useTls: preset.useTls,
+        };
+        persistSettings(next);
+        return next;
+      });
     }
-  }, []);
+  }, [persistSettings]);
 
   const handleTestSend = useCallback(async () => {
     setTestStatus("sending");
