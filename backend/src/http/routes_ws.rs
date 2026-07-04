@@ -115,15 +115,22 @@ async fn handle_pty_socket(mut socket: WebSocket, state: Arc<AppState>) {
                                 .ok();
                         }
                         PtyControl::Input(data) => {
-                            writer.write_all(data.as_bytes()).ok();
+                            if writer.write_all(data.as_bytes()).is_err() {
+                                log::warn!("PTY write failed for {}", pty_id);
+                                break;
+                            }
                         }
                     }
-                } else {
-                    writer.write_all(text.as_bytes()).ok();
+                } else if writer.write_all(text.as_bytes()).is_err() {
+                    log::warn!("PTY write failed for {}", pty_id);
+                    break;
                 }
             }
             Message::Binary(data) => {
-                writer.write_all(&data).ok();
+                if writer.write_all(&data).is_err() {
+                    log::warn!("PTY write failed for {}", pty_id);
+                    break;
+                }
             }
             Message::Close(_) => break,
             _ => {}
