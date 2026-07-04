@@ -50,6 +50,7 @@ export async function executeAutomation(
   automation: AutomationRecord,
 ): Promise<void> {
   const sessionId = createMessageId();
+  let runStarted = false;
 
   try {
     const modelSettings = readModelProviderSettings();
@@ -67,6 +68,7 @@ export async function executeAutomation(
     });
 
     await startAutomationRun(automation.id, session.id);
+    runStarted = true;
 
     // Prefer routing through the agent store for full streaming / task state.
     // Fall back to headless runner if the store is not mounted.
@@ -80,12 +82,14 @@ export async function executeAutomation(
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[automation] ${automation.name} failed:`, message);
 
-    await completeAutomationRun(
-      automation.id,
-      sessionId,
-      `[failed] ${message.slice(0, 200)}`,
-      "failed",
-    );
+    if (runStarted) {
+      await completeAutomationRun(
+        automation.id,
+        sessionId,
+        `[failed] ${message.slice(0, 200)}`,
+        "failed",
+      );
+    }
   }
 }
 
@@ -108,10 +112,7 @@ async function storeExecuteAutomation(
       thinkingEnabled: runConfig.thinkingEnabled,
     });
 
-    const status = await waitForAgentTaskCompletion(
-      taskId,
-      completionBuffer.take(taskId)
-    );
+    const status = await waitForAgentTaskCompletion(taskId, completionBuffer);
 
     // Read the assistant content from DB for the run summary
     const messages = await getMessagesBySession(session.id);
