@@ -31,8 +31,6 @@ describe("sendEmailHandler", () => {
       getItem: vi.fn(() => JSON.stringify(emailSettings)),
       setItem: vi.fn(),
       removeItem: vi.fn(),
-      clear: vi.fn(),
-      keys: vi.fn(() => []),
     });
   });
 
@@ -71,8 +69,6 @@ describe("sendEmailHandler", () => {
       getItem: vi.fn(() => null),
       setItem: vi.fn(),
       removeItem: vi.fn(),
-      clear: vi.fn(),
-      keys: vi.fn(() => []),
     });
 
     const result = await sendEmailHandler(
