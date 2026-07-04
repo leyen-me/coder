@@ -317,7 +317,10 @@ impl SshSession {
         loop {
             // Check kill signal before each round
             if killed.load(Ordering::SeqCst) {
+                channel.close().ok();
+                channel.wait_close().ok();
                 let _ = sender.send(SshStreamEvent::Killed);
+                session.set_timeout(30000);
                 return;
             }
 
