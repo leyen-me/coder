@@ -27,13 +27,27 @@ export function createHttpKvStore(): SyncKVStore & { ready: () => Promise<void> 
     },
 
     setItem(key: string, value: string): void {
+      const previous = cache.has(key) ? cache.get(key)! : null;
       cache.set(key, value);
-      apiPost("/settings/set", { key, value }).catch(() => {});
+      void apiPost("/settings/set", { key, value }).catch((error: unknown) => {
+        if (previous === null) {
+          cache.delete(key);
+        } else {
+          cache.set(key, previous);
+        }
+        console.error("[http-kv] Failed to persist setting:", key, error);
+      });
     },
 
     removeItem(key: string): void {
+      const previous = cache.has(key) ? cache.get(key)! : null;
       cache.delete(key);
-      apiPost("/settings/delete", { key }).catch(() => {});
+      void apiPost("/settings/delete", { key }).catch((error: unknown) => {
+        if (previous !== null) {
+          cache.set(key, previous);
+        }
+        console.error("[http-kv] Failed to delete setting:", key, error);
+      });
     },
 
     ready(): Promise<void> {
