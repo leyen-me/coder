@@ -169,13 +169,24 @@ impl SshSession {
         session.channel_session().is_ok()
     }
 
+    fn touch(&self) {
+        if let Ok(mut last) = self.last_used.lock() {
+            *last = Instant::now();
+        }
+    }
+
+    fn idle_for(&self, now: Instant) -> Duration {
+        self.last_used
+            .lock()
+            .map(|last| now.duration_since(*last))
+            .unwrap_or(IDLE_TIMEOUT)
+    }
+
     /// Execute a command on this session with streaming reads and a hard time limit.
     /// Returns partial stdout/stderr if the command exceeds the limit.
     fn exec_streaming(&self, command: &str) -> Result<RemoteExecResult, String> {
         // Update last used timestamp
-        if let Ok(mut last) = self.last_used.lock() {
-            *last = Instant::now();
-        }
+        self.touch();
 
         let session = self
             .session
@@ -277,15 +288,13 @@ impl SshSession {
         sender: std::sync::mpsc::Sender<SshStreamEvent>,
     ) {
         // Update last used timestamp
-        if let Ok(mut last) = self.last_used.lock() {
-            *last = Instant::now();
-        }
+        self.touch();
 
-        let session = match self.session.lock() {
+        let session = match self.session.try_lock() {
             Ok(s) => s,
             Err(_) => {
                 let _ = sender.send(SshStreamEvent::Error(
-                    "SSH session lock poisoned".to_string(),
+                    "Another command is already running on this SSH target".to_string(),
                 ));
                 return;
             }
@@ -313,6 +322,7 @@ impl SshSession {
         let mut read_buf = [0u8; 8192];
         let mut stdout_eof = false;
         let mut stderr_eof = false;
+        let deadline = Instant::now() + REMOTE_EXEC_HARD_LIMIT;
 
         loop {
             // Check kill signal before each round
@@ -320,6 +330,14 @@ impl SshSession {
                 channel.close().ok();
                 channel.wait_close().ok();
                 let _ = sender.send(SshStreamEvent::Killed);
+                session.set_timeout(30000);
+                return;
+            }
+
+            if Instant::now() >= deadline {
+                channel.close().ok();
+                channel.wait_close().ok();
+                let _ = sender.send(SshStreamEvent::TimedOut);
                 session.set_timeout(30000);
                 return;
             }
@@ -398,6 +416,7 @@ pub enum SshStreamEvent {
     Stderr(Vec<u8>),
     ExitCode(Option<i32>),
     Killed,
+    TimedOut,
     Error(String),
 }
 
@@ -421,8 +440,8 @@ impl RemoteConnectionPool {
                 sleep(IDLE_SCAN_INTERVAL).await;
                 let now = Instant::now();
                 if let Ok(mut guard) = sessions.lock() {
-                    guard.retain(|(_, session, last_used)| {
-                        let idle = now.duration_since(*last_used);
+                    guard.retain(|(_, session, _)| {
+                        let idle = session.idle_for(now);
                         if idle >= IDLE_TIMEOUT {
                             log::info!(
                                 "SSH session idle for {:?}, dropping",

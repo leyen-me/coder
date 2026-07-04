@@ -915,6 +915,28 @@ pub async fn tool_remote_shell(
                         }
                     }
                 }
+                SshStreamEvent::TimedOut => {
+                    if let Ok(mut reg) = registry_consumer.lock() {
+                        if let Some(s) = reg.shells.get_mut(&sid) {
+                            if s.status == ShellStatus::Running {
+                                s.status = ShellStatus::Timeout;
+                            }
+                        }
+                    }
+                    if let Ok(reg) = registry_consumer.lock() {
+                        if let Ok(output) = reg.snapshot_output(&sid) {
+                            if let Some(b) = &broadcaster_consumer {
+                                let _ = b.emit_event(
+                                    &format!("shell-{sid}"),
+                                    &crate::AgentSseEvent::ShellFinished {
+                                        shell_id: sid.clone(),
+                                        output,
+                                    },
+                                );
+                            }
+                        }
+                    }
+                }
                 SshStreamEvent::Error(msg) => {
                     if let Ok(mut reg) = registry_consumer.lock() {
                         if let Some(s) = reg.shells.get_mut(&sid) {
