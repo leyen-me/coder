@@ -19,7 +19,37 @@ vi.mock("./subscriptions", () => ({
 import { getDb } from "./client";
 import { clearAgentTodosBySession } from "./agent-todos";
 import { deleteMessagesBySession } from "./messages";
-import { deleteSession } from "./sessions";
+import { deleteSession, createSession } from "./sessions";
+
+describe("createSession", () => {
+  beforeEach(() => {
+    vi.mocked(getDb).mockResolvedValue({
+      put: vi.fn(),
+    } as never);
+  });
+
+  it("persists planBuiltAt when provided", async () => {
+    const db = await getDb();
+
+    const session = await createSession({
+      title: "Plan chat",
+      model: "gpt-test",
+      provider: "custom",
+      planFileName: "auth-plan.md",
+      planBuiltAt: 123,
+    });
+
+    expect(session.planFileName).toBe("auth-plan.md");
+    expect(session.planBuiltAt).toBe(123);
+    expect(db.put).toHaveBeenCalledWith(
+      "sessions",
+      expect.objectContaining({
+        planFileName: "auth-plan.md",
+        planBuiltAt: 123,
+      }),
+    );
+  });
+});
 
 describe("deleteSession", () => {
   beforeEach(() => {

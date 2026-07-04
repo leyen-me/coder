@@ -56,6 +56,7 @@ export async function createSession(input: CreateSessionInput): Promise<SessionR
     handoffFromSessionId: input.handoffFromSessionId ?? null,
     handoffMessageId: input.handoffMessageId ?? null,
     planFileName: input.planFileName ?? null,
+    planBuiltAt: input.planBuiltAt ?? null,
     enableEmail: input.enableEmail ?? undefined,
     createdAt: now,
     updatedAt: now,
