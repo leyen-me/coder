@@ -10,24 +10,37 @@ import type { ResolvedSkill } from "@/features/skills/types";
 
 import { SkillDetailDialog } from "@/features/skills/components/skill-detail-dialog";
 
-const SKILL_SLUG_PATTERN = /\/([a-z0-9]+(?:-[a-z0-9]+)*)/g;
+const SKILL_SLUG_PATTERN = /(?:^|\s)\/([a-z0-9]+(?:-[a-z0-9]+)*)/g;
 
 type Segment =
   | { kind: "text"; text: string }
   | { kind: "slug"; slug: string };
 
-function parseSkillReferences(text: string): Segment[] {
+function parseSkillReferences(
+  text: string,
+  referencedSkills?: readonly string[]
+): Segment[] {
+  const allowedSlugs = referencedSkills ? new Set(referencedSkills) : null;
   const segments: Segment[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   SKILL_SLUG_PATTERN.lastIndex = 0;
   while ((match = SKILL_SLUG_PATTERN.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      segments.push({ kind: "text", text: text.slice(lastIndex, match.index) });
+    const slugStart = match.index + match[0].lastIndexOf("/");
+    if (slugStart > lastIndex) {
+      segments.push({ kind: "text", text: text.slice(lastIndex, slugStart) });
     }
-    segments.push({ kind: "slug", slug: match[1] });
-    lastIndex = match.index + match[0].length;
+
+    if (!allowedSlugs || allowedSlugs.has(match[1])) {
+      segments.push({ kind: "slug", slug: match[1] });
+    } else {
+      segments.push({
+        kind: "text",
+        text: text.slice(slugStart, slugStart + match[1].length + 1),
+      });
+    }
+    lastIndex = slugStart + match[1].length + 1;
   }
 
   if (lastIndex < text.length) {
@@ -39,11 +52,15 @@ function parseSkillReferences(text: string): Segment[] {
 
 type UserMessageContentProps = {
   text: string;
+  referencedSkills?: readonly string[];
 };
 
-export function UserMessageContent({ text }: UserMessageContentProps) {
+export function UserMessageContent({
+  text,
+  referencedSkills,
+}: UserMessageContentProps) {
   const { t } = useTranslation();
-  const segments = parseSkillReferences(text);
+  const segments = parseSkillReferences(text, referencedSkills);
   const [validSlugs, setValidSlugs] = useState<Set<string>>(new Set());
   const [selectedSkill, setSelectedSkill] = useState<ResolvedSkill | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);

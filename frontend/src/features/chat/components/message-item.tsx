@@ -340,7 +340,10 @@ export const MessageItem = memo(function MessageItem({
                     !contentExpanded && "line-clamp-6",
                   )}
                 >
-                  <UserMessageContent text={message.content} />
+                  <UserMessageContent
+                    text={message.content}
+                    referencedSkills={message.referencedSkills}
+                  />
                 </span>
                 {isLongContent ? (
                   <CollapsibleTrigger asChild>
