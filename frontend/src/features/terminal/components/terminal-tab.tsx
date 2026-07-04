@@ -152,8 +152,13 @@ export function TerminalTab({ workspaceDir, onHide }: TerminalTabProps) {
 
       if (nextSessions.length === 0) {
         setSessions([]);
-        setActiveId(null);
-        setBottomPanelOpen(false);
+        const hasAgentProcesses = processes.some(
+          (process) => process.source !== "human"
+        );
+        if (!hasAgentProcesses) {
+          setActiveId(null);
+          setBottomPanelOpen(false);
+        }
         return;
       }
 
