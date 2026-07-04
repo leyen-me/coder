@@ -309,6 +309,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
           updateQueuedMessage(currentQueue, editingQueuedMessageId, {
             text: trimmed,
             files: payload.files,
+            skillSlugs: payload.skillSlugs,
           })
         );
         setEditingQueuedMessageId(null);
@@ -343,6 +344,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             id: nanoid(),
             text: finalText,
             files: payload.files,
+            skillSlugs: payload.skillSlugs,
           },
         ]);
         setEditInitialFiles([]);
@@ -408,6 +410,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       {
         text: nextItem.text,
         files: nextItem.files,
+        skillSlugs: nextItem.skillSlugs,
       },
       {
         requeueOnError: nextItem,

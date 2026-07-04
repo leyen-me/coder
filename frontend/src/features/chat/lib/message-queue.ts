@@ -3,6 +3,7 @@ import type { FileUIPart } from "ai";
 export type QueuedMessagePayload = {
   text: string;
   files: FileUIPart[];
+  skillSlugs?: string[];
 };
 
 export type QueuedMessage = QueuedMessagePayload & {

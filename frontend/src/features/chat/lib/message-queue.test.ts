@@ -32,6 +32,7 @@ describe("message queue helpers", () => {
     const nextQueue = updateQueuedMessage(baseQueue, "queued-2", {
       text: "然后补两个测试。",
       files: [],
+      skillSlugs: ["review"],
     });
 
     expect(nextQueue).toEqual([
@@ -40,6 +41,7 @@ describe("message queue helpers", () => {
         id: "queued-2",
         text: "然后补两个测试。",
         files: [],
+        skillSlugs: ["review"],
       },
     ]);
   });
