@@ -313,6 +313,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         );
         setEditingQueuedMessageId(null);
         setEditInitialFiles([]);
+        setEditInitialValue("");
         return;
       }
 
@@ -386,6 +387,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     if (editingQueuedMessageId === messageId) {
       setEditingQueuedMessageId(null);
       setEditInitialFiles([]);
+      setEditInitialValue("");
     }
   }, [editingQueuedMessageId]);
 
