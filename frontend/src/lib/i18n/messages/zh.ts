@@ -101,6 +101,7 @@ export const zhMessages = {
     pickWorkspaceLoading: "正在加载文件夹…",
     pickWorkspaceEmpty: "此目录下没有子文件夹",
     pickWorkspaceCurrentSelection: "当前选择：{path}",
+    pickWorkspaceSelectedPath: "当前路径",
     pickWorkspaceSelectFolder: "选择此文件夹",
     pickWorkspaceConfirm: "确认",
     pickWorkspaceCancel: "取消",

@@ -98,6 +98,7 @@ export type Messages = {
     pickWorkspaceLoading: string;
     pickWorkspaceEmpty: string;
     pickWorkspaceCurrentSelection: string;
+    pickWorkspaceSelectedPath: string;
     pickWorkspaceSelectFolder: string;
     pickWorkspaceConfirm: string;
     pickWorkspaceCancel: string;

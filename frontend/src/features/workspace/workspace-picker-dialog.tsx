@@ -1,14 +1,6 @@
-import { ChevronRightIcon, FolderIcon, Loader2Icon } from "lucide-react";
-import { Fragment, useState } from "react";
+import { FolderIcon, Loader2Icon } from "lucide-react";
+import { useState } from "react";
 
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,9 +13,9 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
-import { splitWorkspacePickerPath } from "./split-workspace-picker-path";
 import { useWorkspaceDirectoryBrowser } from "./use-workspace-directory-browser";
 import { validateWorkspaceDir } from "./validate-workspace-dir";
+import { WorkspacePickerBreadcrumb } from "./workspace-picker-breadcrumb";
 
 type WorkspacePickerDialogProps = {
   open: boolean;
@@ -50,8 +42,6 @@ export function WorkspacePickerDialog({
   } = useWorkspaceDirectoryBrowser(open, defaultPath);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
-
-  const breadcrumbSegments = splitWorkspacePickerPath(currentPath);
 
   const handleConfirm = async () => {
     if (!currentPath || isConfirming) {
@@ -88,54 +78,25 @@ export function WorkspacePickerDialog({
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
+              className="shrink-0"
               disabled={loading || isAtRootListing}
               onClick={goUp}
             >
               {t("chat.pickWorkspaceGoUp")}
             </Button>
-
-            <Breadcrumb className="min-w-0 flex-1">
-              <BreadcrumbList className="flex-nowrap overflow-hidden">
-                {isAtRootListing ? (
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>{t("chat.pickWorkspaceLocations")}</BreadcrumbPage>
-                  </BreadcrumbItem>
-                ) : (
-                  breadcrumbSegments.map((segment, index) => {
-                    const isLast = index === breadcrumbSegments.length - 1;
-
-                    return (
-                      <Fragment key={segment.path}>
-                        <BreadcrumbItem className="min-w-0">
-                          {isLast ? (
-                            <BreadcrumbPage className="truncate">{segment.label}</BreadcrumbPage>
-                          ) : (
-                            <BreadcrumbLink
-                              className="cursor-pointer truncate"
-                              onClick={() => {
-                                void navigateTo(segment.path);
-                              }}
-                            >
-                              {segment.label}
-                            </BreadcrumbLink>
-                          )}
-                        </BreadcrumbItem>
-                        {!isLast ? (
-                          <BreadcrumbSeparator>
-                            <ChevronRightIcon />
-                          </BreadcrumbSeparator>
-                        ) : null}
-                      </Fragment>
-                    );
-                  })
-                )}
-              </BreadcrumbList>
-            </Breadcrumb>
+            <WorkspacePickerBreadcrumb
+              currentPath={currentPath}
+              isAtRootListing={isAtRootListing}
+              locationsLabel={t("chat.pickWorkspaceLocations")}
+              onNavigate={(path) => {
+                void navigateTo(path);
+              }}
+            />
           </div>
 
           <div className="rounded-xl border border-border/70">
@@ -163,6 +124,7 @@ export function WorkspacePickerDialog({
                       onClick={() => {
                         void navigateTo(entry.path);
                       }}
+                      title={entry.path}
                     >
                       <FolderIcon className="size-4 shrink-0 text-muted-foreground" />
                       <span className="truncate">{entry.name}</span>
@@ -174,9 +136,14 @@ export function WorkspacePickerDialog({
           </div>
 
           {!isAtRootListing ? (
-            <p className="truncate text-sm text-muted-foreground">
-              {t("chat.pickWorkspaceCurrentSelection", { path: currentPath })}
-            </p>
+            <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2">
+              <p className="mb-1 text-xs text-muted-foreground">
+                {t("chat.pickWorkspaceSelectedPath")}
+              </p>
+              <p className="max-h-24 overflow-y-auto break-all font-mono text-xs leading-5 text-foreground">
+                {currentPath}
+              </p>
+            </div>
           ) : null}
 
           {confirmError ? (

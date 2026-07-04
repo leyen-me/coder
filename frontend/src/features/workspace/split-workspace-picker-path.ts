@@ -3,6 +3,10 @@ export type WorkspacePathSegment = {
   path: string;
 };
 
+export type WorkspaceBreadcrumbItem =
+  | { kind: "segment"; label: string; path: string }
+  | { kind: "ellipsis" };
+
 /** Splits an absolute path into breadcrumb segments. */
 export function splitWorkspacePickerPath(path: string): WorkspacePathSegment[] {
   const trimmed = path.trim();
@@ -51,4 +55,23 @@ export function splitWorkspacePickerPath(path: string): WorkspacePathSegment[] {
   }
 
   return segments;
+}
+
+/** Collapses long breadcrumb trails to first + ellipsis + last segments. */
+export function collapseWorkspacePickerBreadcrumb(
+  segments: WorkspacePathSegment[],
+  maxVisible = 4
+): WorkspaceBreadcrumbItem[] {
+  if (segments.length <= maxVisible) {
+    return segments.map((segment) => ({ kind: "segment", ...segment }));
+  }
+
+  const [first, ...rest] = segments;
+  const tail = rest.slice(-2);
+
+  return [
+    { kind: "segment", label: first.label, path: first.path },
+    { kind: "ellipsis" },
+    ...tail.map((segment) => ({ kind: "segment", ...segment })),
+  ];
 }

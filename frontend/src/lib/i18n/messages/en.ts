@@ -102,6 +102,7 @@ export const enMessages = {
     pickWorkspaceLoading: "Loading folders…",
     pickWorkspaceEmpty: "No subfolders here",
     pickWorkspaceCurrentSelection: "Selected: {path}",
+    pickWorkspaceSelectedPath: "Selected path",
     pickWorkspaceSelectFolder: "Select this folder",
     pickWorkspaceConfirm: "Confirm",
     pickWorkspaceCancel: "Cancel",
