@@ -303,7 +303,7 @@ pub fn tool_grep(
             }
             GrepOutputMode::Count => {
                 let count = if multiline {
-                    usize::from(regex.is_match(&text)) as u32
+                    regex.find_iter(&text).count() as u32
                 } else {
                     normalized_lines
                         .iter()
@@ -590,6 +590,34 @@ mod tests {
             None,
             None,
             None,
+            None,
+        )
+        .expect("grep");
+
+        let counts = result.counts.expect("counts");
+        assert_eq!(counts.len(), 1);
+        assert_eq!(counts[0].count, 2);
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn count_mode_multiline_counts_all_occurrences() {
+        let temp = temp_workspace("multiline-count");
+        fs::write(temp.join("a.txt"), "foo\nfoo\nbar\n").expect("write file");
+
+        let result = tool_grep(
+            temp.to_string_lossy().into_owned(),
+            "foo".to_string(),
+            None,
+            None,
+            Some("count".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(true),
             None,
         )
         .expect("grep");
