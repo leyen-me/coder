@@ -56,7 +56,7 @@ describe("applyGeneratedSessionTitle env API keys", () => {
     const { applyGeneratedSessionTitle } = await import("./generate-session-title");
 
     vi.mocked(apiPost).mockResolvedValue("Refined title");
-    vi.mocked(updateSessionTitle).mockResolvedValue(undefined);
+    vi.mocked(updateSessionTitle).mockResolvedValue(null);
 
     await applyGeneratedSessionTitle({
       sessionId: "session-1",
