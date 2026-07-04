@@ -6,6 +6,7 @@ import { extractShellData } from "@/features/agent/tools/shell-display";
 import { stripAnsi } from "@/lib/strip-ansi";
 import { cn } from "@/lib/utils";
 import { apiPost } from "@/lib/api/client";
+import { connectShellSse } from "@/lib/api/sse";
 import type { ToolUIPart } from "ai";
 
 import {
@@ -68,8 +69,8 @@ export function ShellOutput({
   // Live-update state: when a background shell finishes on the Rust side,
   // the component receives the final output via Tauri events.
   const [liveOutput, setLiveOutput] = useState<unknown | null>(null);
-  // Streaming buffer: accumulates shell-output events before shell-finished.
-  const [liveStreamBuffer] = useState("");
+  const [liveStdout, setLiveStdout] = useState("");
+  const [liveStderr, setLiveStderr] = useState("");
   // Track whether the user clicked stop.
   const [killing, setKilling] = useState(false);
 
@@ -95,7 +96,87 @@ export function ShellOutput({
   const stderrTotalBytes = data?.stderrTotalBytes ?? 0;
 
   // Merge live streaming chunks into the display output.
-  const displayStdout = liveOutput ? stdout : stdout + liveStreamBuffer;
+  const displayStdout = liveOutput ? stdout : stdout + liveStdout;
+  const displayStderr = liveOutput ? stderr : stderr + liveStderr;
+
+  useEffect(() => {
+    setLiveStdout("");
+    setLiveStderr("");
+  }, [shellId]);
+
+  useEffect(() => {
+    if (liveOutput) {
+      return;
+    }
+    if (status !== "running" || !shellId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const refreshFinalOutput = async () => {
+      try {
+        const shells = await apiPost<
+          {
+            shellId: string;
+            status: string;
+            exitCode?: number | null;
+            stdout?: string;
+            stderr?: string;
+          }[]
+        >("/api/list_shells", { statusFilter: "all" });
+        if (cancelled) {
+          return;
+        }
+
+        const found = shells.find((shell) => shell.shellId === shellId);
+        if (!found || found.status === "running") {
+          return;
+        }
+
+        setLiveOutput({
+          ok: true,
+          tool: "shell",
+          data: {
+            ...data,
+            status: found.status,
+            exitCode: found.exitCode ?? data?.exitCode,
+            stdout: found.stdout ?? data?.stdout,
+            stderr: found.stderr ?? data?.stderr,
+          },
+        });
+      } catch {
+        // Best effort — keep streaming chunks visible if refresh fails.
+      }
+    };
+
+    const unsubscribe = connectShellSse(
+      shellId,
+      (stream, chunk) => {
+        if (cancelled) {
+          return;
+        }
+
+        if (stream === "stderr") {
+          setLiveStderr((current) => current + chunk);
+          return;
+        }
+
+        setLiveStdout((current) => current + chunk);
+      },
+      () => {
+        void refreshFinalOutput();
+      },
+      (error) => {
+        console.warn(`[shell output] SSE error for ${shellId}: ${error}`);
+      }
+    );
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [data, liveOutput, shellId, status]);
 
   // Recovery effect: when the session is re-opened from IndexedDB, the persisted
   // output may have status === "running" because a background shell (block_until_ms=0)
@@ -168,28 +249,28 @@ export function ShellOutput({
     }
 
     // stderr
-    if (stderr) {
-      const cleaned = stripAnsi(stderr);
+    if (displayStderr) {
+      const cleaned = stripAnsi(displayStderr);
       if (cleaned) {
         parts.push(cleaned);
       }
     }
 
     // No output marker
-    if (!displayStdout && !stderr) {
+    if (!displayStdout && !displayStderr) {
       const exitInfo =
         exitCode != null ? `exit code ${exitCode}` : null;
       parts.push(`(no output${exitInfo ? `, ${exitInfo}` : ""})`);
     }
 
     return parts.join("\n");
-  }, [command, displayStdout, stderr, exitCode]);
+  }, [command, displayStdout, displayStderr, exitCode]);
 
   const showTruncated =
     (stdoutTruncated && stdoutTotalBytes > 0) ||
     (stderrTruncated && stderrTotalBytes > 0);
 
-  const emptyOutput = !command && !displayStdout && !stderr;
+  const emptyOutput = !command && !displayStdout && !displayStderr;
 
   const hasSecondaryRow = Boolean(description || workingDirectory || (durationMs != null && durationMs > 0));
 
