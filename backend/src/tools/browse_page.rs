@@ -2,7 +2,7 @@ use regex::Regex;
 use serde::Serialize;
 
 use super::network::{
-    build_http_client, fetch_public_url, NetworkToolError, FetchedResponse,
+    build_http_client, fetch_public_url, validate_public_url, NetworkToolError, FetchedResponse,
 };
 use super::page_cache::{CachedPage, PageCache};
 
@@ -46,6 +46,11 @@ pub async fn tool_browse_page(
 
     // Try cache first (keyed by original request URL).
     if let Some(cached) = page_cache.get(&owned_url) {
+        validate_public_url(trimmed, allow_private_network)?;
+        if cached.final_url != owned_url {
+            validate_public_url(&cached.final_url, allow_private_network)?;
+        }
+
         let total_lines = cached.lines.len() as u32;
         let end = (start as usize + max as usize - 1).min(total_lines as usize);
         let truncated = end < total_lines as usize;
