@@ -104,7 +104,7 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
         requestExtensions: buildThinkingRequestExtensions({
           models: providerConfig.models,
           modelId: providerConfig.model,
-          thinkingEnabled: providerConfig.thinkingEnabled ?? true,
+          thinkingEnabled: providerConfig.thinkingEnabled ?? false,
         }),
         agentMode: "agent",
       },
@@ -169,6 +169,14 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
     error: finalError,
     content: finalContent.trim() || undefined,
   };
+
+  if (finalError) {
+    return toolFailure(
+      SPAWN_SUBAGENT_TOOL_NAME,
+      abortController.signal.aborted ? "cancelled" : "subagent_failed",
+      finalError,
+    );
+  }
 
   return toolSuccess(SPAWN_SUBAGENT_TOOL_NAME, output);
 };
