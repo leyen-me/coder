@@ -137,13 +137,26 @@ async fn handle_pty_socket(mut socket: WebSocket, state: Arc<AppState>) {
         }
     }
 
-    // Cleanup
+    // Cleanup: drop PTY master handles before waiting so the shell child can exit.
+    drop(writer);
+    drop(pair.master);
     send_task.abort();
-    let _ = child.wait();
+    let exit_code = tokio::task::spawn_blocking(move || {
+        child
+            .wait()
+            .ok()
+            .map(|status| status.exit_code() as i32)
+    })
+    .await
+    .ok()
+    .flatten();
     {
         let mut reg = state.shell_registry.lock().unwrap();
-        // Mark as finished
-        reg.finish_pty(&pty_id, crate::tools::shell::ShellStatus::Completed, None);
+        reg.finish_pty(
+            &pty_id,
+            crate::tools::shell::ShellStatus::Completed,
+            exit_code,
+        );
     }
 }
 
