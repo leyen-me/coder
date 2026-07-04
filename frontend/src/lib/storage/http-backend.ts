@@ -45,11 +45,11 @@ function buildIndexes(
 
 export class HttpStoreBackend implements StoreBackend {
   async get<T>(storeName: string, key: string): Promise<T | undefined> {
-    const result = await apiPost<{ value: T | null }>("/db/get", {
+    const result = await apiPost<T | null>("/db/get", {
       store: storeName,
       id: key,
     });
-    return (result as any)?.value ?? (result as T | null) ?? undefined;
+    return result ?? undefined;
   }
 
   async getAll<T>(storeName: string): Promise<T[]> {
