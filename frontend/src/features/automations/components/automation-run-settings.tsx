@@ -10,7 +10,7 @@ import {
 import type { AgentMode } from "@/features/agent/types";
 import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
-import { useWorkspace } from "@/features/workspace/workspace-provider";
+import { pickWorkspaceDir } from "@/features/workspace/pick-workspace-dir";
 import {
   composerFooterControlActiveClassName,
   composerFooterControlClassName,
@@ -121,7 +121,6 @@ export function AutomationRunSettings({
   disabled = false,
 }: AutomationRunSettingsProps) {
   const { t } = useTranslation();
-  const { pickWorkspace } = useWorkspace();
   const selectedModel = findModelDefinition(models, model);
   const showThinkingToggle = canToggleThinking(selectedModel);
   const workspaceName = workspaceDir
@@ -141,7 +140,7 @@ export function AutomationRunSettings({
           title={t("automations.fieldRunSettingsHint")}
           onClick={() => {
             void (async () => {
-              const selected = await pickWorkspace();
+              const selected = await pickWorkspaceDir();
               if (selected) {
                 onWorkspaceDirChange(selected);
               }
