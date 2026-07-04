@@ -216,10 +216,10 @@ pub fn tool_grep(
         match mode {
             GrepOutputMode::Content => {
                 if multiline {
-                    if let Some(mat) = regex.find(&text) {
+                    for mat in regex.find_iter(&text) {
+                        total_matches += 1;
                         if skipped_for_offset < offset {
                             skipped_for_offset += 1;
-                            total_matches += 1;
                             continue;
                         }
                         if content_matches.len() as u32 >= head_limit {
@@ -249,7 +249,6 @@ pub fn tool_grep(
                             context_before: before_lines,
                             context_after: after_lines,
                         });
-                        total_matches += 1;
                     }
                     continue;
                 }
@@ -625,6 +624,34 @@ mod tests {
         let counts = result.counts.expect("counts");
         assert_eq!(counts.len(), 1);
         assert_eq!(counts[0].count, 2);
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn content_mode_multiline_returns_all_matches() {
+        let temp = temp_workspace("multiline-content");
+        fs::write(temp.join("a.txt"), "foo\nbar\nfoo\n").expect("write file");
+
+        let result = tool_grep(
+            temp.to_string_lossy().into_owned(),
+            "foo".to_string(),
+            None,
+            None,
+            Some("content".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(true),
+            None,
+        )
+        .expect("grep");
+
+        let matches = result.matches.expect("matches");
+        assert_eq!(matches.len(), 2);
+        assert_eq!(result.total_matches, 2);
         let _ = fs::remove_dir_all(temp);
     }
 
