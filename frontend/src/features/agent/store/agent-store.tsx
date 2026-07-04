@@ -1077,7 +1077,12 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           );
         }
       }
-      const referencedSkillsToStore = skillSlugs.length > 0 ? skillSlugs : undefined;
+      const referencedSkillsToStore =
+        input.skillSlugs !== undefined
+          ? input.skillSlugs
+          : skillSlugs.length > 0
+            ? skillSlugs
+            : undefined;
 
       writeLastSelectedModel(input.model);
 
