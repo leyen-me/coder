@@ -4,7 +4,6 @@ import { buildAgentMessages } from "@/features/agent/build-agent-messages";
 import { resolveAgentEnvironment } from "@/features/agent/environment/resolve-environment";
 import { SEND_EMAIL_TOOL } from "@/features/agent/tools";
 import type { AgentChatMessage, AgentEvent } from "@/features/agent/types";
-import { appEventBus } from "@/lib/event-bus";
 import { resolveProviderConfig } from "@/lib/model-provider/resolve-provider-config";
 import { readModelProviderSettings } from "@/lib/model-provider/storage";
 import {
@@ -26,6 +25,10 @@ import {
   tryAcquireAutomationRunLock,
 } from "./automation-run-lock";
 import { resolveAutomationRunConfig } from "./run-config";
+import {
+  createAgentTaskCompletionBuffer,
+  waitForAgentTaskCompletion,
+} from "./wait-for-agent-task-completion";
 
 async function completeAutomationRun(
   automationId: string,
@@ -94,37 +97,38 @@ async function storeExecuteAutomation(
   runConfig: Awaited<ReturnType<typeof resolveAutomationRunConfig>>,
   sendMessage: NonNullable<ReturnType<typeof getExternalSendMessage>>,
 ): Promise<void> {
-  const { taskId } = await sendMessage({
-    sessionId: session.id,
-    content: automation.prompt,
-    model: runConfig.model,
-    agentMode: runConfig.agentMode,
-  });
+  const completionBuffer = createAgentTaskCompletionBuffer();
 
-  // Wait for task completion via event bus — the agent store emits
-  // agent:task_completed when the task reaches a terminal status.
-  const status = await new Promise<"completed" | "failed" | "cancelled">(
-    (resolve) => {
-      const unsub = appEventBus.on("agent:task_completed", (event) => {
-        if (event.taskId === taskId) {
-          unsub();
-          resolve(event.status);
-        }
-      });
-    },
-  );
+  try {
+    const { taskId } = await sendMessage({
+      sessionId: session.id,
+      content: automation.prompt,
+      model: runConfig.model,
+      agentMode: runConfig.agentMode,
+    });
 
-  // Read the assistant content from DB for the run summary
-  const messages = await getMessagesBySession(session.id);
-  const assistantMsg = [...messages]
-    .reverse()
-    .find((m): m is typeof m & { role: "assistant" } => m.role === "assistant" && m.taskId === taskId);
-  const content = assistantMsg?.content ?? "";
-  const summary = content
-    ? content.slice(0, 200).replace(/\n/g, " ")
-    : `[${status}]`;
+    const status = await waitForAgentTaskCompletion(
+      taskId,
+      completionBuffer.take(taskId)
+    );
 
-  await completeAutomationRun(automation.id, session.id, summary, status);
+    // Read the assistant content from DB for the run summary
+    const messages = await getMessagesBySession(session.id);
+    const assistantMsg = [...messages]
+      .reverse()
+      .find(
+        (m): m is typeof m & { role: "assistant" } =>
+          m.role === "assistant" && m.taskId === taskId
+      );
+    const content = assistantMsg?.content ?? "";
+    const summary = content
+      ? content.slice(0, 200).replace(/\n/g, " ")
+      : `[${status}]`;
+
+    await completeAutomationRun(automation.id, session.id, summary, status);
+  } finally {
+    completionBuffer.dispose();
+  }
 }
 
 // ── Headless fallback (store not mounted) ──────────────────────────
