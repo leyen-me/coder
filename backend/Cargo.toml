@@ -5,7 +5,7 @@ description = "Coder — AI-powered coding assistant"
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.8", features = ["macros", "ws"] }
+axum = { version = "0.8", features = ["macros"] }
 tower-http = { version = "0.6", features = ["cors", "fs"] }
 tower = "0.5"
 tokio = { version = "1", features = ["full"] }
@@ -20,7 +20,6 @@ log = "0.4"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 futures = "0.3"
-portable-pty = "0.8"
 encoding_rs = "0.8"
 ignore = "0.4"
 globset = "0.4"

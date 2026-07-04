@@ -35,7 +35,6 @@ struct RunningShell {
     pid: Option<u32>,
     killed: Arc<AtomicBool>,
     child: Arc<Mutex<Option<Child>>>,
-    child_killer: Option<Box<dyn portable_pty::ChildKiller + Send + Sync>>,
     source: String,
 }
 
@@ -378,7 +377,6 @@ impl ShellRegistry {
                     pid: child_pid,
                     killed,
                     child: child_slot.clone(),
-                    child_killer: None,
                     source: "agent".to_string(),
                 },
             );
@@ -436,52 +434,6 @@ impl ShellRegistry {
             Some(shell_id),
             "agent".to_string(),
         ))
-    }
-
-    /// Register a human PTY session in the shell registry so it appears in list_shells.
-    pub fn register_pty(
-        &mut self,
-        shell_id: String,
-        command: String,
-        working_directory: String,
-        child_killer: Box<dyn portable_pty::ChildKiller + Send + Sync>,
-    ) {
-        self.shells.insert(
-            shell_id,
-            RunningShell {
-                command,
-                description: Some("Human terminal".to_string()),
-                working_directory,
-                stdout: String::new(),
-                stderr: String::new(),
-                status: ShellStatus::Running,
-                exit_code: None,
-                started_at: Instant::now(),
-                task_id: None,
-                pid: None,
-                killed: Arc::new(AtomicBool::new(false)),
-                child: Arc::new(Mutex::new(None)),
-                child_killer: Some(child_killer),
-                source: "human".to_string(),
-            },
-        );
-    }
-
-    /// Append output to a shell's stdout (used by PTY reader threads).
-    pub fn append_pty_output(&mut self, shell_id: &str, data: &str) {
-        if let Some(shell) = self.shells.get_mut(shell_id) {
-            shell.stdout.push_str(data);
-        }
-    }
-
-    /// Mark a PTY shell as finished (used by PTY reader threads on EOF).
-    pub fn finish_pty(&mut self, shell_id: &str, status: ShellStatus, exit_code: Option<i32>) {
-        if let Some(shell) = self.shells.get_mut(shell_id) {
-            if shell.status == ShellStatus::Running {
-                shell.status = status;
-                shell.exit_code = exit_code;
-            }
-        }
     }
 
     /// Read a portion of a shell's stdout/stderr.
@@ -552,11 +504,6 @@ fn shell_status_label(status: ShellStatus) -> &'static str {
 
 fn kill_running_shell(shell: &mut RunningShell) {
     shell.killed.store(true, Ordering::SeqCst);
-
-    // Human PTY sessions
-    if let Some(killer) = shell.child_killer.as_mut() {
-        let _ = killer.kill();
-    }
 
     // Agent piped processes
     if let Ok(mut child_slot) = shell.child.lock() {
@@ -662,7 +609,7 @@ async fn wait_for_child(
 
     if let Ok(mut reg) = registry.lock() {
         if let Some(shell) = reg.shells.get_mut(&shell_id) {
-            // Match finish_pty: only update while still Running so Timeout/Cancelled
+            // Only update while still Running so Timeout/Cancelled wins.
             // set by stop() or kill are not overwritten when the child exits later.
             if shell.status == ShellStatus::Running {
                 shell.status = status;
@@ -803,7 +750,6 @@ pub async fn tool_remote_shell(
                 pid: None, // Remote shells have no local PID
                 killed: killed.clone(),
                 child: Arc::new(Mutex::new(None)),
-                child_killer: None,
                 source: "agent".to_string(),
             },
         );
@@ -1041,7 +987,6 @@ mod tests {
             pid: None,
             killed: Arc::new(AtomicBool::new(false)),
             child: Arc::new(Mutex::new(None)),
-            child_killer: None,
             source: "agent".to_string(),
         }
     }

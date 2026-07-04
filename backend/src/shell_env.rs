@@ -13,32 +13,13 @@ pub fn preload_shell_environment() {
     let _env = shell_environment();
 }
 
-/// Build the environment used for spawned commands and PTY shells.
+/// Build the environment used for spawned commands.
 ///
 /// Start with the current process environment, then overlay variables resolved
 /// from the user's login shell so GUI-launched apps inherit the same PATH and
 /// exported variables as a regular terminal session.
 pub fn command_environment() -> HashMap<String, String> {
     merge_environments(std::env::vars().collect(), shell_environment())
-}
-
-/// Environment for interactive PTY sessions backed by xterm.js.
-///
-/// Login-shell env dumps inherit `TERM=dumb` from non-TTY GUI parents, which
-/// breaks line editing (backspace appears to move the cursor forward). Force
-/// terminal metadata that matches the embedded xterm session instead.
-pub fn pty_environment() -> HashMap<String, String> {
-    let mut env = command_environment();
-    apply_pty_terminal_overrides(&mut env);
-    env
-}
-
-fn apply_pty_terminal_overrides(env: &mut HashMap<String, String>) {
-    env.insert("TERM".to_string(), "xterm-256color".to_string());
-    env.insert("COLORTERM".to_string(), "truecolor".to_string());
-    env.remove("TERMCAP");
-    env.remove("COLUMNS");
-    env.remove("LINES");
 }
 
 /// Read an environment variable from the process environment, falling back to the
@@ -216,27 +197,6 @@ mod tests {
         assert_eq!(
             shell_invocation("/bin/zsh"),
             ("-ilc", "env -0 2>/dev/null || env")
-        );
-    }
-
-    #[test]
-    fn pty_environment_overrides_dumb_term_from_login_shell() {
-        let mut env = HashMap::from([
-            ("PATH".to_string(), "/usr/local/bin:/usr/bin:/bin".to_string()),
-            ("TERM".to_string(), "dumb".to_string()),
-            ("COLUMNS".to_string(), "80".to_string()),
-            ("LINES".to_string(), "24".to_string()),
-        ]);
-
-        apply_pty_terminal_overrides(&mut env);
-
-        assert_eq!(env.get("TERM"), Some(&"xterm-256color".to_string()));
-        assert_eq!(env.get("COLORTERM"), Some(&"truecolor".to_string()));
-        assert!(!env.contains_key("COLUMNS"));
-        assert!(!env.contains_key("LINES"));
-        assert_eq!(
-            env.get("PATH"),
-            Some(&"/usr/local/bin:/usr/bin:/bin".to_string())
         );
     }
 

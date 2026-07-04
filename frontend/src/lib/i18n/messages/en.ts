@@ -58,10 +58,6 @@ export const enMessages = {
     exportSession: "Export session",
     shareLink: "Share link",
     splitLayout: "Split layout",
-    terminal: "Terminal",
-    bottomPanel: "Bottom panel",
-    agentProcesses: "Processes",
-    agentProcessesRunning: "Processes ({count} running)",
     workbench: "Workbench",
   },
   chat: {
@@ -293,7 +289,6 @@ export const enMessages = {
         panels: "Panels",
         chat: "Chat",
         file: "Files",
-        terminal: "Terminal",
       },
       actions: {
         global: {
@@ -326,18 +321,6 @@ export const enMessages = {
           toggleSidebar: {
             label: "Toggle sidebar",
             description: "Show or hide the left sidebar",
-          },
-          toggleBottom: {
-            label: "Toggle bottom panel",
-            description: "Show or hide the bottom panel",
-          },
-          bottomTerminal: {
-            label: "Toggle terminal",
-            description: "Open or close the terminal tab",
-          },
-          bottomProcesses: {
-            label: "Toggle processes",
-            description: "Open or close the processes tab",
           },
           toggleRight: {
             label: "Toggle right panel",
@@ -378,12 +361,6 @@ export const enMessages = {
           save: {
             label: "Save file",
             description: "Save the active file preview",
-          },
-        },
-        terminal: {
-          focus: {
-            label: "Focus terminal",
-            description: "Focus the terminal when the bottom panel is open",
           },
         },
       },
@@ -838,26 +815,6 @@ export const enMessages = {
     toastFolderCreated: "Folder created",
     toastFileCreated: "File created",
     toastDeleted: "Deleted successfully",
-  },
-  terminal: {
-    agentProcesses: "Processes",
-    runningCount: "{count} running",
-    noProcesses: "No background processes",
-    killProcess: "Kill",
-    closeSession: "Close terminal",
-    hidePanel: "Hide panel",
-    addSession: "New terminal",
-    loading: "Opening terminal…",
-    unavailable: "Terminal is unavailable in this environment",
-    humanSession: "Human",
-    agentSession: "AI",
-    processStatus: {
-      running: "Running",
-      completed: "Completed",
-      failed: "Failed",
-      timeout: "Timed out",
-      cancelled: "Cancelled",
-    },
   },
   mockChats: [
     {

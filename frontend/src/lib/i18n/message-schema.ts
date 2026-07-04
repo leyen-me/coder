@@ -56,10 +56,6 @@ export type Messages = {
     shareLink: string;
     splitLayout: string;
     workbench: string;
-    terminal: string;
-    bottomPanel: string;
-    agentProcesses: string;
-    agentProcessesRunning: string;
   };
   chat: {
     headline: string;
@@ -272,7 +268,6 @@ export type Messages = {
         panels: string;
         chat: string;
         file: string;
-        terminal: string;
       };
       actions: {
         global: {
@@ -285,9 +280,6 @@ export type Messages = {
         };
         panel: {
           toggleSidebar: { label: string; description: string };
-          toggleBottom: { label: string; description: string };
-          bottomTerminal: { label: string; description: string };
-          bottomProcesses: { label: string; description: string };
           toggleRight: { label: string; description: string };
         };
         chat: {
@@ -301,9 +293,6 @@ export type Messages = {
           quickOpen: { label: string; description: string };
           closePreview: { label: string; description: string };
           save: { label: string; description: string };
-        };
-        terminal: {
-          focus: { label: string; description: string };
         };
       };
     };
@@ -729,26 +718,6 @@ export type Messages = {
     toastFolderCreated: string;
     toastFileCreated: string;
     toastDeleted: string;
-  };
-  terminal: {
-    agentProcesses: string;
-    runningCount: string;
-    noProcesses: string;
-    killProcess: string;
-    closeSession: string;
-    hidePanel: string;
-    addSession: string;
-    loading: string;
-    unavailable: string;
-    humanSession: string;
-    agentSession: string;
-    processStatus: {
-      running: string;
-      completed: string;
-      failed: string;
-      timeout: string;
-      cancelled: string;
-    };
   };
   git: {
     sourceControl: string;

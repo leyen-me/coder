@@ -58,10 +58,6 @@ export const zhMessages = {
     exportSession: "导出会话",
     shareLink: "分享链接",
     splitLayout: "分屏布局",
-    terminal: "终端",
-    bottomPanel: "底部面板",
-    agentProcesses: "进程",
-    agentProcessesRunning: "进程（{count} 个运行中）",
     workbench: "工作台",
   },
   chat: {
@@ -283,7 +279,6 @@ export const zhMessages = {
         panels: "面板",
         chat: "聊天",
         file: "文件",
-        terminal: "终端",
       },
       actions: {
         global: {
@@ -316,18 +311,6 @@ export const zhMessages = {
           toggleSidebar: {
             label: "切换侧边栏",
             description: "显示或隐藏左侧边栏",
-          },
-          toggleBottom: {
-            label: "切换底部面板",
-            description: "显示或隐藏底部面板",
-          },
-          bottomTerminal: {
-            label: "切换终端",
-            description: "打开或关闭终端标签页",
-          },
-          bottomProcesses: {
-            label: "切换进程列表",
-            description: "打开或关闭进程标签页",
           },
           toggleRight: {
             label: "切换右侧面板",
@@ -368,12 +351,6 @@ export const zhMessages = {
           save: {
             label: "保存文件",
             description: "保存当前文件预览",
-          },
-        },
-        terminal: {
-          focus: {
-            label: "聚焦终端",
-            description: "在底部面板打开时聚焦到终端",
           },
         },
       },
@@ -818,26 +795,6 @@ export const zhMessages = {
     toastFolderCreated: "文件夹已创建",
     toastFileCreated: "文件已创建",
     toastDeleted: "删除成功",
-  },
-  terminal: {
-    agentProcesses: "进程",
-    runningCount: "{count} 个运行中",
-    noProcesses: "暂无后台进程",
-    killProcess: "终止",
-    closeSession: "关闭终端",
-    hidePanel: "隐藏面板",
-    addSession: "新建终端",
-    loading: "正在打开终端…",
-    unavailable: "当前环境无法打开终端",
-    humanSession: "人类",
-    agentSession: "AI",
-    processStatus: {
-      running: "运行中",
-      completed: "已完成",
-      failed: "失败",
-      timeout: "超时",
-      cancelled: "已取消",
-    },
   },
   mockChats: [
     { id: "1", title: "帮我构思一个合适的入门任务", relativeTime: "2 周前" },

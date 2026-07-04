@@ -533,7 +533,7 @@ export const READ_SHELL_LOGS_TOOL: AgentToolDefinition = {
   function: {
     name: READ_SHELL_LOGS_TOOL_NAME,
     description:
-      "Read logs from a shell process (human terminal or AI background shell) in batches. " +
+      "Read logs from an AI background shell in batches. " +
       "Use list_shells first to find shell IDs. " +
       "Returns a chunk of stdout or stderr starting at the given offset.",
     parameters: {

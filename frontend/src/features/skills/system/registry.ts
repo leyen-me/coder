@@ -167,7 +167,7 @@ You have 5 shell tools. Use them together:
 - **await** — poll a background shell to completion. Pass the \`shell_id\` from shell.
 - **list_shells** — list active shells. Default shows running only; use \`status_filter="all"\` to see all states.
 - **read_shell_logs** — read stdout/stderr from any shell. Paginate with \`offset\` and \`limit\`.
-- **kill_shell** — kill a running shell by \`shell_id\`. Cannot kill human terminals.
+- **kill_shell** — kill a running shell by \`shell_id\`.
 
 Workflows:
 1. **background + await**: \`shell(cmd, {block_until_ms: 0})\` → do other work → \`await({shell_id})\`

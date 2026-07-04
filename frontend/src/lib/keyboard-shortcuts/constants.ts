@@ -11,7 +11,6 @@ export const SHORTCUT_ACTION_GROUPS: ShortcutActionGroup[] = [
   { id: "navigation" },
   { id: "panels" },
   { id: "chat" },
-  { id: "terminal" },
 ];
 
 export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
@@ -58,24 +57,6 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     allowInInput: true,
   },
   {
-    id: "panel.toggleBottom",
-    defaultBinding: "mod+j",
-    scope: "global",
-    allowInInput: true,
-  },
-  {
-    id: "panel.bottomTerminal",
-    defaultBinding: "mod+shift+j",
-    scope: "global",
-    allowInInput: true,
-  },
-  {
-    id: "panel.bottomProcesses",
-    defaultBinding: "mod+shift+p",
-    scope: "global",
-    allowInInput: true,
-  },
-  {
     id: "chat.send",
     defaultBinding: "mod+enter",
     scope: "composer",
@@ -102,12 +83,6 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     id: "chat.copyLastCode",
     defaultBinding: "mod+shift+c",
     scope: "chat",
-    allowInInput: true,
-  },
-  {
-    id: "terminal.focus",
-    defaultBinding: "ctrl+backquote",
-    scope: "terminal",
     allowInInput: true,
   },
 ];
@@ -143,12 +118,7 @@ export function getActionsForGroup(
       "global.automations",
       "global.history",
     ],
-    panels: [
-      "panel.toggleSidebar",
-      "panel.toggleBottom",
-      "panel.bottomTerminal",
-      "panel.bottomProcesses",
-    ],
+    panels: ["panel.toggleSidebar"],
     chat: [
       "chat.send",
       "chat.cancel",
@@ -156,7 +126,6 @@ export function getActionsForGroup(
       "chat.editLastUser",
       "chat.copyLastCode",
     ],
-    terminal: ["terminal.focus"],
   };
 
   const ids = new Set(groupRanges[groupId]);

@@ -6,21 +6,16 @@ export type ShortcutActionId =
   | "global.automations"
   | "global.history"
   | "panel.toggleSidebar"
-  | "panel.toggleBottom"
-  | "panel.bottomTerminal"
-  | "panel.bottomProcesses"
   | "chat.send"
   | "chat.cancel"
   | "chat.regenerate"
   | "chat.editLastUser"
-  | "chat.copyLastCode"
-  | "terminal.focus";
+  | "chat.copyLastCode";
 
 export type ShortcutScope =
   | "global"
   | "chat"
-  | "composer"
-  | "terminal";
+  | "composer";
 
 export type ShortcutBinding = string;
 
@@ -35,5 +30,5 @@ export type ShortcutActionDefinition = {
 };
 
 export type ShortcutActionGroup = {
-  id: "navigation" | "panels" | "chat" | "terminal";
+  id: "navigation" | "panels" | "chat";
 };

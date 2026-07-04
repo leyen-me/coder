@@ -2,7 +2,6 @@ pub mod routes_tool;
 pub mod routes_db;
 pub mod routes_settings;
 pub mod routes_sse;
-pub mod routes_ws;
 pub mod static_files;
 
 use axum::{
@@ -98,8 +97,6 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/settings/get", get(routes_settings::handle_settings_get))
         .route("/settings/set", post(routes_settings::handle_settings_set))
         .route("/settings/delete", post(routes_settings::handle_settings_delete))
-        // PTY WebSocket
-        .route("/ws/pty", get(routes_ws::handle_pty_ws))
         // Static files (React SPA) — fallback
         .fallback(static_files::handle_static_files)
         .layer(cors)

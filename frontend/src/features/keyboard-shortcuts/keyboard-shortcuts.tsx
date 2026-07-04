@@ -12,7 +12,6 @@ import {
 } from "@/lib/keyboard-shortcuts/is-shortcut-context";
 import { matchKeyboardEvent } from "@/lib/keyboard-shortcuts/match";
 import { useKeyboardShortcuts } from "@/lib/keyboard-shortcuts/keyboard-shortcuts-provider";
-import { useBottomPanel } from "@/features/terminal/bottom-panel-context";
 
 import { useHotkeyActions } from "./hotkey-actions-context";
 import { useSearchDialog } from "./search-dialog-context";
@@ -25,10 +24,6 @@ export function KeyboardShortcuts() {
   const { pathname } = useLocation();
   const { open: openSearch } = useSearchDialog();
   const { toggleSidebar } = useShellChrome();
-  const {
-    isOpen: isBottomPanelOpen,
-    toggle: toggleBottomPanel,
-  } = useBottomPanel();
 
   const runBuiltinAction = useCallback(
     (actionId: string) => {
@@ -54,13 +49,6 @@ export function KeyboardShortcuts() {
         case "panel.toggleSidebar":
           toggleSidebar();
           return true;
-        case "panel.toggleBottom":
-          toggleBottomPanel();
-          return true;
-        case "panel.bottomTerminal":
-        case "panel.bottomProcesses":
-          toggleBottomPanel();
-          return true;
         default:
           return false;
       }
@@ -68,7 +56,6 @@ export function KeyboardShortcuts() {
     [
       navigate,
       openSearch,
-      toggleBottomPanel,
       toggleSidebar,
     ]
   );
@@ -82,7 +69,6 @@ export function KeyboardShortcuts() {
       const contextInput = {
         pathname,
         activeElement: document.activeElement,
-        bottomPanelOpen: isBottomPanelOpen,
       };
 
       for (const action of SHORTCUT_ACTIONS) {
@@ -124,7 +110,6 @@ export function KeyboardShortcuts() {
     };
   }, [
     invoke,
-    isBottomPanelOpen,
     pathname,
     runBuiltinAction,
     settings,

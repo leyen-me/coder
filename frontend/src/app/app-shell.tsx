@@ -11,11 +11,6 @@ import { KeyboardShortcuts } from "@/features/keyboard-shortcuts/keyboard-shortc
 import { PromptRefineProvider } from "@/features/lab/prompt-refine-provider";
 import { SearchDialogProvider } from "@/features/keyboard-shortcuts/search-dialog-context";
 import { ShellChromeProvider } from "@/features/keyboard-shortcuts/shell-chrome-context";
-import { BottomPanelProvider } from "@/features/terminal/bottom-panel-context";
-import { BottomPanelPortalProvider } from "@/features/terminal/bottom-panel-portal-context";
-import { PersistentBottomPanel } from "@/features/terminal/components/persistent-bottom-panel";
-import { ShellProcessesProvider } from "@/features/terminal/shell-processes-context";
-import { useRouteWorkspaceDir } from "@/features/terminal/use-route-workspace-dir";
 import { Toaster } from "@/components/ui/sonner";
 import { WorkspacePathDragPreview } from "@/components/dnd/workspace-path-drag-preview";
 import { cn } from "@/lib/utils";
@@ -56,7 +51,6 @@ export function AppShell() {
   const { isOpen: isSidebarOpen, toggle: toggleSidebar } = useSidebarOpen();
   const location = useLocation();
   const shellContext: ShellOutletContext = { sidebarOpen: isSidebarOpen };
-  const workspaceDir = useRouteWorkspaceDir();
   const showSearch = location.pathname !== paths.settings;
 
   // Start the automation scheduler on mount; stop on unmount.
@@ -82,23 +76,16 @@ export function AppShell() {
           />
           <PromptRefineProvider>
           <HotkeyActionsProvider>
-            <BottomPanelProvider>
-              <BottomPanelPortalProvider>
-                <ShellProcessesProvider>
-                  <PersistentBottomPanel workspaceDir={workspaceDir} />
-                  <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
-                    <ErrorBoundary
-                      className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-background px-6 py-8"
-                      title="Workspace failed to render"
-                      description="This section hit a rendering error. Retry the view or reload the app to recover."
-                    >
-                      <Outlet context={shellContext} />
-                    </ErrorBoundary>
-                  </div>
-                  <KeyboardShortcuts />
-                </ShellProcessesProvider>
-              </BottomPanelPortalProvider>
-            </BottomPanelProvider>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
+              <ErrorBoundary
+                className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-background px-6 py-8"
+                title="Workspace failed to render"
+                description="This section hit a rendering error. Retry the view or reload the app to recover."
+              >
+                <Outlet context={shellContext} />
+              </ErrorBoundary>
+            </div>
+            <KeyboardShortcuts />
           </HotkeyActionsProvider>
           </PromptRefineProvider>
         </SearchDialogProvider>

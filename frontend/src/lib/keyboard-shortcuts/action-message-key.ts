@@ -33,21 +33,6 @@ const ACTION_MESSAGE_KEYS = {
     description:
       "settings.keyboardShortcuts.actions.panel.toggleSidebar.description",
   },
-  "panel.toggleBottom": {
-    label: "settings.keyboardShortcuts.actions.panel.toggleBottom.label",
-    description:
-      "settings.keyboardShortcuts.actions.panel.toggleBottom.description",
-  },
-  "panel.bottomTerminal": {
-    label: "settings.keyboardShortcuts.actions.panel.bottomTerminal.label",
-    description:
-      "settings.keyboardShortcuts.actions.panel.bottomTerminal.description",
-  },
-  "panel.bottomProcesses": {
-    label: "settings.keyboardShortcuts.actions.panel.bottomProcesses.label",
-    description:
-      "settings.keyboardShortcuts.actions.panel.bottomProcesses.description",
-  },
   "chat.send": {
     label: "settings.keyboardShortcuts.actions.chat.send.label",
     description: "settings.keyboardShortcuts.actions.chat.send.description",
@@ -69,10 +54,6 @@ const ACTION_MESSAGE_KEYS = {
     label: "settings.keyboardShortcuts.actions.chat.copyLastCode.label",
     description:
       "settings.keyboardShortcuts.actions.chat.copyLastCode.description",
-  },
-  "terminal.focus": {
-    label: "settings.keyboardShortcuts.actions.terminal.focus.label",
-    description: "settings.keyboardShortcuts.actions.terminal.focus.description",
   },
 } as const satisfies Record<
   ShortcutActionId,
