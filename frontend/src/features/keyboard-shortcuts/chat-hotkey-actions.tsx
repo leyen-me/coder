@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { toast } from "sonner";
 
 import { useAgentStore } from "@/features/agent/store/agent-store";
 import { getAssistantAnswerText } from "@/features/chat/lib/get-assistant-answer-text";
@@ -117,7 +118,11 @@ export function ChatHotkeyActions({
       return false;
     }
 
-    void navigator.clipboard.writeText(codeBlock);
+    void navigator.clipboard.writeText(codeBlock).catch((error: unknown) => {
+      if (error instanceof Error && error.message) {
+        toast.error(error.message);
+      }
+    });
     return true;
   }, [messages]);
 
