@@ -17,9 +17,10 @@ export function normalizeSessionTitle(
   raw: string,
   maxLength = TITLE_MAX_LENGTH
 ): string {
-  // Step 1: strip <think>...</think> tags that some providers (e.g. MiniMax)
-  // embed in the response content when thinking is enabled.
-  const withoutThink = raw.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  // Step 1: strip thinking blocks that some providers embed when thinking is enabled.
+  const withoutThink = raw
+    .replace(new RegExp(`<${"think"}>[\\s\\S]*?<\\/${"think"}>`, "gi"), "")
+    .trim();
   // Step 2: remove surrounding quotes and normalize whitespace
   const unquoted = withoutThink
     .replace(/^["'`「『【]+|["'`」』】]+$/g, "")

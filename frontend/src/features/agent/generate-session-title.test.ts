@@ -15,6 +15,14 @@ describe("normalizeSessionTitle", () => {
     expect(normalizeSessionTitle(long)).toHaveLength(48);
     expect(normalizeSessionTitle(long).endsWith("…")).toBe(true);
   });
+
+  it("strips redacted thinking blocks from provider output", () => {
+    expect(
+      normalizeSessionTitle(
+        `<${"think"}>internal reasoning</${"think"}>Fix login bug`
+      )
+    ).toBe("Fix login bug");
+  });
 });
 
 describe("parseTitleFromCompletionBody", () => {
