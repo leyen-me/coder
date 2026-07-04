@@ -14,11 +14,12 @@ export type SearchWorkspacePathsResult = {
 };
 
 export async function searchWorkspacePaths(
-  _workspaceDir: string,
+  workspaceDir: string,
   query: string,
   options?: { headLimit?: number; respectGitignore?: boolean }
 ): Promise<SearchWorkspacePathsResult> {
   return apiPost<SearchWorkspacePathsResult>("/api/search_workspace_paths", {
+    workspaceDir,
     query,
     headLimit: options?.headLimit,
     respectGitignore: options?.respectGitignore,
