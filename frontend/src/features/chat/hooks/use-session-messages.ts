@@ -20,6 +20,20 @@ function buildMessageIndexById(messages: readonly MessageRecord[]) {
   return indexById;
 }
 
+function hasStreamingOverlayCaughtUp(
+  message: MessageRecord,
+  cached: StreamingFields
+): boolean {
+  return (
+    message.content === cached.content &&
+    message.thinking === cached.thinking &&
+    JSON.stringify(message.processSteps ?? []) ===
+      JSON.stringify(cached.processSteps ?? []) &&
+    JSON.stringify(message.toolInvocations ?? []) ===
+      JSON.stringify(cached.toolInvocations ?? [])
+  );
+}
+
 function applyStreamingOverlays(
   messages: MessageRecord[],
   overlays: ReadonlyMap<
@@ -231,10 +245,7 @@ export function useDisplayMessages(messages: MessageRecord[]) {
       }
 
       const message = messages[messageIndex];
-      if (
-        message.content === cached.content &&
-        message.thinking === cached.thinking
-      ) {
+      if (hasStreamingOverlayCaughtUp(message, cached)) {
         cachedOverlaysRef.current.delete(messageId);
         continue; // DB has caught up, drop the cache
       }
