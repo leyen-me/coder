@@ -152,11 +152,11 @@ async fn handle_pty_socket(mut socket: WebSocket, state: Arc<AppState>) {
     .flatten();
     {
         let mut reg = state.shell_registry.lock().unwrap();
-        reg.finish_pty(
-            &pty_id,
-            crate::tools::shell::ShellStatus::Completed,
-            exit_code,
-        );
+        let status = match exit_code {
+            Some(code) if code != 0 => crate::tools::shell::ShellStatus::Failed,
+            _ => crate::tools::shell::ShellStatus::Completed,
+        };
+        reg.finish_pty(&pty_id, status, exit_code);
     }
 }
 
