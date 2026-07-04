@@ -13,13 +13,11 @@ use tokio::time::{sleep, Duration};
 
 use super::remote_connection::RemoteConnectionPool;
 
-use crate::AgentSseEvent;
-
 const POST_KILL_WAIT_MS: u64 = 3_000;
 
 use super::shell::{
     build_shell_output, normalize_block_until_ms, resolve_command_shell, resolve_working_directory,
-    shell_command_builder, ReadShellLogsResponse, ShellInfo, ShellOutput, ShellOutputEvent,
+    shell_command_builder, ReadShellLogsResponse, ShellInfo, ShellOutput,
     ShellStatus, ShellStatusFilter,
 };
 

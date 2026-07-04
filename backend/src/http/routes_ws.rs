@@ -21,7 +21,7 @@ pub async fn handle_pty_ws(
 
 async fn handle_pty_socket(mut socket: WebSocket, state: Arc<AppState>) {
     let pty_system = native_pty_system();
-    let mut pair = match pty_system.openpty(PtySize {
+    let pair = match pty_system.openpty(PtySize {
         rows: 24,
         cols: 80,
         pixel_width: 0,

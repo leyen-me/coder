@@ -1,25 +1,16 @@
 use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::thread;
 
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde::Serialize;
-
-use super::shell::ShellOutputEvent;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PtySessionInfo {
     pub pty_id: String,
     pub cwd: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PtyOutputEvent {
-    pub pty_id: String,
-    pub data: String,
 }
 
 struct PtySession {
@@ -183,13 +174,5 @@ impl PtyRegistry {
         // the PTY reader thread will detect EOF and update via broadcaster.
         drop(session);
         Ok(())
-    }
-
-    pub fn insert(&mut self, pty_id: String, session: PtySession) {
-        self.sessions.insert(pty_id, session);
-    }
-
-    pub fn remove(&mut self, pty_id: &str) -> Option<PtySession> {
-        self.sessions.remove(pty_id)
     }
 }

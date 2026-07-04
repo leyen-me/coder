@@ -115,6 +115,7 @@ fn load_unix_shell_environment() -> HashMap<String, String> {
     }
 }
 
+#[cfg(not(target_os = "windows"))]
 fn resolve_login_shell() -> String {
     std::env::var("SHELL").unwrap_or_else(|_| {
         if cfg!(target_os = "macos") {
@@ -125,6 +126,7 @@ fn resolve_login_shell() -> String {
     })
 }
 
+#[cfg(any(not(target_os = "windows"), test))]
 fn shell_invocation(shell: &str) -> (&'static str, &'static str) {
     let name = shell.rsplit('/').next().unwrap_or(shell);
     match name {
@@ -133,6 +135,7 @@ fn shell_invocation(shell: &str) -> (&'static str, &'static str) {
     }
 }
 
+#[cfg(any(not(target_os = "windows"), test))]
 fn parse_nul_delimited_env(output: &[u8]) -> HashMap<String, String> {
     let mut map = HashMap::new();
 
@@ -145,6 +148,7 @@ fn parse_nul_delimited_env(output: &[u8]) -> HashMap<String, String> {
     map
 }
 
+#[cfg(any(not(target_os = "windows"), test))]
 fn parse_newline_delimited_env(output: &[u8]) -> HashMap<String, String> {
     let mut map = HashMap::new();
 
@@ -157,6 +161,7 @@ fn parse_newline_delimited_env(output: &[u8]) -> HashMap<String, String> {
     map
 }
 
+#[cfg(any(not(target_os = "windows"), test))]
 fn parse_env_assignment(bytes: &[u8]) -> Option<(String, String)> {
     let line = std::str::from_utf8(bytes).ok()?.trim_end_matches('\r');
     if line.is_empty() {

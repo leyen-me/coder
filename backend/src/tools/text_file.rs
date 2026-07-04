@@ -67,23 +67,6 @@ impl TextFileToolError {
     }
 }
 
-pub fn hex_str_to_bytes(hex: &str) -> Result<Vec<u8>, String> {
-    let compact: String = hex
-        .chars()
-        .filter(|c| !c.is_ascii_whitespace())
-        .collect();
-    if compact.len() % 2 != 0 {
-        return Err("hex string must have an even number of hex digits".into());
-    }
-    (0..compact.len())
-        .step_by(2)
-        .map(|i| {
-            u8::from_str_radix(&compact[i..i + 2], 16)
-                .map_err(|_| format!("invalid hex digits: {}", &compact[i..i + 2]))
-        })
-        .collect()
-}
-
 pub fn read_binary_sample(path: &Path) -> Result<Vec<u8>, TextFileToolError> {
     let mut file = File::open(path).map_err(|error| {
         TextFileToolError::new("io_error", format!("Failed to open file: {error}"))

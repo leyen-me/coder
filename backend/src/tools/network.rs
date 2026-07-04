@@ -38,6 +38,7 @@ pub struct FetchedResponse {
     pub status_code: u16,
     pub content_type: Option<String>,
     pub body: String,
+    #[allow(dead_code)]
     pub truncated: bool,
 }
 

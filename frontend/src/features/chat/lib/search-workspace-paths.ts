@@ -1,3 +1,5 @@
+import { apiPost } from "@/lib/api/client";
+
 export type WorkspacePathMatch = {
   name: string;
   path: string;
@@ -14,13 +16,11 @@ export type SearchWorkspacePathsResult = {
 export async function searchWorkspacePaths(
   _workspaceDir: string,
   query: string,
-  _options?: { headLimit?: number; respectGitignore?: boolean }
+  options?: { headLimit?: number; respectGitignore?: boolean }
 ): Promise<SearchWorkspacePathsResult> {
-  // Workspace path search is handled by the server in browser mode.
-  return {
+  return apiPost<SearchWorkspacePathsResult>("/api/search_workspace_paths", {
     query,
-    matches: [],
-    totalMatches: 0,
-    truncated: false,
-  };
+    headLimit: options?.headLimit,
+    respectGitignore: options?.respectGitignore,
+  });
 }

@@ -729,7 +729,7 @@ pub async fn handle_test_remote_connection(
 
 /// POST /api/git_current_branch
 pub async fn handle_git_current_branch(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     Json(params): Json<GitCurrentBranchParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let result = git_current_branch(params.workspace_dir)
