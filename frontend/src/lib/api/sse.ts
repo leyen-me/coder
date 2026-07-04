@@ -190,8 +190,18 @@ export function connectAgentSse(
           try {
             const data = JSON.parse(payload) as SseEvent;
             if (data.type === "close") {
+              const closeEvent = data as SseCloseEvent;
+              if (closeEvent.reason === "lagged") {
+                const skipped =
+                  closeEvent.skipped != null
+                    ? ` (${closeEvent.skipped} events skipped)`
+                    : "";
+                onError(
+                  `${closeEvent.message ?? "Agent event stream lagged behind"}${skipped}`,
+                );
+              }
               controller.abort();
-              signalDone({ reason: "server_close", closeEvent: data as SseCloseEvent });
+              signalDone({ reason: "server_close", closeEvent });
               return;
             }
 
