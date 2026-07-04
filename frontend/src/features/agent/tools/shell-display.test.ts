@@ -4,6 +4,7 @@ import {
   canKillShellProcess,
   formatShellOutputForDisplay,
   getShellChipLabel,
+  mergeRecoveredShellData,
   preferLongerShellStream,
 } from "./shell-display";
 
@@ -194,5 +195,35 @@ describe("shell-display", () => {
   it("prefers the longer shell stream when merging final output", () => {
     expect(preferLongerShellStream("abc", "abcdef")).toBe("abcdef");
     expect(preferLongerShellStream("abcdef", "abc")).toBe("abcdef");
+  });
+
+  it("merges recovered shell output with the longer stdout/stderr streams", () => {
+    const persisted = {
+      command: "npm test",
+      workingDirectory: "/workspace",
+      stdout: "partial",
+      stderr: "",
+      stdoutTruncated: false,
+      stderrTruncated: false,
+      stdoutTotalBytes: 7,
+      stderrTotalBytes: 0,
+      durationMs: 100,
+      status: "running" as const,
+      source: "agent" as const,
+    };
+
+    expect(
+      mergeRecoveredShellData(persisted, {
+        status: "completed",
+        exitCode: 0,
+        stdout: "partial output from registry",
+        stderr: "",
+      }),
+    ).toEqual({
+      ...persisted,
+      status: "completed",
+      exitCode: 0,
+      stdout: "partial output from registry",
+    });
   });
 });

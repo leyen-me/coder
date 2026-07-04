@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { extractShellData, preferLongerShellStream } from "@/features/agent/tools/shell-display";
+import { extractShellData, mergeRecoveredShellData, preferLongerShellStream } from "@/features/agent/tools/shell-display";
 import { stripAnsi } from "@/lib/strip-ansi";
 import { cn } from "@/lib/utils";
 import { apiPost } from "@/lib/api/client";
@@ -215,7 +215,13 @@ export function ShellOutput({
     void (async () => {
       try {
         const shells = await apiPost<
-          { shellId: string; status: string; exitCode?: number | null }[]
+          {
+            shellId: string;
+            status: string;
+            exitCode?: number | null;
+            stdout?: string;
+            stderr?: string;
+          }[]
         >("/api/list_shells", { statusFilter: "all" });
         if (cancelled) return;
 
@@ -223,11 +229,14 @@ export function ShellOutput({
         if (found) {
           // Shell still exists in the registry — use its actual status.
           if (found.status !== "running") {
-            setLiveOutput({
-              ok: true,
-              tool: "shell",
-              data: { ...data, status: found.status, exitCode: found.exitCode ?? data?.exitCode },
-            });
+            const recovered = mergeRecoveredShellData(data, found);
+            if (recovered) {
+              setLiveOutput({
+                ok: true,
+                tool: "shell",
+                data: recovered,
+              });
+            }
           }
         } else {
           // Shell registry has been cleared (e.g. app restart).

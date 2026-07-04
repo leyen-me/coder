@@ -273,3 +273,26 @@ export function preferLongerShellStream(
     ? primaryValue
     : secondaryValue;
 }
+
+export function mergeRecoveredShellData(
+  persisted: ShellData | null | undefined,
+  found: {
+    status: ShellStatus | string;
+    exitCode?: number | null;
+    stdout?: string;
+    stderr?: string;
+  },
+): ShellData | null {
+  if (!persisted) {
+    return null;
+  }
+
+  return {
+    ...persisted,
+    status: found.status as ShellStatus,
+    exitCode:
+      found.exitCode != null ? found.exitCode : persisted.exitCode,
+    stdout: preferLongerShellStream(found.stdout, persisted.stdout),
+    stderr: preferLongerShellStream(found.stderr, persisted.stderr),
+  };
+}
