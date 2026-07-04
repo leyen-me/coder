@@ -76,9 +76,17 @@ export function PlanSheet({
 
   // Load plan file content when planFileName or workspaceDir changes
   useEffect(() => {
-    if (!workspaceDir || !planFileName) {
+    if (!planFileName) {
       setContent("");
       setLoadError(false);
+      setIsLoading(false);
+      return;
+    }
+
+    if (!workspaceDir) {
+      setContent("");
+      setLoadError(true);
+      setIsLoading(false);
       return;
     }
 
