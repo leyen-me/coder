@@ -43,6 +43,14 @@ pub struct ShellRegistry {
     shells: HashMap<String, RunningShell>,
 }
 
+fn floor_char_boundary(content: &str, index: usize) -> usize {
+    let mut boundary = index.min(content.len());
+    while boundary > 0 && !content.is_char_boundary(boundary) {
+        boundary -= 1;
+    }
+    boundary
+}
+
 impl ShellRegistry {
     pub fn new() -> Self {
         Self {
@@ -510,20 +518,22 @@ impl ShellRegistry {
             &shell.stdout
         };
         let total_bytes = content.len();
-        let data = if offset >= total_bytes {
+        let safe_offset = floor_char_boundary(content, offset);
+        let raw_end = (offset + limit).min(total_bytes);
+        let safe_end = floor_char_boundary(content, raw_end);
+        let data = if safe_offset >= total_bytes || safe_offset >= safe_end {
             String::new()
         } else {
-            let end = (offset + limit).min(total_bytes);
-            content[offset..end].to_string()
+            content[safe_offset..safe_end].to_string()
         };
 
         Ok(super::shell::ReadShellLogsResponse {
             shell_id: shell_id.to_string(),
             stream,
             data,
-            offset,
+            offset: safe_offset,
             total_bytes,
-            truncated: offset + limit < total_bytes,
+            truncated: safe_end < total_bytes,
         })
     }
 }
@@ -1058,5 +1068,20 @@ mod tests {
                 .map(|shell| shell.status),
             Some(ShellStatus::Cancelled)
         );
+    }
+
+    #[test]
+    fn read_shell_logs_does_not_panic_on_utf8_boundaries() {
+        let mut registry = ShellRegistry::new();
+        let mut shell = test_shell(ShellStatus::Running);
+        shell.stdout = "x".repeat(4090) + "你好";
+        registry.shells.insert("shell-1".to_string(), shell);
+
+        let response = registry
+            .read_shell_logs("shell-1", None, Some(0), Some(4096))
+            .expect("read should succeed");
+
+        assert!(response.data.is_char_boundary(response.data.len()));
+        assert!(response.offset + response.data.len() <= response.total_bytes);
     }
 }
