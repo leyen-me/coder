@@ -7,7 +7,7 @@ use std::time::Instant;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncReadExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::time::{sleep, Duration};
 
@@ -604,9 +604,23 @@ async fn read_stream<R: tokio::io::AsyncRead + Unpin>(
     broadcaster: Option<&crate::SseBroadcaster>,
     registry: Arc<Mutex<ShellRegistry>>,
 ) {
-    let mut lines = BufReader::new(reader).lines();
-    while let Ok(Some(line)) = lines.next_line().await {
-        let chunk = format!("{line}\n");
+    let mut reader = BufReader::new(reader);
+    let mut buf = [0u8; 8192];
+
+    loop {
+        let read_result = reader.read(&mut buf).await;
+        let n = match read_result {
+            Ok(0) => break,
+            Ok(n) => n,
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(_) => break,
+        };
+
+        let chunk = String::from_utf8_lossy(&buf[..n]).into_owned();
+        if chunk.is_empty() {
+            continue;
+        }
+
         if let Ok(mut reg) = registry.lock() {
             if let Some(shell) = reg.shells.get_mut(shell_id) {
                 if stream == "stdout" {
