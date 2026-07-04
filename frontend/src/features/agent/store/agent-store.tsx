@@ -713,6 +713,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           autonomyMode: input.autonomyMode,
           decisionPolicyVersion: input.decisionPolicyVersion,
           decisionModel: input.decisionModel,
+          thinkingEnabled: input.thinkingEnabled,
         },
         {
           workspaceDir: input.workspaceDir,

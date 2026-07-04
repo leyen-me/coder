@@ -113,6 +113,8 @@ export type AgentStartInput = {
   handoffTriggerThreshold?: number;
   /** Agent mode — controls which tools are available. Defaults to "agent". */
   agentMode?: AgentMode;
+  /** Whether deep thinking is enabled for this run. */
+  thinkingEnabled?: boolean;
   /** Model definitions used to resolve provider capabilities (thinking, context window, etc.). */
   models?: readonly ModelDefinition[];
   sessionKind?: SessionKind;

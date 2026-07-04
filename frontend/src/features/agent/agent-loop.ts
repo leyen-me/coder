@@ -82,6 +82,7 @@ export async function runAgentWithTools(
           apiKeyEnvVar: input.apiKeyEnvVar,
           model: input.model,
           models: input.models ?? ([] as readonly ModelDefinition[]),
+          thinkingEnabled: input.thinkingEnabled,
         },
       };
 
