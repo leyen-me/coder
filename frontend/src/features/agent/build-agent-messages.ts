@@ -103,7 +103,10 @@ async function applyReferencedSkillsToConversation(
 
     const content =
       typeof message.content === "string" ? message.content : "";
-    const slugs = extractSkillSlugsFromText(content);
+    const slugs =
+      message.referencedSkills !== undefined
+        ? message.referencedSkills
+        : extractSkillSlugsFromText(content);
     if (slugs.length === 0) {
       result.push(message);
       continue;

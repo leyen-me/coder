@@ -269,4 +269,29 @@ describe("messageRecordToAgentMessages", () => {
       },
     ]);
   });
+
+  it("preserves referencedSkills on user messages for agent replay", () => {
+    const messages = messageRecordToAgentMessages({
+      id: "user-1",
+      sessionId: "session-1",
+      role: "user",
+      content: "please /debug this",
+      referencedSkills: ["review"],
+      thinking: "",
+      processSteps: [],
+      toolInvocations: [],
+      status: "completed",
+      taskId: null,
+      error: null,
+      createdAt: 1,
+    } satisfies MessageRecord);
+
+    expect(messages).toEqual([
+      {
+        role: "user",
+        content: "please /debug this",
+        referencedSkills: ["review"],
+      },
+    ]);
+  });
 });

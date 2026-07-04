@@ -26,6 +26,8 @@ export type AgentChatMessage = {
   tool_calls?: ApiToolCall[];
   tool_call_id?: string;
   name?: string;
+  /** Explicit skill slugs from composer nodes; undefined = legacy regex fallback. */
+  referencedSkills?: string[];
 };
 
 export type AgentEvent =

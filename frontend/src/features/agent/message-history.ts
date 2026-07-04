@@ -22,6 +22,9 @@ export function messageRecordToAgentMessages(
       {
         role: "user",
         content: buildUserAgentContent(message.content, message.images ?? []),
+        ...(message.referencedSkills !== undefined
+          ? { referencedSkills: message.referencedSkills }
+          : {}),
       },
     ];
   }

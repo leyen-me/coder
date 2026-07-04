@@ -4,9 +4,14 @@ vi.mock("@/lib/db/agent-todos", () => ({
   getAgentTodosBySession: vi.fn(async () => []),
 }));
 
+vi.mock("@/features/skills/lib/resolve-skills", () => ({
+  resolveEnabledSkillsBySlugs: vi.fn(async () => ({ ok: true, skills: [] })),
+}));
+
 import { buildAgentMessages } from "@/features/agent/build-agent-messages";
 import { normalizeEnvironment } from "@/features/agent/environment/build-system-prompt";
 import { getAgentTodosBySession } from "@/lib/db/agent-todos";
+import { resolveEnabledSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
 
 const environment = normalizeEnvironment({
   workspaceDir: "/Users/apple/project",
@@ -19,6 +24,10 @@ const environment = normalizeEnvironment({
 describe("buildAgentMessages", () => {
   beforeEach(() => {
     vi.mocked(getAgentTodosBySession).mockResolvedValue([]);
+    vi.mocked(resolveEnabledSkillsBySlugs).mockResolvedValue({
+      ok: true,
+      skills: [],
+    });
   });
 
   it("prepends a dynamic system message and drops empty history entries", async () => {
@@ -247,5 +256,40 @@ describe("buildAgentMessages", () => {
     expect(messages[1]?.content).toContain("[pending] task-8: Task 8");
     expect(messages[1]?.content).not.toContain("[pending] task-9: Task 9");
     expect(messages[1]?.content).toContain("2 more active todos omitted");
+  });
+
+  it("injects only explicit referencedSkills, not plain-text /slug tokens", async () => {
+    vi.mocked(resolveEnabledSkillsBySlugs).mockImplementation(async (slugs) => {
+      expect(slugs).toEqual(["review"]);
+      return {
+        ok: true,
+        skills: [
+          {
+            id: "skill-review",
+            slug: "review",
+            name: "Review",
+            description: "Review code",
+            content: "Review checklist",
+            source: "user",
+          },
+        ],
+      };
+    });
+
+    const messages = await buildAgentMessages(
+      [
+        {
+          role: "user",
+          content: "please /debug this",
+          referencedSkills: ["review"],
+        },
+      ],
+      environment
+    );
+
+    const userMessage = messages.find((message) => message.role === "user");
+    expect(typeof userMessage?.content).toBe("string");
+    expect(userMessage?.content).toContain("Referenced skill: review");
+    expect(userMessage?.content).not.toContain("Referenced skill: debug");
   });
 });
