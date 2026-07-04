@@ -68,19 +68,17 @@ export const sendEmailHandler: ToolHandler = async (rawArgs) => {
 
   try {
     const result = await apiPost<string>("/api/send_email", {
-      request: {
-        settings: {
-          smtpHost: settings.smtpHost,
-          smtpPort: settings.smtpPort,
-          username: settings.username,
-          password: settings.password,
-          fromAddress: settings.fromAddress,
-          useTls: settings.useTls,
-        },
-        to: args.value.to,
-        subject: args.value.subject,
-        body: args.value.body,
+      settings: {
+        smtpHost: settings.smtpHost,
+        smtpPort: settings.smtpPort,
+        username: settings.username,
+        password: settings.password,
+        fromAddress: settings.fromAddress,
+        useTls: settings.useTls,
       },
+      to: args.value.to,
+      subject: args.value.subject,
+      body: args.value.body,
     });
 
     return toolSuccess(SEND_EMAIL_TOOL_NAME, { message: result });
