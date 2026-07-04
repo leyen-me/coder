@@ -1,14 +1,13 @@
 
 import { updateSessionTitle } from "@/lib/db";
+import { apiPost } from "@/lib/api/client";
 
-import { chatCompletionsUrl } from "./openai-url";
 import {
   clearSessionTitleGenerating,
   markSessionTitleGenerating,
 } from "./session-title-store";
 
 const TITLE_MAX_LENGTH = 48;
-const TITLE_MAX_TOKENS = 128;
 
 export const SESSION_TITLE_SYSTEM_PROMPT = `You write short chat session titles for a sidebar history list.
 Output ONLY the title text (no quotes, no markdown). Same language as the user. At most ~20 Chinese characters or 12 English words.`;
@@ -65,35 +64,24 @@ async function requestSessionTitle(
     return null;
   }
 
-  const userPrompt = `Summarize this chat session based on the user's first message:\n\n${userMessage}`;
-
-  if (!input.apiKey.trim()) {
-    return null;
-  }
-
-  const response = await fetch(chatCompletionsUrl(input.baseUrl), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  try {
+    const rawTitle = await apiPost<string | null>("/agent/generate_title", {
+      baseUrl: input.baseUrl,
+      apiKey: input.apiKey.trim() || null,
+      apiKeySource: input.apiKeySource,
+      apiKeyEnvVar: input.apiKeyEnvVar,
       model: input.model,
-      stream: false,
-      max_tokens: TITLE_MAX_TOKENS,
-      temperature: 0.3,
-      messages: [
-        { role: "system", content: SESSION_TITLE_SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-    }),
-  });
+      userMessage,
+    });
 
-  if (!response.ok) {
+    if (typeof rawTitle !== "string") {
+      return null;
+    }
+
+    return normalizeSessionTitle(rawTitle) || null;
+  } catch {
     return null;
   }
-
-  return parseTitleFromCompletionBody(await response.json());
 }
 
 export async function applyGeneratedSessionTitle(input: {

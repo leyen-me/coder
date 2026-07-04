@@ -1,9 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+import { apiPost } from "@/lib/api/client";
+import { updateSessionTitle } from "@/lib/db";
 
 import {
   normalizeSessionTitle,
   parseTitleFromCompletionBody,
 } from "./generate-session-title";
+
+vi.mock("@/lib/api/client", () => ({
+  apiPost: vi.fn(),
+}));
+
+vi.mock("@/lib/db", () => ({
+  updateSessionTitle: vi.fn(),
+}));
 
 describe("normalizeSessionTitle", () => {
   it("strips surrounding quotes and collapses whitespace", () => {
@@ -37,5 +48,34 @@ describe("parseTitleFromCompletionBody", () => {
   it("returns null for empty or invalid payloads", () => {
     expect(parseTitleFromCompletionBody({})).toBeNull();
     expect(parseTitleFromCompletionBody({ choices: [] })).toBeNull();
+  });
+});
+
+describe("applyGeneratedSessionTitle env API keys", () => {
+  it("calls the server generate_title endpoint without a client-side api key", async () => {
+    const { applyGeneratedSessionTitle } = await import("./generate-session-title");
+
+    vi.mocked(apiPost).mockResolvedValue("Refined title");
+    vi.mocked(updateSessionTitle).mockResolvedValue(undefined);
+
+    await applyGeneratedSessionTitle({
+      sessionId: "session-1",
+      baseUrl: "https://api.example.com/v1",
+      apiKey: "",
+      apiKeySource: "env",
+      apiKeyEnvVar: "OPENAI_API_KEY",
+      model: "gpt-4.1",
+      userMessage: "Fix login bug",
+    });
+
+    expect(apiPost).toHaveBeenCalledWith("/agent/generate_title", {
+      baseUrl: "https://api.example.com/v1",
+      apiKey: null,
+      apiKeySource: "env",
+      apiKeyEnvVar: "OPENAI_API_KEY",
+      model: "gpt-4.1",
+      userMessage: "Fix login bug",
+    });
+    expect(updateSessionTitle).toHaveBeenCalledWith("session-1", "Refined title");
   });
 });
