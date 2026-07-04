@@ -31,6 +31,7 @@ import { ChatMessageList } from "../components/chat-message-list";
 import { PromptComposer } from "../components/prompt-composer";
 import { QueuedMessageList } from "../components/queued-message-list";
 import { notifySendMessageError } from "../lib/notify-send-message-error";
+import { PromptSendCancelledError } from "../lib/prompt-send-errors";
 import { buildPlanExecutionPrompt } from "../lib/plan/build-plan-execution-prompt";
 import { resolvePlanContentForBuild } from "../lib/plan/resolve-plan-content";
 import {
@@ -323,7 +324,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             model
           );
           if (refineResult === "cancelled") {
-            return;
+            throw new PromptSendCancelledError();
           }
           finalText =
             refineResult === "original" ? trimmed : refineResult.text;

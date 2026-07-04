@@ -16,6 +16,7 @@ import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { PromptComposer } from "../components/prompt-composer";
 import { StarterPromptList } from "../components/starter-prompt-list";
 import { notifySendMessageError } from "../lib/notify-send-message-error";
+import { PromptSendCancelledError } from "../lib/prompt-send-errors";
 import { useComposerThinking } from "../hooks/use-composer-thinking";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
 import { useNewChatWorkspace } from "../hooks/use-session-workspace-binding";
@@ -61,7 +62,7 @@ export function NewChatView() {
     try {
       const refineResult = await refineIfEnabled(trimmed, [], model);
       if (refineResult === "cancelled") {
-        return;
+        throw new PromptSendCancelledError();
       }
       const finalText =
         refineResult === "original" ? trimmed : refineResult.text;
