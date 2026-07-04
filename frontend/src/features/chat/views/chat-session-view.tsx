@@ -111,6 +111,9 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   );
   const [editInitialFiles, setEditInitialFiles] = useState<FileUIPart[]>([]);
   const [editInitialValue, setEditInitialValue] = useState("");
+  const [editInitialReferencedSkills, setEditInitialReferencedSkills] = useState<
+    readonly string[] | undefined
+  >(undefined);
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
   const queueDispatchingRef = useRef(false);
   const [model, setModel] = useState(() => resolveDefaultModel({ models: allModels }));
@@ -162,6 +165,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     setEditingQueuedMessageId(null);
     setEditInitialFiles([]);
     setEditInitialValue("");
+    setEditInitialReferencedSkills(undefined);
   }, []);
 
   const handleEditUserMessage = useCallback(
@@ -175,6 +179,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       setEditingMessageId(message.id);
       setEditInitialValue(message.content);
       setEditInitialFiles(storedImagesToFileUIParts(message.images ?? []));
+      setEditInitialReferencedSkills(message.referencedSkills);
     },
     [cancelTask, chatId, getSessionTask]
   );
@@ -382,6 +387,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     setEditingQueuedMessageId(message.id);
     setEditInitialValue(message.text);
     setEditInitialFiles(message.files);
+    setEditInitialReferencedSkills(message.skillSlugs);
   }, []);
 
   const handleDeleteQueuedMessage = useCallback((messageId: string) => {
@@ -592,6 +598,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             composerKey={editingMessageId ?? editingQueuedMessageId ?? "new"}
             initialValue={editInitialValue}
             initialFiles={editInitialFiles}
+            initialReferencedSkills={editInitialReferencedSkills}
             onCancelEdit={
               editingMessageId || editingQueuedMessageId ? handleCancelEdit : undefined
             }

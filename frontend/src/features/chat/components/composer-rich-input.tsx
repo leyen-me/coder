@@ -56,6 +56,8 @@ export type ComposerRichInputProps = {
   onCancelEdit?: () => void;
   workspaceDir?: string | null;
   editorRef?: MutableRefObject<Editor | null>;
+  /** Explicit skill allowlist from the message being edited; undefined = legacy. */
+  initialReferencedSkills?: readonly string[];
 };
 
 function clampSelectionPosition(position: number, maxPosition: number): number {
@@ -71,6 +73,7 @@ export function ComposerRichInput({
   onCancelEdit,
   workspaceDir,
   editorRef: externalEditorRef,
+  initialReferencedSkills,
 }: ComposerRichInputProps) {
   const attachments = usePromptInputAttachments();
   const isComposingRef = useRef(false);
@@ -109,10 +112,18 @@ export function ComposerRichInput({
   );
   const deserializeOptions = useMemo(
     () => ({
-      isEnabledSkill: (slug: string) => enabledSkillSlugs.has(slug),
+      isEnabledSkill: (slug: string) => {
+        if (
+          initialReferencedSkills !== undefined &&
+          !initialReferencedSkills.includes(slug)
+        ) {
+          return false;
+        }
+        return enabledSkillSlugs.has(slug);
+      },
       isValidWorkspacePath: hasWorkspace ? looksLikeFilePath : undefined,
     }),
-    [enabledSkillSlugs, hasWorkspace]
+    [enabledSkillSlugs, hasWorkspace, initialReferencedSkills]
   );
 
   const updateSelectedIndex = useCallback((nextIndex: number) => {

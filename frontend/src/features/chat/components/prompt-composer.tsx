@@ -107,6 +107,8 @@ type PromptComposerProps = {
   composerKey?: string;
   initialFiles?: FileUIPart[];
   onCancelEdit?: () => void;
+  /** Skill allowlist when editing an existing user or queued message. */
+  initialReferencedSkills?: readonly string[];
   contextUsage?: SessionContextUsage | null;
 };
 
@@ -409,6 +411,7 @@ export const PromptComposer = memo(function PromptComposer({
   composerKey,
   initialFiles,
   onCancelEdit,
+  initialReferencedSkills,
   contextUsage,
   agentMode = "agent",
   onAgentModeChange,
@@ -614,6 +617,7 @@ export const PromptComposer = memo(function PromptComposer({
       <PromptInputBody>
         <ComposerRichInput
           editorRef={editorRef}
+          initialReferencedSkills={initialReferencedSkills}
           onCancelEdit={onCancelEdit}
           onChange={handleChange}
           placeholder={
