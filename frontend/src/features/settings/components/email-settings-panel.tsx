@@ -9,6 +9,7 @@ import { getKVStore } from "@/lib/storage";
 
 import { SettingRow } from "./setting-row";
 import { SettingSelect } from "./setting-select";
+import { sendTestEmail } from "../lib/send-test-email";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -99,9 +100,18 @@ export function EmailSettingsPanel() {
     setTestStatus("sending");
     setTestMessage("");
 
-    // Test send is only available in the desktop app.
-    setTestStatus("error");
-    setTestMessage("Test send is only available in the desktop app.");
+    try {
+      const message = await sendTestEmail(
+        settings,
+        t("settings.email.testSubject"),
+        t("settings.email.testBody"),
+      );
+      setTestStatus("success");
+      setTestMessage(message);
+    } catch (error) {
+      setTestStatus("error");
+      setTestMessage(error instanceof Error ? error.message : String(error));
+    }
   }, [settings, t]);
 
   const canTest =
