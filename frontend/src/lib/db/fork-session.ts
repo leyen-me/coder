@@ -3,6 +3,7 @@ import {
   createMessageId,
   getMessagesBySession,
 } from "./messages";
+import { copyAgentTodosForSession } from "./agent-todos";
 import { createSession, getSession } from "./sessions";
 import { notifyDbChange } from "./subscriptions";
 import type { MessageStatus, SessionRecord } from "./types";
@@ -70,6 +71,8 @@ export async function forkSessionFromMessage(
       })
     )
   );
+
+  await copyAgentTodosForSession(sourceSessionId, forkedSession.id);
 
   notifyDbChange();
   return forkedSession;

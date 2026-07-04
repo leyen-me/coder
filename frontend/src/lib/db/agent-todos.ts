@@ -205,3 +205,26 @@ export async function writeAgentTodos(
   notifyDbChange();
   return nextRecords;
 }
+
+export async function copyAgentTodosForSession(
+  sourceSessionId: string,
+  targetSessionId: string
+): Promise<void> {
+  const sourceTodos = await getAgentTodosBySession(sourceSessionId);
+  if (sourceTodos.length === 0) {
+    return;
+  }
+
+  const db = await getDb();
+  const now = Date.now();
+  await Promise.all(
+    sourceTodos.map((todo) =>
+      db.put(AGENT_TODOS_STORE, {
+        ...todo,
+        id: crypto.randomUUID(),
+        sessionId: targetSessionId,
+        updatedAt: now,
+      })
+    )
+  );
+}

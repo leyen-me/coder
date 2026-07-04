@@ -15,6 +15,11 @@ vi.mock("./subscriptions", () => ({
   notifyDbChange: vi.fn(),
 }));
 
+vi.mock("./agent-todos", () => ({
+  copyAgentTodosForSession: vi.fn(),
+}));
+
+import { copyAgentTodosForSession } from "./agent-todos";
 import { createMessage, getMessagesBySession } from "./messages";
 import { createSession, getSession } from "./sessions";
 import { forkSessionFromMessage } from "./fork-session";
@@ -134,6 +139,54 @@ describe("forkSessionFromMessage", () => {
         planBuiltAt: 123,
         enableEmail: true,
       }),
+    );
+  });
+
+  it("copies agent todos into the forked session", async () => {
+    vi.mocked(getSession).mockResolvedValue({
+      id: "source-session",
+      title: "Chat",
+      model: "gpt-test",
+      provider: "custom",
+      workspaceDir: null,
+      sessionKind: "standard",
+      autonomyMode: "interactive",
+      decisionPolicyVersion: "mvp-v1",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    vi.mocked(getMessagesBySession).mockResolvedValue([
+      {
+        id: "msg-1",
+        sessionId: "source-session",
+        role: "user",
+        content: "hello",
+        thinking: "",
+        toolInvocations: [],
+        status: "completed",
+        taskId: null,
+        error: null,
+        createdAt: 1,
+      },
+    ]);
+    vi.mocked(createSession).mockResolvedValue({
+      id: "fork-session",
+      title: "Fork",
+      model: "gpt-test",
+      provider: "custom",
+      workspaceDir: null,
+      sessionKind: "standard",
+      autonomyMode: "interactive",
+      decisionPolicyVersion: "mvp-v1",
+      createdAt: 2,
+      updatedAt: 2,
+    });
+
+    await forkSessionFromMessage("source-session", "msg-1", "Fork");
+
+    expect(copyAgentTodosForSession).toHaveBeenCalledWith(
+      "source-session",
+      "fork-session"
     );
   });
 });
