@@ -14,6 +14,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useTranslation } from "@/lib/i18n/locale-provider";
+import { updateSession } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
 import { subscribePlanFileUpdated } from "@/features/plan/plan-events";
@@ -29,6 +30,7 @@ type PlanBuildActions = {
 };
 
 type PlanSheetProps = {
+  sessionId?: string;
   workspaceDir: string | null;
   planFileName: string | null;
   planBuildActions: PlanBuildActions | null;
@@ -42,6 +44,7 @@ type PlanSheetProps = {
  * the .plan/ directory using the file name stored in the session.
  */
 export function PlanSheet({
+  sessionId,
   workspaceDir,
   planFileName,
   planBuildActions,
@@ -59,6 +62,17 @@ export function PlanSheet({
     !isEmpty &&
     Boolean(planBuildActions?.onBuild) &&
     !planBuildActions?.isRunning;
+
+  const clearStalePlanBinding = () => {
+    if (!sessionId) {
+      return;
+    }
+
+    void updateSession(sessionId, {
+      planFileName: null,
+      planBuiltAt: null,
+    });
+  };
 
   // Load plan file content when planFileName or workspaceDir changes
   useEffect(() => {
@@ -82,12 +96,10 @@ export function PlanSheet({
       .catch((error) => {
         if (!cancelled) {
           if (isPlanNotFoundError(error)) {
-            setContent("");
-            setLoadError(true);
-          } else {
-            setContent("");
-            setLoadError(true);
+            clearStalePlanBinding();
           }
+          setContent("");
+          setLoadError(true);
           setIsLoading(false);
         }
       });
@@ -95,7 +107,7 @@ export function PlanSheet({
     return () => {
       cancelled = true;
     };
-  }, [workspaceDir, planFileName]);
+  }, [sessionId, workspaceDir, planFileName]);
 
   // Refresh when plan file is updated externally
   useEffect(() => {
@@ -109,6 +121,7 @@ export function PlanSheet({
       }
 
       if (detail.action === "deleted") {
+        clearStalePlanBinding();
         setContent("");
         setLoadError(true);
         return;
@@ -121,12 +134,15 @@ export function PlanSheet({
           setOpen(true);
           setLoadError(false);
         })
-        .catch(() => {
+        .catch((error) => {
+          if (isPlanNotFoundError(error)) {
+            clearStalePlanBinding();
+          }
           setContent("");
           setLoadError(true);
         });
     });
-  }, [workspaceDir, planFileName]);
+  }, [sessionId, workspaceDir, planFileName]);
 
   // Don't render if we don't have a plan, or the file was deleted
   if (!planFileName || loadError) {

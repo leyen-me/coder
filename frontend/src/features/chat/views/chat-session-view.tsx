@@ -572,6 +572,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
           ) : null}
           {!isLoading && session != null && session.id === chatId ? (
           <PlanSheet
+            sessionId={chatId}
             workspaceDir={workspaceBinding.workspaceDir}
             planFileName={session.planFileName ?? null}
             planBuiltAt={session.planBuiltAt ?? null}
