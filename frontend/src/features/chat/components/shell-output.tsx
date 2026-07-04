@@ -82,6 +82,8 @@ export function ShellOutput({
     () => (effectiveOutput ? extractShellData(effectiveOutput) : null),
     [effectiveOutput]
   );
+  const dataRef = useRef(data);
+  dataRef.current = data;
 
   const command =
     data?.command ?? extractInputValue(input, "command");
@@ -147,20 +149,21 @@ export function ShellOutput({
           return;
         }
 
+        const snapshot = dataRef.current;
         setLiveOutput({
           ok: true,
           tool: "shell",
           data: {
-            ...data,
+            ...snapshot,
             status: found.status,
-            exitCode: found.exitCode ?? data?.exitCode,
+            exitCode: found.exitCode ?? snapshot?.exitCode,
             stdout: preferLongerShellStream(
-              found.stdout ?? data?.stdout,
-              `${data?.stdout ?? ""}${liveStdoutRef.current}`
+              found.stdout ?? snapshot?.stdout,
+              `${snapshot?.stdout ?? ""}${liveStdoutRef.current}`
             ),
             stderr: preferLongerShellStream(
-              found.stderr ?? data?.stderr,
-              `${data?.stderr ?? ""}${liveStderrRef.current}`
+              found.stderr ?? snapshot?.stderr,
+              `${snapshot?.stderr ?? ""}${liveStderrRef.current}`
             ),
           },
         });
@@ -201,7 +204,7 @@ export function ShellOutput({
       cancelled = true;
       unsubscribe();
     };
-  }, [data, liveOutput, shellId, status]);
+  }, [liveOutput, shellId, status]);
 
   // Recovery effect: when the session is re-opened from IndexedDB, the persisted
   // output may have status === "running" because a background shell (block_until_ms=0)
@@ -232,7 +235,8 @@ export function ShellOutput({
         if (found) {
           // Shell still exists in the registry — use its actual status.
           if (found.status !== "running") {
-            const recovered = mergeRecoveredShellData(data, found);
+            const snapshot = dataRef.current;
+            const recovered = mergeRecoveredShellData(snapshot, found);
             if (recovered) {
               setLiveOutput({
                 ok: true,
@@ -244,16 +248,17 @@ export function ShellOutput({
         } else {
           // Shell registry has been cleared (e.g. app restart).
           // The process is gone — infer the final status from the exit code.
+          const snapshot = dataRef.current;
           const inferredStatus =
-            data?.exitCode != null
-              ? data.exitCode === 0
+            snapshot?.exitCode != null
+              ? snapshot.exitCode === 0
                 ? "completed"
                 : "failed"
               : "completed";
           setLiveOutput({
             ok: true,
             tool: "shell",
-            data: { ...data, status: inferredStatus },
+            data: { ...snapshot, status: inferredStatus },
           });
         }
       } catch {
