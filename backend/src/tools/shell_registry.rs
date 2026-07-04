@@ -661,9 +661,9 @@ async fn wait_for_child(
 
     if let Ok(mut reg) = registry.lock() {
         if let Some(shell) = reg.shells.get_mut(&shell_id) {
-            if shell.status == ShellStatus::Running
-                || shell.status == ShellStatus::Timeout
-            {
+            // Match finish_pty: only update while still Running so Timeout/Cancelled
+            // set by stop() or kill are not overwritten when the child exits later.
+            if shell.status == ShellStatus::Running {
                 shell.status = status;
                 shell.exit_code = exit_code;
             }
