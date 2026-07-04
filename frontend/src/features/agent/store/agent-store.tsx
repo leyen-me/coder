@@ -91,6 +91,7 @@ export type StreamingMessageOverlay = {
 
 type AgentStoreValue = {
   activeTasks: ReadonlyMap<string, ActiveTaskState>;
+  handoffSessionIds: ReadonlySet<string>;
   isSessionRunning: (sessionId: string) => boolean;
   getSessionTask: (sessionId: string) => ActiveTaskState | null;
   getSessionHandoffState: (sessionId: string) => SessionHandoffState | null;
@@ -183,6 +184,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   resolvedRef.current = resolved;
   const tasksRef = useRef(new Map<string, ActiveTaskState>());
   const snapshotRef = useRef<ReadonlyMap<string, ActiveTaskState>>(new Map());
+  const handoffSnapshotRef = useRef<ReadonlySet<string>>(new Set());
   const listenersRef = useRef(new Set<() => void>());
   const streamingSnapshotRef = useRef<
     ReadonlyMap<string, StreamingMessageOverlay>
@@ -245,14 +247,21 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
   const emit = useCallback(() => {
     snapshotRef.current = new Map(tasksRef.current);
+    handoffSnapshotRef.current = new Set(handoffStatusesRef.current.keys());
     for (const listener of listenersRef.current) {
       listener();
     }
   }, []);
 
   const getSnapshot = useCallback(() => snapshotRef.current, []);
+  const getHandoffSnapshot = useCallback(() => handoffSnapshotRef.current, []);
 
   const activeTasks = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const handoffSessionIds = useSyncExternalStore(
+    subscribe,
+    getHandoffSnapshot,
+    getHandoffSnapshot
+  );
 
   const subscribeStreaming = useCallback((listener: () => void) => {
     streamingListenersRef.current.add(listener);
@@ -1386,6 +1395,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const value = useMemo(
     () => ({
       activeTasks,
+      handoffSessionIds,
       isSessionRunning,
       getSessionTask,
       getSessionHandoffState,
@@ -1395,6 +1405,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     }),
     [
       activeTasks,
+      handoffSessionIds,
       cancelTask,
       getSessionHandoffState,
       getSessionTask,
@@ -1435,17 +1446,17 @@ export function useStreamingMessageOverlays(): ReadonlyMap<
 }
 
 export function useRunningSessionIds(): ReadonlySet<string> {
-  const { activeTasks, isSessionRunning } = useAgentStore();
+  const { activeTasks, handoffSessionIds } = useAgentStore();
 
   return useMemo(() => {
-    const ids = new Set<string>();
+    const ids = new Set(handoffSessionIds);
     for (const task of activeTasks.values()) {
-      if (isSessionRunning(task.sessionId)) {
+      if (isActiveAgentTask(task.status)) {
         ids.add(task.sessionId);
       }
     }
     return ids;
-  }, [activeTasks, isSessionRunning]);
+  }, [activeTasks, handoffSessionIds]);
 }
 
 export function useActiveStreamingMessageIds(): ReadonlySet<string> {
