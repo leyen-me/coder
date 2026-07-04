@@ -37,7 +37,7 @@ const PromptRefineContext = createContext<PromptRefineContextValue | null>(null)
 
 export function PromptRefineProvider({ children }: { children: ReactNode }) {
   const { settings } = useLabSettings();
-  const { resolved } = useModelProvider();
+  const { resolveProviderForModel } = useModelProvider();
   const [pendingRefine, setPendingRefine] = useState<PendingRefine | null>(null);
   const pendingRefineRef = useRef<PendingRefine | null>(null);
 
@@ -74,11 +74,16 @@ export function PromptRefineProvider({ children }: { children: ReactNode }) {
         return "original";
       }
 
+      const provider = resolveProviderForModel(model);
+      if (!provider) {
+        return "original";
+      }
+
       const refined = await refinePrompt({
-        baseUrl: resolved.baseUrl,
-        apiKey: resolved.apiKey,
-        apiKeySource: resolved.apiKeySource,
-        apiKeyEnvVar: resolved.apiKeyEnvVar,
+        baseUrl: provider.baseUrl,
+        apiKey: provider.apiKey,
+        apiKeySource: provider.apiKeySource,
+        apiKeyEnvVar: provider.apiKeyEnvVar,
         model,
         userPrompt: trimmed,
         contextMessages,
@@ -91,7 +96,7 @@ export function PromptRefineProvider({ children }: { children: ReactNode }) {
 
       return showConfirmDialog(trimmed, refined);
     },
-    [resolved, settings, showConfirmDialog]
+    [resolveProviderForModel, settings, showConfirmDialog]
   );
 
   const handleConfirmRefine = useCallback(
