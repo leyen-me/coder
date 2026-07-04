@@ -258,8 +258,7 @@ function ComposerContextBar({
   gitBranch,
 }: ComposerContextBarProps) {
   const { t } = useTranslation();
-  const showClearWorkspace =
-    Boolean(workspaceName) && Boolean(onClearWorkspace);
+  const hasWorkspace = Boolean(workspaceName);
 
   const workspacePickerLabel = workspaceName
     ? t("chat.workspaceSelected", { name: workspaceName })
@@ -267,55 +266,41 @@ function ComposerContextBar({
 
   return (
     <div className="relative z-0 -mt-3 flex items-center gap-1 bg-muted/50 px-3 pb-2 pt-5 dark:bg-[#1c1c1f]">
-      {showClearWorkspace ? (
-        <Button
-          aria-label={workspacePickerLabel}
-          className="h-8 max-w-44 min-w-0 shrink-0 rounded-xl px-2.5"
-          disabled={isRunning || !onPickWorkspace}
-          onClick={onPickWorkspace}
-          title={workspacePickerLabel}
-          type="button"
-          variant="ghost"
-        >
-          <FolderOpenIcon className="size-4 shrink-0" />
-          <span className="truncate">{workspaceName}</span>
-          {onClearWorkspace && (
-            <span
-              aria-disabled={isRunning}
-              aria-label={t("chat.clearWorkspace")}
-              className="-mr-0.5 ml-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full opacity-50 transition-all hover:bg-foreground/10 hover:opacity-100"
-              onClick={(e) => {
+      <Button
+        aria-label={workspacePickerLabel}
+        className="h-8 max-w-44 min-w-0 shrink-0 rounded-xl px-2.5"
+        disabled={isRunning || !onPickWorkspace}
+        onClick={onPickWorkspace}
+        title={workspacePickerLabel}
+        type="button"
+        variant="ghost"
+      >
+        <FolderOpenIcon className="size-4 shrink-0" />
+        <span className="truncate">{workspaceName ?? t("chat.localWork")}</span>
+        {hasWorkspace && onClearWorkspace ? (
+          <span
+            aria-disabled={isRunning}
+            aria-label={t("chat.clearWorkspace")}
+            className="-mr-0.5 ml-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full opacity-50 transition-all hover:bg-foreground/10 hover:opacity-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!isRunning) onClearWorkspace();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
                 e.stopPropagation();
+                e.preventDefault();
                 if (!isRunning) onClearWorkspace();
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  if (!isRunning) onClearWorkspace();
-                }
-              }}
-              role="button"
-              tabIndex={-1}
-              title={t("chat.clearWorkspace")}
-            >
-              <XIcon className="size-3" strokeWidth={2} />
-            </span>
-          )}
-        </Button>
-      ) : (
-        <Button
-          aria-label={workspacePickerLabel}
-          className="h-8 max-w-44 min-w-0 shrink-0 rounded-xl px-2.5"
-          disabled
-          title={workspacePickerLabel}
-          type="button"
-          variant="ghost"
-        >
-          <FolderOpenIcon className="size-4 shrink-0" />
-          <span className="truncate">{workspaceName ?? t("chat.localWork")}</span>
-        </Button>
-      )}
+              }
+            }}
+            role="button"
+            tabIndex={-1}
+            title={t("chat.clearWorkspace")}
+          >
+            <XIcon className="size-3" strokeWidth={2} />
+          </span>
+        ) : null}
+      </Button>
 
       {gitBranch ? (
         <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-xs text-muted-foreground">

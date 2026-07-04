@@ -115,6 +115,7 @@ pub fn get_coder_data_dir() -> PathBuf {
 }
 
 /// Initialize all shared state for the application.
+/// `workspace_dir` is a backend fallback when requests omit an explicit workspace.
 pub fn initialize_app_state(workspace_dir: &PathBuf) -> Arc<AppState> {
     let coder_dir = get_coder_data_dir();
     std::fs::create_dir_all(&coder_dir).expect("Failed to create ~/.coder/");

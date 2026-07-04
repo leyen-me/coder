@@ -815,10 +815,9 @@ pub async fn handle_send_email(
 
 /// GET /api/server_info
 pub async fn handle_server_info(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let info = serde_json::json!({
-        "workspaceDir": state.workspace_dir.to_string_lossy(),
         "version": env!("CARGO_PKG_VERSION"),
     });
     Ok(Json(info))

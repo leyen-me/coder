@@ -10,10 +10,6 @@ struct Cli {
     #[arg(short, long)]
     port: Option<u16>,
 
-    /// Working directory (default: current directory)
-    #[arg(short, long)]
-    workspace: Option<String>,
-
     /// Do not open browser automatically
     #[arg(long)]
     no_open: bool,
@@ -28,26 +24,11 @@ async fn main() {
 
     const WORKSPACE_SETTING_KEY: &str = "coder:workspace-dir";
 
-    // Startup directory: CLI flag or current working directory.
-    let startup_dir = cli
-        .workspace
-        .map(PathBuf::from)
-        .unwrap_or_else(|| std::env::current_dir().expect("Failed to get current directory"));
-
-    // User-saved preference wins; startup dir is only a cold-start fallback.
+    // Backend fallback only — real workspace comes from user selection in the UI.
     let workspace_dir = coder_lib::http::routes_settings::get_setting(WORKSPACE_SETTING_KEY)
         .map(PathBuf::from)
-        .unwrap_or_else(|| startup_dir.clone());
+        .unwrap_or_else(coder_lib::get_coder_data_dir);
 
-    // Seed settings on first run only — never overwrite an existing user choice.
-    if coder_lib::http::routes_settings::get_setting(WORKSPACE_SETTING_KEY).is_none() {
-        let _ = coder_lib::http::routes_settings::set_setting(
-            WORKSPACE_SETTING_KEY,
-            &startup_dir.to_string_lossy(),
-        );
-    }
-
-    // Initialize all shared state
     let state = coder_lib::initialize_app_state(&workspace_dir);
 
     // Determine port (default: 1421 for dev, 0 = random for release)
@@ -85,7 +66,6 @@ async fn main() {
     println!();
     println!("  Coder 服务已启动");
     println!("  http://127.0.0.1:{}", actual_port);
-    println!("  Workspace: {}", workspace_dir.display());
     println!();
 
     if !cli.no_open {
