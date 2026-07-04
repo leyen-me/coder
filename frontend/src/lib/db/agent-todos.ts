@@ -10,6 +10,22 @@ const VALID_STATUSES = new Set<AgentTodoStatus>([
   "cancelled",
 ]);
 
+const sessionTodoWriteChains = new Map<string, Promise<unknown>>();
+
+function runSerializedSessionTodoWrite<T>(
+  sessionId: string,
+  task: () => Promise<T>
+): Promise<T> {
+  const previous = sessionTodoWriteChains.get(sessionId) ?? Promise.resolve();
+  const next = previous.catch(() => undefined).then(() => task());
+  sessionTodoWriteChains.set(sessionId, next);
+  return next.finally(() => {
+    if (sessionTodoWriteChains.get(sessionId) === next) {
+      sessionTodoWriteChains.delete(sessionId);
+    }
+  }) as Promise<T>;
+}
+
 export type AgentTodoInput = {
   id: string;
   /** Omitted on merge updates keeps the existing content. */
@@ -162,6 +178,7 @@ export async function writeAgentTodos(
     removeIds?: string[];
   }
 ): Promise<AgentTodoRecord[]> {
+  return runSerializedSessionTodoWrite(sessionId, async () => {
   const db = await getDb();
   const existing = await getAgentTodosBySession(sessionId);
   const existingById = new Map(existing.map((todo) => [todo.id, todo]));
@@ -204,6 +221,7 @@ export async function writeAgentTodos(
 
   notifyDbChange();
   return nextRecords;
+  });
 }
 
 export async function copyAgentTodosForSession(
