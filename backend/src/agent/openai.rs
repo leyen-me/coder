@@ -249,15 +249,24 @@ pub async fn stream_chat_completion(
         }
     }
 
-    let response = client
-        .post(&url)
-        .bearer_auth(api_key)
-        .header("Accept", "text/event-stream")
-        .json(&request_json)
-        .timeout(STREAM_TOTAL_TIMEOUT)
-        .send()
-        .await
-        .map_err(|error| {
+    let response = tokio::select! {
+        biased;
+        () = cancel.cancelled() => {
+            emit(AgentEvent::Status {
+                task_id: task_id.to_string(),
+                status: AgentStatus::Cancelled,
+            });
+            return Ok(());
+        }
+        response = client
+            .post(&url)
+            .bearer_auth(api_key)
+            .header("Accept", "text/event-stream")
+            .json(&request_json)
+            .timeout(STREAM_TOTAL_TIMEOUT)
+            .send() => response,
+    }
+    .map_err(|error| {
             let message = if error.is_timeout() {
                 format!(
                     "Request failed: stream exceeded {}s total limit ({error})",
@@ -309,41 +318,41 @@ pub async fn stream_chat_completion(
     let mut stream_usage: Option<StreamUsage> = None;
 
     loop {
-        if cancel.is_cancelled() {
-            agent_stream_log(format!(
-                "cancelled task_id={} while reading stream",
-                task_id
-            ));
-            emit(AgentEvent::Status {
-                task_id: task_id.to_string(),
-                status: AgentStatus::Cancelled,
-            });
-            return Ok(());
-        }
-
-        let chunk_result = match timeout(
-            TokioDuration::from(STREAM_IDLE_TIMEOUT),
-            stream.next(),
-        )
-        .await
-        {
-            Ok(Some(result)) => result,
-            Ok(None) => break,
-            Err(_) => {
-                let message = format_stream_read_error(None, true);
-                agent_diagnostic_log(format!(
-                    "stream_read_failed task_id={task_id} model={model} url={} bytes_received={bytes_received} chunk_count={chunk_count} line_buffer_len={} line_buffer_preview={:?} finish_reason={finish_reason:?} tool_call_count={} idle_timed_out=true idle_timeout_secs={}",
-                    sanitize_url_for_log(&url),
-                    line_buffer.len(),
-                    preview_for_log(&line_buffer, 800),
-                    tool_calls.calls.len(),
-                    STREAM_IDLE_TIMEOUT.as_secs()
+        let poll_result = tokio::select! {
+            biased;
+            () = cancel.cancelled() => {
+                agent_stream_log(format!(
+                    "cancelled task_id={} while reading stream",
+                    task_id
                 ));
-                return Err(message);
+                emit(AgentEvent::Status {
+                    task_id: task_id.to_string(),
+                    status: AgentStatus::Cancelled,
+                });
+                return Ok(());
             }
+            result = timeout(
+                TokioDuration::from(STREAM_IDLE_TIMEOUT),
+                stream.next(),
+            ) => match result {
+                Ok(Some(chunk_result)) => chunk_result,
+                Ok(None) => break,
+                Err(_) => {
+                    let message = format_stream_read_error(None, true);
+                    agent_diagnostic_log(format!(
+                        "stream_read_failed task_id={task_id} model={model} url={} bytes_received={bytes_received} chunk_count={chunk_count} line_buffer_len={} line_buffer_preview={:?} finish_reason={finish_reason:?} tool_call_count={} idle_timed_out=true idle_timeout_secs={}",
+                        sanitize_url_for_log(&url),
+                        line_buffer.len(),
+                        preview_for_log(&line_buffer, 800),
+                        tool_calls.calls.len(),
+                        STREAM_IDLE_TIMEOUT.as_secs()
+                    ));
+                    return Err(message);
+                }
+            },
         };
 
-        let chunk = match chunk_result {
+        let chunk = match poll_result {
             Ok(bytes) => bytes,
             Err(error) => {
                 let message = format_stream_read_error(Some(&error), false);
