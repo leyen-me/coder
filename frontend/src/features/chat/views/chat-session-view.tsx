@@ -262,7 +262,8 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       try {
         const resolved = await resolvePlanContentForBuild(
           workspaceBinding.workspaceDir,
-          planContent
+          planContent,
+          effectiveSession?.planFileName ?? null
         );
         await sendMessage({
           sessionId: chatId,
@@ -285,6 +286,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     },
     [
       chatId,
+      effectiveSession?.planFileName,
       isRunning,
       model,
       sendMessage,
