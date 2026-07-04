@@ -18,6 +18,7 @@ import {
 } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDownIcon, CopyIcon, GitForkIcon, PencilIcon, RefreshCwIcon } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -237,6 +238,10 @@ export const MessageItem = memo(function MessageItem({
         title
       );
       navigate(paths.chat(forkedSession.id));
+    } catch (error) {
+      if (error instanceof Error && error.message) {
+        toast.error(error.message);
+      }
     } finally {
       setIsForking(false);
     }
