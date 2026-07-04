@@ -142,11 +142,11 @@ impl Database {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         let (sql, param_values) = match index_value {
             Some(val) => (
-                "SELECT e.value FROM entities e JOIN idx i ON e.id = i.id WHERE e.store = ?1 AND i.index_name = ?2 AND i.index_value = ?3 ORDER BY e.rowid".to_string(),
+                "SELECT e.value FROM entities e JOIN idx i ON e.id = i.id AND e.store = i.store WHERE e.store = ?1 AND i.index_name = ?2 AND i.index_value = ?3 ORDER BY e.rowid".to_string(),
                 vec![store.to_string(), index_name.to_string(), val.to_string()],
             ),
             None => (
-                "SELECT e.value FROM entities e JOIN idx i ON e.id = i.id WHERE e.store = ?1 AND i.index_name = ?2 ORDER BY e.rowid".to_string(),
+                "SELECT e.value FROM entities e JOIN idx i ON e.id = i.id AND e.store = i.store WHERE e.store = ?1 AND i.index_name = ?2 ORDER BY e.rowid".to_string(),
                 vec![store.to_string(), index_name.to_string()],
             ),
         };
@@ -238,6 +238,47 @@ mod tests {
             .get_all_from_index::<serde_json::Value>("sessions", "by-updatedAt", Some("100"))
             .expect("query stale index value");
         assert!(old.is_empty());
+
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn get_all_from_index_scopes_rows_to_store() {
+        let (db, dir) = temp_db();
+
+        db.put(
+            "sessions",
+            "shared-id",
+            &json!({ "id": "shared-id", "kind": "chat" }),
+            &[IndexEntry {
+                name: "by-updatedAt".to_string(),
+                value: "100".to_string(),
+            }],
+        )
+        .expect("put session");
+
+        db.put(
+            "messages",
+            "shared-id",
+            &json!({ "id": "shared-id", "content": "hello" }),
+            &[IndexEntry {
+                name: "by-sessionId".to_string(),
+                value: "session-1".to_string(),
+            }],
+        )
+        .expect("put message");
+
+        let sessions = db
+            .get_all_from_index::<serde_json::Value>("sessions", "by-updatedAt", None)
+            .expect("query sessions");
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0]["kind"], "chat");
+
+        let messages = db
+            .get_all_from_index::<serde_json::Value>("messages", "by-sessionId", Some("session-1"))
+            .expect("query messages");
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0]["content"], "hello");
 
         let _ = std::fs::remove_dir_all(dir);
     }
