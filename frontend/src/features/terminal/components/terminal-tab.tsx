@@ -21,7 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { getShellStatusBadgeVariant } from "@/features/agent/tools/shell-display";
 import { formatTerminalTabPath } from "../format-terminal-tab-path";
 import { useBottomPanel } from "../bottom-panel-context";
-import { resolveHomeDirectory, resolveTerminalCwd } from "../resolve-terminal-cwd";
+import { resolveTerminalCwd } from "../resolve-terminal-cwd";
 import { useShellProcesses, type ShellProcess } from "../use-shell-processes";
 import { InteractiveTerminal } from "./interactive-terminal";
 import { ProcessLogViewer } from "./process-log-viewer";
@@ -58,7 +58,6 @@ export function TerminalTab({ workspaceDir, onHide }: TerminalTabProps) {
   const { isOpen: isBottomPanelOpen, setOpen: setBottomPanelOpen } =
     useBottomPanel();
   const { processes, killProcess } = useShellProcesses();
-  const [homeDirectory, setHomeDirectory] = useState<string | null>(null);
   const [defaultCwd, setDefaultCwd] = useState<string | null>(null);
   const [sessions, setSessions] = useState<TerminalSession[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -85,21 +84,6 @@ export function TerminalTab({ workspaceDir, onHide }: TerminalTabProps) {
     unifiedSessions.find((session) => session.id === activeId) ??
     unifiedSessions[0] ??
     null;
-
-  useEffect(() => {
-    let cancelled = false;
-
-    void (async () => {
-      const home = await resolveHomeDirectory();
-      if (!cancelled) {
-        setHomeDirectory(home);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -188,7 +172,7 @@ export function TerminalTab({ workspaceDir, onHide }: TerminalTabProps) {
 
   const renderSessionLabel = (session: UnifiedSession) => {
     if (session.source === "human") {
-      const formatted = formatTerminalTabPath(session.cwd, homeDirectory);
+      const formatted = formatTerminalTabPath(session.cwd, defaultCwd);
       // Show only the last path component (directory name)
       return formatted.split("/").filter(Boolean).pop() ?? formatted;
     }
@@ -200,7 +184,7 @@ export function TerminalTab({ workspaceDir, onHide }: TerminalTabProps) {
 
   const renderSessionTitle = (session: UnifiedSession): string | undefined => {
     if (session.source === "human") {
-      return formatTerminalTabPath(session.cwd, homeDirectory);
+      return formatTerminalTabPath(session.cwd, defaultCwd);
     }
     return (
       session.process.description ??
