@@ -505,6 +505,14 @@ pub fn apply_text_replacement(
             0
         };
         if fallback_count > 0 {
+            if !replace_all && fallback_count > 1 {
+                return Err(TextFileToolError::new(
+                    "multiple_matches",
+                    format!(
+                        "old_string matched {fallback_count} locations; set replace_all to true or provide a more specific string"
+                    ),
+                ));
+            }
             // Use the unescaped version for replacement.
             let updated_lf = if replace_all {
                 content_lf.replace(&unescaped, &new_lf)
@@ -772,5 +780,12 @@ mod tests {
         // When old_string matches exactly, fallback is not needed
         let updated = apply_text_replacement("foo bar", "bar", "baz", false).expect("exact match");
         assert_eq!(updated, "foo baz");
+    }
+
+    #[test]
+    fn fallback_rejects_multiple_matches_by_default() {
+        let error = apply_text_replacement(r#""a" and "a""#, r#"\"a\""#, "b", false)
+            .expect_err("multiple matches should be rejected");
+        assert_eq!(error.code, "multiple_matches");
     }
 }
