@@ -44,9 +44,9 @@ export function AutomationCard({
   onDelete,
 }: AutomationCardProps) {
   const { t } = useTranslation();
-  const { resolved } = useModelProvider();
-  const runConfig = resolveAutomationRunConfig(item, resolved);
-  const modelDefinition = findModelDefinition(resolved.models, runConfig.model);
+  const { allModels } = useModelProvider();
+  const runConfig = resolveAutomationRunConfig(item, { models: allModels });
+  const modelDefinition = findModelDefinition(allModels, runConfig.model);
   const workspaceName = runConfig.workspaceDir
     ? getWorkspaceDisplayName(runConfig.workspaceDir)
     : null;
