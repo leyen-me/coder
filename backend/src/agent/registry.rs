@@ -365,9 +365,7 @@ impl AgentRegistry {
             emit_broadcaster.unregister(&task_id);
 
             if let Ok(mut registry) = registry.lock() {
-                if let Some(run) = registry.runs.get_mut(&task_id) {
-                    run.status = final_status;
-                }
+                registry.runs.remove(&task_id);
             }
         });
 
