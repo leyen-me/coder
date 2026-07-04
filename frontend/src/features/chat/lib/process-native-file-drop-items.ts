@@ -4,6 +4,8 @@ import {
   type NativeFileDropItem,
 } from "@/lib/dnd/external-file-drop";
 
+import { insertFileMentionIntoComposer } from "./composer-insert-store";
+
 type ProcessNativeFileDropMessages = {
   externalDropImageLoadFailed: string;
   externalDropInvalidPath: string;
@@ -51,7 +53,7 @@ export async function processNativeFileDropItems({
       continue;
     }
 
-    onError(messages.externalDropUnsupportedRuntime);
+    insertFileMentionIntoComposer(path);
   }
 }
 
