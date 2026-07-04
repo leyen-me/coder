@@ -279,7 +279,25 @@ export function connectShellSse(
             if (data.type === "shell_output") {
               const output = data as ShellOutputEvent;
               onOutput(output.stream, output.data);
-            } else if (data.type === "shell_finished" || data.type === "close") {
+            } else if (data.type === "close") {
+              const closeEvent = data as {
+                reason?: string;
+                message?: string;
+                skipped?: number;
+              };
+              if (closeEvent.reason === "lagged") {
+                const skipped =
+                  closeEvent.skipped != null
+                    ? ` (${closeEvent.skipped} events skipped)`
+                    : "";
+                onError(
+                  `${closeEvent.message ?? "Shell output stream lagged behind"}${skipped}`,
+                );
+              }
+              controller.abort();
+              onDone();
+              return;
+            } else if (data.type === "shell_finished") {
               controller.abort();
               onDone();
               return;
