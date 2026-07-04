@@ -1,4 +1,5 @@
 import { resolveDefaultModel } from "@/features/agent/model-preference";
+import { readWorkspaceDir } from "@/features/workspace/storage";
 import { findModelDefinition } from "@/lib/model-provider/model-definition";
 import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 import type { AutomationRecord } from "@/lib/db";
@@ -27,7 +28,8 @@ export function resolveAutomationRunConfig(
     Boolean(modelDefinition?.supportsThinking && modelDefinition.thinkingConfig);
 
   return {
-    workspaceDir: automation.workspaceDir?.trim() || null,
+    workspaceDir:
+      automation.workspaceDir?.trim() || readWorkspaceDir()?.trim() || null,
     model,
     provider: automation.provider,
     agentMode: automation.agentMode,

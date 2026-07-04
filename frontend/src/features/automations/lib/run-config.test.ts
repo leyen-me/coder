@@ -1,9 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { AutomationRecord } from "@/lib/db";
 import { createModelDefinition } from "@/lib/model-provider/model-definition";
 
 import { resolveAutomationRunConfig } from "./run-config";
+
+vi.mock("@/features/workspace/storage", () => ({
+  readWorkspaceDir: vi.fn(() => null),
+}));
+
+import { readWorkspaceDir } from "@/features/workspace/storage";
 
 function createAutomation(
   overrides: Partial<AutomationRecord> = {}
@@ -50,6 +56,17 @@ describe("resolveAutomationRunConfig", () => {
       agentMode: "ask",
       thinkingEnabled: false,
     });
+  });
+
+  it("falls back to the persisted workspace when automation has none", () => {
+    vi.mocked(readWorkspaceDir).mockReturnValue("/tmp/global");
+
+    expect(
+      resolveAutomationRunConfig(
+        createAutomation({ workspaceDir: null }),
+        { models }
+      ).workspaceDir
+    ).toBe("/tmp/global");
   });
 
   it("falls back to the provider default model when stored model is missing", () => {
