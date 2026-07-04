@@ -27,12 +27,14 @@ import { Label } from "@/components/ui/label";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import {
   listRemoteTargets,
+  getRemoteTarget,
   saveRemoteTarget,
   deleteRemoteTarget,
 } from "@/lib/db/remote-targets";
 import type { RemoteTargetAuth, RemoteTargetConfig } from "@/lib/db/types";
 
 import { RemoteTargetCard } from "./remote-target-card";
+import { testRemoteConnection } from "../lib/test-remote-connection";
 
 type AuthType = RemoteTargetAuth["type"];
 
@@ -155,12 +157,35 @@ export function RemoteTargetsSettingsPanel() {
     setTestingAlias(alias);
     setTestResult(null);
 
-    setTestResult({
-      alias,
-      ok: false,
-      message: "Test connection is only available in the desktop app",
-    });
-    setTestingAlias(null);
+    const target =
+      targets.find((item) => item.alias === alias) ??
+      (await getRemoteTarget(alias));
+    if (!target) {
+      setTestResult({
+        alias,
+        ok: false,
+        message: "Target not found",
+      });
+      setTestingAlias(null);
+      return;
+    }
+
+    try {
+      const result = await testRemoteConnection(target);
+      setTestResult({
+        alias,
+        ok: result.ok,
+        message: result.message,
+      });
+    } catch (error) {
+      setTestResult({
+        alias,
+        ok: false,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setTestingAlias(null);
+    }
   }
 
   function handleToggleEnabled(target: RemoteTargetConfig) {
