@@ -102,8 +102,25 @@ function areMessageItemPropsEqual(
     prevMessage.toolInvocations === nextMessage.toolInvocations &&
     prevMessage.images === nextMessage.images &&
     prevMessage.messageKind === nextMessage.messageKind &&
-    prevMessage.taskId === nextMessage.taskId
+    prevMessage.taskId === nextMessage.taskId &&
+    areReferencedSkillsEqual(
+      prevMessage.referencedSkills,
+      nextMessage.referencedSkills
+    )
   );
+}
+
+function areReferencedSkillsEqual(
+  prev: readonly string[] | undefined,
+  next: readonly string[] | undefined
+): boolean {
+  if (prev === next) {
+    return true;
+  }
+  if (!prev || !next || prev.length !== next.length) {
+    return false;
+  }
+  return prev.every((slug, index) => slug === next[index]);
 }
 
 export const MessageItem = memo(function MessageItem({
