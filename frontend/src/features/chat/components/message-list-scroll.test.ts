@@ -5,6 +5,7 @@ import {
   isNearBottom,
   isUserScrollDownIntent,
   isUserScrollUpIntent,
+  shouldClearScrollPinSuppression,
   shouldFollowStream,
 } from "./message-list-scroll";
 
@@ -63,8 +64,8 @@ describe("message-list-scroll", () => {
     ).toBe(true);
   });
 
-  it("detects scroll-up intent from wheel delta", () => {
-    expect(isUserScrollUpIntent(-1)).toBe(true);
-    expect(isUserScrollDownIntent(1)).toBe(true);
+  it("clears scroll pin suppression once the viewport reaches the bottom", () => {
+    expect(shouldClearScrollPinSuppression(80, 80)).toBe(true);
+    expect(shouldClearScrollPinSuppression(81, 80)).toBe(false);
   });
 });

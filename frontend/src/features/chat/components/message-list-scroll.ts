@@ -21,6 +21,13 @@ export function shouldFollowStream({
   return isPinnedToBottom || userJustSent;
 }
 
+export function shouldClearScrollPinSuppression(
+  distanceFromBottom: number,
+  threshold = NEAR_BOTTOM_THRESHOLD_PX
+): boolean {
+  return distanceFromBottom <= threshold;
+}
+
 export function isUserScrollUpIntent(deltaY: number): boolean {
   return deltaY < 0;
 }
