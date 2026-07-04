@@ -108,8 +108,14 @@ export function useSessionData(sessionId: string) {
   const [isLoading, setIsLoading] = useState(true);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRefreshRef = useRef(false);
+  const refreshGenerationRef = useRef(0);
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
+
+  const bumpRefreshGeneration = useCallback(() => {
+    refreshGenerationRef.current += 1;
+    return refreshGenerationRef.current;
+  }, []);
   const messageIndexById = useMemo(() => buildMessageIndexById(messages), [messages]);
   const hasStreamingOverlayForSession = useMemo(() => {
     if (streamingOverlays.size === 0 || messageIndexById.size === 0) {
@@ -128,8 +134,15 @@ export function useSessionData(sessionId: string) {
   hasStreamingOverlayForSessionRef.current = hasStreamingOverlayForSession;
 
   const applySessionData = useCallback(
-    (id: string, data: Awaited<ReturnType<typeof fetchSessionData>>) => {
+    (
+      id: string,
+      generation: number,
+      data: Awaited<ReturnType<typeof fetchSessionData>>
+    ) => {
       if (id !== sessionIdRef.current) {
+        return;
+      }
+      if (generation !== refreshGenerationRef.current) {
         return;
       }
 
@@ -143,20 +156,23 @@ export function useSessionData(sessionId: string) {
   const refresh = useCallback(async () => {
     const id = sessionIdRef.current;
     if (!id) {
+      bumpRefreshGeneration();
       setSession(null);
       setMessages([]);
       setIsLoading(false);
       return;
     }
 
+    const generation = bumpRefreshGeneration();
     const data = await fetchSessionData(id);
-    applySessionData(id, data);
-  }, [applySessionData]);
+    applySessionData(id, generation, data);
+  }, [applySessionData, bumpRefreshGeneration]);
 
   useEffect(() => {
     let active = true;
 
     pendingRefreshRef.current = false;
+    const generation = bumpRefreshGeneration();
     setIsLoading(true);
     setSession(null);
     setMessages([]);
@@ -166,7 +182,7 @@ export function useSessionData(sessionId: string) {
       if (!active) {
         return;
       }
-      applySessionData(sessionId, data);
+      applySessionData(sessionId, generation, data);
     })();
 
     const unsubscribe = subscribeDb(() => {
@@ -181,25 +197,27 @@ export function useSessionData(sessionId: string) {
 
       refreshTimeoutRef.current = setTimeout(() => {
         refreshTimeoutRef.current = null;
+        const debouncedGeneration = bumpRefreshGeneration();
         void (async () => {
           const data = await fetchSessionData(sessionId);
           if (!active) {
             return;
           }
-          applySessionData(sessionId, data);
+          applySessionData(sessionId, debouncedGeneration, data);
         })();
       }, DB_REFRESH_DEBOUNCE_MS);
     });
 
     return () => {
       active = false;
+      bumpRefreshGeneration();
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
         refreshTimeoutRef.current = null;
       }
       unsubscribe();
     };
-  }, [sessionId, applySessionData]);
+  }, [sessionId, applySessionData, bumpRefreshGeneration]);
 
   useEffect(() => {
     if (hasStreamingOverlayForSession || !pendingRefreshRef.current) {
