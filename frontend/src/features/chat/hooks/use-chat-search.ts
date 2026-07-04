@@ -55,7 +55,7 @@ export function useChatSearch(
           setError(message);
           setLoading(false);
         });
-    }, SEARCH_DEBOUNCE_MS);
+    }, query.trim() ? SEARCH_DEBOUNCE_MS : 0);
 
     return () => {
       window.clearTimeout(timeoutId);
