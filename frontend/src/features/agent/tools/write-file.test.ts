@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/api/client", () => ({
+  apiPost: vi.fn(),
+}));
+
+import { apiPost } from "@/lib/api/client";
 import { WRITE_FILE_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
 import { writeFileHandler } from "./write-file";
-
-  isTauri: vi.fn(() => true),
-  invoke: vi.fn(),
-}));
 
 
 describe("writeFileHandler", () => {
@@ -51,7 +52,7 @@ describe("writeFileHandler", () => {
   });
 
   it("returns structured tool failures from rejections", async () => {
-    vi.mocked(invoke).mockRejectedValueOnce({
+    vi.mocked(apiPost).mockRejectedValueOnce({
       code: "file_already_exists",
       message: "File already exists: /tmp/project/src/main.ts",
     });
@@ -71,7 +72,7 @@ describe("writeFileHandler", () => {
   });
 
   it("returns successful writes", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       path: "src/new.ts",
       action: "created",
       sha256: "abc123",
@@ -95,28 +96,11 @@ describe("writeFileHandler", () => {
         linesRemoved: 0,
       })
     );
-    expect(invoke).toHaveBeenCalledWith("tool_write_file", {
+    expect(apiPost).toHaveBeenCalledWith("/api/tool_write_file", {
       workspaceDir: "/tmp/project",
       path: "src/new.ts",
       content: "export {}\n",
       createParentDirs: true,
     });
-  });
-
-  it("rejects non-tauri runtimes", async () => {
-    vi.mocked(isTauri).mockReturnValueOnce(false);
-
-    const result = await writeFileHandler(
-      { path: "src/main.ts", content: "export {}\n" },
-      { workspaceDir: "/tmp/project" }
-    );
-
-    expect(result).toEqual(
-      toolFailure(
-        WRITE_FILE_TOOL_NAME,
-        "unsupported_runtime",
-        "write_file is only available in the desktop app"
-      )
-    );
   });
 });

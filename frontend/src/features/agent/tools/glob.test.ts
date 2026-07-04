@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/api/client", () => ({
+  apiPost: vi.fn(),
+}));
+
+import { apiPost } from "@/lib/api/client";
 import { GLOB_TOOL_NAME } from "./definitions";
 import { globHandler } from "./glob";
 import { toolFailure, toolSuccess } from "./result";
-
-  isTauri: vi.fn(() => true),
-  invoke: vi.fn(),
-}));
 
 
 describe("globHandler", () => {
@@ -36,7 +37,7 @@ describe("globHandler", () => {
   });
 
   it("returns successful glob results", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       pattern: "**/*.ts",
       targetDirectory: "/tmp/project",
       matches: ["src/main.ts"],
@@ -58,29 +59,12 @@ describe("globHandler", () => {
         truncated: false,
       })
     );
-    expect(invoke).toHaveBeenCalledWith("tool_glob", {
+    expect(apiPost).toHaveBeenCalledWith("/api/tool_glob", {
       workspaceDir: "/tmp/project",
       globPattern: "**/*.ts",
       targetDirectory: "src",
       headLimit: undefined,
       respectGitignore: undefined,
     });
-  });
-
-  it("returns unsupported runtime outside tauri", async () => {
-    vi.mocked(isTauri).mockReturnValueOnce(false);
-
-    const result = await globHandler(
-      { glob_pattern: "**/*.ts" },
-      { workspaceDir: "/tmp/project" }
-    );
-
-    expect(result).toEqual(
-      toolFailure(
-        GLOB_TOOL_NAME,
-        "unsupported_runtime",
-        "glob is only available in the desktop app"
-      )
-    );
   });
 });

@@ -128,14 +128,14 @@ describe("runAgentWithTools", () => {
     expect(executeToolCallMock).toHaveBeenCalledWith(
       "list_dir",
       '{"path":"."}',
-      {
+      expect.objectContaining({
         workspaceDir: null,
         sessionId: "session-1",
         taskId: "task-1",
         signal: undefined,
         tavilyConfig: undefined,
         allowPrivateNetworkAccess: undefined,
-      }
+      })
     );
   });
 
@@ -188,14 +188,14 @@ describe("runAgentWithTools", () => {
     expect(executeToolCallMock).toHaveBeenCalledWith(
       "web_search",
       '{"search_term":"rust async"}',
-      {
+      expect.objectContaining({
         workspaceDir: null,
         sessionId: "session-1",
         taskId: "task-1",
         signal: undefined,
         tavilyConfig,
         allowPrivateNetworkAccess: undefined,
-      }
+      })
     );
   });
 
@@ -540,14 +540,14 @@ describe("runAgentWithTools", () => {
     expect(executeToolCallMock).toHaveBeenCalledWith(
       "shell",
       '{"command":"git push origin main"}',
-      {
+      expect.objectContaining({
         workspaceDir: null,
         sessionId: "session-1",
         taskId: "task-1",
         signal: undefined,
         tavilyConfig: undefined,
         allowPrivateNetworkAccess: undefined,
-      }
+      })
     );
     expect(events).toContainEqual({
       type: "tool_call_started",

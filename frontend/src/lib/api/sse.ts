@@ -26,11 +26,84 @@ export interface ShellFinishedEvent {
   output: unknown;
 }
 
-export type SseEvent = AgentEvent | ShellOutputEvent | ShellFinishedEvent;
+export interface SseCloseEvent {
+  type: "close";
+  reason?: string;
+  message?: string;
+  skipped?: number;
+}
+
+export type SseEvent =
+  | AgentEvent
+  | ShellOutputEvent
+  | ShellFinishedEvent
+  | SseCloseEvent;
 export type AgentSseConnection = {
   close: () => void;
   ready: Promise<void>;
 };
+export type AgentSseCompletion = {
+  reason: "terminal_status" | "stream_end" | "server_close";
+  closeEvent?: SseCloseEvent;
+};
+
+function drainSseEventBlocks(buffer: string): {
+  events: string[];
+  rest: string;
+} {
+  const events: string[] = [];
+  let rest = buffer.replace(/\r\n/g, "\n");
+
+  while (true) {
+    const separatorIndex = rest.indexOf("\n\n");
+    if (separatorIndex === -1) {
+      break;
+    }
+
+    events.push(rest.slice(0, separatorIndex));
+    rest = rest.slice(separatorIndex + 2);
+  }
+
+  return { events, rest };
+}
+
+function readSsePayload(block: string): string | null {
+  const dataLines: string[] = [];
+
+  for (const rawLine of block.split("\n")) {
+    const line = rawLine.trimEnd();
+    if (!line || line.startsWith(":")) {
+      continue;
+    }
+
+    if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trimStart());
+    }
+  }
+
+  if (dataLines.length === 0) {
+    return null;
+  }
+
+  return dataLines.join("\n");
+}
+
+function isTerminalAgentStatus(
+  event: SseEvent
+): event is AgentEvent & { type: "status"; status: "completed" | "cancelled" | "failed" } {
+  return (
+    event.type === "status" &&
+    typeof event.status === "string" &&
+    ["completed", "cancelled", "failed"].includes(event.status)
+  );
+}
+
+function logMalformedSsePayload(scope: "agent" | "shell", payload: string, error: unknown) {
+  console.warn(`[${scope} SSE] Failed to parse payload`, {
+    error,
+    payload,
+  });
+}
 
 /**
  * Connect to the SSE endpoint for agent events via fetch + streaming.
@@ -40,13 +113,14 @@ export type AgentSseConnection = {
 export function connectAgentSse(
   taskId: string,
   onEvent: (event: SseEvent) => void,
-  onDone: () => void,
+  onDone: (completion: AgentSseCompletion) => void,
   onError: (error: string) => void,
 ): AgentSseConnection {
   const controller = new AbortController();
   let resolveReady!: () => void;
   let rejectReady!: (error: Error) => void;
   let readySettled = false;
+  let doneSignaled = false;
   const ready = new Promise<void>((resolve, reject) => {
     resolveReady = () => {
       if (readySettled) {
@@ -63,6 +137,13 @@ export function connectAgentSse(
       reject(error);
     };
   });
+  const signalDone = (completion: AgentSseCompletion) => {
+    if (doneSignaled) {
+      return;
+    }
+    doneSignaled = true;
+    onDone(completion);
+  };
 
   void (async () => {
     try {
@@ -97,42 +178,37 @@ export function connectAgentSse(
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
+        const drained = drainSseEventBlocks(buffer);
+        buffer = drained.rest;
 
-        // Parse SSE lines
-        while (true) {
-          const lineBreak = buffer.indexOf("\n");
-          if (lineBreak === -1) break;
+        for (const block of drained.events) {
+          const payload = readSsePayload(block);
+          if (!payload) {
+            continue;
+          }
 
-          const line = buffer.slice(0, lineBreak).trim();
-          buffer = buffer.slice(lineBreak + 1);
-
-          if (!line || line.startsWith(":")) continue; // heartbeat / comment
-
-          if (line.startsWith("data:")) {
-            const payload = line.slice(5).trim();
-            try {
-              const data = JSON.parse(payload) as SseEvent;
-              onEvent(data);
-
-              if (
-                data.type === "status" &&
-                "status" in data &&
-                typeof data.status === "string" &&
-                ["completed", "cancelled", "failed"].includes(data.status)
-              ) {
-                controller.abort();
-                onDone();
-                return;
-              }
-            } catch {
-              // malformed JSON — ignore
+          try {
+            const data = JSON.parse(payload) as SseEvent;
+            if (data.type === "close") {
+              controller.abort();
+              signalDone({ reason: "server_close", closeEvent: data });
+              return;
             }
+
+            onEvent(data);
+
+            if (isTerminalAgentStatus(data)) {
+              controller.abort();
+              signalDone({ reason: "terminal_status" });
+              return;
+            }
+          } catch (error) {
+            logMalformedSsePayload("agent", payload, error);
           }
         }
       }
 
-      // Stream ended
-      onDone();
+      signalDone({ reason: "stream_end" });
     } catch (err: unknown) {
       if (controller.signal.aborted) {
         return;
@@ -140,7 +216,6 @@ export function connectAgentSse(
       const message = err instanceof Error ? err.message : String(err);
       rejectReady(new Error(message));
       onError(`SSE connection error: ${message}`);
-      onDone();
     }
   })();
 
@@ -190,30 +265,26 @@ export function connectShellSse(
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
+        const drained = drainSseEventBlocks(buffer);
+        buffer = drained.rest;
 
-        while (true) {
-          const lineBreak = buffer.indexOf("\n");
-          if (lineBreak === -1) break;
+        for (const block of drained.events) {
+          const payload = readSsePayload(block);
+          if (!payload) {
+            continue;
+          }
 
-          const line = buffer.slice(0, lineBreak).trim();
-          buffer = buffer.slice(lineBreak + 1);
-
-          if (!line || line.startsWith(":")) continue;
-
-          if (line.startsWith("data:")) {
-            const payload = line.slice(5).trim();
-            try {
-              const data = JSON.parse(payload) as SseEvent;
-              if (data.type === "shell_output") {
-                onOutput(data.stream, data.data);
-              } else if (data.type === "shell_finished") {
-                controller.abort();
-                onDone();
-                return;
-              }
-            } catch {
-              // ignore
+          try {
+            const data = JSON.parse(payload) as SseEvent;
+            if (data.type === "shell_output") {
+              onOutput(data.stream, data.data);
+            } else if (data.type === "shell_finished" || data.type === "close") {
+              controller.abort();
+              onDone();
+              return;
             }
+          } catch (error) {
+            logMalformedSsePayload("shell", payload, error);
           }
         }
       }

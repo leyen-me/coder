@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 
 import { FloatingShellNav } from "@/components/layout/floating-shell-nav";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { useSearchDialog } from "@/features/keyboard-shortcuts/search-dialog-context";
 import { useSidebarOpen } from "@/features/chat/hooks/use-sidebar-open";
 import { paths } from "@/app/paths";
@@ -86,7 +87,13 @@ export function AppShell() {
                 <ShellProcessesProvider>
                   <PersistentBottomPanel workspaceDir={workspaceDir} />
                   <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
-                    <Outlet context={shellContext} />
+                    <ErrorBoundary
+                      className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-background px-6 py-8"
+                      title="Workspace failed to render"
+                      description="This section hit a rendering error. Retry the view or reload the app to recover."
+                    >
+                      <Outlet context={shellContext} />
+                    </ErrorBoundary>
                   </div>
                   <KeyboardShortcuts />
                 </ShellProcessesProvider>

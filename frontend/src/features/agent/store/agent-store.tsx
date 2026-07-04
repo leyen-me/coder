@@ -455,9 +455,12 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             terminalOverlayTimersRef.current.delete(assistantMessageId);
           }
           const task = tasksRef.current.get(event.taskId);
+          const resolvedStatus =
+            task?.status === "cancelling" ? "cancelled" : "failed";
           if (task) {
             tasksRef.current.set(event.taskId, {
               ...task,
+              status: resolvedStatus,
               error: event.message,
             });
           }
@@ -467,7 +470,17 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               terminalOverlayTimersRef.current.delete(assistantMessageId);
               void (async () => {
                 await streamingBufferRef.current.flush(assistantMessageId);
-                await setMessageStatus(assistantMessageId, "failed", event.message);
+                await setMessageStatus(
+                  assistantMessageId,
+                  resolvedStatus === "cancelled" ? "cancelled" : "failed",
+                  event.message
+                );
+                const latestTask = tasksRef.current.get(event.taskId);
+                if (latestTask && latestTask.status === resolvedStatus) {
+                  taskAbortControllersRef.current.delete(event.taskId);
+                  tasksRef.current.delete(event.taskId);
+                  emit();
+                }
                 setTimeout(() => {
                   streamingBufferRef.current.clear(assistantMessageId);
                 }, TERMINAL_OVERLAY_CLEAR_DELAY_MS);
@@ -502,19 +515,24 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             return;
           }
 
+          const effectiveStatus =
+            task.status === "cancelling" && event.status !== "cancelled"
+              ? "cancelled"
+              : event.status;
+
           tasksRef.current.set(event.taskId, {
             ...task,
-            status: event.status,
+            status: effectiveStatus,
             error: task.error,
           });
 
-          if (event.status === "running") {
+          if (effectiveStatus === "running") {
             await setMessageStatus(assistantMessageId, "streaming");
           }
 
-          if (isTerminalStatus(event.status)) {
+          if (isTerminalStatus(effectiveStatus)) {
             const pendingHandoff =
-              event.status === "completed" && task.handoff
+              effectiveStatus === "completed" && task.handoff
                 ? {
                     sessionId: task.sessionId,
                     model: task.model,
@@ -543,9 +561,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
                   await streamingBufferRef.current.flush(assistantMessageId);
 
                   const messageStatus =
-                    event.status === "completed"
+                    effectiveStatus === "completed"
                       ? "completed"
-                      : event.status === "cancelled"
+                      : effectiveStatus === "cancelled"
                         ? "cancelled"
                         : "failed";
                   await setMessageStatus(

@@ -1,41 +1,137 @@
 import { apiPost } from "@/lib/api/client";
-import { connectAgentSse } from "@/lib/api/sse";
-import type { AgentEvent, AgentStartInput } from "./types";
+import { connectAgentSse, type AgentSseConnection } from "@/lib/api/sse";
+import type { AgentEvent, AgentStartInput, AgentStatus } from "./types";
+
+const activeConnections = new Map<string, AgentSseConnection>();
+
+type StartAgentOptions = {
+  signal?: AbortSignal;
+};
+
+function isTerminalStatus(status: string | null | undefined): status is AgentStatus {
+  return status === "completed" || status === "cancelled" || status === "failed";
+}
+
+function createAbortError(taskId: string): Error {
+  const error = new Error(`Agent start aborted for task: ${taskId}`);
+  error.name = "AbortError";
+  return error;
+}
 
 export async function startAgent(
   input: AgentStartInput,
   onEvent: (event: AgentEvent) => void,
+  options: StartAgentOptions = {},
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     let didStart = false;
     let didFinishStream = false;
+    let terminalStatus: AgentStatus | null = null;
+    let recoveryInFlight = false;
     let settled = false;
+    let detachAbortListener = () => {};
     const settle = (callback: () => void) => {
       if (settled) {
         return;
       }
       settled = true;
+      activeConnections.delete(input.taskId);
+      detachAbortListener();
       callback();
     };
-    const maybeResolve = () => {
-      if (didStart && didFinishStream) {
-        settle(resolve);
+    const maybeFinalize = () => {
+      if (!didStart || !didFinishStream) {
+        return;
       }
+
+      if (terminalStatus) {
+        settle(resolve);
+        return;
+      }
+
+      if (recoveryInFlight) {
+        return;
+      }
+
+      recoveryInFlight = true;
+      void getAgentStatus(input.taskId)
+        .then((statusResponse) => {
+          if (settled) {
+            return;
+          }
+
+          const recoveredStatus = statusResponse?.status;
+          if (isTerminalStatus(recoveredStatus)) {
+            terminalStatus = recoveredStatus;
+            onEvent({
+              type: "status",
+              taskId: input.taskId,
+              status: recoveredStatus,
+            });
+            settle(resolve);
+            return;
+          }
+
+          const detail =
+            typeof recoveredStatus === "string"
+              ? ` Last known status: ${recoveredStatus}.`
+              : "";
+          const message = `Agent stream ended before a terminal status event was received.${detail}`;
+          onEvent({ type: "error", taskId: input.taskId, message });
+          settle(() => reject(new Error(message)));
+        })
+        .catch((error: unknown) => {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          settle(
+            () =>
+              reject(
+                new Error(
+                  `Agent stream ended before a terminal status event was received and status recovery failed: ${message}`
+                )
+              )
+          );
+        });
     };
     const connection = connectAgentSse(
       input.taskId,
       (raw) => {
-        onEvent(raw as AgentEvent);
+        const event = raw as AgentEvent;
+        if (event.type === "status" && isTerminalStatus(event.status)) {
+          terminalStatus = event.status;
+        }
+        onEvent(event);
       },
       () => {
         didFinishStream = true;
-        maybeResolve();
+        maybeFinalize();
       },
       (error) => settle(() => reject(new Error(error))),
     );
+    activeConnections.set(input.taskId, connection);
+
+    if (options.signal) {
+      if (options.signal.aborted) {
+        connection.close();
+        settle(() => reject(createAbortError(input.taskId)));
+        return;
+      }
+
+      const onAbort = () => {
+        connection.close();
+        settle(() => reject(createAbortError(input.taskId)));
+      };
+      detachAbortListener = () => {
+        options.signal?.removeEventListener("abort", onAbort);
+      };
+      options.signal.addEventListener("abort", onAbort, { once: true });
+    }
 
     void connection.ready
       .then(async () => {
+        if (options.signal?.aborted) {
+          throw createAbortError(input.taskId);
+        }
         await apiPost("/agent/start", {
           taskId: input.taskId,
           baseUrl: input.baseUrl,
@@ -48,7 +144,7 @@ export async function startAgent(
           requestExtensions: input.requestExtensions ?? null,
         });
         didStart = true;
-        maybeResolve();
+        maybeFinalize();
       })
       .catch((error: unknown) => {
         connection.close();
@@ -60,6 +156,8 @@ export async function startAgent(
 }
 
 export async function cancelAgent(taskId: string): Promise<void> {
+  activeConnections.get(taskId)?.close();
+  activeConnections.delete(taskId);
   try {
     await apiPost("/agent/cancel", { taskId });
   } catch {

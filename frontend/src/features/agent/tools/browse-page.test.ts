@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/api/client", () => ({
+  apiPost: vi.fn(),
+}));
+
+import { apiPost } from "@/lib/api/client";
 import { BROWSE_PAGE_TOOL_NAME } from "./definitions";
 import { browsePageHandler } from "./browse-page";
 import { toolFailure, toolSuccess } from "./result";
-
-  isTauri: vi.fn(() => true),
-  invoke: vi.fn(),
-}));
 
 
 describe("browsePageHandler", () => {
@@ -22,7 +23,7 @@ describe("browsePageHandler", () => {
   });
 
   it("returns successful page content", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       url: "https://example.com",
       finalUrl: "https://example.com/",
       title: "Example Domain",
@@ -48,7 +49,7 @@ describe("browsePageHandler", () => {
         contentType: "text/html",
       })
     );
-    expect(invoke).toHaveBeenCalledWith("tool_browse_page", {
+    expect(apiPost).toHaveBeenCalledWith("/api/tool_browse_page", {
       url: "https://example.com",
       startLine: null,
       maxLines: null,
@@ -57,7 +58,7 @@ describe("browsePageHandler", () => {
   });
 
   it("passes allowPrivateNetwork=false from context", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       url: "https://example.com",
       finalUrl: "https://example.com/",
       content: "ok",
@@ -70,7 +71,7 @@ describe("browsePageHandler", () => {
       { workspaceDir: null, allowPrivateNetworkAccess: false }
     );
 
-    expect(invoke).toHaveBeenCalledWith("tool_browse_page", {
+    expect(apiPost).toHaveBeenCalledWith("/api/tool_browse_page", {
       url: "https://example.com",
       startLine: null,
       maxLines: null,
@@ -78,20 +79,4 @@ describe("browsePageHandler", () => {
     });
   });
 
-  it("returns unsupported runtime outside tauri", async () => {
-    vi.mocked(isTauri).mockReturnValueOnce(false);
-
-    const result = await browsePageHandler(
-      { url: "https://example.com" },
-      { workspaceDir: null }
-    );
-
-    expect(result).toEqual(
-      toolFailure(
-        BROWSE_PAGE_TOOL_NAME,
-        "unsupported_runtime",
-        "browse_page is only available in the desktop app"
-      )
-    );
-  });
 });

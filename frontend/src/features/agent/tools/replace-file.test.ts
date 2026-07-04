@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/api/client", () => ({
+  apiPost: vi.fn(),
+}));
+
+import { apiPost } from "@/lib/api/client";
 import { REPLACE_FILE_TOOL_NAME } from "./definitions";
 import { replaceFileHandler } from "./replace-file";
 import { toolFailure, toolSuccess } from "./result";
-
-  isTauri: vi.fn(() => true),
-  invoke: vi.fn(),
-}));
 
 
 describe("replaceFileHandler", () => {
@@ -25,7 +26,7 @@ describe("replaceFileHandler", () => {
   });
 
   it("returns structured failures for hash guard errors", async () => {
-    vi.mocked(invoke).mockRejectedValueOnce({
+    vi.mocked(apiPost).mockRejectedValueOnce({
       code: "file_changed",
       message: "File changed since it was last read; re-read the file and retry",
     });
@@ -49,7 +50,7 @@ describe("replaceFileHandler", () => {
   });
 
   it("returns successful replacements", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       path: "src/main.ts",
       action: "replaced",
       sha256: "abc123",

@@ -10,7 +10,7 @@ import {
   TerminalIcon,
   XIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   Tooltip,
@@ -65,18 +65,21 @@ export function TerminalTab({ workspaceDir, onHide }: TerminalTabProps) {
   const [initError, setInitError] = useState<string | null>(null);
 
   // Build unified session list: human sessions + agent processes (exclude human PTY entries)
-  const unifiedSessions: UnifiedSession[] = [
-    ...sessions,
-    ...processes
-      .filter((process) => process.source !== "human")
-      .map(
-        (process): AgentSession => ({
-          id: process.shellId,
-          process,
-          source: "agent",
-        })
-      ),
-  ];
+  const unifiedSessions = useMemo<UnifiedSession[]>(
+    () => [
+      ...sessions,
+      ...processes
+        .filter((process) => process.source !== "human")
+        .map(
+          (process): AgentSession => ({
+            id: process.shellId,
+            process,
+            source: "agent",
+          })
+        ),
+    ],
+    [processes, sessions]
+  );
 
   const activeSession =
     unifiedSessions.find((session) => session.id === activeId) ??

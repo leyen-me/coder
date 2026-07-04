@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/api/client", () => ({
+  apiPost: vi.fn(),
+}));
+
+import { apiPost } from "@/lib/api/client";
 import { EDIT_FILE_TOOL_NAME } from "./definitions";
 import { editFileHandler } from "./edit-file";
 import { toolFailure, toolSuccess } from "./result";
-
-  isTauri: vi.fn(() => true),
-  invoke: vi.fn(),
-}));
 
 
 describe("editFileHandler", () => {
@@ -25,7 +26,7 @@ describe("editFileHandler", () => {
   });
 
   it("returns structured failures for missing matches", async () => {
-    vi.mocked(invoke).mockRejectedValueOnce({
+    vi.mocked(apiPost).mockRejectedValueOnce({
       code: "string_not_found",
       message:
         "old_string was not found in the file. " +
@@ -54,7 +55,7 @@ describe("editFileHandler", () => {
   });
 
   it("returns successful edits", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       path: "src/main.ts",
       action: "modified",
       sha256: "abc123",
@@ -82,7 +83,7 @@ describe("editFileHandler", () => {
         linesRemoved: 0,
       })
     );
-    expect(invoke).toHaveBeenCalledWith("tool_edit_file", {
+    expect(apiPost).toHaveBeenCalledWith("/api/tool_edit_file", {
       workspaceDir: "/tmp/project",
       path: "src/main.ts",
       oldString: "const a = 1;",

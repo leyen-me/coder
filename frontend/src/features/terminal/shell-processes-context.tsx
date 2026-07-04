@@ -1,5 +1,7 @@
 "use client";
 
+import { apiPost } from "@/lib/api/client";
+import { connectShellSse } from "@/lib/api/sse";
 import type { ShellInfo, ShellStatus } from "@/features/agent/tools/types";
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 
@@ -25,9 +27,8 @@ const EMPTY_PROCESSES: ShellProcess[] = [];
 let processes: ShellProcess[] = [];
 const subscribers = new Set<() => void>();
 let storeInitialized = false;
-let unlistenOutput: (() => void) | null = null;
-let unlistenFinished: (() => void) | null = null;
 let pollIntervalId: number | null = null;
+const shellSubscriptions = new Map<string, () => void>();
 
 function emitChange() {
   for (const subscriber of subscribers) {
@@ -47,8 +48,11 @@ function getProcessesSnapshot(): ShellProcess[] {
 }
 
 async function refreshProcesses(): Promise<void> {
-  // Shell process monitoring is handled by the server in browser mode.
-  return;
+  const shells = await apiPost<ShellInfo[]>("/api/shell_list", {
+    statusFilter: "all",
+  });
+  setProcesses((current) => mergeShellList(shells, current));
+  syncShellSubscriptions(shells);
 }
 
 async function initializeShellProcessStore(): Promise<void> {
@@ -63,7 +67,9 @@ async function initializeShellProcessStore(): Promise<void> {
 
   if (pollIntervalId === null) {
     pollIntervalId = window.setInterval(() => {
-      void refreshProcesses();
+      void refreshProcesses().catch((error: unknown) => {
+        console.warn("[shell store] Failed to refresh shell processes", error);
+      });
     }, 2000);
   }
 }
@@ -79,11 +85,8 @@ function subscribe(onStoreChange: () => void): () => void {
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    unlistenOutput?.();
-    unlistenFinished?.();
-    unlistenOutput = null;
-    unlistenFinished = null;
     storeInitialized = false;
+    clearShellSubscriptions();
 
     if (pollIntervalId !== null) {
       window.clearInterval(pollIntervalId);
@@ -119,9 +122,9 @@ export function useShellProcesses() {
     await refreshProcesses();
   }, []);
 
-  const killProcess = useCallback(async (_shellId: string) => {
-    // Shell kill is handled by the server in browser mode.
-    return;
+  const killProcess = useCallback(async (shellId: string) => {
+    await apiPost("/api/shell_kill", { shellId });
+    await refreshProcesses();
   }, []);
 
   return {
@@ -213,4 +216,48 @@ function updateFinished(
       ? { ...process, status, exitCode }
       : process
   );
+}
+
+function syncShellSubscriptions(shells: ShellInfo[]) {
+  const runningShellIds = new Set(
+    shells.filter((shell) => shell.status === "running").map((shell) => shell.shellId)
+  );
+
+  for (const [shellId, unsubscribe] of shellSubscriptions) {
+    if (!runningShellIds.has(shellId)) {
+      unsubscribe();
+      shellSubscriptions.delete(shellId);
+    }
+  }
+
+  for (const shell of shells) {
+    if (shell.status !== "running" || shellSubscriptions.has(shell.shellId)) {
+      continue;
+    }
+
+    const unsubscribe = connectShellSse(
+      shell.shellId,
+      (stream, data) => {
+        setProcesses((current) => appendStream(current, shell.shellId, stream, data));
+      },
+      () => {
+        shellSubscriptions.delete(shell.shellId);
+        void refreshProcesses().catch((error: unknown) => {
+          console.warn("[shell store] Failed to refresh after SSE completion", error);
+        });
+      },
+      (error) => {
+        console.warn(`[shell store] SSE error for ${shell.shellId}: ${error}`);
+      }
+    );
+
+    shellSubscriptions.set(shell.shellId, unsubscribe);
+  }
+}
+
+function clearShellSubscriptions() {
+  for (const unsubscribe of shellSubscriptions.values()) {
+    unsubscribe();
+  }
+  shellSubscriptions.clear();
 }

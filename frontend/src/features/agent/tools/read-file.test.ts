@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/api/client", () => ({
+  apiPost: vi.fn(),
+}));
+
+import { apiPost } from "@/lib/api/client";
 import { READ_FILE_TOOL_NAME } from "./definitions";
 import { readFileHandler } from "./read-file";
 import { toolFailure, toolSuccess } from "./result";
-
-  isTauri: vi.fn(() => true),
-  invoke: vi.fn(),
-}));
 
 
 describe("readFileHandler", () => {
@@ -33,7 +34,7 @@ describe("readFileHandler", () => {
   });
 
   it("returns structured tool failures from JSON string rejections", async () => {
-    vi.mocked(invoke).mockRejectedValueOnce(
+    vi.mocked(apiPost).mockRejectedValueOnce(
       JSON.stringify({
         code: "binary_file",
         message: "Binary file detected (image/png)",
@@ -56,7 +57,7 @@ describe("readFileHandler", () => {
   });
 
   it("returns structured tool failures from object rejections", async () => {
-    vi.mocked(invoke).mockRejectedValueOnce({
+    vi.mocked(apiPost).mockRejectedValueOnce({
       code: "path_not_found",
       message: "Path not found: /tmp/project/missing.ts",
     });
@@ -76,7 +77,7 @@ describe("readFileHandler", () => {
   });
 
   it("returns successful reads with numbered content", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       path: "src/main.ts",
       encoding: "utf-8",
       mimeType: "text/typescript",
@@ -108,29 +109,12 @@ describe("readFileHandler", () => {
         content: "1 | export {}\n2 | \n",
       })
     );
-    expect(invoke).toHaveBeenCalledWith("tool_read_file", {
+    expect(apiPost).toHaveBeenCalledWith("/api/tool_read_file", {
       workspaceDir: "/tmp/project",
       path: "src/main.ts",
       startLine: 1,
       maxLines: 500,
       respectGitignore: true,
     });
-  });
-
-  it("is unavailable outside the desktop runtime", async () => {
-    vi.mocked(isTauri).mockReturnValueOnce(false);
-
-    const result = await readFileHandler(
-      { path: "src/main.ts" },
-      { workspaceDir: "/tmp/project" }
-    );
-
-    expect(result).toEqual(
-      toolFailure(
-        READ_FILE_TOOL_NAME,
-        "unsupported_runtime",
-        "read_file is only available in the desktop app"
-      )
-    );
   });
 });

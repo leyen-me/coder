@@ -85,6 +85,22 @@ export function MessageList({
   messagesRef.current = messages;
   const scrollViewportRef = useRef(scrollViewport);
   scrollViewportRef.current = scrollViewport;
+  const streamingMessageCount = useMemo(
+    () => messages.filter((message) => streamingMessageIds.has(message.id)).length,
+    [messages, streamingMessageIds]
+  );
+  const isStreaming = streamingMessageCount > 0;
+  const shouldVirtualize = virtualScrollEnabled && !isStreaming;
+  const lastMessage = messages.at(-1);
+  const lastMessageSignature = lastMessage
+    ? [
+        lastMessage.id,
+        lastMessage.role,
+        lastMessage.status,
+        lastMessage.content.length,
+        lastMessage.thinking.length,
+      ].join(":")
+    : "";
 
   // Stable callbacks for useVirtualizer options — avoids re-creation on every render.
   const getItemKey = useCallback(
@@ -94,7 +110,7 @@ export function MessageList({
   const getScrollElement = useCallback(() => scrollViewportRef.current, []);
 
   const rowVirtualizer = useVirtualizer({
-    count: virtualScrollEnabled ? messages.length : 0,
+    count: shouldVirtualize ? messages.length : 0,
     estimateSize: ESTIMATED_ITEM_SIZE,
     getItemKey,
     getScrollElement,
@@ -107,7 +123,7 @@ export function MessageList({
         return;
       }
 
-      if (virtualScrollEnabled) {
+      if (shouldVirtualize) {
         rowVirtualizer.scrollToIndex(messagesRef.current.length - 1, {
           align: "end",
           behavior: smooth ? "smooth" : "auto",
@@ -116,7 +132,7 @@ export function MessageList({
         scrollViewportToBottom(scrollViewportRef.current, smooth);
       }
     },
-    [rowVirtualizer, virtualScrollEnabled]
+    [rowVirtualizer, shouldVirtualize]
   );
 
   const handoffContinuedSessionId = useMemo(
@@ -182,15 +198,11 @@ export function MessageList({
   }, [scrollToBottom, scrollViewport]);
 
   useEffect(() => {
-    const isStreaming = messages.some((message) =>
-      streamingMessageIds.has(message.id)
-    );
     isStreamingRef.current = isStreaming;
 
     const didAppendMessage = messages.length > previousMessageCountRef.current;
     previousMessageCountRef.current = messages.length;
 
-    const lastMessage = messages.at(-1);
     const userJustSent = didAppendMessage && lastMessage?.role === "user";
 
     if (userJustSent) {
@@ -216,7 +228,7 @@ export function MessageList({
         scrollRafRef.current = null;
       }
     };
-  }, [messages, scrollToBottom, streamingMessageIds]);
+  }, [isStreaming, lastMessage?.role, lastMessageSignature, messages.length, scrollToBottom]);
 
   // Listen for custom DOM event dispatched from the title bar.
   useEffect(() => {
@@ -259,15 +271,15 @@ export function MessageList({
     />
   );
 
-  const virtualItems = virtualScrollEnabled ? rowVirtualizer.getVirtualItems() : [];
+  const virtualItems = shouldVirtualize ? rowVirtualizer.getVirtualItems() : [];
 
   return (
     <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-hidden">
       <ScrollArea
         className={cn(
           "h-full px-4 py-6",
-          virtualScrollEnabled &&
-            "[&_[data-slot=scroll-area-viewport]]:[will-change:transform]"
+          shouldVirtualize &&
+            "**:data-[slot=scroll-area-viewport]:will-change-transform"
         )}
       >
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
@@ -284,7 +296,7 @@ export function MessageList({
             <HandoffSourceBanner continuedSessionId={handoffContinuedSessionId} />
           ) : null}
 
-          {virtualScrollEnabled ? (
+          {shouldVirtualize ? (
             /* ── Virtualized rendering ── */
             messages.length > 0 ? (
               <div

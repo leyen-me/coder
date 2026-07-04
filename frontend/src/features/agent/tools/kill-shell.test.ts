@@ -1,32 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/api/client", () => ({
+  apiPost: vi.fn(),
+}));
+
+import { apiPost } from "@/lib/api/client";
 import { KILL_SHELL_TOOL_NAME } from "./definitions";
 import { killShellHandler } from "./kill-shell";
 import { toolFailure, toolSuccess } from "./result";
 
-  isTauri: vi.fn(() => true),
-  invoke: vi.fn(),
-}));
-
 
 describe("killShellHandler", () => {
-  it("returns unsupported runtime outside tauri", async () => {
-    vi.mocked(isTauri).mockReturnValueOnce(false);
-
-    const result = await killShellHandler(
-      { shell_id: "shell-1" },
-      { workspaceDir: null }
-    );
-
-    expect(result).toEqual(
-      toolFailure(
-        KILL_SHELL_TOOL_NAME,
-        "unsupported_runtime",
-        "kill_shell is only available in the desktop app"
-      )
-    );
-  });
-
   it("requires shell_id in arguments", async () => {
     const result = await killShellHandler({}, { workspaceDir: "/tmp/project" });
 
@@ -40,7 +24,7 @@ describe("killShellHandler", () => {
   });
 
   it("kills a shell by id", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+    vi.mocked(apiPost).mockResolvedValueOnce(undefined);
 
     const result = await killShellHandler(
       { shell_id: "shell-42" },
@@ -53,11 +37,13 @@ describe("killShellHandler", () => {
         killed: true,
       })
     );
-    expect(invoke).toHaveBeenCalledWith("shell_kill", { shellId: "shell-42" });
+    expect(apiPost).toHaveBeenCalledWith("/api/shell_kill", {
+      shellId: "shell-42",
+    });
   });
 
-  it("returns execution failures from invoke", async () => {
-    vi.mocked(invoke).mockRejectedValueOnce(new Error("Unknown shell_id"));
+  it("returns execution failures from apiPost", async () => {
+    vi.mocked(apiPost).mockRejectedValueOnce(new Error("Unknown shell_id"));
 
     const result = await killShellHandler(
       { shell_id: "missing" },

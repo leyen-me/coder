@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/api/client", () => ({
+  apiPost: vi.fn(),
+}));
+
+import { apiPost } from "@/lib/api/client";
 import { GREP_TOOL_NAME } from "./definitions";
 import { grepHandler } from "./grep";
 import { toolFailure, toolSuccess } from "./result";
-
-  isTauri: vi.fn(() => true),
-  invoke: vi.fn(),
-}));
 
 
 describe("grepHandler", () => {
@@ -50,7 +51,7 @@ describe("grepHandler", () => {
   });
 
   it("returns successful grep results", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       pattern: "executeToolCall",
       path: "/tmp/project/src",
       outputMode: "content",
@@ -91,7 +92,7 @@ describe("grepHandler", () => {
         truncated: false,
       })
     );
-    expect(invoke).toHaveBeenCalledWith("tool_grep", {
+    expect(apiPost).toHaveBeenCalledWith("/api/tool_grep", {
       workspaceDir: "/tmp/project",
       pattern: "executeToolCall",
       path: "src/features/agent",
@@ -106,22 +107,5 @@ describe("grepHandler", () => {
       multiline: undefined,
       respectGitignore: undefined,
     });
-  });
-
-  it("returns unsupported runtime outside tauri", async () => {
-    vi.mocked(isTauri).mockReturnValueOnce(false);
-
-    const result = await grepHandler(
-      { pattern: "foo" },
-      { workspaceDir: "/tmp/project" }
-    );
-
-    expect(result).toEqual(
-      toolFailure(
-        GREP_TOOL_NAME,
-        "unsupported_runtime",
-        "grep is only available in the desktop app"
-      )
-    );
   });
 });

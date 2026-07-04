@@ -209,6 +209,8 @@ export function useDisplayMessages(messages: MessageRecord[]) {
 
   return useMemo(() => {
     const applied = applyStreamingOverlays(messages, streamingOverlays, messageIndexById);
+    let nextMessages: MessageRecord[] | null =
+      applied === messages ? null : applied.slice();
 
     // Update cache with active overlay values.
     for (const [messageId, overlay] of streamingOverlays) {
@@ -238,12 +240,13 @@ export function useDisplayMessages(messages: MessageRecord[]) {
       }
 
       // DB is still stale — apply cached overlay
-      const nextMessages = applied === messages ? messages.slice() : applied;
+      if (!nextMessages) {
+        nextMessages = messages.slice();
+      }
       nextMessages[messageIndex] = { ...message, ...cached };
-      return nextMessages;
     }
 
-    return applied;
+    return nextMessages ?? applied;
   }, [messages, messageIndexById, streamingOverlays]);
 }
 

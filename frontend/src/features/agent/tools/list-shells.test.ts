@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/api/client", () => ({
+  apiPost: vi.fn(),
+}));
+
+import { apiPost } from "@/lib/api/client";
 import { LIST_SHELLS_TOOL_NAME } from "./definitions";
 import {
   filterShells,
@@ -8,10 +13,6 @@ import {
 } from "./list-shells";
 import { toolFailure, toolSuccess } from "./result";
 import type { ListShellsData, ShellInfo } from "./types";
-
-  isTauri: vi.fn(() => true),
-  invoke: vi.fn(),
-}));
 
 
 const sampleShells: ShellInfo[] = [
@@ -41,20 +42,6 @@ const sampleShells: ShellInfo[] = [
 ];
 
 describe("listShellsHandler", () => {
-  it("returns unsupported runtime outside tauri", async () => {
-    vi.mocked(isTauri).mockReturnValueOnce(false);
-
-    const result = await listShellsHandler({}, { workspaceDir: null });
-
-    expect(result).toEqual(
-      toolFailure(
-        LIST_SHELLS_TOOL_NAME,
-        "unsupported_runtime",
-        "list_shells is only available in the desktop app"
-      )
-    );
-  });
-
   it("rejects invalid status_filter values", async () => {
     const result = await listShellsHandler(
       { status_filter: "unknown" },
@@ -71,7 +58,7 @@ describe("listShellsHandler", () => {
   });
 
   it("defaults to running shells only", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce(sampleShells);
+    vi.mocked(apiPost).mockResolvedValueOnce(sampleShells);
 
     const result = await listShellsHandler({}, { workspaceDir: "/tmp/project" });
 
@@ -95,13 +82,13 @@ describe("listShellsHandler", () => {
         total: 1,
       })
     );
-    expect(invoke).toHaveBeenCalledWith("shell_list", {
+    expect(apiPost).toHaveBeenCalledWith("/api/shell_list", {
       statusFilter: "running",
     });
   });
 
   it("filters by status and task id", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce(sampleShells);
+    vi.mocked(apiPost).mockResolvedValueOnce(sampleShells);
 
     const result = await listShellsHandler(
       { status_filter: "all", task_id_filter: "task-b" },
@@ -129,14 +116,14 @@ describe("listShellsHandler", () => {
         total: 1,
       })
     );
-    expect(invoke).toHaveBeenCalledWith("shell_list", {
+    expect(apiPost).toHaveBeenCalledWith("/api/shell_list", {
       statusFilter: "all",
     });
   });
 
   it("truncates long stdout and stderr tails", async () => {
     const longOutput = "x".repeat(5_000);
-    vi.mocked(invoke).mockResolvedValueOnce([
+    vi.mocked(apiPost).mockResolvedValueOnce([
       {
         shellId: "shell-3",
         command: "cat big.log",

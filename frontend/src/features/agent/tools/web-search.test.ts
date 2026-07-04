@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/api/client", () => ({
+  apiPost: vi.fn(),
+}));
+
+import { apiPost } from "@/lib/api/client";
 import { WEB_SEARCH_TOOL_NAME } from "./definitions";
 import { toolFailure, toolSuccess } from "./result";
 import { webSearchHandler } from "./web-search";
-
-  isTauri: vi.fn(() => true),
-  invoke: vi.fn(),
-}));
 
 
 const tavilyConfig = {
@@ -56,7 +57,7 @@ describe("webSearchHandler", () => {
   });
 
   it("returns successful search results", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       query: "rust async",
       results: [
         {
@@ -86,29 +87,12 @@ describe("webSearchHandler", () => {
         answer: "Rust has async/await support.",
       })
     );
-    expect(invoke).toHaveBeenCalledWith("tool_web_search", {
+    expect(apiPost).toHaveBeenCalledWith("/api/tool_web_search", {
       searchTerm: "rust async",
       apiKeySource: "manual",
       apiKey: "tvly-test-key",
       apiKeyEnvVar: "TAVILY_API_KEY",
       maxResults: 3,
     });
-  });
-
-  it("returns unsupported runtime outside tauri", async () => {
-    vi.mocked(isTauri).mockReturnValueOnce(false);
-
-    const result = await webSearchHandler(
-      { search_term: "rust async" },
-      { workspaceDir: null, tavilyConfig }
-    );
-
-    expect(result).toEqual(
-      toolFailure(
-        WEB_SEARCH_TOOL_NAME,
-        "unsupported_runtime",
-        "web_search is only available in the desktop app"
-      )
-    );
   });
 });

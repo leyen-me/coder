@@ -5,10 +5,21 @@ use axum::{
 use futures::stream::Stream;
 use std::convert::Infallible;
 use std::sync::Arc;
-use tokio_stream::wrappers::BroadcastStream;
-use tokio_stream::StreamExt;
+use tokio::sync::broadcast::error::RecvError;
 
-use crate::{AppState, AgentSseEvent};
+use crate::AppState;
+
+fn close_event_json(reason: &str, message: &str, skipped: Option<u64>) -> String {
+    let mut payload = serde_json::json!({
+        "type": "close",
+        "reason": reason,
+        "message": message,
+    });
+    if let Some(skipped) = skipped {
+        payload["skipped"] = serde_json::Value::from(skipped);
+    }
+    payload.to_string()
+}
 
 /// SSE endpoint for agent events and other real-time streaming.
 pub async fn handle_sse_events(
@@ -22,9 +33,28 @@ pub async fn handle_sse_events(
         yield Ok(Event::default().data(r#"{"type":"heartbeat"}"#));
 
         let mut rx = rx;
-        use tokio_stream::StreamExt;
-        while let Ok(data) = rx.recv().await {
-            yield Ok(Event::default().data(data));
+        loop {
+            match rx.recv().await {
+                Ok(data) => {
+                    yield Ok(Event::default().data(data));
+                }
+                Err(RecvError::Lagged(skipped)) => {
+                    yield Ok(Event::default().data(close_event_json(
+                        "lagged",
+                        "Agent SSE subscriber lagged behind and the stream was closed.",
+                        Some(skipped),
+                    )));
+                    break;
+                }
+                Err(RecvError::Closed) => {
+                    yield Ok(Event::default().data(close_event_json(
+                        "closed",
+                        "Agent SSE channel closed.",
+                        None,
+                    )));
+                    break;
+                }
+            }
         }
     };
 
@@ -44,10 +74,32 @@ pub async fn handle_shell_sse(
     let topic = format!("shell-{}", shell_id);
     let rx = state.sse_broadcaster.subscribe(&topic);
 
-    let stream = BroadcastStream::new(rx).map(|result| match result {
-        Ok(data) => Ok(Event::default().data(data)),
-        Err(_) => Ok(Event::default().data(r#"{"type":"close"}"#)),
-    });
+    let stream = async_stream::stream! {
+        let mut rx = rx;
+        loop {
+            match rx.recv().await {
+                Ok(data) => {
+                    yield Ok(Event::default().data(data));
+                }
+                Err(RecvError::Lagged(skipped)) => {
+                    yield Ok(Event::default().data(close_event_json(
+                        "lagged",
+                        "Shell SSE subscriber lagged behind and the stream was closed.",
+                        Some(skipped),
+                    )));
+                    break;
+                }
+                Err(RecvError::Closed) => {
+                    yield Ok(Event::default().data(close_event_json(
+                        "closed",
+                        "Shell SSE channel closed.",
+                        None,
+                    )));
+                    break;
+                }
+            }
+        }
+    };
 
     Sse::new(stream).keep_alive(
         KeepAlive::new()

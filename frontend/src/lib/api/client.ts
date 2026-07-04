@@ -1,7 +1,12 @@
 // Unified API client for Coder HTTP Server mode.
 // Replaces all `invoke()` calls from @tauri-apps/api/core.
 
-const API_BASE = window.location.origin;
+function getApiBase(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return window.location.origin;
+}
 
 export class ApiError extends Error {
   public status: number;
@@ -20,7 +25,7 @@ export async function apiPost<T>(
   body?: unknown,
   signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${getApiBase()}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -43,7 +48,7 @@ export async function apiGet<T>(
   path: string,
   signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${getApiBase()}${path}`, {
     method: "GET",
     signal,
   });
@@ -64,7 +69,7 @@ export async function apiGetText(
   path: string,
   signal?: AbortSignal,
 ): Promise<string> {
-  const response = await fetch(`${API_BASE}${path}`, { method: "GET", signal });
+  const response = await fetch(`${getApiBase()}${path}`, { method: "GET", signal });
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
     throw new ApiError(

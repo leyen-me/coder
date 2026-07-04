@@ -145,7 +145,8 @@ export async function requestProxyDecision(input: {
               );
             }
           }
-        }
+        },
+        { signal: input.signal }
       ).catch(reject);
     });
   } catch (error) {

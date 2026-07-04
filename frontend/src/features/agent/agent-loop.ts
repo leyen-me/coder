@@ -417,6 +417,8 @@ async function runSingleAgentTurnAttempt(
       }
 
       onEvent(event);
+    }, {
+      signal,
     }).catch((error: unknown) => {
       const message = error instanceof Error ? error.message : String(error);
       failTurn(message);

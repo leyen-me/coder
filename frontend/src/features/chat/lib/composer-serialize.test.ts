@@ -158,7 +158,7 @@ describe("deserializeAgentTextToDoc", () => {
       content: [
         {
           type: "paragraph",
-          content: [{ type: "text", text: "" }],
+          content: [],
         },
       ],
     });

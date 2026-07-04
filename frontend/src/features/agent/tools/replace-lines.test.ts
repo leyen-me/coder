@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/api/client", () => ({
+  apiPost: vi.fn(),
+}));
+
+import { apiPost } from "@/lib/api/client";
 import { REPLACE_LINES_TOOL_NAME } from "./definitions";
 import { replaceLinesHandler } from "./replace-lines";
 import { toolFailure, toolSuccess } from "./result";
-
-  isTauri: vi.fn(() => true),
-  invoke: vi.fn(),
-}));
 
 
 describe("replaceLinesHandler", () => {
@@ -63,7 +64,7 @@ describe("replaceLinesHandler", () => {
   });
 
   it("returns successful edits", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       path: "src/main.ts",
       action: "modified",
       sha256: "abc123",
@@ -90,9 +91,11 @@ describe("replaceLinesHandler", () => {
         bytesWritten: 18,
         linesAdded: 0,
         linesRemoved: 0,
+        warning:
+          "Rows may have shifted — re-read the file with read_file before your next edit.",
       })
     );
-    expect(invoke).toHaveBeenCalledWith("tool_replace_lines", {
+    expect(apiPost).toHaveBeenCalledWith("/api/tool_replace_lines", {
       workspaceDir: "/tmp/project",
       path: "src/main.ts",
       startLine: 2,
@@ -105,7 +108,7 @@ describe("replaceLinesHandler", () => {
   });
 
   it("returns structured failures for invalid range", async () => {
-    vi.mocked(invoke).mockRejectedValueOnce({
+    vi.mocked(apiPost).mockRejectedValueOnce({
       code: "invalid_range",
       message: "start_line (10) exceeds file line count (5)",
     });

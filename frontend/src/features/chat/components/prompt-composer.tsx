@@ -430,7 +430,7 @@ export const PromptComposer = memo(function PromptComposer({
   // Reset value when initialValueProp or composerKey changes (editing transitions)
   useEffect(() => {
     setValue(initialValueProp ?? "");
-  }, [composerKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [composerKey, initialValueProp]);
 
   const editorRef = useRef<Editor | null>(null);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);

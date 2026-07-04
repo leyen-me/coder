@@ -58,6 +58,10 @@ export type ComposerRichInputProps = {
   editorRef?: MutableRefObject<Editor | null>;
 };
 
+function clampSelectionPosition(position: number, maxPosition: number): number {
+  return Math.min(Math.max(position, 1), Math.max(maxPosition, 1));
+}
+
 export function ComposerRichInput({
   value,
   onChange,
@@ -478,15 +482,26 @@ export function ComposerRichInput({
       return;
     }
 
+    const previousSelection = editor.state.selection;
+    const shouldPreserveSelection = editor.isFocused;
+
     editor.commands.setContent(
       deserializeAgentTextToDoc(value, deserializeOptions),
       {
         emitUpdate: false,
       }
     );
-    // Move cursor to the end when loading content into the editor (e.g.
-    // when editing a message), so the user can continue typing immediately.
-    editor.commands.focus("end");
+    if (shouldPreserveSelection) {
+      const maxPosition = editor.state.doc.content.size;
+      editor.commands.setTextSelection({
+        from: clampSelectionPosition(previousSelection.from, maxPosition),
+        to: clampSelectionPosition(previousSelection.to, maxPosition),
+      });
+    } else {
+      // Move cursor to the end when loading content into the editor (e.g.
+      // when entering edit mode), so the user can continue typing immediately.
+      editor.commands.focus("end");
+    }
     syncMentionState(editor);
   }, [editor, syncMentionState, value, enabledSkillSlugs, deserializeOptions]);
 
@@ -499,11 +514,22 @@ export function ComposerRichInput({
     }
     processedWithSkillsRef.current = true;
 
+    const previousSelection = editor.state.selection;
+    const shouldPreserveSelection = editor.isFocused;
+
     editor.commands.setContent(
       deserializeAgentTextToDoc(value, deserializeOptions),
       { emitUpdate: false }
     );
-    editor.commands.focus("end");
+    if (shouldPreserveSelection) {
+      const maxPosition = editor.state.doc.content.size;
+      editor.commands.setTextSelection({
+        from: clampSelectionPosition(previousSelection.from, maxPosition),
+        to: clampSelectionPosition(previousSelection.to, maxPosition),
+      });
+    } else {
+      editor.commands.focus("end");
+    }
     syncMentionState(editor);
   }, [editor, enabledSkillSlugs, value, syncMentionState]);
 

@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/api/client", () => ({
+  apiPost: vi.fn(),
+}));
+
+import { apiPost } from "@/lib/api/client";
 import {
   PLAN_CREATE_TOOL_NAME,
   PLAN_LIST_TOOL_NAME,
@@ -12,10 +17,6 @@ import {
   planReadHandler,
   planUpdateHandler,
 } from "./plan";
-
-  isTauri: vi.fn(() => true),
-  invoke: vi.fn(),
-}));
 
 vi.mock("@/features/plan/plan-events", () => ({
   emitPlanFileUpdated: vi.fn(),
@@ -39,7 +40,7 @@ describe("plan tool handlers", () => {
   });
 
   it("plan_create validates arguments and emits update event", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       path: ".plan/refactor-auth-plan.md",
       name: "refactor-auth-plan.md",
       sha256: "abc",
@@ -69,7 +70,7 @@ describe("plan tool handlers", () => {
   });
 
   it("plan_read invokes backend with plan name", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       path: ".plan/refactor-auth-plan.md",
       name: "refactor-auth-plan.md",
       content: "# Plan",
@@ -82,7 +83,7 @@ describe("plan tool handlers", () => {
       { workspaceDir: "/tmp/project" }
     );
 
-    expect(invoke).toHaveBeenCalledWith("tool_plan_read", {
+    expect(apiPost).toHaveBeenCalledWith("/api/tool_plan_read", {
       workspaceDir: "/tmp/project",
       name: "refactor-auth-plan.md",
     });
@@ -90,7 +91,7 @@ describe("plan tool handlers", () => {
   });
 
   it("plan_update emits updated event", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       path: ".plan/refactor-auth-plan.md",
       name: "refactor-auth-plan.md",
       sha256: "def",
@@ -111,7 +112,7 @@ describe("plan tool handlers", () => {
   });
 
   it("plan_delete emits deleted event", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       path: ".plan/refactor-auth-plan.md",
       name: "refactor-auth-plan.md",
     });
@@ -129,7 +130,7 @@ describe("plan tool handlers", () => {
   });
 
   it("plan_list returns workspace plans", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       plans: [
         {
           name: "refactor-auth-plan.md",

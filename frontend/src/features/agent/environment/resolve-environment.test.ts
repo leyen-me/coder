@@ -1,24 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-  isTauri: vi.fn(() => true),
-  invoke: vi.fn(),
+vi.mock("@/lib/api/client", () => ({
+  apiPost: vi.fn(),
 }));
 
 vi.mock("@/features/skills/lib/resolve-skills", () => ({
   getEnabledSystemSkills: vi.fn(async () => []),
 }));
 
+vi.mock("@/lib/db/remote-targets", () => ({
+  listRemoteTargets: vi.fn(async () => []),
+}));
 
+import { apiPost } from "@/lib/api/client";
 import { resolveAgentEnvironment } from "./resolve-environment";
 
 describe("resolveAgentEnvironment", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(isTauri).mockReturnValue(true);
   });
 
   it("maps agentsMd from the runtime environment response", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       os: "macos aarch64 (15.5)",
       shell: "/bin/zsh",
       isGitRepository: true,
@@ -31,7 +34,7 @@ describe("resolveAgentEnvironment", () => {
 
     const environment = await resolveAgentEnvironment("/tmp/project");
 
-    expect(invoke).toHaveBeenCalledWith("agent_get_runtime_environment", {
+    expect(apiPost).toHaveBeenCalledWith("/api/runtime_environment", {
       workspaceDir: "/tmp/project",
     });
     expect(environment.agentsMd).toEqual({
@@ -43,7 +46,7 @@ describe("resolveAgentEnvironment", () => {
   });
 
   it("defaults agentsMd to null when omitted from the response", async () => {
-    vi.mocked(invoke).mockResolvedValueOnce({
+    vi.mocked(apiPost).mockResolvedValueOnce({
       os: "macos aarch64 (15.5)",
       shell: "/bin/zsh",
       isGitRepository: false,
@@ -54,12 +57,11 @@ describe("resolveAgentEnvironment", () => {
     expect(environment.agentsMd).toBeNull();
   });
 
-  it("falls back without agentsMd outside Tauri", async () => {
-    vi.mocked(isTauri).mockReturnValueOnce(false);
+  it("falls back to browser defaults when runtime resolution fails", async () => {
+    vi.mocked(apiPost).mockRejectedValueOnce(new Error("runtime unavailable"));
 
     const environment = await resolveAgentEnvironment("/tmp/project");
 
-    expect(invoke).not.toHaveBeenCalled();
     expect(environment.agentsMd).toBeNull();
     expect(environment.shell).toBe("unavailable in browser preview");
   });
