@@ -1,3 +1,5 @@
+import { ApiError, apiPost } from "@/lib/api/client";
+
 import { PLAN_DIRECTORY } from "./constants";
 
 export type PlanListEntry = {
@@ -15,23 +17,51 @@ export type PlanReadResult = {
   modifiedAt: number;
 };
 
+type PlanListResponse = {
+  plans: PlanListEntry[];
+};
+
 export async function listWorkspacePlans(
-  _workspaceDir: string
+  workspaceDir: string
 ): Promise<PlanListEntry[]> {
-  return [];
+  const result = await apiPost<PlanListResponse>("/api/tool_plan_list", {
+    workspaceDir,
+  });
+  return result.plans;
 }
 
 export async function readWorkspacePlan(
-  _workspaceDir: string,
-  _name: string
+  workspaceDir: string,
+  name: string
 ): Promise<PlanReadResult> {
-  throw new Error("Plans are not available in browser mode");
+  return apiPost<PlanReadResult>("/api/tool_plan_read", {
+    workspaceDir,
+    name,
+  });
 }
 
 export async function getLatestWorkspacePlan(
-  _workspaceDir: string
+  workspaceDir: string
 ): Promise<(PlanListEntry & { content?: string }) | null> {
-  return null;
+  const plans = await listWorkspacePlans(workspaceDir);
+  if (plans.length === 0) {
+    return null;
+  }
+
+  const latest = [...plans].sort((left, right) => right.modifiedAt - left.modifiedAt)[0];
+  if (!latest) {
+    return null;
+  }
+
+  try {
+    const read = await readWorkspacePlan(workspaceDir, latest.name);
+    return {
+      ...latest,
+      content: read.content,
+    };
+  } catch {
+    return latest;
+  }
 }
 
 export function formatPlanTabLabel(name: string): string {
@@ -79,6 +109,13 @@ export function isPlanNotFoundError(error: unknown): boolean {
 function parsePlanInvokeErrorPayload(
   error: unknown
 ): PlanInvokeErrorPayload | null {
+  if (error instanceof ApiError) {
+    return {
+      code: error.code,
+      message: error.message,
+    };
+  }
+
   if (typeof error === "string") {
     return parseJsonPlanInvokeError(error);
   }

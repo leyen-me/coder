@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { ApiError } from "@/lib/api/client";
+
 import {
   isPlanNotFoundError,
   parsePlanInvokeError,
@@ -31,5 +33,16 @@ describe("parsePlanInvokeError", () => {
         message: "Plan not found",
       })
     ).toBe(true);
+  });
+
+  it("reads ApiError payloads from the HTTP client", () => {
+    expect(
+      parsePlanInvokeError(
+        new ApiError(400, "plan_not_found", "Plan not found: .plan/old-plan.md")
+      )
+    ).toEqual({
+      code: "plan_not_found",
+      message: "Plan not found: .plan/old-plan.md",
+    });
   });
 });
