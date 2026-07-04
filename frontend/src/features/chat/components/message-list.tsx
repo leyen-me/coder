@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
   useActiveStreamingMessageIds,
@@ -60,6 +60,36 @@ function scrollViewportToBottom(
   });
 }
 
+function findAnchorMessageIndex(
+  viewport: HTMLElement,
+  messages: readonly MessageRecord[]
+): number {
+  const viewportTop = viewport.getBoundingClientRect().top;
+
+  for (const node of viewport.querySelectorAll("[data-message-id]")) {
+    if (!(node instanceof HTMLElement)) {
+      continue;
+    }
+
+    const rect = node.getBoundingClientRect();
+    if (rect.bottom <= viewportTop + NEAR_BOTTOM_THRESHOLD_PX) {
+      continue;
+    }
+
+    const messageId = node.dataset.messageId;
+    if (!messageId) {
+      continue;
+    }
+
+    const index = messages.findIndex((message) => message.id === messageId);
+    if (index >= 0) {
+      return index;
+    }
+  }
+
+  return 0;
+}
+
 export function MessageList({
   messages,
   sessionTitle,
@@ -91,6 +121,23 @@ export function MessageList({
   );
   const isStreaming = streamingMessageCount > 0;
   const shouldVirtualize = virtualScrollEnabled && !isStreaming;
+  const pendingVirtualizationAnchorRef = useRef<number | null>(null);
+  const wasStreamingRef = useRef(isStreaming);
+
+  if (
+    wasStreamingRef.current &&
+    !isStreaming &&
+    virtualScrollEnabled &&
+    scrollViewport &&
+    !isPinnedToBottomRef.current
+  ) {
+    pendingVirtualizationAnchorRef.current = findAnchorMessageIndex(
+      scrollViewport,
+      messages
+    );
+  }
+  wasStreamingRef.current = isStreaming;
+
   const lastMessage = messages.at(-1);
   const lastMessageSignature = lastMessage
     ? [
@@ -197,6 +244,16 @@ export function MessageList({
     };
   }, [scrollToBottom, scrollViewport]);
 
+  useLayoutEffect(() => {
+    if (!shouldVirtualize || pendingVirtualizationAnchorRef.current === null) {
+      return;
+    }
+
+    const anchorIndex = pendingVirtualizationAnchorRef.current;
+    pendingVirtualizationAnchorRef.current = null;
+    rowVirtualizer.scrollToIndex(anchorIndex, { align: "start" });
+  }, [rowVirtualizer, shouldVirtualize]);
+
   useEffect(() => {
     isStreamingRef.current = isStreaming;
 
@@ -258,17 +315,18 @@ export function MessageList({
   };
 
   const renderMessage = (message: MessageRecord) => (
-    <MessageItem
-      chatRetry={chatRetryByMessageId.get(message.id) ?? null}
-      editingMessageId={editingMessageId}
-      handoffFromSessionId={handoffFromSessionId}
-      isStreaming={streamingMessageIds.has(message.id)}
-      key={message.id}
-      message={message}
-      onEditUserMessage={onEditUserMessage}
-      onRegenerateAssistantMessage={onRegenerateAssistantMessage}
-      sessionTitle={sessionTitle}
-    />
+    <div data-message-id={message.id}>
+      <MessageItem
+        chatRetry={chatRetryByMessageId.get(message.id) ?? null}
+        editingMessageId={editingMessageId}
+        handoffFromSessionId={handoffFromSessionId}
+        isStreaming={streamingMessageIds.has(message.id)}
+        message={message}
+        onEditUserMessage={onEditUserMessage}
+        onRegenerateAssistantMessage={onRegenerateAssistantMessage}
+        sessionTitle={sessionTitle}
+      />
+    </div>
   );
 
   const virtualItems = shouldVirtualize ? rowVirtualizer.getVirtualItems() : [];
