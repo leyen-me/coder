@@ -32,8 +32,8 @@ export function SkillDetailDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-w-lg gap-4">
-        <DialogHeader className="gap-2 text-left">
+      <DialogContent className="flex max-h-[min(100dvh-2rem,88dvh)] flex-col gap-3 overflow-hidden sm:max-h-none sm:max-w-lg sm:gap-4">
+        <DialogHeader className="shrink-0 gap-2 text-left">
           <div className="flex flex-wrap items-center gap-2 pr-8">
             <DialogTitle>{skill.name}</DialogTitle>
             <Badge variant="secondary">
@@ -53,13 +53,13 @@ export function SkillDetailDialog({
           ) : null}
         </DialogHeader>
 
-        <div className="max-h-[50vh] overflow-y-auto rounded-xl border bg-muted/30">
+        <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border bg-muted/30 sm:max-h-[50vh]">
           <pre className="whitespace-pre-wrap p-4 font-mono text-xs leading-relaxed">
             {skill.content}
           </pre>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button onClick={() => onOpenChange(false)} type="button">
             {t("skills.close")}
           </Button>

@@ -116,14 +116,14 @@ export function UserSkillDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-w-lg gap-4">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[min(100dvh-2rem,88dvh)] flex-col gap-3 overflow-hidden sm:max-h-none sm:max-w-lg sm:gap-4">
+        <DialogHeader className="shrink-0">
           <DialogTitle>
             {isEditing ? t("skills.editSkill") : t("skills.createSkill")}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 sm:max-h-[65vh] sm:space-y-4">
           <div className="space-y-2">
             <Label htmlFor="skill-slug">{t("skills.fieldSlug")}</Label>
             <Input
@@ -166,7 +166,7 @@ export function UserSkillDialog({
           <div className="space-y-2">
             <Label htmlFor="skill-content">{t("skills.fieldContent")}</Label>
             <Textarea
-              className="field-sizing-fixed max-h-[35vh] min-h-40 overflow-y-auto font-mono text-xs"
+              className="field-sizing-fixed max-h-[28dvh] min-h-28 overflow-y-auto font-mono text-xs sm:max-h-[35vh] sm:min-h-40"
               id="skill-content"
               onChange={(event) =>
                 setForm((current) => ({
@@ -179,7 +179,7 @@ export function UserSkillDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button
             disabled={saving}
             onClick={() => onOpenChange(false)}

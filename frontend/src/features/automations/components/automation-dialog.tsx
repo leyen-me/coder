@@ -206,8 +206,8 @@ export function AutomationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[min(640px,85vh)] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
-        <DialogHeader className="shrink-0 space-y-1 px-6 pt-6 pb-2">
+      <DialogContent className="flex max-h-[min(100dvh-2rem,88dvh)] flex-col gap-0 overflow-hidden p-0 sm:max-h-[min(640px,85vh)] sm:max-w-lg">
+        <DialogHeader className="shrink-0 space-y-1 px-4 pt-4 pb-2 sm:px-6 sm:pt-6">
           <DialogTitle>
             {isEditing ? t("automations.editAutomation") : t("automations.newAutomation")}
           </DialogTitle>
@@ -216,7 +216,7 @@ export function AutomationDialog({
           ) : null}
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-1">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-1 sm:px-6">
           <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -364,7 +364,7 @@ export function AutomationDialog({
           </div>
         </div>
 
-        <DialogFooter className="shrink-0 border-t border-border/60 px-6 py-4">
+        <DialogFooter className="shrink-0 border-t border-border/60 px-4 py-3 sm:px-6 sm:py-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("automations.cancel")}
           </Button>
