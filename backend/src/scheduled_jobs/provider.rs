@@ -32,7 +32,34 @@ struct ModelProviderSettings {
     #[serde(default)]
     active_provider: String,
     #[serde(default)]
+    enabled_providers: Vec<String>,
+    #[serde(default)]
     providers: Value,
+}
+
+/// KV settings are persisted as JSON strings in settings.json (see frontend http-kv).
+fn decode_kv_setting_value(raw: Value) -> Value {
+    match raw {
+        Value::String(content) => serde_json::from_str(&content).unwrap_or(json!({})),
+        other => other,
+    }
+}
+
+fn default_provider_id(settings: &ModelProviderSettings) -> String {
+    settings
+        .enabled_providers
+        .iter()
+        .find(|provider| !provider.trim().is_empty())
+        .cloned()
+        .or_else(|| {
+            let active = settings.active_provider.trim();
+            if active.is_empty() {
+                None
+            } else {
+                Some(active.to_string())
+            }
+        })
+        .unwrap_or_else(|| "deepseek".to_string())
 }
 
 fn load_settings_json() -> Value {
@@ -52,8 +79,10 @@ fn read_model_provider_settings() -> ModelProviderSettings {
         .get("coder:model-provider-settings")
         .cloned()
         .unwrap_or_else(|| json!({}));
-    serde_json::from_value(raw).unwrap_or(ModelProviderSettings {
+    let parsed = decode_kv_setting_value(raw);
+    serde_json::from_value(parsed).unwrap_or(ModelProviderSettings {
         active_provider: "deepseek".to_string(),
+        enabled_providers: vec!["deepseek".to_string()],
         providers: json!({}),
     })
 }
@@ -143,7 +172,7 @@ fn resolve_api_key(settings: &ProviderSettings, provider: &str) -> Result<String
 pub fn resolve_provider(provider_id: &str) -> Result<ResolvedProvider, String> {
     let settings = read_model_provider_settings();
     let provider = if provider_id.trim().is_empty() {
-        settings.active_provider.clone()
+        default_provider_id(&settings)
     } else {
         provider_id.trim().to_string()
     };
@@ -306,5 +335,75 @@ mod tests {
             resolve_api_key(&settings, "deepseek").unwrap(),
             "sk-manual-key"
         );
+    }
+
+    #[test]
+    fn decode_kv_setting_value_parses_string_encoded_json() {
+        let inner = json!({
+            "enabledProviders": ["custom"],
+            "providers": {
+                "custom": {
+                    "apiKeySource": "manual",
+                    "apiKey": "test-key",
+                    "customBaseUrl": "http://llama.example.com",
+                    "customModels": []
+                }
+            }
+        });
+        let encoded = Value::String(inner.to_string());
+
+        let decoded = decode_kv_setting_value(encoded);
+        let settings: ModelProviderSettings = serde_json::from_value(decoded).unwrap();
+
+        assert_eq!(settings.enabled_providers, vec!["custom".to_string()]);
+        let provider_settings =
+            parse_provider_settings(&settings.providers, "custom");
+        assert_eq!(
+            provider_settings.custom_base_url,
+            "http://llama.example.com"
+        );
+        assert_eq!(provider_settings.api_key, "test-key");
+    }
+
+    #[test]
+    fn resolve_provider_reads_custom_base_url_from_string_encoded_settings() {
+        let inner = json!({
+            "enabledProviders": ["deepseek", "custom"],
+            "providers": {
+                "custom": {
+                    "apiKeySource": "manual",
+                    "apiKey": "test-key",
+                    "apiKeyEnvVar": "OPENAI_API_KEY",
+                    "customBaseUrl": "http://llama.example.com",
+                    "customModels": []
+                }
+            }
+        });
+        let settings = ModelProviderSettings {
+            active_provider: String::new(),
+            enabled_providers: vec!["deepseek".to_string(), "custom".to_string()],
+            providers: decode_kv_setting_value(Value::String(inner.to_string()))
+                .get("providers")
+                .cloned()
+                .unwrap_or_else(|| json!({})),
+        };
+
+        let provider_settings = parse_provider_settings(&settings.providers, "custom");
+        let api_key = resolve_api_key(&provider_settings, "custom").unwrap();
+        let base_url = provider_settings.custom_base_url.trim().to_string();
+
+        assert_eq!(base_url, "http://llama.example.com");
+        assert_eq!(api_key, "test-key");
+    }
+
+    #[test]
+    fn default_provider_id_prefers_enabled_providers() {
+        let settings = ModelProviderSettings {
+            active_provider: "glm".to_string(),
+            enabled_providers: vec!["custom".to_string()],
+            providers: json!({}),
+        };
+
+        assert_eq!(default_provider_id(&settings), "custom");
     }
 }
