@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   createModelDefinition,
   formatContextWindow,
+  normalizeEditableModelDefinitions,
   normalizeModelDefinition,
+  normalizeStoredModelDefinitions,
   parseModelDefinitions,
 } from "./model-definition";
 
@@ -65,5 +67,30 @@ describe("formatContextWindow", () => {
 describe("createModelDefinition", () => {
   it("defaults context window to 200K", () => {
     expect(createModelDefinition("custom-model").contextWindow).toBe(200_000);
+  });
+});
+
+describe("normalizeStoredModelDefinitions", () => {
+  it("deduplicates and trims saved models", () => {
+    expect(
+      normalizeStoredModelDefinitions([
+        createModelDefinition("  gpt-4o  ", { label: " GPT " }),
+        createModelDefinition("gpt-4o", { supportsThinking: true }),
+        createModelDefinition(""),
+      ])
+    ).toEqual([createModelDefinition("gpt-4o", { label: " GPT " })]);
+  });
+});
+
+describe("normalizeEditableModelDefinitions", () => {
+  it("keeps draft rows without a model id", () => {
+    const draft = createModelDefinition("", { label: "Draft label" });
+
+    expect(
+      normalizeEditableModelDefinitions([
+        createModelDefinition("saved-model"),
+        draft,
+      ])
+    ).toEqual([createModelDefinition("saved-model"), draft]);
   });
 });

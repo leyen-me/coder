@@ -68,10 +68,12 @@ export function mergeAllModels(
   for (const providerId of settings.enabledProviders) {
     const config = resolveProviderConfig(settings, providerId);
     for (const model of config.models) {
-      if (!modelProviders.has(model.id)) {
-        modelProviders.set(model.id, providerId);
-        models.push(model);
+      if (!model.id.trim() || modelProviders.has(model.id)) {
+        continue;
       }
+
+      modelProviders.set(model.id, providerId);
+      models.push(model);
     }
   }
 

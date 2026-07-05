@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -5,20 +6,29 @@ import { Input } from "@/components/ui/input";
 import {
   createModelDefinition,
   DEFAULT_MODEL_CONTEXT_WINDOW,
+  normalizeEditableModelDefinitions,
   type ModelDefinition,
 } from "@/lib/model-provider/model-definition";
 import type { ProviderId } from "@/lib/model-provider/types";
 import { useLocale } from "@/lib/i18n/locale-provider";
+import { randomUUID } from "@/lib/random-id";
 
 import {
   createDefaultThinkingConfig,
   ThinkingConfigEditor,
 } from "./thinking-config-editor";
 
+const PERSIST_DEBOUNCE_MS = 300;
+
 type CustomModelsEditorProps = {
   models: ModelDefinition[];
   onChange: (models: ModelDefinition[]) => void;
   provider: ProviderId;
+};
+
+type ModelRow = {
+  rowKey: string;
+  model: ModelDefinition;
 };
 
 type CustomModelRowProps = {
@@ -27,6 +37,13 @@ type CustomModelRowProps = {
   onChange: (model: ModelDefinition) => void;
   onRemove: () => void;
 };
+
+function toModelRows(models: ModelDefinition[], rowKeys: string[]): ModelRow[] {
+  return models.map((model, index) => ({
+    rowKey: rowKeys[index] ?? randomUUID(),
+    model,
+  }));
+}
 
 function CustomModelRow({
   model,
@@ -64,7 +81,7 @@ function CustomModelRow({
               onChange={(event) =>
                 onChange({
                   ...model,
-                  label: event.target.value.trim() || undefined,
+                  label: event.target.value || undefined,
                 })
               }
               placeholder={t("settings.modelProvider.modelLabelPlaceholder")}
@@ -154,60 +171,141 @@ function CustomModelRow({
   );
 }
 
-function normalizeModels(models: ModelDefinition[]): ModelDefinition[] {
-  const seen = new Set<string>();
-  const normalized: ModelDefinition[] = [];
-
-  for (const model of models) {
-    const id = model.id.trim();
-    if (!id || seen.has(id)) {
-      continue;
-    }
-
-    seen.add(id);
-    normalized.push(createModelDefinition(id, model));
-  }
-
-  return normalized;
-}
-
 export function CustomModelsEditor({
   models,
   onChange,
   provider,
 }: CustomModelsEditorProps) {
   const { t } = useLocale();
+  const rowKeysRef = useRef<string[]>(models.map(() => randomUUID()));
+  const [rows, setRows] = useState<ModelRow[]>(() =>
+    toModelRows(models, rowKeysRef.current)
+  );
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const persistTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipExternalSyncRef = useRef(false);
+
+  const flushPersist = useCallback(() => {
+    if (persistTimeoutRef.current) {
+      clearTimeout(persistTimeoutRef.current);
+      persistTimeoutRef.current = null;
+    }
+
+    skipExternalSyncRef.current = true;
+    onChange(
+      normalizeEditableModelDefinitions(
+        rowsRef.current.map((row) => row.model)
+      )
+    );
+  }, [onChange]);
+
+  const schedulePersist = useCallback(() => {
+    if (persistTimeoutRef.current) {
+      clearTimeout(persistTimeoutRef.current);
+    }
+
+    persistTimeoutRef.current = setTimeout(() => {
+      persistTimeoutRef.current = null;
+      flushPersist();
+    }, PERSIST_DEBOUNCE_MS);
+  }, [flushPersist]);
+
+  useEffect(() => {
+    if (skipExternalSyncRef.current) {
+      skipExternalSyncRef.current = false;
+      return;
+    }
+
+    rowKeysRef.current = models.map(
+      (_, index) => rowKeysRef.current[index] ?? randomUUID()
+    );
+    const nextRows = toModelRows(models, rowKeysRef.current);
+    rowsRef.current = nextRows;
+    setRows(nextRows);
+  }, [models]);
+
+  useEffect(() => {
+    return () => {
+      if (!persistTimeoutRef.current) {
+        return;
+      }
+
+      clearTimeout(persistTimeoutRef.current);
+      persistTimeoutRef.current = null;
+      flushPersist();
+    };
+  }, [flushPersist]);
+
+  const updateRows = useCallback(
+    (updater: (current: ModelRow[]) => ModelRow[], options?: { immediate?: boolean }) => {
+      setRows((current) => {
+        const next = updater(current);
+        rowsRef.current = next;
+        if (options?.immediate) {
+          flushPersist();
+        } else {
+          schedulePersist();
+        }
+        return next;
+      });
+    },
+    [flushPersist, schedulePersist]
+  );
 
   const handleModelChange = (index: number, nextModel: ModelDefinition) => {
-    const next = [...models];
-    next[index] = nextModel;
-    onChange(normalizeModels(next));
+    updateRows((current) =>
+      current.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, model: nextModel } : row
+      )
+    );
   };
 
   const handleRemove = (index: number) => {
-    onChange(models.filter((_, itemIndex) => itemIndex !== index));
+    updateRows((current) => {
+      rowKeysRef.current = rowKeysRef.current.filter(
+        (_, rowIndex) => rowIndex !== index
+      );
+      return current.filter((_, rowIndex) => rowIndex !== index);
+    }, { immediate: true });
   };
 
   const handleAdd = () => {
-    onChange([
-      ...models,
-      createModelDefinition("", {
-        contextWindow: DEFAULT_MODEL_CONTEXT_WINDOW,
-      }),
-    ]);
+    updateRows((current) => {
+      const rowKey = randomUUID();
+      rowKeysRef.current = [...rowKeysRef.current, rowKey];
+      return [
+        ...current,
+        {
+          rowKey,
+          model: createModelDefinition("", {
+            contextWindow: DEFAULT_MODEL_CONTEXT_WINDOW,
+          }),
+        },
+      ];
+    }, { immediate: true });
+  };
+
+  const handleContainerBlur = (event: React.FocusEvent<HTMLDivElement>) => {
+    const nextTarget = event.relatedTarget;
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    flushPersist();
   };
 
   return (
-    <div className="space-y-3">
-      {models.length === 0 ? (
+    <div className="space-y-3" onBlur={handleContainerBlur}>
+      {rows.length === 0 ? (
         <p className="rounded-lg border border-dashed border-input px-3 py-4 text-sm text-muted-foreground">
           {t("settings.modelProvider.emptyModelsHint")}
         </p>
       ) : (
-        models.map((model, index) => (
+        rows.map((row, index) => (
           <CustomModelRow
-            key={`${model.id}-${index}`}
-            model={model}
+            key={row.rowKey}
+            model={row.model}
             provider={provider}
             onChange={(nextModel) => handleModelChange(index, nextModel)}
             onRemove={() => handleRemove(index)}

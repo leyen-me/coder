@@ -84,6 +84,33 @@ export function normalizeModelDefinition(raw: unknown): ModelDefinition | null {
   };
 }
 
+export function normalizeStoredModelDefinitions(
+  models: readonly ModelDefinition[]
+): ModelDefinition[] {
+  const seen = new Set<string>();
+  const normalized: ModelDefinition[] = [];
+
+  for (const model of models) {
+    const id = model.id.trim();
+    if (!id || seen.has(id)) {
+      continue;
+    }
+
+    seen.add(id);
+    normalized.push(createModelDefinition(id, model));
+  }
+
+  return normalized;
+}
+
+/** Keeps in-progress rows without a model id while normalizing saved rows. */
+export function normalizeEditableModelDefinitions(
+  models: readonly ModelDefinition[]
+): ModelDefinition[] {
+  const drafts = models.filter((model) => !model.id.trim());
+  return [...normalizeStoredModelDefinitions(models), ...drafts];
+}
+
 export function parseModelDefinitions(value: unknown): ModelDefinition[] {
   if (!Array.isArray(value)) {
     return [];
