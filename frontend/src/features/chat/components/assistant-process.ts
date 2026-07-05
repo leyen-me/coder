@@ -98,38 +98,17 @@ export function getAssistantTimelineSteps(input: {
   steps: AssistantProcessStep[];
   isPlanMessage: boolean;
 }): AssistantProcessStep[] {
-  if (input.isPlanMessage) {
-    return input.steps;
-  }
-
-  const hasAnswer = input.steps.some((step) => step.kind === "answer");
-  const hasProcessWorthyStep = input.steps.some(
-    (step) =>
-      step.kind === "tool" ||
-      (step.kind === "decision" &&
-        (step.status === "requested" ||
-          (step.status === "resolved" && step.response != null))) ||
-      ((step.kind === "reasoning" || step.kind === "answer") && step.isStreaming)
-  );
-
-  if (!hasProcessWorthyStep) {
-    return hasAnswer ? [] : input.steps;
-  }
-
-  return input.steps.filter((step) => step.kind !== "answer");
+  return input.steps;
 }
 
 export function shouldRenderStandaloneAssistantAnswer(input: {
   steps: AssistantProcessStep[];
   isPlanMessage: boolean;
 }): boolean {
-  return (
-    !input.isPlanMessage &&
-    input.steps.some((step) => step.kind === "answer")
-  );
+  return !input.steps.some((step) => step.kind === "answer");
 }
 
-/** Whether the ordered process timeline should render. Prefer direct answers for routine non-plan turns. */
+/** Whether the ordered process timeline should render (reasoning, tools, and answers for non-plan turns). */
 export function shouldShowAssistantProcessTimeline(input: {
   steps: AssistantProcessStep[];
   isPlanMessage: boolean;
