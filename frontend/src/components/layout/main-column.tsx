@@ -18,7 +18,7 @@ export function MainColumn({
   titleBarLeading,
   titleBarTrailing,
 }: MainColumnProps) {
-  const { sidebarOpen, showSearch } = useOutletContext<ShellOutletContext>();
+  const { sidebarOpen } = useOutletContext<ShellOutletContext>();
   const isMobile = useIsMobile();
 
   return (
@@ -27,7 +27,6 @@ export function MainColumn({
         leading={titleBarLeading}
         trailing={titleBarTrailing}
         reserveFloatingNavSpace={isMobile || !sidebarOpen}
-        showFloatingSearch={showSearch}
       />
       {children}
     </div>

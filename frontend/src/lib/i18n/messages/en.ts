@@ -200,6 +200,8 @@ export const enMessages = {
     modeAgentLabel: "Agent mode — full tool access",
     modeAskLabel: "Ask mode — read-only tool access",
     modePlanLabel: "Plan mode — research and write plans to .plan/",
+    composerModeLabel: "Mode",
+    composerModelLabel: "Model",
     sessionTypeStandard: "Standard",
     sessionTypeLongTask: "Long task",
     sessionTypeAutomation: "Automation",

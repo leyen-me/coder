@@ -52,12 +52,11 @@ export function AppShell() {
     useSidebarOpen();
   const isMobile = useIsMobile();
   const location = useLocation();
-  const showSearch = location.pathname !== paths.settings;
   const shellContext: ShellOutletContext = {
     sidebarOpen: isSidebarOpen,
     setSidebarOpen,
-    showSearch,
   };
+  const showSearch = location.pathname !== paths.settings;
 
   // Close overlay sidebar after navigation on mobile.
   useEffect(() => {

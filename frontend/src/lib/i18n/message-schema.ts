@@ -187,6 +187,8 @@ export type Messages = {
     modeAgentLabel: string;
     modeAskLabel: string;
     modePlanLabel: string;
+    composerModeLabel: string;
+    composerModelLabel: string;
     sessionTypeStandard: string;
     sessionTypeLongTask: string;
     sessionTypeAutomation: string;
