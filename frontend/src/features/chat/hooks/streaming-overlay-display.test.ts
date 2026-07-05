@@ -24,6 +24,7 @@ function createMessage(
     status: "completed",
     createdAt: 0,
     error: null,
+    taskId: null,
     ...overrides,
   };
 }

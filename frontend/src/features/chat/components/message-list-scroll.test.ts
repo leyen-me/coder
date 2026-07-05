@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   getDistanceFromBottom,
   isNearBottom,
-  isUserScrollDownIntent,
-  isUserScrollUpIntent,
   shouldClearScrollPinSuppression,
   shouldFollowStream,
 } from "./message-list-scroll";

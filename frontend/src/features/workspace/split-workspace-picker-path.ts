@@ -63,7 +63,9 @@ export function collapseWorkspacePickerBreadcrumb(
   maxVisible = 4
 ): WorkspaceBreadcrumbItem[] {
   if (segments.length <= maxVisible) {
-    return segments.map((segment) => ({ kind: "segment", ...segment }));
+    return segments.map(
+      (segment): WorkspaceBreadcrumbItem => ({ kind: "segment", ...segment })
+    );
   }
 
   const [first, ...rest] = segments;
@@ -72,6 +74,8 @@ export function collapseWorkspacePickerBreadcrumb(
   return [
     { kind: "segment", label: first.label, path: first.path },
     { kind: "ellipsis" },
-    ...tail.map((segment) => ({ kind: "segment", ...segment })),
+    ...tail.map(
+      (segment): WorkspaceBreadcrumbItem => ({ kind: "segment", ...segment })
+    ),
   ];
 }
