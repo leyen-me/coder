@@ -161,17 +161,21 @@ export function createStreamingBufferManager(options: {
 
   const pushToolStep = (messageId: string, toolCallId: string) => {
     const buffer = ensureBuffer(messageId);
-    const lastStep = buffer.processSteps.at(-1);
-    if (!(lastStep?.kind === "tool" && lastStep.toolCallId === toolCallId)) {
-      buffer.processSteps.push({
-        id: `tool:${toolCallId}`,
-        kind: "tool",
-        toolCallId,
-      });
-      buffer.cached = null;
-      scheduleEmitChange();
-      scheduleFlush(messageId);
+    const alreadyTracked = buffer.processSteps.some(
+      (step) => step.kind === "tool" && step.toolCallId === toolCallId
+    );
+    if (alreadyTracked) {
+      return;
     }
+
+    buffer.processSteps.push({
+      id: `tool:${toolCallId}`,
+      kind: "tool",
+      toolCallId,
+    });
+    buffer.cached = null;
+    scheduleEmitChange();
+    scheduleFlush(messageId);
   };
 
   const setToolInvocations = (

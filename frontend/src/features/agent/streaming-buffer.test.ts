@@ -263,6 +263,32 @@ describe("createStreamingBufferManager", () => {
     vi.useRealTimers();
   });
 
+  it("does not duplicate tool steps when pending and started events overlap", () => {
+    const manager = createStreamingBufferManager({
+      onFlush: vi.fn().mockResolvedValue(undefined),
+      onChange: () => {},
+    });
+
+    // Simulate concurrent tools identified during streaming (tool_call_pending).
+    manager.pushToolStep("msg-1", "call_1");
+    manager.pushToolStep("msg-1", "call_2");
+    manager.pushToolStep("msg-1", "call_3");
+    manager.pushToolStep("msg-1", "call_4");
+
+    // Then tool_call_started fires for each after turn_complete.
+    manager.pushToolStep("msg-1", "call_1");
+    manager.pushToolStep("msg-1", "call_2");
+    manager.pushToolStep("msg-1", "call_3");
+    manager.pushToolStep("msg-1", "call_4");
+
+    expect(manager.get("msg-1")?.processSteps).toEqual([
+      { id: "tool:call_1", kind: "tool", toolCallId: "call_1" },
+      { id: "tool:call_2", kind: "tool", toolCallId: "call_2" },
+      { id: "tool:call_3", kind: "tool", toolCallId: "call_3" },
+      { id: "tool:call_4", kind: "tool", toolCallId: "call_4" },
+    ]);
+  });
+
   it("promotes reasoning-only turns on finalize", () => {
     const onChange = vi.fn();
     const manager = createStreamingBufferManager({
