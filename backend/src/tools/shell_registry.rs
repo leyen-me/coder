@@ -20,6 +20,7 @@ use super::shell::{
     shell_command_builder, ReadShellLogsResponse, ShellInfo, ShellOutput,
     ShellStatus, ShellStatusFilter,
 };
+use super::workspace_path::format_absolute_path;
 
 #[derive(Debug)]
 struct RunningShell {
@@ -197,7 +198,7 @@ impl ShellRegistry {
         task_id: Option<String>,
     ) -> Result<ShellOutput, String> {
         let cwd = resolve_working_directory(&workspace_dir, working_directory.as_deref())?;
-        let cwd_display = cwd.to_string_lossy().replace("\\\\", "/");
+        let cwd_display = format_absolute_path(&cwd);
         let block_ms = normalize_block_until_ms(block_until_ms);
 
         let output = Self::spawn_background(

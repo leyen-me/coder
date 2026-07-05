@@ -1,4 +1,5 @@
 import type { ProviderId } from "@/lib/model-provider/types";
+import { stripWindowsVerbatimPrefix } from "@/lib/path";
 import {
   DEFAULT_DECISION_POLICY_VERSION,
   DEFAULT_SESSION_AUTONOMY_MODE,
@@ -37,7 +38,9 @@ export function normalizeSessionRecord(
     title: session.title,
     model: session.model,
     provider: inferProviderFromModel(session.provider, session.model),
-    workspaceDir: session.workspaceDir?.trim() || null,
+    workspaceDir: session.workspaceDir
+      ? stripWindowsVerbatimPrefix(session.workspaceDir.trim()) || null
+      : null,
     sessionKind:
       session.sessionKind === "long_task"
         ? "long_task"

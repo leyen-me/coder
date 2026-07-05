@@ -1,6 +1,8 @@
 use std::path::Path;
 use std::process::Command;
 
+use super::workspace_path::format_absolute_path;
+
 pub fn open_in_explorer(path: &str) -> Result<(), String> {
     let trimmed = path.trim();
     if trimmed.is_empty() {
@@ -16,7 +18,7 @@ pub fn open_in_explorer(path: &str) -> Result<(), String> {
     let canonical = Path::new(trimmed)
         .canonicalize()
         .map_err(|error| format!("Path not found: {error}"))?;
-    let path_arg = canonical.to_string_lossy().into_owned();
+    let path_arg = format_absolute_path(&canonical);
 
     spawn_file_manager(&path_arg).map_err(|error| format!("Failed to open file manager: {error}"))
 }

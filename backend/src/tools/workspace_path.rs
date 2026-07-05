@@ -16,7 +16,7 @@ pub fn validate_workspace_dir(path: &str) -> Result<String, String> {
         return Err("workspaceDir must be a directory".to_string());
     }
 
-    Ok(canonical.to_string_lossy().into_owned())
+    Ok(format_absolute_path(&canonical))
 }
 
 /// Resolves a relative or absolute path against the workspace root.
@@ -293,7 +293,10 @@ mod tests {
         let temp = temp_workspace("validate");
         let validated =
             super::validate_workspace_dir(temp.to_string_lossy().as_ref()).expect("validate");
-        assert_eq!(validated, temp.canonicalize().expect("canonical").to_string_lossy());
+        assert_eq!(
+            validated,
+            super::format_absolute_path(&temp.canonicalize().expect("canonical"))
+        );
         let _ = fs::remove_dir_all(temp);
     }
 

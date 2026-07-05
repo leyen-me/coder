@@ -2,6 +2,7 @@ import {
   inferAutomationRunStatus,
   trimAutomationRuns,
 } from "./automation-runs";
+import { stripWindowsVerbatimPrefix } from "@/lib/path";
 import type { AutomationRecord, AutomationRunRecord } from "./types";
 import { inferProviderFromModel } from "./normalize-session";
 import type { ProviderId } from "@/lib/model-provider/types";
@@ -65,7 +66,9 @@ export function normalizeAutomationRecord(
   return {
     ...rest,
     provider: normalizeProviderField(record.provider, record.model ?? ""),
-    workspaceDir: record.workspaceDir ?? null,
+    workspaceDir: record.workspaceDir
+      ? stripWindowsVerbatimPrefix(record.workspaceDir.trim()) || null
+      : null,
     model: record.model?.trim() ?? "",
     agentMode: record.agentMode === "ask" ? "ask" : "agent",
     thinkingEnabled: record.thinkingEnabled ?? false,

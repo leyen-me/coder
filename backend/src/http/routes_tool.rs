@@ -17,7 +17,8 @@ fn resolve_workspace_dir(requested: Option<String>, fallback: &std::path::Path) 
                 Some(trimmed.to_string())
             }
         })
-        .unwrap_or_else(|| fallback.to_string_lossy().into_owned())
+        .map(|path| format_absolute_path(std::path::Path::new(&path)))
+        .unwrap_or_else(|| format_absolute_path(fallback))
 }
 
 // ---------------------------------------------------------------------------
