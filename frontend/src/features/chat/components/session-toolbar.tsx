@@ -1,4 +1,4 @@
-import { FolderOutputIcon } from "lucide-react";
+import { FolderOpenIcon } from "lucide-react";
 import { useCallback } from "react";
 import { toast } from "sonner";
 
@@ -39,7 +39,7 @@ export function SessionToolbar({
     <div className="flex shrink-0 items-center gap-1">
       {hasWorkspace ? (
         <TitleBarNavButton
-          icon={FolderOutputIcon}
+          icon={FolderOpenIcon}
           label={t("session.openWorkspaceInExplorer")}
           onClick={handleOpenInExplorer}
         />
