@@ -108,6 +108,14 @@ pub async fn handle_running_jobs(
     })))
 }
 
+pub async fn handle_active_runs(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    Ok(Json(json!({
+        "items": state.scheduled_job_active_runs.list()
+    })))
+}
+
 fn validate_create_input(input: &CreateJobInput) -> Result<(), (StatusCode, String)> {
     if input.name.trim().is_empty() {
         return Err((StatusCode::BAD_REQUEST, "Name is required".to_string()));

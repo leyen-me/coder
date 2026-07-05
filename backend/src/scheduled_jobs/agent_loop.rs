@@ -1,13 +1,16 @@
 use std::sync::Arc;
 
 use reqwest::Client;
+use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
 use crate::agent::openai::{chat_completions_url, stream_chat_completion};
 use crate::agent::{
-    AgentEvent, AgentToolDefinition, ApiToolCall, ApiToolCallFunction, ChatMessage, ToolCall,
+    AgentEvent, AgentStatus, AgentToolDefinition, ApiToolCall, ApiToolCallFunction, ChatMessage,
+    ToolCall,
 };
 use crate::agent::registry::AgentRegistry;
+use crate::SseBroadcaster;
 
 use super::provider::ResolvedProvider;
 use super::tool_catalog;
@@ -68,6 +71,38 @@ pub struct AgentLoopInput<'a> {
     pub system_prompt: &'a str,
     pub user_prompt: &'a str,
     pub http_base_url: &'a str,
+    pub sse_broadcaster: Option<Arc<SseBroadcaster>>,
+    pub on_agent_event: Option<Arc<dyn Fn(AgentEvent) + Send + Sync>>,
+}
+
+fn emit_agent_event(
+    task_id: &str,
+    sse_broadcaster: Option<&SseBroadcaster>,
+    on_agent_event: Option<&Arc<dyn Fn(AgentEvent) + Send + Sync>>,
+    event: AgentEvent,
+) {
+    if let Some(callback) = on_agent_event {
+        callback(event.clone());
+    }
+    if let Some(broadcaster) = sse_broadcaster {
+        broadcaster.emit_agent_event(task_id, &event);
+    }
+}
+
+fn parse_tool_input(arguments: &str) -> Value {
+    serde_json::from_str(arguments).unwrap_or_else(|_| json!({}))
+}
+
+fn parse_tool_result(result: &str) -> (Option<Value>, Option<String>) {
+    let parsed: Value = serde_json::from_str(result).unwrap_or_else(|_| json!({ "raw": result }));
+    if parsed.get("ok") == Some(&Value::Bool(false)) {
+        let message = parsed
+            .pointer("/error/message")
+            .and_then(|value| value.as_str())
+            .unwrap_or("Tool execution failed");
+        return (None, Some(message.to_string()));
+    }
+    (Some(parsed), None)
 }
 
 pub async fn run_to_completion(
@@ -108,11 +143,24 @@ pub async fn run_to_completion(
         },
     ];
 
+    let task_id = input.session_id.to_string();
+    let sse = input.sse_broadcaster.as_deref();
+    let on_event = input.on_agent_event.as_ref();
+
+    emit_agent_event(
+        &task_id,
+        sse,
+        on_event,
+        AgentEvent::Status {
+            task_id: task_id.clone(),
+            status: AgentStatus::Running,
+        },
+    );
+
     let mut final_content = String::new();
     let mut final_thinking = String::new();
 
-    for turn_index in 0..MAX_AGENT_TURNS {
-        let task_id = format!("{}-turn-{turn_index}", input.session_id);
+    for _turn_index in 0..MAX_AGENT_TURNS {
         let turn = run_single_turn(
             &client,
             input.provider,
@@ -120,10 +168,30 @@ pub async fn run_to_completion(
             &messages,
             tools_option,
             &task_id,
+            sse,
+            on_event,
         )
         .await?;
 
         if let Some(error) = turn.error {
+            emit_agent_event(
+                &task_id,
+                sse,
+                on_event,
+                AgentEvent::Error {
+                    task_id: task_id.clone(),
+                    message: error.clone(),
+                },
+            );
+            emit_agent_event(
+                &task_id,
+                sse,
+                on_event,
+                AgentEvent::Status {
+                    task_id: task_id.clone(),
+                    status: AgentStatus::Failed,
+                },
+            );
             return Err(error);
         }
 
@@ -135,6 +203,24 @@ pub async fn run_to_completion(
         }
 
         if turn.tool_calls.is_empty() {
+            emit_agent_event(
+                &task_id,
+                sse,
+                on_event,
+                AgentEvent::Done {
+                    task_id: task_id.clone(),
+                    usage: None,
+                },
+            );
+            emit_agent_event(
+                &task_id,
+                sse,
+                on_event,
+                AgentEvent::Status {
+                    task_id: task_id.clone(),
+                    status: AgentStatus::Completed,
+                },
+            );
             return Ok((final_content, final_thinking));
         }
 
@@ -169,6 +255,18 @@ pub async fn run_to_completion(
         });
 
         for call in &turn.tool_calls {
+            emit_agent_event(
+                &task_id,
+                sse,
+                on_event,
+                AgentEvent::ToolCallStarted {
+                    task_id: task_id.clone(),
+                    tool_call_id: call.id.clone(),
+                    name: call.name.clone(),
+                    input: parse_tool_input(&call.arguments),
+                },
+            );
+
             let result = tool_runner::execute_tool_call(
                 &client,
                 input.http_base_url,
@@ -179,6 +277,19 @@ pub async fn run_to_completion(
                 &task_id,
             )
             .await;
+
+            let (output, error_text) = parse_tool_result(&result);
+            emit_agent_event(
+                &task_id,
+                sse,
+                on_event,
+                AgentEvent::ToolCallFinished {
+                    task_id: task_id.clone(),
+                    tool_call_id: call.id.clone(),
+                    output,
+                    error_text,
+                },
+            );
 
             messages.push(ChatMessage {
                 role: "tool".to_string(),
@@ -191,7 +302,26 @@ pub async fn run_to_completion(
         }
     }
 
-    Err("Scheduled job exceeded maximum agent turns".to_string())
+    let error = "Scheduled job exceeded maximum agent turns".to_string();
+    emit_agent_event(
+        &task_id,
+        sse,
+        on_event,
+        AgentEvent::Error {
+            task_id: task_id.clone(),
+            message: error.clone(),
+        },
+    );
+    emit_agent_event(
+        &task_id,
+        sse,
+        on_event,
+        AgentEvent::Status {
+            task_id: task_id.clone(),
+            status: AgentStatus::Failed,
+        },
+    );
+    Err(error)
 }
 
 async fn run_single_turn(
@@ -201,6 +331,8 @@ async fn run_single_turn(
     messages: &[ChatMessage],
     tools: Option<&[AgentToolDefinition]>,
     task_id: &str,
+    sse_broadcaster: Option<&SseBroadcaster>,
+    on_agent_event: Option<&Arc<dyn Fn(AgentEvent) + Send + Sync>>,
 ) -> Result<TurnResult, String> {
     let cancel = CancellationToken::new();
     let mut collector = TurnCollector::new();
@@ -213,7 +345,10 @@ async fn run_single_turn(
         tools,
         None,
         cancel,
-        |event| collector.on_event(event),
+        |event| {
+            collector.on_event(event.clone());
+            emit_agent_event(task_id, sse_broadcaster, on_agent_event, event);
+        },
         task_id,
     )
     .await?;

@@ -95,6 +95,22 @@ pub enum AgentEvent {
         tool_call_id: String,
         name: String,
     },
+    #[serde(rename = "tool_call_started")]
+    ToolCallStarted {
+        task_id: String,
+        tool_call_id: String,
+        name: String,
+        input: Value,
+    },
+    #[serde(rename = "tool_call_finished")]
+    ToolCallFinished {
+        task_id: String,
+        tool_call_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output: Option<Value>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        error_text: Option<String>,
+    },
     #[serde(rename = "turn_complete")]
     TurnComplete {
         task_id: String,

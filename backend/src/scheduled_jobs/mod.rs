@@ -1,3 +1,4 @@
+pub mod active_runs;
 mod agent_loop;
 mod due;
 mod lock;
@@ -10,6 +11,7 @@ mod tool_catalog;
 mod tool_runner;
 pub mod types;
 
+pub use active_runs::{ActiveRunRegistry, SharedActiveRunRegistry};
 pub use lock::{RunLock, SharedRunLock};
 pub use runner::{queue_job_run, run_job_by_id};
 pub use scheduler::spawn_scheduler;

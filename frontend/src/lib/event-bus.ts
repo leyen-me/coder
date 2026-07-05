@@ -8,6 +8,7 @@
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface EventMap {
   "agent:task_completed": { taskId: string; status: "completed" | "failed" | "cancelled" };
+  "sessions:external_changed": Record<string, never>;
 }
 
 type Listener<T> = (payload: T) => void;

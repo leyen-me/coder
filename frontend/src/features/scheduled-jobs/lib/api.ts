@@ -94,3 +94,17 @@ export async function listRunningScheduledJobIds(): Promise<string[]> {
   const result = await apiPost<{ ids: string[] }>("/scheduled-jobs/running");
   return result.ids ?? [];
 }
+
+export type ActiveScheduledRun = {
+  jobId: string;
+  sessionId: string;
+  assistantMessageId: string;
+  taskId: string;
+};
+
+export async function listActiveScheduledRuns(): Promise<ActiveScheduledRun[]> {
+  const result = await apiPost<{ items: ActiveScheduledRun[] }>(
+    "/scheduled-jobs/active-runs",
+  );
+  return result.items ?? [];
+}

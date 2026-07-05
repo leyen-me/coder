@@ -252,6 +252,75 @@ pub fn put_session(
     )
 }
 
+pub fn get_message(db: &Mutex<Database>, message_id: &str) -> Result<Option<serde_json::Value>, String> {
+    let db = db.lock().map_err(|_| "Database lock poisoned".to_string())?;
+    db.get(super::types::MESSAGES_STORE, message_id)
+        .map_err(|error| error.to_string())
+}
+
+pub fn patch_message(
+    db: &Mutex<Database>,
+    message_id: &str,
+    content_append: Option<&str>,
+    thinking_append: Option<&str>,
+    status: Option<&str>,
+) -> Result<(), String> {
+    let db = db.lock().map_err(|_| "Database lock poisoned".to_string())?;
+    let mut message: serde_json::Value = db
+        .get(super::types::MESSAGES_STORE, message_id)
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| format!("Message not found: {message_id}"))?;
+
+    if let Some(delta) = content_append {
+        let current = message
+            .get("content")
+            .and_then(|value| value.as_str())
+            .unwrap_or("");
+        message["content"] = serde_json::Value::String(format!("{current}{delta}"));
+    }
+
+    if let Some(delta) = thinking_append {
+        let current = message
+            .get("thinking")
+            .and_then(|value| value.as_str())
+            .unwrap_or("");
+        message["thinking"] = serde_json::Value::String(format!("{current}{delta}"));
+    }
+
+    if let Some(next_status) = status {
+        message["status"] = serde_json::Value::String(next_status.to_string());
+    }
+
+    let id = message
+        .get("id")
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| "Message id is required".to_string())?;
+    let session_id = message
+        .get("sessionId")
+        .and_then(|value| value.as_str())
+        .unwrap_or("");
+    let created_at = message
+        .get("createdAt")
+        .and_then(|value| value.as_i64())
+        .unwrap_or(0);
+    db.put(
+        super::types::MESSAGES_STORE,
+        id,
+        &message,
+        &[
+            IndexEntry {
+                name: "by-sessionId".to_string(),
+                value: session_id.to_string(),
+            },
+            IndexEntry {
+                name: "by-sessionId-createdAt".to_string(),
+                value: format!("{session_id}:{created_at:020}"),
+            },
+        ],
+    )
+    .map_err(|error| error.to_string())
+}
+
 pub fn put_message(db: &Mutex<Database>, message: &serde_json::Value) -> Result<(), String> {
     let db = db.lock().map_err(|_| "Database lock poisoned".to_string())?;
     let id = message

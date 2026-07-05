@@ -24,6 +24,7 @@ pub struct AppState {
     pub remote_pool: RemoteConnectionPool,
     pub sse_broadcaster: Arc<SseBroadcaster>,
     pub scheduled_job_lock: SharedRunLock,
+    pub scheduled_job_active_runs: scheduled_jobs::SharedActiveRunRegistry,
 }
 
 /// SSE event for agent streaming.
@@ -143,6 +144,7 @@ pub fn initialize_app_state(workspace_dir: &PathBuf, http_base_url: String) -> A
         remote_pool,
         sse_broadcaster: Arc::new(SseBroadcaster::new()),
         scheduled_job_lock: Arc::new(scheduled_jobs::RunLock::new()),
+        scheduled_job_active_runs: Arc::new(scheduled_jobs::ActiveRunRegistry::new()),
     })
 }
 

@@ -62,6 +62,25 @@ fn debug_emit_log(event: &AgentEvent) {
                 "emit task_id={task_id} type=tool_call_pending id={tool_call_id} name={name:?}"
             ));
         }
+        AgentEvent::ToolCallStarted {
+            task_id,
+            tool_call_id,
+            name,
+            ..
+        } => {
+            agent_stream_log(format!(
+                "emit task_id={task_id} type=tool_call_started id={tool_call_id} name={name:?}"
+            ));
+        }
+        AgentEvent::ToolCallFinished {
+            task_id,
+            tool_call_id,
+            ..
+        } => {
+            agent_stream_log(format!(
+                "emit task_id={task_id} type=tool_call_finished id={tool_call_id}"
+            ));
+        }
         AgentEvent::TurnComplete {
             task_id,
             tool_calls,

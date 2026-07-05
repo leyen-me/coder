@@ -7,9 +7,9 @@ use std::sync::{Arc, Mutex};
 
 use registry::{generate_session_title, refine_prompt, AgentRegistry};
 pub use types::{
-    AgentEvent, AgentStartParams, AgentStatusResponse, AgentToolDefinition, ApiToolCall,
-    ApiToolCallFunction, ChatMessage, GenerateSessionTitleParams, RefineContextMessage,
-    RefinePromptParams, ToolCall,
+    AgentEvent, AgentStartParams, AgentStatus, AgentStatusResponse, AgentToolDefinition,
+    ApiToolCall, ApiToolCallFunction, ChatMessage, GenerateSessionTitleParams,
+    RefineContextMessage, RefinePromptParams, ToolCall,
 };
 
 pub struct AgentState(pub Arc<Mutex<AgentRegistry>>);

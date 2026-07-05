@@ -7,6 +7,7 @@ import {
   type ChatHistoryItem,
   type SessionRecord,
 } from "@/lib/db";
+import { appEventBus } from "@/lib/event-bus";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
 function toHistoryItem(
@@ -44,9 +45,16 @@ export function useChatSessions(limit: number | null = null) {
 
   useEffect(() => {
     void refresh();
-    return subscribeDb(() => {
+    const unsubscribeDb = subscribeDb(() => {
       void refresh();
     });
+    const unsubscribeExternal = appEventBus.on("sessions:external_changed", () => {
+      void refresh();
+    });
+    return () => {
+      unsubscribeDb();
+      unsubscribeExternal();
+    };
   }, [refresh]);
 
   return { sessions, isLoading, refresh };

@@ -62,6 +62,7 @@ import {
 import { resolveContextWindowForModel } from "../headless-runner";
 import { buildThinkingRequestExtensions, resolveDefaultThinkingEnabled } from "../thinking-preference";
 import { cancelAgent, startAgent } from "../runner";
+import { connectAgentSse, type AgentSseConnection } from "@/lib/api/sse";
 import type {
   AgentChatMessage,
   ActiveTaskState,
@@ -639,6 +640,93 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       }
     },
     [handleAgentEvent]
+  );
+
+  const observedExternalRunsRef = useRef(new Set<string>());
+  const externalSseConnectionsRef = useRef(new Map<string, AgentSseConnection>());
+
+  const observeExternalAgentRun = useCallback(
+    (input: {
+      taskId: string;
+      sessionId: string;
+      assistantMessageId: string;
+    }) => {
+      if (
+        observedExternalRunsRef.current.has(input.taskId) ||
+        tasksRef.current.has(input.taskId)
+      ) {
+        return;
+      }
+
+      observedExternalRunsRef.current.add(input.taskId);
+
+      const activeTask: ActiveTaskState = {
+        taskId: input.taskId,
+        sessionId: input.sessionId,
+        assistantMessageId: input.assistantMessageId,
+        status: "running",
+        error: null,
+        chatRetry: null,
+        isFirstTurn: false,
+        model: "",
+        userContent: "",
+        thinkingEnabled: false,
+        handoff: null,
+        agentMode: "agent",
+        sessionKind: "automation",
+        autonomyMode: "unattended",
+        decisionPolicyVersion: "mvp-v1",
+        decisionModel: null,
+      };
+      tasksRef.current.set(input.taskId, activeTask);
+      emit();
+
+      void (async () => {
+        const message = await getMessage(input.assistantMessageId);
+        if (!message) {
+          return;
+        }
+        if (message.content) {
+          streamingBufferRef.current.append(
+            input.assistantMessageId,
+            "content",
+            message.content
+          );
+        }
+        if (message.thinking) {
+          streamingBufferRef.current.append(
+            input.assistantMessageId,
+            "thinking",
+            message.thinking
+          );
+        }
+        await streamingBufferRef.current.flush(input.assistantMessageId);
+      })();
+
+      const connection = connectAgentSse(
+        input.taskId,
+        (raw) => {
+          dispatchAgentEvent(
+            input.taskId,
+            input.assistantMessageId,
+            raw as AgentEvent
+          );
+        },
+        () => {
+          externalSseConnectionsRef.current.delete(input.taskId);
+          observedExternalRunsRef.current.delete(input.taskId);
+        },
+        (error) => {
+          dispatchAgentEvent(input.taskId, input.assistantMessageId, {
+            type: "error",
+            taskId: input.taskId,
+            message: error,
+          });
+        }
+      );
+      externalSseConnectionsRef.current.set(input.taskId, connection);
+    },
+    [dispatchAgentEvent, emit]
   );
 
   const startAgentTask = useCallback(
@@ -1424,8 +1512,17 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   // Expose sendMessage to non-React callers (automations, etc.)
   useEffect(() => {
     _setExternalSendMessage(sendMessage);
-    return () => _setExternalSendMessage(null);
-  }, [sendMessage]);
+    _setObserveExternalAgentRun(observeExternalAgentRun);
+    return () => {
+      _setExternalSendMessage(null);
+      _setObserveExternalAgentRun(null);
+      for (const connection of externalSseConnectionsRef.current.values()) {
+        connection.close();
+      }
+      externalSseConnectionsRef.current.clear();
+      observedExternalRunsRef.current.clear();
+    };
+  }, [observeExternalAgentRun, sendMessage]);
 
   return (
     <AgentStoreContext.Provider value={value}>
@@ -1499,12 +1596,37 @@ export function useChatRetryByMessageId(): ReadonlyMap<
 // ── External API for non-React callers (automations, etc.) ──────────
 
 type ExternalSendMessage = AgentStoreValue["sendMessage"];
+type ExternalObserveAgentRun = (input: {
+  taskId: string;
+  sessionId: string;
+  assistantMessageId: string;
+}) => void;
 
 let _externalSendMessage: ExternalSendMessage | null = null;
+let _observeExternalAgentRun: ExternalObserveAgentRun | null = null;
 
 /** @internal Called by AgentStoreProvider on mount/unmount. */
 export function _setExternalSendMessage(fn: ExternalSendMessage | null): void {
   _externalSendMessage = fn;
+}
+
+/** @internal Called by AgentStoreProvider on mount/unmount. */
+export function _setObserveExternalAgentRun(
+  fn: ExternalObserveAgentRun | null
+): void {
+  _observeExternalAgentRun = fn;
+}
+
+/**
+ * Subscribe to a backend-scheduled agent run via SSE so sidebar spinners and
+ * streaming overlays stay in sync while the job executes on the server.
+ */
+export function observeExternalAgentRun(input: {
+  taskId: string;
+  sessionId: string;
+  assistantMessageId: string;
+}): void {
+  _observeExternalAgentRun?.(input);
 }
 
 /**

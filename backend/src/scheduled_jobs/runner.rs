@@ -3,11 +3,15 @@ use std::sync::Arc;
 use serde_json::json;
 use uuid::Uuid;
 
+use crate::agent::{AgentEvent, AgentStatus};
 use crate::AppState;
 
+use super::active_runs::ActiveScheduledRun;
 use super::agent_loop::{run_to_completion, AgentLoopInput};
 use super::provider::{resolve_model, resolve_provider, resolve_workspace_dir};
-use super::store::{finish_job_run, get_job, put_message, put_session, start_job_run};
+use super::store::{
+    finish_job_run, get_job, patch_message, put_message, put_session, start_job_run,
+};
 use super::system_prompt::{build_system_prompt, derive_session_title};
 use super::types::{RunStatus, ScheduledJobRecord};
 
@@ -34,8 +38,43 @@ pub async fn run_job_by_id(state: Arc<AppState>, job_id: &str) -> Result<(), Str
     Ok(())
 }
 
+fn patch_message_from_event(
+    db: &Arc<std::sync::Mutex<crate::db::Database>>,
+    assistant_message_id: &str,
+    event: &AgentEvent,
+) {
+    match event {
+        AgentEvent::ContentDelta { delta, .. } => {
+            let _ = patch_message(db, assistant_message_id, Some(delta.as_str()), None, None);
+        }
+        AgentEvent::ThinkingDelta { delta, .. } => {
+            let _ = patch_message(db, assistant_message_id, None, Some(delta.as_str()), None);
+        }
+        AgentEvent::Status { status, .. } => {
+            let next_status = match status {
+                AgentStatus::Pending => "pending",
+                AgentStatus::Running => "streaming",
+                AgentStatus::Cancelling => "streaming",
+                AgentStatus::Completed => "completed",
+                AgentStatus::Failed => "failed",
+                AgentStatus::Cancelled => "cancelled",
+            };
+            let _ = patch_message(db, assistant_message_id, None, None, Some(next_status));
+        }
+        AgentEvent::Error { message, .. } => {
+            let _ = patch_message(db, assistant_message_id, None, None, Some("failed"));
+            if let Ok(Some(mut record)) = super::store::get_message(db, assistant_message_id) {
+                record["error"] = json!(message);
+                let _ = put_message(db, &record);
+            }
+        }
+        _ => {}
+    }
+}
+
 async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<(), String> {
     let session_id = Uuid::new_v4().to_string();
+    let assistant_message_id = Uuid::new_v4().to_string();
     let now = chrono::Utc::now().timestamp_millis();
 
     let provider = resolve_provider(&job.provider)?;
@@ -88,7 +127,37 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
         }),
     )?;
 
+    put_message(
+        &state.db,
+        &json!({
+            "id": assistant_message_id,
+            "sessionId": session_id,
+            "role": "assistant",
+            "content": "",
+            "thinking": "",
+            "toolInvocations": [],
+            "status": "pending",
+            "taskId": session_id,
+            "error": null,
+            "createdAt": now,
+        }),
+    )?;
+
     start_job_run(&state.db, &job.id, &session_id)?;
+
+    state.scheduled_job_active_runs.register(ActiveScheduledRun {
+        job_id: job.id.clone(),
+        session_id: session_id.clone(),
+        assistant_message_id: assistant_message_id.clone(),
+        task_id: session_id.clone(),
+    });
+
+    let db = state.db.clone();
+    let assistant_id_for_events = assistant_message_id.clone();
+    let on_agent_event: Arc<dyn Fn(AgentEvent) + Send + Sync> =
+        Arc::new(move |event: AgentEvent| {
+            patch_message_from_event(&db, &assistant_id_for_events, &event);
+        });
 
     let system_prompt = build_system_prompt(workspace_dir.as_deref(), &job.agent_mode);
     let loop_result = run_to_completion(
@@ -103,30 +172,18 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
             system_prompt: &system_prompt,
             user_prompt: &job.prompt,
             http_base_url: &state.http_base_url,
+            sse_broadcaster: Some(state.sse_broadcaster.clone()),
+            on_agent_event: Some(on_agent_event),
         },
     )
     .await;
 
-    match loop_result {
-        Ok((content, thinking)) => {
-            let assistant_message_id = Uuid::new_v4().to_string();
-            let completed_at = chrono::Utc::now().timestamp_millis();
-            put_message(
-                &state.db,
-                &json!({
-                    "id": assistant_message_id,
-                    "sessionId": session_id,
-                    "role": "assistant",
-                    "content": content,
-                    "thinking": thinking,
-                    "toolInvocations": [],
-                    "status": "completed",
-                    "taskId": session_id,
-                    "error": null,
-                    "createdAt": completed_at,
-                }),
-            )?;
+    state
+        .scheduled_job_active_runs
+        .unregister(&job.id);
 
+    match loop_result {
+        Ok((content, _thinking)) => {
             let summary = if content.trim().is_empty() {
                 "[completed]".to_string()
             } else {
@@ -147,6 +204,13 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
             Ok(())
         }
         Err(error) => {
+            if let Ok(Some(mut message)) = super::store::get_message(&state.db, &assistant_message_id)
+            {
+                message["error"] = json!(error);
+                message["status"] = json!("failed");
+                let _ = put_message(&state.db, &message);
+            }
+
             let summary = format!("[failed] {}", error.chars().take(200).collect::<String>());
             finish_job_run(
                 &state.db,
