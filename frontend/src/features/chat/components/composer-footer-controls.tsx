@@ -43,8 +43,8 @@ const PROVIDER_LABELS: Record<ProviderId, string> = {
   custom: "Custom",
 };
 
-const mobileSettingRowClassName =
-  "flex w-full min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50 data-[state=open]:bg-accent";
+const mobileCompactControlClassName =
+  "inline-flex h-8 min-h-8 min-w-0 items-center gap-1 rounded-xl px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 data-[state=open]:bg-accent data-[state=open]:text-foreground";
 
 function renderModelOptions(
   models: readonly ModelDefinition[],
@@ -186,27 +186,30 @@ export function ComposerFooterControls({
 
   if (isMobile) {
     return (
-      <div className="flex w-full flex-col gap-1">
+      <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               disabled={isRunning || !onAgentModeChange}
-              className={mobileSettingRowClassName}
+              className={cn(
+                mobileCompactControlClassName,
+                "size-8 shrink-0 justify-center px-0"
+              )}
+              title={
+                agentMode === "agent"
+                  ? t("chat.modeAgentLabel")
+                  : agentMode === "plan"
+                    ? t("chat.modePlanLabel")
+                    : t("chat.modeAskLabel")
+              }
             >
-              <span className="shrink-0 text-muted-foreground">
-                {t("chat.composerModeLabel")}
-              </span>
-              <span className="flex min-w-0 items-center gap-2 font-medium text-foreground">
-                <AgentModeIcon className="size-4 shrink-0 opacity-80" />
-                <span className="truncate">{agentModeLabel}</span>
-                <ChevronDownIcon className="size-4 shrink-0 opacity-60" />
-              </span>
+              <AgentModeIcon className="size-3.5 shrink-0" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            align="end"
-            className="min-w-[calc(100vw-2rem)] max-w-sm"
+            align="start"
+            className="min-w-32"
             side="top"
           >
             {agentModeMenu}
@@ -219,24 +222,29 @@ export function ComposerFooterControls({
               <button
                 type="button"
                 disabled={isRunning}
-                className={mobileSettingRowClassName}
+                className={cn(
+                  mobileCompactControlClassName,
+                  "max-w-20 shrink-0",
+                  sessionKind === "long_task" &&
+                    composerFooterControlActiveClassName
+                )}
+                title={
+                  sessionKind === "long_task"
+                    ? t("chat.sessionTypeLongTaskLabel")
+                    : t("chat.sessionTypeStandardLabel")
+                }
               >
-                <span className="shrink-0 text-muted-foreground">
-                  {t("chat.sessionTypeLabel")}
+                <span className="min-w-0 truncate">
+                  {sessionKind === "long_task"
+                    ? t("chat.sessionTypeLongTask")
+                    : t("chat.sessionTypeStandard")}
                 </span>
-                <span className="flex min-w-0 items-center gap-2 font-medium text-foreground">
-                  <span className="truncate">
-                    {sessionKind === "long_task"
-                      ? t("chat.sessionTypeLongTask")
-                      : t("chat.sessionTypeStandard")}
-                  </span>
-                  <ChevronDownIcon className="size-4 shrink-0 opacity-60" />
-                </span>
+                <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
-              align="end"
-              className="min-w-[calc(100vw-2rem)] max-w-sm"
+              align="start"
+              className="min-w-44"
               side="top"
             >
               <DropdownMenuRadioGroup
@@ -261,20 +269,19 @@ export function ComposerFooterControls({
             <button
               type="button"
               disabled={models.length === 0}
-              className={mobileSettingRowClassName}
+              className={cn(
+                mobileCompactControlClassName,
+                "w-28 min-w-0 max-w-32 shrink justify-between"
+              )}
+              title={modelLabel}
             >
-              <span className="shrink-0 text-muted-foreground">
-                {t("chat.composerModelLabel")}
-              </span>
-              <span className="flex min-w-0 items-center gap-2 font-medium text-foreground">
-                <span className="truncate">{modelLabel}</span>
-                <ChevronDownIcon className="size-4 shrink-0 opacity-60" />
-              </span>
+              <span className="min-w-0 flex-1 truncate text-left">{modelLabel}</span>
+              <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            align="end"
-            className="max-h-[min(50vh,20rem)] min-w-[calc(100vw-2rem)] overflow-y-auto max-w-sm"
+            align="start"
+            className="max-h-[min(50vh,20rem)] max-w-sm overflow-y-auto"
             side="top"
           >
             {modelMenu}
@@ -282,31 +289,26 @@ export function ComposerFooterControls({
         </DropdownMenu>
 
         {showThinkingToggle ? (
-          <div className={cn(mobileSettingRowClassName, "hover:bg-transparent")}>
-            <span className="shrink-0 text-muted-foreground">
-              {t("chat.thinkingToggleLabel")}
-            </span>
-            <Toggle
-              pressed={thinkingEnabled}
-              onPressedChange={onThinkingEnabledChange}
-              variant="composer"
-              size="sm"
-              className={cn(
-                composerFooterControlClassName,
-                composerFooterControlActiveClassName,
-                "h-8 shrink-0 px-3"
-              )}
-              disabled={isRunning}
-              aria-label={t("chat.thinkingToggle")}
-            >
-              <BrainIcon className="size-4 shrink-0" />
-              <span className="text-sm font-medium">
-                {thinkingEnabled
-                  ? t("chat.thinkingEnabled")
-                  : t("chat.thinkingDisabled")}
-              </span>
-            </Toggle>
-          </div>
+          <Toggle
+            pressed={thinkingEnabled}
+            onPressedChange={onThinkingEnabledChange}
+            variant="composer"
+            size="sm"
+            className={cn(
+              composerFooterControlClassName,
+              composerFooterControlActiveClassName,
+              "size-8 shrink-0 px-0"
+            )}
+            disabled={isRunning}
+            aria-label={t("chat.thinkingToggle")}
+            title={
+              thinkingEnabled
+                ? t("chat.thinkingEnabled")
+                : t("chat.thinkingDisabled")
+            }
+          >
+            <BrainIcon className="size-3.5 shrink-0" />
+          </Toggle>
         ) : null}
       </div>
     );

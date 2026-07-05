@@ -503,7 +503,7 @@ export const PromptComposer = memo(function PromptComposer({
         />
       </PromptInputBody>
 
-      <PromptInputFooter className="flex-col items-stretch gap-2 bg-card px-2 py-2 sm:flex-row sm:items-center sm:px-3">
+      <PromptInputFooter className="flex-row flex-nowrap items-center gap-1 bg-card px-2 py-2 sm:gap-1.5 sm:px-3">
         <ComposerFooterControls
           agentMode={agentMode}
           isRunning={isRunning}
@@ -520,7 +520,7 @@ export const PromptComposer = memo(function PromptComposer({
           thinkingEnabled={thinkingEnabled}
         />
 
-        <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">
+        <div className="ml-auto flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">
           {contextUsage ? (
             <ComposerContextUsage contextUsage={contextUsage} />
           ) : null}
