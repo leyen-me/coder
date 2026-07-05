@@ -1,13 +1,15 @@
 use std::sync::Arc;
 
 use serde_json::json;
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::agent::{AgentEvent, AgentStatus};
 use crate::AppState;
 
 use super::active_runs::ActiveScheduledRun;
-use super::agent_loop::{run_to_completion, AgentLoopInput};
+use super::agent_loop::{run_to_completion, AgentLoopInput, AGENT_RUN_CANCELLED};
+use super::message_tools::{complete_message_tool_invocation, upsert_message_tool_invocation};
 use super::provider::{resolve_model, resolve_provider, resolve_workspace_dir};
 use super::store::{
     finish_job_run, get_job, patch_message, put_message, put_session, start_job_run,
@@ -41,6 +43,12 @@ pub async fn run_job_by_id(state: Arc<AppState>, job_id: &str) -> Result<bool, S
     Ok(queue_job_run(state, job))
 }
 
+pub fn cancel_active_run(state: &AppState, task_id: &str) -> Option<ActiveScheduledRun> {
+    state
+        .scheduled_job_active_runs
+        .cancel_by_task_id(task_id)
+}
+
 fn patch_message_from_event(
     db: &Arc<std::sync::Mutex<crate::db::Database>>,
     assistant_message_id: &str,
@@ -52,6 +60,60 @@ fn patch_message_from_event(
         }
         AgentEvent::ThinkingDelta { delta, .. } => {
             let _ = patch_message(db, assistant_message_id, None, Some(delta.as_str()), None);
+        }
+        AgentEvent::ToolCallPending {
+            tool_call_id,
+            name,
+            ..
+        } => {
+            let _ = upsert_message_tool_invocation(
+                db,
+                assistant_message_id,
+                json!({
+                    "id": tool_call_id,
+                    "name": name,
+                    "input": {},
+                    "state": "input-streaming",
+                }),
+            );
+        }
+        AgentEvent::ToolCallStarted {
+            tool_call_id,
+            name,
+            input,
+            ..
+        } => {
+            let _ = upsert_message_tool_invocation(
+                db,
+                assistant_message_id,
+                json!({
+                    "id": tool_call_id,
+                    "name": name,
+                    "input": input,
+                    "state": "input-available",
+                }),
+            );
+            let _ = patch_message(db, assistant_message_id, None, None, Some("streaming"));
+        }
+        AgentEvent::ToolCallFinished {
+            tool_call_id,
+            output,
+            error_text,
+            ..
+        } => {
+            let state = if error_text.is_some() {
+                "output-error"
+            } else {
+                "output-available"
+            };
+            let _ = complete_message_tool_invocation(
+                db,
+                assistant_message_id,
+                tool_call_id,
+                state,
+                output.clone(),
+                error_text.clone(),
+            );
         }
         AgentEvent::Status { status, .. } => {
             let next_status = match status {
@@ -148,12 +210,16 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
 
     start_job_run(&state.db, &job.id, &session_id)?;
 
-    state.scheduled_job_active_runs.register(ActiveScheduledRun {
-        job_id: job.id.clone(),
-        session_id: session_id.clone(),
-        assistant_message_id: assistant_message_id.clone(),
-        task_id: session_id.clone(),
-    });
+    let cancel = CancellationToken::new();
+    state.scheduled_job_active_runs.register(
+        ActiveScheduledRun {
+            job_id: job.id.clone(),
+            session_id: session_id.clone(),
+            assistant_message_id: assistant_message_id.clone(),
+            task_id: session_id.clone(),
+        },
+        cancel.clone(),
+    );
 
     let db = state.db.clone();
     let assistant_id_for_events = assistant_message_id.clone();
@@ -191,6 +257,7 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
             thinking_enabled: job.thinking_enabled,
             sse_broadcaster: Some(state.sse_broadcaster.clone()),
             on_agent_event: Some(on_agent_event),
+            cancel,
         },
     )
     .await;
@@ -223,6 +290,23 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
                 session["updatedAt"] = json!(touch_now);
                 let _ = put_session(&state.db, &session, &session_id, touch_now);
             }
+            Ok(())
+        }
+        Err(error) if error == AGENT_RUN_CANCELLED => {
+            if let Ok(Some(mut message)) =
+                super::store::get_message(&state.db, &assistant_message_id)
+            {
+                message["status"] = json!("cancelled");
+                let _ = put_message(&state.db, &message);
+            }
+
+            finish_job_run(
+                &state.db,
+                &job.id,
+                &session_id,
+                "[cancelled]".to_string(),
+                RunStatus::Cancelled,
+            )?;
             Ok(())
         }
         Err(error) => {

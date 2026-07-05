@@ -147,6 +147,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/scheduled-jobs/active-runs",
             post(routes_scheduled_jobs::handle_active_runs),
         )
+        .route(
+            "/scheduled-jobs/cancel",
+            post(routes_scheduled_jobs::handle_cancel_scheduled_job),
+        )
         // Static files (React SPA) — fallback
         .fallback(static_files::handle_static_files)
         .layer(cors)

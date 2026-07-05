@@ -62,6 +62,7 @@ import {
 import { resolveContextWindowForModel } from "../headless-runner";
 import { buildThinkingRequestExtensions, resolveDefaultThinkingEnabled } from "../thinking-preference";
 import { cancelAgent, startAgent } from "../runner";
+import { cancelScheduledJobRun } from "@/features/scheduled-jobs/lib/api";
 import { connectAgentSse, type AgentSseConnection } from "@/lib/api/sse";
 import type {
   AgentChatMessage,
@@ -1490,7 +1491,11 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       tasksRef.current.set(taskId, { ...task, status: "cancelling" });
       emit();
       taskAbortControllersRef.current.get(taskId)?.abort();
-      await cancelAgent(taskId);
+      if (task.sessionKind === "automation") {
+        await cancelScheduledJobRun({ taskId });
+      } else {
+        await cancelAgent(taskId);
+      }
     },
     [emit]
   );

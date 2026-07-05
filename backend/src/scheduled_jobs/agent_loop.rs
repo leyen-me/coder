@@ -74,6 +74,31 @@ pub struct AgentLoopInput<'a> {
     pub thinking_enabled: bool,
     pub sse_broadcaster: Option<Arc<SseBroadcaster>>,
     pub on_agent_event: Option<Arc<dyn Fn(AgentEvent) + Send + Sync>>,
+    pub cancel: CancellationToken,
+}
+
+pub const AGENT_RUN_CANCELLED: &str = "Agent run cancelled";
+
+fn ensure_not_cancelled(
+    cancel: &CancellationToken,
+    task_id: &str,
+    sse: Option<&SseBroadcaster>,
+    on_event: Option<&Arc<dyn Fn(AgentEvent) + Send + Sync>>,
+) -> Result<(), String> {
+    if !cancel.is_cancelled() {
+        return Ok(());
+    }
+
+    emit_agent_event(
+        task_id,
+        sse,
+        on_event,
+        AgentEvent::Status {
+            task_id: task_id.to_string(),
+            status: AgentStatus::Cancelled,
+        },
+    );
+    Err(AGENT_RUN_CANCELLED.to_string())
 }
 
 fn emit_agent_event(
@@ -147,6 +172,7 @@ pub async fn run_to_completion(
     let task_id = input.session_id.to_string();
     let sse = input.sse_broadcaster.as_deref();
     let on_event = input.on_agent_event.as_ref();
+    let cancel = input.cancel.clone();
 
     emit_agent_event(
         &task_id,
@@ -162,6 +188,8 @@ pub async fn run_to_completion(
     let mut final_thinking = String::new();
 
     for _turn_index in 0..MAX_AGENT_TURNS {
+        ensure_not_cancelled(&cancel, &task_id, sse, on_event)?;
+
         let turn = run_single_turn(
             &client,
             input.provider,
@@ -172,8 +200,11 @@ pub async fn run_to_completion(
             input.thinking_enabled,
             sse,
             on_event,
+            cancel.clone(),
         )
         .await?;
+
+        ensure_not_cancelled(&cancel, &task_id, sse, on_event)?;
 
         if let Some(error) = turn.error {
             emit_agent_event(
@@ -257,6 +288,8 @@ pub async fn run_to_completion(
         });
 
         for call in &turn.tool_calls {
+            ensure_not_cancelled(&cancel, &task_id, sse, on_event)?;
+
             emit_agent_event(
                 &task_id,
                 sse,
@@ -336,8 +369,8 @@ async fn run_single_turn(
     thinking_enabled: bool,
     sse_broadcaster: Option<&SseBroadcaster>,
     on_agent_event: Option<&Arc<dyn Fn(AgentEvent) + Send + Sync>>,
+    cancel: CancellationToken,
 ) -> Result<TurnResult, String> {
-    let cancel = CancellationToken::new();
     let mut collector = TurnCollector::new();
     let request_extensions = super::provider::build_thinking_request_extensions(
         &provider.models,
@@ -352,7 +385,7 @@ async fn run_single_turn(
         messages,
         tools,
         request_extensions.as_ref(),
-        cancel,
+        cancel.clone(),
         |event| {
             collector.on_event(event.clone());
             emit_agent_event(task_id, sse_broadcaster, on_agent_event, event);
@@ -360,6 +393,10 @@ async fn run_single_turn(
         task_id,
     )
     .await?;
+
+    if cancel.is_cancelled() {
+        return Err(AGENT_RUN_CANCELLED.to_string());
+    }
 
     Ok(collector.into_result())
 }

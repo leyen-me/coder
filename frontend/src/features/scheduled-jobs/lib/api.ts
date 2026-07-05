@@ -108,3 +108,19 @@ export async function listActiveScheduledRuns(): Promise<ActiveScheduledRun[]> {
   );
   return result.items ?? [];
 }
+
+export async function cancelScheduledJobRun(input: {
+  taskId?: string;
+  sessionId?: string;
+  jobId?: string;
+}): Promise<{ cancelled: boolean }> {
+  const result = await apiPost<{ ok: boolean; cancelled: boolean }>(
+    "/scheduled-jobs/cancel",
+    {
+      taskId: input.taskId,
+      sessionId: input.sessionId,
+      jobId: input.jobId,
+    },
+  );
+  return { cancelled: result.cancelled ?? false };
+}

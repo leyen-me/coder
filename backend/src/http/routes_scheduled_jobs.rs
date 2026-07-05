@@ -4,9 +4,10 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 
 use crate::scheduled_jobs::{
-    create_job, delete_job, get_job, list_jobs, run_job_by_id, update_job, CreateJobInput,
-    ScheduledJobRecord, UpdateJobInput,
+    cancel_active_run, create_job, delete_job, get_job, list_jobs, run_job_by_id, update_job,
+    CreateJobInput, ScheduledJobRecord, UpdateJobInput,
 };
+use crate::tools::shell_kill_by_task;
 use crate::AppState;
 
 #[derive(Deserialize)]
@@ -116,6 +117,48 @@ pub async fn handle_active_runs(
     Ok(Json(json!({
         "items": state.scheduled_job_active_runs.list()
     })))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelScheduledJobParams {
+    pub task_id: Option<String>,
+    pub session_id: Option<String>,
+    pub job_id: Option<String>,
+}
+
+pub async fn handle_cancel_scheduled_job(
+    State(state): State<Arc<AppState>>,
+    Json(params): Json<CancelScheduledJobParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let cancelled_run = if let Some(job_id) = params
+        .job_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        state.scheduled_job_active_runs.cancel_by_job_id(job_id)
+    } else if let Some(task_id) = params
+        .task_id
+        .or(params.session_id)
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        cancel_active_run(&state, task_id)
+    } else {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "taskId, sessionId, or jobId is required".to_string(),
+        ));
+    };
+
+    if let Some(run) = cancelled_run {
+        let _ = shell_kill_by_task(&state.shell_registry, run.task_id);
+        Ok(Json(json!({ "ok": true, "cancelled": true })))
+    } else {
+        Ok(Json(json!({ "ok": true, "cancelled": false })))
+    }
 }
 
 fn validate_create_input(input: &CreateJobInput) -> Result<(), (StatusCode, String)> {
