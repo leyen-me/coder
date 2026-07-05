@@ -40,14 +40,12 @@ export function FloatingShellNav({
           icon={PanelLeft}
           isActive={isSidebarOpen}
           onClick={onToggleSidebar}
-          shortcutActionId="panel.toggleSidebar"
         />
         {showSearch ? (
           <TitleBarNavButton
             label={t("titleBar.search")}
             icon={Search}
             onClick={onSearch}
-            shortcutActionId="global.search"
           />
         ) : null}
       </nav>
