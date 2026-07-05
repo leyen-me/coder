@@ -626,6 +626,16 @@ export const enMessages = {
     loading: "Searching…",
   },
   pages: {
+    notFound: {
+      title: "Page not found",
+      description: "This page does not exist or may have been removed.",
+      backToChat: "Back to chat",
+    },
+    routeError: {
+      title: "Something went wrong",
+      description: "The app hit an unexpected error while loading this page.",
+      reload: "Reload",
+    },
     skills: { title: "Skills" },
     automations: { title: "Automations" },
     chatSession: { title: "Chat {id}" },

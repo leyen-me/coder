@@ -550,6 +550,16 @@ export type Messages = {
     loading: string;
   };
   pages: {
+    notFound: {
+      title: string;
+      description: string;
+      backToChat: string;
+    };
+    routeError: {
+      title: string;
+      description: string;
+      reload: string;
+    };
     skills: { title: string };
     automations: { title: string };
     chatSession: { title: string };

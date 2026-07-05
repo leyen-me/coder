@@ -7,12 +7,15 @@ import { SettingsPage } from "@/features/settings/pages/settings-page";
 
 import { AppShell } from "./app-shell";
 import { MainLayout } from "./main-layout";
+import { NotFoundPage } from "./not-found-page";
 import { paths } from "./paths";
+import { RouteErrorPage } from "./route-error-page";
 
 export const router = createBrowserRouter([
   {
     path: paths.home,
     element: <AppShell />,
+    errorElement: <RouteErrorPage />,
     children: [
       { index: true, element: <Navigate to={paths.chatNew} replace /> },
       {
@@ -22,6 +25,7 @@ export const router = createBrowserRouter([
           { path: "chat/:chatId", element: <ChatPage /> },
           { path: "skills", element: <SkillsPage /> },
           { path: "automations", element: <AutomationsPage /> },
+          { path: "*", element: <NotFoundPage /> },
         ],
       },
       { path: "settings", element: <SettingsPage /> },

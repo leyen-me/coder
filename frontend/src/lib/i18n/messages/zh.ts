@@ -612,6 +612,16 @@ export const zhMessages = {
     loading: "搜索中…",
   },
   pages: {
+    notFound: {
+      title: "页面不存在",
+      description: "该页面不存在，或已被移除。",
+      backToChat: "返回聊天",
+    },
+    routeError: {
+      title: "出了点问题",
+      description: "加载此页面时发生了意外错误。",
+      reload: "重新加载",
+    },
     skills: { title: "技能" },
     automations: { title: "自动化" },
     chatSession: { title: "聊天 {id}" },
