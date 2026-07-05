@@ -17,7 +17,7 @@ export function buildFinalAnswerDecisionRequest(input: {
   sessionId: string;
   taskId: string;
   assistantResponse: string;
-  sessionKind: "standard" | "long_task" | "automation";
+  sessionKind: "standard" | "long_task";
   autonomyMode: "interactive" | "unattended";
   decisionPolicyVersion: string;
 }): DecisionRequest {

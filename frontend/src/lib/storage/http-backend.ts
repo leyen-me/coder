@@ -26,7 +26,6 @@ const INDEX_DEFS: Record<string, Record<string, string>> = {
   sessions: { "by-updatedAt": "updatedAt" },
   messages: { "by-sessionId": "sessionId", "by-sessionId-createdAt": "sessionId" },
   userSkills: { "by-slug": "slug" },
-  automations: { "by-updatedAt": "updatedAt" },
   agentTodos: { "by-sessionId": "sessionId", "by-sessionId-order": "sessionId" },
 };
 

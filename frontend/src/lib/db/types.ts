@@ -11,7 +11,7 @@ export type MessageRole = "user" | "assistant";
 /** Distinguishes structured artifact messages from regular chat replies. */
 export type MessageKind = "plan" | "handoff" | "handoff_continuation";
 
-export type SessionKind = "standard" | "long_task" | "automation";
+export type SessionKind = "standard" | "long_task";
 export type SessionAutonomyMode = "interactive" | "unattended";
 
 export const DEFAULT_SESSION_KIND: SessionKind = "standard";
@@ -144,45 +144,6 @@ export type UserSkillRecord = {
 export type SystemSkillPreference = {
   skillId: string;
   enabled: boolean;
-  updatedAt: number;
-};
-
-export type AutomationAgentMode = "agent" | "ask";
-
-export type AutomationRunStatus =
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled";
-
-export type AutomationRunRecord = {
-  id: string;
-  sessionId: string;
-  startedAt: number;
-  completedAt: number | null;
-  summary: string;
-  status: AutomationRunStatus;
-};
-
-export type AutomationRecord = {
-  id: string;
-  name: string;
-  description: string;
-  cronExpression: string;
-  prompt: string;
-  /** Absolute workspace path used when the automation runs. */
-  workspaceDir: string | null;
-  /** Model id from the active provider configuration. */
-  model: string;
-  /** The provider that owns this automation's model. */
-  provider: ProviderId;
-  agentMode: AutomationAgentMode;
-  thinkingEnabled: boolean;
-  enabled: boolean;
-  enableEmail: boolean;
-  /** Newest first. */
-  runs: AutomationRunRecord[];
-  createdAt: number;
   updatedAt: number;
 };
 

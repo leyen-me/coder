@@ -2,7 +2,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useSyncExternalStore,
@@ -62,8 +61,6 @@ import {
 import { resolveContextWindowForModel } from "../headless-runner";
 import { buildThinkingRequestExtensions, resolveDefaultThinkingEnabled } from "../thinking-preference";
 import { cancelAgent, startAgent } from "../runner";
-import { cancelScheduledJobRun } from "@/features/scheduled-jobs/lib/api";
-import { connectAgentSse, type AgentSseConnection } from "@/lib/api/sse";
 import type {
   AgentChatMessage,
   ActiveTaskState,
@@ -641,133 +638,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       }
     },
     [handleAgentEvent]
-  );
-
-  const observedExternalRunsRef = useRef(new Set<string>());
-  const externalSseConnectionsRef = useRef(new Map<string, AgentSseConnection>());
-
-  const finalizeExternalAgentRun = useCallback(
-    (input: {
-      taskId: string;
-      assistantMessageId: string;
-    }) => {
-      externalSseConnectionsRef.current.delete(input.taskId);
-      observedExternalRunsRef.current.delete(input.taskId);
-
-      void (async () => {
-        const task = tasksRef.current.get(input.taskId);
-        if (!task || !isActiveAgentTask(task.status)) {
-          return;
-        }
-
-        const message = await getMessage(input.assistantMessageId);
-        const messageStatus = message?.status;
-        if (
-          messageStatus === "completed" ||
-          messageStatus === "failed" ||
-          messageStatus === "cancelled"
-        ) {
-          dispatchAgentEvent(input.taskId, input.assistantMessageId, {
-            type: "status",
-            taskId: input.taskId,
-            status: messageStatus,
-          });
-          return;
-        }
-
-        // SSE dropped while the backend job may still be running — release the
-        // slot so ScheduledJobStreamBridge can reconnect on the next poll.
-        tasksRef.current.delete(input.taskId);
-        emit();
-      })();
-    },
-    [dispatchAgentEvent, emit]
-  );
-
-  const observeExternalAgentRun = useCallback(
-    (input: {
-      taskId: string;
-      sessionId: string;
-      assistantMessageId: string;
-    }) => {
-      if (
-        observedExternalRunsRef.current.has(input.taskId) ||
-        tasksRef.current.has(input.taskId)
-      ) {
-        return;
-      }
-
-      observedExternalRunsRef.current.add(input.taskId);
-
-      const activeTask: ActiveTaskState = {
-        taskId: input.taskId,
-        sessionId: input.sessionId,
-        assistantMessageId: input.assistantMessageId,
-        status: "running",
-        error: null,
-        chatRetry: null,
-        isFirstTurn: false,
-        model: "",
-        userContent: "",
-        thinkingEnabled: false,
-        handoff: null,
-        agentMode: "agent",
-        sessionKind: "automation",
-        autonomyMode: "interactive",
-        decisionPolicyVersion: "mvp-v1",
-        decisionModel: null,
-      };
-      tasksRef.current.set(input.taskId, activeTask);
-      emit();
-
-      void (async () => {
-        const message = await getMessage(input.assistantMessageId);
-        if (!message) {
-          tasksRef.current.delete(input.taskId);
-          observedExternalRunsRef.current.delete(input.taskId);
-          emit();
-          return;
-        }
-        if (message.content) {
-          streamingBufferRef.current.append(
-            input.assistantMessageId,
-            "content",
-            message.content
-          );
-        }
-        if (message.thinking) {
-          streamingBufferRef.current.append(
-            input.assistantMessageId,
-            "thinking",
-            message.thinking
-          );
-        }
-        await streamingBufferRef.current.flush(input.assistantMessageId);
-      })();
-
-      const connection = connectAgentSse(
-        input.taskId,
-        (raw) => {
-          dispatchAgentEvent(
-            input.taskId,
-            input.assistantMessageId,
-            raw as AgentEvent
-          );
-        },
-        () => {
-          finalizeExternalAgentRun(input);
-        },
-        (error) => {
-          dispatchAgentEvent(input.taskId, input.assistantMessageId, {
-            type: "error",
-            taskId: input.taskId,
-            message: error,
-          });
-        }
-      );
-      externalSseConnectionsRef.current.set(input.taskId, connection);
-    },
-    [dispatchAgentEvent, emit, finalizeExternalAgentRun]
   );
 
   const startAgentTask = useCallback(
@@ -1521,11 +1391,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       tasksRef.current.set(taskId, { ...task, status: "cancelling" });
       emit();
       taskAbortControllersRef.current.get(taskId)?.abort();
-      if (task.sessionKind === "automation") {
-        await cancelScheduledJobRun({ taskId });
-      } else {
-        await cancelAgent(taskId);
-      }
+      await cancelAgent(taskId);
     },
     [emit]
   );
@@ -1583,21 +1449,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       sendMessage,
     ]
   );
-
-  // Expose sendMessage to non-React callers (automations, etc.)
-  useEffect(() => {
-    _setExternalSendMessage(sendMessage);
-    _setObserveExternalAgentRun(observeExternalAgentRun);
-    return () => {
-      _setExternalSendMessage(null);
-      _setObserveExternalAgentRun(null);
-      for (const connection of externalSseConnectionsRef.current.values()) {
-        connection.close();
-      }
-      externalSseConnectionsRef.current.clear();
-      observedExternalRunsRef.current.clear();
-    };
-  }, [observeExternalAgentRun, sendMessage]);
 
   return (
     <AgentStoreContext.Provider value={value}>
@@ -1668,50 +1519,3 @@ export function useChatRetryByMessageId(): ReadonlyMap<
   }, [activeTasks]);
 }
 
-// ── External API for non-React callers (automations, etc.) ──────────
-
-type ExternalSendMessage = AgentStoreValue["sendMessage"];
-type ExternalObserveAgentRun = (input: {
-  taskId: string;
-  sessionId: string;
-  assistantMessageId: string;
-}) => void;
-
-let _externalSendMessage: ExternalSendMessage | null = null;
-let _observeExternalAgentRun: ExternalObserveAgentRun | null = null;
-
-/** @internal Called by AgentStoreProvider on mount/unmount. */
-export function _setExternalSendMessage(fn: ExternalSendMessage | null): void {
-  _externalSendMessage = fn;
-}
-
-/** @internal Called by AgentStoreProvider on mount/unmount. */
-export function _setObserveExternalAgentRun(
-  fn: ExternalObserveAgentRun | null
-): void {
-  _observeExternalAgentRun = fn;
-}
-
-/**
- * Subscribe to a backend-scheduled agent run via SSE so sidebar spinners and
- * streaming overlays stay in sync while the job executes on the server.
- */
-export function observeExternalAgentRun(input: {
-  taskId: string;
-  sessionId: string;
-  assistantMessageId: string;
-}): void {
-  _observeExternalAgentRun?.(input);
-}
-
-/**
- * Get the agent store's sendMessage function for use outside React context.
- * Returns `null` if the AgentStoreProvider is not mounted.
- *
- * Used by automations (scheduler / manual run) to route agent execution
- * through the store, which provides streaming output, task state tracking,
- * and sidebar activity indication.
- */
-export function getExternalSendMessage(): ExternalSendMessage | null {
-  return _externalSendMessage;
-}

@@ -34,7 +34,7 @@
 
 At its core, Coder runs an **autonomous agent loop** — the AI can read and write files, execute shell commands (locally and over SSH), search the web, browse pages, send emails, manage git repositories, and orchestrate complex multi-step workflows — all without leaving your local environment.
 
-Beyond interactive chat, Coder supports **scheduled automations** with cron-based triggers, **context-aware session handoff** for long-running tasks, a customizable **skills system**, and **multi-provider AI model** support through any OpenAI-compatible API.
+Beyond interactive chat, Coder supports **context-aware session handoff** for long-running tasks, a customizable **skills system**, and **multi-provider AI model** support through any OpenAI-compatible API.
 
 ---
 
@@ -62,11 +62,10 @@ Beyond interactive chat, Coder supports **scheduled automations** with cron-base
 | **Email** | SMTP email sending with TLS/STARTTLS support via configurable relay settings. |
 | **Sub-agent Spawning** | Delegate independent sub-tasks to spawned agent instances with up to 3 levels of nesting depth. |
 
-### Automation & Productivity
+### Productivity
 
 | Capability | Description |
 |---|---|
-| **Scheduled Jobs** | Cron-based AI agent automations with configurable models, agent modes (Agent/Ask), thinking toggles, email notifications, and run history tracking. |
 | **Skills System** | Reusable, user-defined skill instructions that extend agent capabilities — managed through a dedicated UI with enable/disable per session. |
 | **Plan Mode** | Structured task planning with event-driven progress tracking and visual plan sheets. |
 | **Todo Management** | Agent-driven structured todo lists for multi-task workflows with real-time progress sync. |
@@ -103,7 +102,7 @@ Beyond interactive chat, Coder supports **scheduled automations** with cron-base
 │  │ (Agent Loop) │  │  (Code View) │  │ (Shiki + Mermaid + KaTeX)│ │
 │  └──────┬───────┘  └──────────────┘  └──────────────────────────┘ │
 │  ┌──────┴───────┐  ┌──────────────┐  ┌──────────────────────────┐ │
-│  │ Rich Composer│  │  Skills UI   │  │ Automation & Schedule UI │ │
+│  │ Rich Composer│  │  Skills UI   │  │ Settings & Workspace UI  │ │
 │  │ (Tiptap)     │  │              │  │                          │ │
 │  └──────┬───────┘  └──────────────┘  └──────────────────────────┘ │
 │         │                                                           │
@@ -121,15 +120,15 @@ Beyond interactive chat, Coder supports **scheduled automations** with cron-base
 │  │ (Agent Loop) │  │ (Process Mgmt│  │ (Session Reuse + Reaper) │  │
 │  └──────────────┘  └──────────────┘  └──────────────────────────┘  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐  │
-│  │ Scheduled    │  │ Tool         │  │ Page                     │  │
-│  │ Job          │  │ Implementations│ │ Cache                    │  │
-│  │ Scheduler    │  │ (fs, git, web,│  │                          │  │
-│  │ (Cron)       │  │   mail, …)    │  │                          │  │
+│  │ Session      │  │ Tool         │  │ Page                     │  │
+│  │ Persistence  │  │ Implementations│ │ Cache                    │  │
+│  │ & Handoff    │  │ (fs, git, web,│  │                          │  │
+│  │              │  │   mail, …)    │  │                          │  │
 │  └──────────────┘  └──────────────┘  └──────────────────────────┘  │
 │         │                                                           │
 │  ┌──────▼───────┐                                                   │
 │  │ SQLite       │  (~/.coder/)                                      │
-│  │ Persistence  │  sessions, messages, automations, skills, …      │
+│  │ Persistence  │  sessions, messages, skills, todos, …            │
 │  └──────────────┘                                                   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -207,13 +206,11 @@ The CLI downloads the platform-specific binary and starts the local server, open
 │   │   │   └── ui/                    # shadcn/ui component library
 │   │   ├── features/                  # Feature modules
 │   │   │   ├── agent/                 # Agent loop, tools, context monitoring, handoff
-│   │   │   ├── automations/           # Scheduled job UI and management
 │   │   │   ├── chat/                  # Chat session, composer, message list, hooks
 │   │   │   ├── history/               # Session history page
 │   │   │   ├── keyboard-shortcuts/    # Keyboard shortcut system
 │   │   │   ├── lab/                   # Prompt refinement, response styles, DeepSeek balance
 │   │   │   ├── plan/                  # Task planning service
-│   │   │   ├── scheduled-jobs/        # Backend job stream bridge
 │   │   │   ├── settings/              # Settings panels (model, email, remote, appearance…)
 │   │   │   ├── skills/                # Skills management UI and registry
 │   │   │   └── workspace/             # Workspace picker, git integration
@@ -242,7 +239,6 @@ The CLI downloads the platform-specific binary and starts the local server, open
 │   │   │   ├── web_search/browse_page: Tavily search + page cache
 │   │   │   └── git: branch operations
 │   │   ├── http/                      # axum routes (agent, SSE, tools, settings, DB)
-│   │   ├── scheduled_jobs/            # Cron scheduler, agent loop runner, run tracking
 │   │   ├── db/                        # SQLite persistence layer
 │   │   └── shell_env.rs               # Shell environment preloading
 │   └── Cargo.toml

@@ -46,8 +46,6 @@ export function SessionTitleLabel({
         </h1>
         {sessionKind === "long_task" ? (
           <Badge variant="secondary">{t("chat.sessionTypeLongTask")}</Badge>
-        ) : sessionKind === "automation" ? (
-          <Badge variant="outline">{t("chat.sessionTypeAutomation")}</Badge>
         ) : null}
       </div>
     );
@@ -64,11 +62,6 @@ export function SessionTitleLabel({
         <span
           className="size-1.5 shrink-0 rounded-full bg-amber-500/70"
           title={t("chat.sessionTypeLongTask")}
-        />
-      ) : sessionKind === "automation" ? (
-        <span
-          className="size-1.5 shrink-0 rounded-full bg-emerald-500/70"
-          title={t("chat.sessionTypeAutomation")}
         />
       ) : null}
     </span>

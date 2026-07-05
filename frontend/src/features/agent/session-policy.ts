@@ -32,10 +32,6 @@ export function resolveAgentSessionPolicy(
 export function isLongTaskSession(
   policy: Pick<AgentSessionPolicy, "sessionKind" | "autonomyMode">
 ): boolean {
-  if (policy.sessionKind === "automation") {
-    return false;
-  }
-
   return (
     policy.sessionKind === "long_task" || policy.autonomyMode === "unattended"
   );

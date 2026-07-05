@@ -44,9 +44,7 @@ export function normalizeSessionRecord(
     sessionKind:
       session.sessionKind === "long_task"
         ? "long_task"
-        : session.sessionKind === "automation"
-          ? "automation"
-          : DEFAULT_SESSION_KIND,
+        : DEFAULT_SESSION_KIND,
     autonomyMode:
       session.autonomyMode === "unattended"
         ? "unattended"

@@ -564,8 +564,6 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     );
   }
 
-  const isAutomationSession = effectiveSession?.sessionKind === "automation";
-
   const chatContent = (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {handoffPreviewMode ? (
@@ -632,11 +630,6 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             planBuildActions={{ isRunning, isBuildPending, onBuild: () => { void handleBuildFromPlan(""); } }}
           />
           ) : null}
-          {isAutomationSession ? (
-            <div className="border-t border-border/60 px-4 py-3 text-center text-sm text-muted-foreground">
-              {t("chat.automationSessionViewOnly")}
-            </div>
-          ) : (
           <PromptComposer
             key={editingMessageId ?? editingQueuedMessageId ?? "new"}
             composerKey={editingMessageId ?? editingQueuedMessageId ?? "new"}
@@ -672,7 +665,6 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             planBuiltAt={effectiveSession?.planBuiltAt ?? null}
             sessionKind={effectiveSession?.sessionKind ?? "standard"}
           />
-          )}
         </div>
       </div>
     </div>

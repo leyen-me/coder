@@ -7,10 +7,6 @@ pub struct SessionPolicyInput {
 }
 
 pub fn is_long_task_session(session_kind: &str, autonomy_mode: &str) -> bool {
-    if session_kind.trim() == "automation" {
-        return false;
-    }
-
     session_kind.trim() == "long_task" || autonomy_mode.trim() == "unattended"
 }
 

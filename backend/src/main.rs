@@ -123,8 +123,11 @@ async fn main() {
         format!("http://127.0.0.1:{actual_port}"),
     );
 
-    // Start backend scheduled-job scheduler.
-    coder_lib::scheduled_jobs::spawn_scheduler(state.clone());
+    if let Err(error) =
+        coder_lib::db::purge_automation_sessions::purge_automation_sessions(&state.db)
+    {
+        log::error!("Failed to purge automation sessions: {error}");
+    }
 
     // Build the axum Router
     let app = coder_lib::http::build_router(state.clone());

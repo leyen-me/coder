@@ -1,5 +1,4 @@
 import type {
-  KeyboardShortcutsSettings,
   ShortcutActionDefinition,
   ShortcutActionGroup,
   ShortcutActionId,
@@ -35,12 +34,6 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
   {
     id: "global.skills",
     defaultBinding: "mod+shift+s",
-    scope: "global",
-    allowInInput: true,
-  },
-  {
-    id: "global.automations",
-    defaultBinding: "mod+shift+a",
     scope: "global",
     allowInInput: true,
   },
@@ -104,7 +97,6 @@ export function getActionsForGroup(
       "global.newChat",
       "global.settings",
       "global.skills",
-      "global.automations",
     ],
     panels: ["panel.toggleSidebar"],
     chat: [

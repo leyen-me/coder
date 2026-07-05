@@ -13,7 +13,6 @@ import { KeyboardShortcutsProvider } from "@/lib/keyboard-shortcuts/keyboard-sho
 import { WebToolsProvider } from "@/lib/web-tools/web-tools-provider";
 import { ThemeProvider } from "@/lib/theme/theme-provider";
 import { AgentStoreProvider } from "@/features/agent/store/agent-store";
-import { ScheduledJobStreamBridge } from "@/features/scheduled-jobs/components/scheduled-job-stream-bridge";
 import { WorkspaceProvider } from "@/features/workspace/workspace-provider";
 import {
   initCoderStorageSync,
@@ -36,7 +35,6 @@ initCoderStorageAsync().then(() => {
             <WebToolsProvider>
               <WorkspaceProvider>
                 <AgentStoreProvider>
-                  <ScheduledJobStreamBridge />
                   <TooltipProvider>
                     <App />
                   </TooltipProvider>

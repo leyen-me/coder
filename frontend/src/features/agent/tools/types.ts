@@ -280,7 +280,7 @@ export type ToolExecutionContext = {
   /**
    * Tool names explicitly provided in this session's tool list.
    * When set, these tools bypass the agent-mode exclusion check,
-   * allowing callers (e.g. automations) to dynamically grant
+   * allowing callers to dynamically grant
    * tools that are normally restricted in agent mode.
    */
   explicitlyAllowedToolNames?: ReadonlySet<string>;

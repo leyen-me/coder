@@ -1,3 +1,5 @@
+pub mod purge_automation_sessions;
+
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::Path;
