@@ -1,4 +1,3 @@
-
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./public/app-icon.png">
@@ -9,15 +8,17 @@
 <h1 align="center">Coder</h1>
 
 <p align="center">
-  <strong>AI‑native code editor — powered by React, Rust, and HTTP.</strong>
+  <strong>An AI-native development environment — built with React, Rust, and modern web technologies.</strong>
 </p>
 
 <p align="center">
   <a href="#features">Features</a>&nbsp;·&nbsp;
   <a href="#architecture">Architecture</a>&nbsp;·&nbsp;
-  <a href="#getting-started">Getting Started</a>&nbsp;·&nbsp;
+  <a href="#quick-start">Quick Start</a>&nbsp;·&nbsp;
   <a href="#project-structure">Project Structure</a>&nbsp;·&nbsp;
+  <a href="#configuration">Configuration</a>&nbsp;·&nbsp;
   <a href="#build--release">Build &amp; Release</a>&nbsp;·&nbsp;
+  <a href="#contributing">Contributing</a>&nbsp;·&nbsp;
   <a href="#license">License</a>
 </p>
 
@@ -29,75 +30,127 @@
 
 ## Overview
 
-**Coder** is an AI coding assistant that runs a local agent loop backed by a Rust HTTP server. It combines:
+**Coder** is a full-featured AI-powered coding assistant that runs locally on your machine. It combines a high-performance Rust backend with a polished React frontend to deliver an intelligent development experience directly in your browser.
 
-- A **Rust backend** that manages an AI agent lifecycle, runs a PTY‑based terminal, and exposes filesystem, shell, git, and web tools over HTTP, SSE, and WebSocket.
-- A **React + TypeScript frontend** with a rich chat interface, inline Markdown rendering (with Mermaid diagrams, KaTeX math, and code highlighting via Shiki), resizable panels, and an xterm.js terminal.
+At its core, Coder runs an **autonomous agent loop** — the AI can read and write files, execute shell commands (locally and over SSH), search the web, browse pages, send emails, manage git repositories, and orchestrate complex multi-step workflows — all without leaving your local environment.
 
-The agent can read and write files, run shell commands, search the web, browse pages, manage git branches, and more — all from your browser or the bundled CLI.
+Beyond interactive chat, Coder supports **scheduled automations** with cron-based triggers, **context-aware session handoff** for long-running tasks, a customizable **skills system**, and **multi-provider AI model** support through any OpenAI-compatible API.
 
 ---
 
 ## Features
 
-- **AI Agent Loop** — Multi‑turn conversation with tool calling, retry logic, cancellation, and streaming output.
-- **File System Tools** — Read, write, edit, replace, glob, grep, create/delete/rename/move files and directories.
-- **Shell Integration** — Run arbitrary shell commands via a managed process pool; integrated xterm.js terminal with PTY support (macOS/Linux).
-- **Git Integration** — List branches, get current branch, checkout branches.
-- **Web Tools** — Web search (Tavily) and page browsing.
-- **Rich Markdown Rendering** — GFM, code blocks with Shiki syntax highlighting, Mermaid diagrams, KaTeX math, emoji.
-- **Skills & Automations** — Customisable skill definitions and automation workflows.
-- **Session History** — Persistent chat history with session title generation.
-- **Workspace Management** — Per‑session workspace directories with git repository awareness.
-- **Theme Support** — Light/dark/system themes via `next-themes` with multiple code editor themes.
-- **Cross‑platform** — Rust backend runs on macOS, Windows, and Linux; distributed via npm.
-- **Automatic Releases** — CI/CD via GitHub Actions builds platform binaries and publishes to npm on every push to `main`.
+### AI Agent
+
+| Capability | Description |
+|---|---|
+| **Multi-turn Agent Loop** | Autonomous reasoning with tool calling, retry logic with exponential backoff, cancellation, and real-time streaming output via SSE. |
+| **Context Monitoring & Handoff** | Intelligent token budget tracking with automatic session handoff — when context runs low, Coder generates a structured summary and seamlessly continues in a fresh session. |
+| **Reasoning & Thinking** | Full support for model reasoning traces (extended thinking), displayed as collapsible sections in the chat UI. |
+| **Decision Engine** | Policy-based decision prompts that guide agent behavior with configurable rules and constraints. |
+| **Prompt Refinement** | Optional AI-powered prompt optimization before sending — rewrites vague requests into clear, actionable instructions. |
+
+### Tooling
+
+| Capability | Description |
+|---|---|
+| **File System** | Read, write, edit (search-and-replace), replace lines/files, glob, grep, directory browsing, create/delete/rename/move operations with `.gitignore` awareness. |
+| **Shell Execution** | Managed process pool with background execution, await/kill/poll lifecycle, real-time streaming output, and color-aware terminal banners. |
+| **Remote SSH** | Persistent connection pool with session reuse, idle reaping, keepalive, multiple auth methods (SSH agent, key file, key content, password), and 10-minute hard execution limits. |
+| **Git Integration** | Branch listing, checkout, status inspection — fully integrated into the agent's toolset. |
+| **Web Search & Browsing** | Tavily-powered web search and page browsing with intelligent caching. |
+| **Email** | SMTP email sending with TLS/STARTTLS support via configurable relay settings. |
+| **Sub-agent Spawning** | Delegate independent sub-tasks to spawned agent instances with up to 3 levels of nesting depth. |
+
+### Automation & Productivity
+
+| Capability | Description |
+|---|---|
+| **Scheduled Jobs** | Cron-based AI agent automations with configurable models, agent modes (Agent/Ask), thinking toggles, email notifications, and run history tracking. |
+| **Skills System** | Reusable, user-defined skill instructions that extend agent capabilities — managed through a dedicated UI with enable/disable per session. |
+| **Plan Mode** | Structured task planning with event-driven progress tracking and visual plan sheets. |
+| **Todo Management** | Agent-driven structured todo lists for multi-task workflows with real-time progress sync. |
+
+### Editor & UI
+
+| Capability | Description |
+|---|---|
+| **Rich Text Composer** | Tiptap-powered editor with `@` mentions for file/workspace references, skill references, image attachments, and context-aware insertions. |
+| **Monaco Editor** | Full VS Code-style code editing with multiple syntax themes integrated inline. |
+| **Markdown Rendering** | GFM-flavored Markdown with Shiki syntax highlighting, Mermaid diagrams, KaTeX math rendering, and emoji support. |
+| **Virtual Scrolling** | High-performance message list rendering using TanStack Virtual for sessions with thousands of messages. |
+| **Theme System** | Light / dark / system themes via `next-themes` with synchronized code editor theming. |
+| **Internationalization** | Full English and Chinese localization with a pluggable i18n framework. |
+| **Keyboard Shortcuts** | Customizable keyboard shortcut bindings with cross-platform support (macOS/Windows/Linux). |
+
+### Session & Workspace
+
+| Capability | Description |
+|---|---|
+| **Session Management** | Persistent chat sessions with auto-generated titles, fork capability, and full-text search. |
+| **Workspace Binding** | Per-session workspace directories with git repository detection and file path awareness. |
+| **Message Queue** | Ordered message queue for handling rapid user input during agent execution. |
 
 ---
 
 ## Architecture
 
 ```
-┌────────────────────────────────────────────────┐
-│              Rust HTTP Server (1421)            │
-│  ┌────────────┐  ┌──────────┐  ┌────────────┐ │
-│  │ Agent      │  │  PTY     │  │ Shell Pool │ │
-│  │ Registry   │  │  Manager │  │ (Process)  │ │
-│  └────┬───────┘  └──────────┘  └────────────┘ │
-│       │            │                            │
-│  ┌────▼────────────▼────────────────────┐       │
-│  │   HTTP / SSE / WebSocket / SQLite    │       │
-│  └────────────────┬─────────────────────┘       │
-└───────────────────┼─────────────────────────────┘
-                    │
-┌───────────────────▼─────────────────────────────┐
-│             Browser (React 19 + TS)              │
-│  ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
-│  │  Chat UI │ │Terminal  │ │ Markdown Renderer│ │
-│  │  (Agent) │ │ (xterm)  │ │ (remark/rehype)  │ │
-│  └──────────┘ └──────────┘ └──────────────────┘ │
-│  ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
-│  │ Skills   │ │ History  │ │ Settings         │ │
-│  │ & Auto   │ │ (SQLite) │ │ (settings.json)│ │
-│  └──────────┘ └──────────┘ └──────────────────┘ │
-└──────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│                    Browser (React 19 + TypeScript)                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐ │
+│  │   Chat UI    │  │ Monaco Editor│  │ Markdown Renderer        │ │
+│  │ (Agent Loop) │  │  (Code View) │  │ (Shiki + Mermaid + KaTeX)│ │
+│  └──────┬───────┘  └──────────────┘  └──────────────────────────┘ │
+│  ┌──────┴───────┐  ┌──────────────┐  ┌──────────────────────────┐ │
+│  │ Rich Composer│  │  Skills UI   │  │ Automation & Schedule UI │ │
+│  │ (Tiptap)     │  │              │  │                          │ │
+│  └──────┬───────┘  └──────────────┘  └──────────────────────────┘ │
+│         │                                                           │
+│  ┌──────▼───────┐  ┌──────────────┐  ┌──────────────────────────┐ │
+│  │ Context Mgmt │  │  i18n (en/zh)│  │ Theme System             │ │
+│  │ Token Monitor│  │              │  │ (Light/Dark/System)      │ │
+│  └──────────────┘  └──────────────┘  └──────────────────────────┘ │
+└───────────────────┬────────────────────────────────────────────────┘
+                    │ HTTP / SSE
+┌───────────────────▼────────────────────────────────────────────────┐
+│                  Rust HTTP Server (axum + tokio)                    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐  │
+│  │ Agent        │  │ Shell        │  │ Remote SSH               │  │
+│  │ Registry     │  │ Pool         │  │ Connection Pool          │  │
+│  │ (Agent Loop) │  │ (Process Mgmt│  │ (Session Reuse + Reaper) │  │
+│  └──────────────┘  └──────────────┘  └──────────────────────────┘  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐  │
+│  │ Scheduled    │  │ Tool         │  │ Page                     │  │
+│  │ Job          │  │ Implementations│ │ Cache                    │  │
+│  │ Scheduler    │  │ (fs, git, web,│  │                          │  │
+│  │ (Cron)       │  │   mail, …)    │  │                          │  │
+│  └──────────────┘  └──────────────┘  └──────────────────────────┘  │
+│         │                                                           │
+│  ┌──────▼───────┐                                                   │
+│  │ SQLite       │  (~/.coder/)                                      │
+│  │ Persistence  │  sessions, messages, automations, skills, …      │
+│  └──────────────┘                                                   │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Key technologies
+### Technology Stack
 
-| Layer        | Technology                                                        |
-|-------------|-------------------------------------------------------------------|
-| **Backend**  | Rust, axum, tokio, reqwest, portable-pty, SQLite                  |
-| **Frontend** | React 19, TypeScript, Vite 7, Tailwind CSS 4, shadcn/ui           |
-| **Editor**   | Tiptap (rich text), TipTap extensions, xterm.js + @xterm/addon-fit |
-| **AI**       | AI SDK (`ai`), streaming, tool calling, retry with backoff         |
-| **Markdown** | remark-gfm, rehype-raw, rehype-sanitize, Shiki, KaTeX, Mermaid     |
-| **Storage**  | Server-side SQLite (entities), `~/.coder/settings.json` (settings) |
-| **CI/CD**    | GitHub Actions, npm publish                                        |
+| Layer | Technology |
+|---|---|
+| **Backend** | Rust, axum 0.8, tokio, reqwest, rusqlite, ssh2, lettre |
+| **Frontend** | React 19, TypeScript 5.8, Vite 7, Tailwind CSS 4, shadcn/ui (Radix UI) |
+| **Rich Text** | Tiptap 3 (ProseMirror), Monaco Editor |
+| **AI Integration** | AI SDK (`ai` 6.x), OpenAI-compatible streaming, tool calling |
+| **Markdown** | react-markdown, remark-gfm, rehype-raw/sanitize, Shiki, KaTeX, Mermaid |
+| **State & Routing** | React Router 7, custom stores (no external state library) |
+| **Storage** | Server-side SQLite (`~/.coder/`), client-side IndexedDB via HTTP proxy |
+| **Testing** | Vitest 4 with TypeScript support |
+| **CI/CD** | GitHub Actions → multi-platform Rust binaries → npm publish |
 
 ---
 
-## Getting Started
+## Quick Start
 
 ### Prerequisites
 
@@ -108,7 +161,7 @@ The agent can read and write files, run shell commands, search the web, browse p
 ### Install & run in development
 
 ```bash
-# Install frontend dependencies
+# Install dependencies
 pnpm install
 
 # Start the Vite dev server (port 1420)
@@ -123,73 +176,14 @@ The Vite dev server proxies `/api`, `/agent`, `/sse`, `/ws`, and `/db` requests 
 ### Run tests
 
 ```bash
-# Run all tests
+# Run all frontend tests
 pnpm test
 
 # Watch mode
 pnpm test:watch
 ```
 
----
-
-## Project Structure
-
-```
-├── frontend/                     # React frontend
-│   ├── src/
-│   │   ├── app/                  # App shell, layout, router
-│   │   ├── components/           # Shared UI components
-│   │   ├── features/             # Feature modules (agent, chat, skills, …)
-│   │   ├── lib/                  # Utilities (API client, i18n, theme, DB)
-│   │   └── main.tsx              # Entry point
-│   ├── vite.config.ts
-│   └── dist/                     # Vite build output
-├── backend/                      # Rust HTTP server
-│   ├── src/
-│   │   ├── main.rs               # Binary entry point
-│   │   ├── agent/                # Agent orchestration
-│   │   ├── tools/                # Tool implementations (fs, shell, git, web)
-│   │   └── db/                   # SQLite persistence
-│   └── Cargo.toml
-├── npm/                          # CLI wrapper for npm distribution
-├── npm-packages/                 # Platform-specific binary packages
-├── .github/workflows/            # CI/CD (release.yml)
-├── package.json
-└── tsconfig.json
-```
-
----
-
-## Configuration
-
-### AI Model
-
-You can configure the AI provider (base URL, API key, model name) in the **Settings** page. The app supports any OpenAI‑compatible API, including:
-
-- OpenAI
-- Anthropic (via compatible gateway)
-- Local models (Ollama, LM Studio, etc.)
-
-### Workspace
-
-When you start a new chat session, you will be prompted to select a workspace directory. The agent operates within this directory and is aware of git repositories rooted there.
-
-### Skills
-
-Custom skills define reusable instructions for the agent. They are managed via the **Skills** page and can be enabled/disabled per session.
-
----
-
-## Build & Release
-
-### Manual build
-
-```bash
-pnpm build:frontend    # Build frontend (TypeScript + Vite)
-pnpm build:backend     # Build Rust backend (release)
-```
-
-### Install via npm
+### Install via npm (production)
 
 ```bash
 npm i -g @alanwchat/coder
@@ -198,29 +192,167 @@ coder
 
 The CLI downloads the platform-specific binary and starts the local server, opening your browser automatically.
 
-### Automatic release
+---
 
-Pushing to the `main` branch triggers the [release workflow](.github/workflows/release.yml), which:
+## Project Structure
 
-1. Generates a timestamp‑based release tag.
-2. Builds native binaries for Ubuntu, macOS, and Windows (via matrix strategy).
-3. Publishes platform packages and the main `@alanwchat/coder` CLI to npm.
-4. Creates a GitHub Release with release notes.
+```
+├── frontend/                          # React + TypeScript frontend
+│   ├── src/
+│   │   ├── app/                       # App shell, layout, router
+│   │   ├── components/                # Shared UI components
+│   │   │   ├── ai-elements/           # AI-specific rendering (messages, tools, reasoning)
+│   │   │   ├── layout/                # Window controls, sidebar, title bar
+│   │   │   ├── markdown/              # Markdown renderer with Shiki/Mermaid/KaTeX
+│   │   │   └── ui/                    # shadcn/ui component library
+│   │   ├── features/                  # Feature modules
+│   │   │   ├── agent/                 # Agent loop, tools, context monitoring, handoff
+│   │   │   ├── automations/           # Scheduled job UI and management
+│   │   │   ├── chat/                  # Chat session, composer, message list, hooks
+│   │   │   ├── history/               # Session history page
+│   │   │   ├── keyboard-shortcuts/    # Keyboard shortcut system
+│   │   │   ├── lab/                   # Prompt refinement, response styles, DeepSeek balance
+│   │   │   ├── plan/                  # Task planning service
+│   │   │   ├── scheduled-jobs/        # Backend job stream bridge
+│   │   │   ├── settings/              # Settings panels (model, email, remote, appearance…)
+│   │   │   ├── skills/                # Skills management UI and registry
+│   │   │   └── workspace/             # Workspace picker, git integration
+│   │   ├── hooks/                     # Global custom hooks
+│   │   └── lib/                       # Shared utilities
+│   │       ├── api/                   # HTTP client, SSE handler
+│   │       ├── db/                    # Client-side DB layer (IndexedDB via HTTP)
+│   │       ├── i18n/                  # Internationalization (en, zh)
+│   │       ├── keyboard-shortcuts/    # Shortcut matching and binding
+│   │       ├── model-provider/        # AI model provider configuration
+│   │       ├── monaco/                # Monaco editor setup
+│   │       ├── storage/               # Storage abstraction layer
+│   │       ├── theme/                 # Theme resolution and application
+│   │       └── web-tools/             # Web search/browsing configuration
+│   └── vite.config.ts
+├── backend/                           # Rust HTTP server
+│   ├── src/
+│   │   ├── main.rs                    # Binary entry point, CLI args, graceful shutdown
+│   │   ├── lib.rs                     # Library root, AppState initialization
+│   │   ├── agent/                     # Agent orchestration, OpenAI client, SSE events
+│   │   ├── tools/                     # Tool implementations
+│   │   │   ├── fs: read/write/edit/glob/grep/list-dir/workspace-tree
+│   │   │   ├── shell: process pool, background execution, streaming
+│   │   │   ├── remote_connection: SSH pool, session management
+│   │   │   ├── mail: SMTP email sending
+│   │   │   ├── web_search/browse_page: Tavily search + page cache
+│   │   │   └── git: branch operations
+│   │   ├── http/                      # axum routes (agent, SSE, tools, settings, DB)
+│   │   ├── scheduled_jobs/            # Cron scheduler, agent loop runner, run tracking
+│   │   ├── db/                        # SQLite persistence layer
+│   │   └── shell_env.rs               # Shell environment preloading
+│   └── Cargo.toml
+├── npm/                               # CLI wrapper for npm distribution
+│   └── cli.mjs
+├── .github/workflows/                 # CI/CD (release.yml)
+├── package.json
+└── tsconfig.json
+```
 
 ---
 
-## Development
+## Configuration
 
-### Code style
+### AI Model Provider
 
-This project follows the practices defined in [`AGENTS.md`](./AGENTS.md) — all code should meet world‑class open‑source standards for readability, maintainability, testability, and security. No technical debt.
+Configure your AI provider in the **Settings → Model** page. Coder supports any OpenAI-compatible API endpoint, including:
+
+- **OpenAI** — GPT-4, o1, and other models
+- **Anthropic** — Claude (via compatible gateway)
+- **DeepSeek** — With built-in balance tracking in Lab settings
+- **Local Models** — Ollama, LM Studio, vLLM, or any OpenAI-compatible server
+
+Multiple providers can be configured simultaneously with per-session model selection.
+
+### Workspace
+
+Each chat session binds to a workspace directory. The agent operates within this directory and is aware of git repositories rooted there. `.gitignore` rules are respected for file operations.
+
+### Remote SSH Targets
+
+Configure remote machines in **Settings → Remote Targets** with support for:
+
+- **SSH Agent** authentication (forwarded from local agent)
+- **Key file** or **inline key content** authentication
+- **Password** authentication
+- Automatic session pooling with 5-minute idle timeout and keepalive
+
+### Skills
+
+Custom skills define reusable instructions that extend the agent's capabilities. Manage them in the **Skills** page — create, enable/disable, and reference them inline using `@` mentions in the composer.
+
+### Scheduled Automations
+
+Create cron-based AI tasks that run autonomously with:
+
+- Configurable cron expressions
+- Per-job model selection and agent mode (Agent/Ask)
+- Optional thinking/reasoning per job
+- Email notification on completion or failure
+- Run history with up to 50 recorded executions
+
+---
+
+## Build & Release
+
+### Manual build
+
+```bash
+pnpm build:frontend    # Build frontend (TypeScript + Vite → dist/)
+pnpm build:backend     # Build Rust backend (release mode)
+```
+
+### Preview production build
+
+```bash
+pnpm preview           # Serve the built frontend locally
+```
+
+### Automatic release pipeline
+
+Pushing to `main` triggers the [release workflow](.github/workflows/release.yml):
+
+1. **Versioning** — Generates a `0.1.<run_number>` version from GitHub run count.
+2. **Frontend build** — Compiles the React frontend for embedding into the Rust binary via `rust-embed`.
+3. **Cross-platform compilation** — Matrix strategy builds native binaries for:
+   - `aarch64-apple-darwin` (macOS Apple Silicon)
+   - `x86_64-apple-darwin` (macOS Intel)
+   - `x86_64-unknown-linux-gnu` (Linux x64)
+   - `x86_64-pc-windows-msvc` (Windows x64)
+4. **npm publish** — Publishes platform-specific packages (`@alanwchat/coder-*`) and the main CLI package (`@alanwchat/coder`).
+5. **GitHub Release** — Creates a release with installation instructions.
+
+---
+
+## Contributing
+
+### Code standards
+
+This project follows the practices defined in [`AGENTS.md`](./AGENTS.md) — all code must meet world-class open-source standards for readability, maintainability, testability, and security. No technical debt is accepted.
 
 ### Adding a new tool
 
 1. Implement the Rust handler in `backend/src/tools/`.
-2. Register the HTTP route in the backend router.
-3. Add the TypeScript binding in `frontend/src/features/agent/tools/`.
+2. Register the HTTP route in the axum router (`backend/src/http/`).
+3. Add the TypeScript binding and display component in `frontend/src/features/agent/tools/`.
 4. Write tests — both Rust unit tests and Vitest frontend tests.
+
+### Development workflow
+
+```bash
+# Frontend hot-reload (port 1420)
+pnpm dev
+
+# Backend with auto-recompile (port 1421)
+pnpm dev:server
+
+# Run tests
+pnpm test
+```
 
 ---
 
