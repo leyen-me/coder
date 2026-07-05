@@ -47,17 +47,12 @@ vi.mock("@/features/agent/api/build-system-prompt", () => ({
 }));
 
 import { buildAgentMessages } from "@/features/agent/build-agent-messages";
-import { normalizeEnvironment } from "@/features/agent/environment/build-system-prompt";
 import { getAgentTodosBySession } from "@/lib/db/agent-todos";
 import { resolveEnabledSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
 
-const environment = normalizeEnvironment({
+const buildContext = {
   workspaceDir: "/Users/apple/project",
-  os: "macos aarch64 (15.5)",
-  shell: "/bin/zsh",
-  isGitRepository: true,
-  today: "2026-06-02, Monday",
-});
+};
 
 describe("buildAgentMessages", () => {
   beforeEach(() => {
@@ -74,7 +69,7 @@ describe("buildAgentMessages", () => {
         { role: "user", content: "你好" },
         { role: "assistant", content: "   " },
       ],
-      environment
+      buildContext
     );
 
     expect(messages).toHaveLength(2);
@@ -97,7 +92,7 @@ describe("buildAgentMessages", () => {
           ],
         },
       ],
-      environment
+      buildContext
     );
 
     expect(messages).toHaveLength(2);
@@ -128,7 +123,7 @@ describe("buildAgentMessages", () => {
           content: "{}",
         },
       ],
-      environment
+      buildContext
     );
 
     expect(messages).toHaveLength(3);
@@ -144,7 +139,7 @@ describe("buildAgentMessages", () => {
           reasoning_content: "先分析一下问题",
         },
       ],
-      environment
+      buildContext
     );
 
     expect(messages).toHaveLength(2);
@@ -178,7 +173,7 @@ describe("buildAgentMessages", () => {
             '{"ok":true,"tool":"list_dir","data":{"path":".","entries":[]}}',
         },
       ],
-      environment
+      buildContext
     );
 
     expect(messages.filter((message) => message.role === "tool")).toHaveLength(1);
@@ -208,9 +203,11 @@ describe("buildAgentMessages", () => {
 
     const messages = await buildAgentMessages(
       [{ role: "user", content: "继续实现" }],
-      environment,
-      "agent",
-      "session-1"
+      {
+        ...buildContext,
+        agentMode: "agent",
+        sessionId: "session-1",
+      }
     );
 
     expect(messages).toHaveLength(3);
@@ -228,14 +225,16 @@ describe("buildAgentMessages", () => {
   it("injects a long-task session policy system message", async () => {
     const messages = await buildAgentMessages(
       [{ role: "user", content: "继续实现" }],
-      environment,
-      "agent",
-      "session-1",
       {
-        sessionKind: "long_task",
-        autonomyMode: "unattended",
-        decisionPolicyVersion: "mvp-v1",
-        decisionModel: "decision-model",
+        ...buildContext,
+        agentMode: "agent",
+        sessionId: "session-1",
+        sessionPolicy: {
+          sessionKind: "long_task",
+          autonomyMode: "unattended",
+          decisionPolicyVersion: "mvp-v1",
+          decisionModel: "decision-model",
+        },
       }
     );
 
@@ -259,9 +258,11 @@ describe("buildAgentMessages", () => {
 
     const messages = await buildAgentMessages(
       [{ role: "user", content: "继续实现" }],
-      environment,
-      "agent",
-      "session-1"
+      {
+        ...buildContext,
+        agentMode: "agent",
+        sessionId: "session-1",
+      }
     );
 
     expect(messages).toHaveLength(2);
@@ -282,9 +283,11 @@ describe("buildAgentMessages", () => {
 
     const messages = await buildAgentMessages(
       [{ role: "user", content: "继续实现" }],
-      environment,
-      "agent",
-      "session-1"
+      {
+        ...buildContext,
+        agentMode: "agent",
+        sessionId: "session-1",
+      }
     );
 
     expect(messages[1]?.content).toContain("[pending] task-1: Task 1");
@@ -319,7 +322,7 @@ describe("buildAgentMessages", () => {
           referencedSkills: ["review"],
         },
       ],
-      environment
+      buildContext
     );
 
     const userMessage = messages.find((message) => message.role === "user");

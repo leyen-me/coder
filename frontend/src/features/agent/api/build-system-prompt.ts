@@ -13,23 +13,51 @@ export type BuildSystemPromptInput = {
   extraCommunicationRules?: string[];
 };
 
+const promptCache = new Map<string, Promise<string>>();
+
+function buildCacheKey(input: BuildSystemPromptInput): string {
+  return JSON.stringify({
+    workspaceDir: input.workspaceDir?.trim() || null,
+    agentMode: input.agentMode ?? "agent",
+    sessionKind: input.sessionKind ?? null,
+    autonomyMode: input.autonomyMode ?? null,
+    decisionPolicyVersion: input.decisionPolicyVersion ?? null,
+    decisionModel: input.decisionModel ?? null,
+    extraCommunicationRules: input.extraCommunicationRules ?? [],
+  });
+}
+
+export function invalidateBuiltSystemPromptCache(): void {
+  promptCache.clear();
+}
+
 export async function fetchBuiltSystemPrompt(
   input: BuildSystemPromptInput,
 ): Promise<string> {
-  const result = await apiPost<{ systemPrompt: string }>(
-    "/agent/build_system_prompt",
-    {
-      workspaceDir: input.workspaceDir,
-      agentMode: input.agentMode ?? "agent",
-      sessionKind: input.sessionKind,
-      autonomyMode: input.autonomyMode,
-      decisionPolicyVersion: input.decisionPolicyVersion,
-      decisionModel: input.decisionModel,
-      extraCommunicationRules: input.extraCommunicationRules,
-    },
-  );
+  const key = buildCacheKey(input);
+  let pending = promptCache.get(key);
+  if (!pending) {
+    pending = apiPost<{ systemPrompt: string }>(
+      "/agent/build_system_prompt",
+      {
+        workspaceDir: input.workspaceDir,
+        agentMode: input.agentMode ?? "agent",
+        sessionKind: input.sessionKind,
+        autonomyMode: input.autonomyMode,
+        decisionPolicyVersion: input.decisionPolicyVersion,
+        decisionModel: input.decisionModel,
+        extraCommunicationRules: input.extraCommunicationRules,
+      },
+    )
+      .then((result) => result.systemPrompt)
+      .catch((error) => {
+        promptCache.delete(key);
+        throw error;
+      });
+    promptCache.set(key, pending);
+  }
 
-  return result.systemPrompt;
+  return pending;
 }
 
 export async function resolveSystemPromptForAgent(input: {

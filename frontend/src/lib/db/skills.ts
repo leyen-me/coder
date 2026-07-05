@@ -1,3 +1,5 @@
+import { invalidateBuiltSystemPromptCache } from "@/features/agent/api/build-system-prompt";
+
 import {
   SYSTEM_SKILL_PREFERENCES_STORE,
   USER_SKILLS_STORE,
@@ -151,6 +153,7 @@ export async function setSystemSkillEnabled(
 
   const db = await getDb();
   await db.put(SYSTEM_SKILL_PREFERENCES_STORE, record);
+  invalidateBuiltSystemPromptCache();
   notifyDbChange();
   return record;
 }
