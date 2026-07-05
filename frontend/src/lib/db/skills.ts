@@ -1,3 +1,4 @@
+import { generateId } from "@/lib/generate-id";
 import {
   SYSTEM_SKILL_PREFERENCES_STORE,
   USER_SKILLS_STORE,
@@ -55,7 +56,7 @@ export async function createUserSkill(
 
   const now = Date.now();
   const record: UserSkillRecord = {
-    id: crypto.randomUUID(),
+    id: generateId(),
     slug,
     name: input.name.trim(),
     description: input.description.trim(),

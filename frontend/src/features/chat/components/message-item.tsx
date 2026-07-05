@@ -16,6 +16,7 @@ import {
   normalizeToolInvocations,
   type MessageRecord,
 } from "@/lib/db";
+import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -218,7 +219,7 @@ export const MessageItem = memo(function MessageItem({
       return;
     }
     try {
-      await navigator.clipboard.writeText(answerText);
+      await copyTextToClipboard(answerText);
     } catch (error) {
       if (error instanceof Error && error.message) {
         toast.error(error.message);
@@ -239,7 +240,7 @@ export const MessageItem = memo(function MessageItem({
       return;
     }
     try {
-      await navigator.clipboard.writeText(parts.join("\n"));
+      await copyTextToClipboard(parts.join("\n"));
     } catch (error) {
       if (error instanceof Error && error.message) {
         toast.error(error.message);

@@ -2,6 +2,7 @@ import { getDb } from "./client";
 import { SESSIONS_STORE } from "./constants";
 import { deleteMessagesBySession } from "./messages";
 import { clearAgentTodosBySession } from "./agent-todos";
+import { generateId } from "@/lib/generate-id";
 import { normalizeSessionRecord } from "./normalize-session";
 import { notifyDbChange } from "./subscriptions";
 import type {
@@ -11,7 +12,7 @@ import type {
 } from "./types";
 
 export function createSessionId(): string {
-  return crypto.randomUUID();
+  return generateId();
 }
 
 export function deriveSessionTitle(text: string, maxLength = 48): string {

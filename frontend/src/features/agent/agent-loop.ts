@@ -1,3 +1,4 @@
+import { generateId } from "@/lib/generate-id";
 import {
   executeToolCall,
   getAgentToolDefinitions,
@@ -151,7 +152,7 @@ export async function runAgentWithTools(
             input.decisionPolicyVersion?.trim() || "mvp-v1",
         });
 
-        const decisionId = crypto.randomUUID();
+        const decisionId = generateId();
         onEvent({
           type: "decision_requested",
           taskId: input.taskId,

@@ -3,6 +3,7 @@ import {
   trimAutomationRuns,
 } from "./automation-runs";
 import { stripWindowsVerbatimPrefix } from "@/lib/path";
+import { generateId } from "@/lib/generate-id";
 import type { AutomationRecord, AutomationRunRecord } from "./types";
 import { inferProviderFromModel } from "./normalize-session";
 import type { ProviderId } from "@/lib/model-provider/types";
@@ -42,7 +43,7 @@ function migrateLegacyRuns(record: LegacyAutomationRecord): AutomationRunRecord[
 
   return [
     {
-      id: sessionId || crypto.randomUUID(),
+      id: sessionId || generateId(),
       sessionId,
       startedAt: record.lastRunAt,
       completedAt: record.lastRunAt,

@@ -1,5 +1,6 @@
 import type { FileUIPart } from "ai";
 
+import { generateId } from "@/lib/generate-id";
 import type { MessageImageAttachment } from "@/lib/db";
 
 /** OpenAI Chat Completions user content part (multimodal). */
@@ -34,7 +35,7 @@ export function fileUIPartsToStoredImages(
   files: readonly FileUIPart[]
 ): MessageImageAttachment[] {
   return files.filter(isImageFileUIPart).map((file) => ({
-    id: crypto.randomUUID(),
+    id: generateId(),
     filename: file.filename,
     mediaType: file.mediaType,
     url: file.url!,
