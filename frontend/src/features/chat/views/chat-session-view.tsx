@@ -123,11 +123,26 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBuildPending, setIsBuildPending] = useState(false);
-  const initialAgentModeFromState =
-    (location.state as { agentMode?: AgentMode } | null)?.agentMode ?? "agent";
+  type ChatLocationState = {
+    agentMode?: AgentMode;
+    hideWorkspaceControls?: boolean;
+  } | null;
+  const locationState = location.state as ChatLocationState;
+  const initialAgentModeFromState = locationState?.agentMode ?? "agent";
   const [agentMode, setAgentMode] = useState<AgentMode>(initialAgentModeFromState);
+  const [workspaceBarDismissed, setWorkspaceBarDismissed] = useState(
+    () => locationState?.hideWorkspaceControls ?? false
+  );
 
-  const canEditWorkspace = effectiveMessages.length === 0;
+  useEffect(() => {
+    const hideFromNavigation = locationState?.hideWorkspaceControls ?? false;
+    setWorkspaceBarDismissed(hideFromNavigation);
+  }, [chatId, locationState?.hideWorkspaceControls]);
+
+  const canEditWorkspace =
+    effectiveMessages.length === 0 &&
+    !workspaceBarDismissed &&
+    !isSessionRunning(chatId);
   const workspaceBinding = useSessionWorkspaceBinding({
     session: effectiveSession,
     canEdit: canEditWorkspace,
@@ -215,6 +230,10 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
           t(`chat.${key}`, params)
         );
 
+        if (!options?.editMessageId) {
+          setWorkspaceBarDismissed(false);
+        }
+
         if (options?.requeueOnError) {
           setQueuedMessages((currentQueue) => [
             options.requeueOnError as QueuedMessage,
@@ -262,6 +281,11 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         return;
       }
 
+      const isFirstMessage = effectiveMessages.length === 0;
+      if (isFirstMessage) {
+        setWorkspaceBarDismissed(true);
+      }
+
       setIsBuildPending(true);
       setAgentMode("agent");
       try {
@@ -285,12 +309,16 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         notifySendMessageError(error, (key, params) =>
           t(`chat.${key}`, params)
         );
+        if (isFirstMessage) {
+          setWorkspaceBarDismissed(false);
+        }
       } finally {
         setIsBuildPending(false);
       }
     },
     [
       chatId,
+      effectiveMessages.length,
       effectiveSession?.planFileName,
       isRunning,
       model,
@@ -323,6 +351,11 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         return;
       }
 
+      const isFirstMessage = effectiveMessages.length === 0 && !editingMessageId;
+      if (isFirstMessage) {
+        setWorkspaceBarDismissed(true);
+      }
+
       let finalText = trimmed;
       if (trimmed) {
         setIsSubmitting(true);
@@ -333,6 +366,9 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             model
           );
           if (refineResult === "cancelled") {
+            if (isFirstMessage) {
+              setWorkspaceBarDismissed(false);
+            }
             throw new PromptSendCancelledError();
           }
           finalText =
@@ -374,6 +410,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     [
       editingMessageId,
       editingQueuedMessageId,
+      effectiveMessages.length,
       isRunning,
       messages,
       model,

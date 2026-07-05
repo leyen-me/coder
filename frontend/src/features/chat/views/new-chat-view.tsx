@@ -79,7 +79,9 @@ export function NewChatView() {
           effectiveSessionKind === "long_task" ? "unattended" : "interactive",
         decisionModel: model,
       });
-      navigate(paths.chat(session.id), { state: { agentMode } });
+      navigate(paths.chat(session.id), {
+        state: { agentMode, hideWorkspaceControls: true },
+      });
       await sendMessage({
         sessionId: session.id,
         content: finalText,
