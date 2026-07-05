@@ -52,11 +52,12 @@ export function AppShell() {
     useSidebarOpen();
   const isMobile = useIsMobile();
   const location = useLocation();
+  const showFloatingSearch = location.pathname !== paths.settings;
   const shellContext: ShellOutletContext = {
     sidebarOpen: isSidebarOpen,
     setSidebarOpen,
+    showFloatingSearch,
   };
-  const showSearch = location.pathname !== paths.settings;
 
   // Close overlay sidebar after navigation on mobile.
   useEffect(() => {
@@ -84,7 +85,7 @@ export function AppShell() {
           <ShellFloatingNav
             isSidebarOpen={isSidebarOpen}
             toggleSidebar={toggleSidebar}
-            showSearch={showSearch}
+            showSearch={showFloatingSearch}
           />
           <PromptRefineProvider>
           <HotkeyActionsProvider>

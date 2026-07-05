@@ -14,6 +14,8 @@ type ContentTitleBarProps = {
   trailing?: ReactNode;
   /** When the sidebar is collapsed, reserve space for floating shell nav buttons. */
   reserveFloatingNavSpace?: boolean;
+  /** Reserve width for one or two floating nav buttons. Defaults to dual-button width. */
+  floatingNavReserveWidth?: number;
 };
 
 /** Drag region, optional page chrome, and window controls for the main column. */
@@ -21,11 +23,12 @@ export function ContentTitleBar({
   leading,
   trailing,
   reserveFloatingNavSpace = false,
+  floatingNavReserveWidth = FLOATING_SHELL_NAV_WIDTH_PX,
 }: ContentTitleBarProps) {
   const hasPageChrome = leading != null || trailing != null;
 
   const mainChromeStyle: CSSProperties | undefined = reserveFloatingNavSpace
-    ? { paddingLeft: FLOATING_SHELL_NAV_WIDTH_PX }
+    ? { paddingLeft: floatingNavReserveWidth }
     : undefined;
 
   return (
