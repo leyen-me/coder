@@ -10,7 +10,10 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
-import type { AssistantProcessStep } from "./assistant-process";
+import {
+  getAssistantProcessInteriorSteps,
+  type AssistantProcessStep,
+} from "./assistant-process";
 import { AssistantProcessView } from "./assistant-process-view";
 import { StreamingMessageContent } from "./streaming-message-content";
 
@@ -98,8 +101,12 @@ export const AssistantProcessCollapsible = memo(
     // can see the answer being written in real time. After the turn finishes,
     // the answer moves outside the collapsible.
     const interiorSteps = useMemo(
-      () => steps,
-      [steps]
+      () =>
+        getAssistantProcessInteriorSteps({
+          steps,
+          isMessageStreaming: isStreaming,
+        }),
+      [isStreaming, steps]
     );
     const hasInteriorContent = interiorSteps.length > 0;
 

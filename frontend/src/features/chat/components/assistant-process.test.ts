@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAssistantProcessSteps,
+  getAssistantProcessInteriorSteps,
   getAssistantTimelineSteps,
   getLatestAssistantAnswerText,
   shouldRenderStandaloneAssistantAnswer,
@@ -284,6 +285,52 @@ describe("buildAssistantProcessSteps", () => {
     expect(
       shouldShowAssistantProcessTimeline({ steps, isPlanMessage: true })
     ).toBe(true);
+  });
+
+  it("hides interior answer steps after the turn finishes", () => {
+    const steps = buildAssistantProcessSteps({
+      processSteps: [
+        { id: "reasoning:0", kind: "reasoning", text: "先分析一下。" },
+        { id: "answer:1", kind: "answer", text: "这是最终答案。" },
+      ],
+      answerText: "这是最终答案。",
+      thinkingText: "先分析一下。",
+      isThinkingStreaming: false,
+      showReasoning: true,
+      toolInvocations: [],
+      isAnswerStreaming: false,
+      isMessageStreaming: false,
+    });
+
+    expect(
+      getAssistantProcessInteriorSteps({
+        steps,
+        isMessageStreaming: false,
+      }).map((step) => step.kind)
+    ).toEqual(["reasoning"]);
+  });
+
+  it("keeps interior answer steps while the turn is still streaming", () => {
+    const steps = buildAssistantProcessSteps({
+      processSteps: [
+        { id: "reasoning:0", kind: "reasoning", text: "先分析一下。" },
+        { id: "answer:1", kind: "answer", text: "这是最终答案。" },
+      ],
+      answerText: "这是最终答案。",
+      thinkingText: "先分析一下。",
+      isThinkingStreaming: false,
+      showReasoning: true,
+      toolInvocations: [],
+      isAnswerStreaming: true,
+      isMessageStreaming: true,
+    });
+
+    expect(
+      getAssistantProcessInteriorSteps({
+        steps,
+        isMessageStreaming: true,
+      }).map((step) => step.kind)
+    ).toEqual(["reasoning", "answer"]);
   });
 
   it("shows answer-only non-plan turns in the process timeline", () => {

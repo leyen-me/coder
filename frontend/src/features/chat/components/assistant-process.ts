@@ -101,6 +101,17 @@ export function getAssistantTimelineSteps(input: {
   return input.steps;
 }
 
+export function getAssistantProcessInteriorSteps(input: {
+  steps: AssistantProcessStep[];
+  isMessageStreaming: boolean;
+}): AssistantProcessStep[] {
+  if (input.isMessageStreaming) {
+    return input.steps;
+  }
+
+  return input.steps.filter((step) => step.kind !== "answer");
+}
+
 export function shouldRenderStandaloneAssistantAnswer(input: {
   steps: AssistantProcessStep[];
   isPlanMessage: boolean;
