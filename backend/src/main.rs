@@ -104,8 +104,6 @@ async fn main() {
         .map(PathBuf::from)
         .unwrap_or_else(coder_lib::get_coder_data_dir);
 
-    let state = coder_lib::initialize_app_state(&workspace_dir);
-
     // Determine port (default: 1421 for dev, 0 = random for release)
     #[cfg(debug_assertions)]
     let default_port = 1421;
@@ -119,6 +117,14 @@ async fn main() {
         .expect("Failed to bind address");
 
     let actual_port = listener.local_addr().unwrap().port();
+
+    let state = coder_lib::initialize_app_state(
+        &workspace_dir,
+        format!("http://127.0.0.1:{actual_port}"),
+    );
+
+    // Start backend scheduled-job scheduler.
+    coder_lib::scheduled_jobs::spawn_scheduler(state.clone());
 
     // Build the axum Router
     let app = coder_lib::http::build_router(state.clone());

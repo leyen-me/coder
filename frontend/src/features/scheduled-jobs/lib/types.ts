@@ -1,12 +1,11 @@
 import { CronExpressionParser } from "cron-parser";
-import type { AutomationRecord } from "@/lib/db";
+
+import type { ScheduledJobRecord } from "./api";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 /** View model for the automations list UI. */
-export type AutomationViewModel = AutomationRecord & {
-  /** Formatted relative time string (e.g. "2 hours ago"). */
+export type ScheduledJobViewModel = ScheduledJobRecord & {
   relativeTime: string;
-  /** Whether the automation is currently being executed. */
   running: boolean;
 };
 
@@ -27,7 +26,6 @@ export const CRON_PRESETS = [
   { labelKey: "automations.presets.everyFirstOfMonth9", expression: "0 9 1 * *" },
 ] as const satisfies readonly CronPreset[];
 
-/** Validate a cron expression string. */
 export function isValidCronExpression(expression: string): boolean {
   try {
     CronExpressionParser.parse(expression.trim());
@@ -37,10 +35,6 @@ export function isValidCronExpression(expression: string): boolean {
   }
 }
 
-/**
- * Returns the number of minutes until the next scheduled run,
- * or null if the expression cannot be parsed.
- */
 export function getMinutesUntilNextRun(expression: string): number | null {
   try {
     const parsed = CronExpressionParser.parse(expression.trim());
@@ -51,3 +45,11 @@ export function getMinutesUntilNextRun(expression: string): number | null {
     return null;
   }
 }
+
+export type { ScheduledJobRecord, ScheduledJobRunRecord } from "./api";
+export type {
+  CreateScheduledJobInput,
+  UpdateScheduledJobInput,
+  ScheduledJobAgentMode,
+  ScheduledJobRunStatus,
+} from "./api";

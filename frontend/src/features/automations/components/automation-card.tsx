@@ -24,15 +24,15 @@ import {
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
 import { AutomationRunHistorySheet } from "./automation-run-history-sheet";
-import { resolveAutomationRunConfig } from "../lib/run-config";
-import type { AutomationViewModel } from "../lib/types";
-import { getMinutesUntilNextRun } from "../lib/types";
+import { resolveScheduledJobRunConfig } from "@/features/scheduled-jobs/lib/run-config";
+import type { ScheduledJobViewModel } from "@/features/scheduled-jobs/lib/types";
+import { getMinutesUntilNextRun } from "@/features/scheduled-jobs/lib/types";
 
 type AutomationCardProps = {
-  item: AutomationViewModel;
+  item: ScheduledJobViewModel;
   onToggle: (id: string, enabled: boolean) => void;
   onRun: (id: string) => void;
-  onEdit: (item: AutomationViewModel) => void;
+  onEdit: (item: ScheduledJobViewModel) => void;
   onDelete: (id: string) => void;
 };
 
@@ -45,7 +45,7 @@ export function AutomationCard({
 }: AutomationCardProps) {
   const { t } = useTranslation();
   const { allModels } = useModelProvider();
-  const runConfig = resolveAutomationRunConfig(item, { models: allModels });
+  const runConfig = resolveScheduledJobRunConfig(item, { models: allModels });
   const modelDefinition = findModelDefinition(allModels, runConfig.model);
   const workspaceName = runConfig.workspaceDir
     ? getWorkspaceDisplayName(runConfig.workspaceDir)

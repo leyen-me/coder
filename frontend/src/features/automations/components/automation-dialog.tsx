@@ -36,18 +36,22 @@ import { findModelDefinition } from "@/lib/model-provider/model-definition";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { cn } from "@/lib/utils";
 
-import type { AutomationRecord, CreateAutomationInput, UpdateAutomationInput } from "@/lib/db";
+import type {
+  CreateScheduledJobInput,
+  ScheduledJobRecord,
+  UpdateScheduledJobInput,
+} from "@/features/scheduled-jobs/lib/api";
 import { AutomationRunSettings } from "./automation-run-settings";
-import { resolveAutomationRunConfig } from "../lib/run-config";
-import { CRON_PRESETS, isValidCronExpression } from "../lib/types";
+import { resolveScheduledJobRunConfig } from "@/features/scheduled-jobs/lib/run-config";
+import { CRON_PRESETS, isValidCronExpression } from "@/features/scheduled-jobs/lib/types";
 
 type AutomationDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Pass an item to edit, or null to create a new automation. */
-  editItem: AutomationRecord | null;
+  editItem: ScheduledJobRecord | null;
   onSave: (
-    input: CreateAutomationInput | (UpdateAutomationInput & { id: string })
+    input: CreateScheduledJobInput | (UpdateScheduledJobInput & { id: string })
   ) => Promise<void>;
 };
 
@@ -88,7 +92,7 @@ export function AutomationDialog({
   useEffect(() => {
     if (open) {
       if (editItem) {
-        const runConfig = resolveAutomationRunConfig(editItem, { models: allModels });
+        const runConfig = resolveScheduledJobRunConfig(editItem, { models: allModels });
         setName(editItem.name);
         setDescription(editItem.description);
         setCronExpression(editItem.cronExpression);
@@ -167,7 +171,7 @@ export function AutomationDialog({
           cronExpression: trimmedCron,
           prompt: trimmedPrompt,
           ...runSettings,
-        } as UpdateAutomationInput & { id: string });
+        } as UpdateScheduledJobInput & { id: string });
       } else {
         await onSave({
           name: trimmedName,
@@ -175,7 +179,7 @@ export function AutomationDialog({
           cronExpression: trimmedCron,
           prompt: trimmedPrompt,
           ...runSettings,
-        } as CreateAutomationInput);
+        } as CreateScheduledJobInput);
       }
       onOpenChange(false);
     } catch (err) {

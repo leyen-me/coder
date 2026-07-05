@@ -4,11 +4,11 @@ import { useNavigate } from "react-router-dom";
 
 import { paths } from "@/app/paths";
 import { useTranslation } from "@/lib/i18n/locale-provider";
-import type { AutomationRunRecord } from "@/lib/db";
+import type { ScheduledJobRunRecord } from "@/features/scheduled-jobs/lib/types";
 import { cn } from "@/lib/utils";
 
 type AutomationRunListProps = {
-  runs: AutomationRunRecord[];
+  runs: ScheduledJobRunRecord[];
 };
 
 const statusConfig = {

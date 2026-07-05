@@ -3,23 +3,27 @@ mod shell_env;
 pub mod tools;
 pub mod http;
 pub mod db;
+pub mod scheduled_jobs;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use agent::registry::AgentRegistry;
 use db::Database;
+use scheduled_jobs::SharedRunLock;
 use tools::{PageCache, RemoteConnectionPool, ShellRegistry};
 
 /// Global shared state for all HTTP handlers.
 pub struct AppState {
     pub workspace_dir: PathBuf,
+    pub http_base_url: String,
     pub db: Arc<Mutex<Database>>,
     pub agent_registry: Arc<Mutex<AgentRegistry>>,
     pub shell_registry: Arc<Mutex<ShellRegistry>>,
     pub page_cache: Arc<PageCache>,
     pub remote_pool: RemoteConnectionPool,
     pub sse_broadcaster: Arc<SseBroadcaster>,
+    pub scheduled_job_lock: SharedRunLock,
 }
 
 /// SSE event for agent streaming.
@@ -116,7 +120,7 @@ pub fn get_coder_data_dir() -> PathBuf {
 
 /// Initialize all shared state for the application.
 /// `workspace_dir` is a backend fallback when requests omit an explicit workspace.
-pub fn initialize_app_state(workspace_dir: &PathBuf) -> Arc<AppState> {
+pub fn initialize_app_state(workspace_dir: &PathBuf, http_base_url: String) -> Arc<AppState> {
     let coder_dir = get_coder_data_dir();
     std::fs::create_dir_all(&coder_dir).expect("Failed to create ~/.coder/");
 
@@ -129,6 +133,7 @@ pub fn initialize_app_state(workspace_dir: &PathBuf) -> Arc<AppState> {
 
     Arc::new(AppState {
         workspace_dir: workspace_dir.clone(),
+        http_base_url,
         db: Arc::new(Mutex::new(db)),
         agent_registry: Arc::new(Mutex::new(
             AgentRegistry::new().expect("Failed to init agent registry"),
@@ -137,6 +142,7 @@ pub fn initialize_app_state(workspace_dir: &PathBuf) -> Arc<AppState> {
         page_cache: Arc::new(PageCache::new()),
         remote_pool,
         sse_broadcaster: Arc::new(SseBroadcaster::new()),
+        scheduled_job_lock: Arc::new(scheduled_jobs::RunLock::new()),
     })
 }
 

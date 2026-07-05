@@ -15,16 +15,16 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useTranslation } from "@/lib/i18n/locale-provider";
-import type { AutomationRunRecord } from "@/lib/db";
+import type { ScheduledJobRunRecord } from "@/features/scheduled-jobs/lib/types";
 import { cn } from "@/lib/utils";
 
 import { AutomationRunList } from "./automation-run-list";
 
-type FilterTab = AutomationRunRecord["status"] | "all";
+type FilterTab = ScheduledJobRunRecord["status"] | "all";
 
 type AutomationRunHistorySheetProps = {
   automationName: string;
-  runs: AutomationRunRecord[];
+  runs: ScheduledJobRunRecord[];
 };
 
 const FILTER_TABS: FilterTab[] = [

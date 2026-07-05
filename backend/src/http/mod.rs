@@ -2,6 +2,7 @@ pub mod routes_tool;
 pub mod routes_db;
 pub mod routes_settings;
 pub mod routes_sse;
+pub mod routes_scheduled_jobs;
 pub mod static_files;
 
 use axum::{
@@ -109,6 +110,35 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/settings/get", get(routes_settings::handle_settings_get))
         .route("/settings/set", post(routes_settings::handle_settings_set))
         .route("/settings/delete", post(routes_settings::handle_settings_delete))
+        // Scheduled jobs (backend scheduler)
+        .route(
+            "/scheduled-jobs/list",
+            post(routes_scheduled_jobs::handle_list_jobs),
+        )
+        .route(
+            "/scheduled-jobs/create",
+            post(routes_scheduled_jobs::handle_create_job),
+        )
+        .route(
+            "/scheduled-jobs/update",
+            post(routes_scheduled_jobs::handle_update_job),
+        )
+        .route(
+            "/scheduled-jobs/delete",
+            post(routes_scheduled_jobs::handle_delete_job),
+        )
+        .route(
+            "/scheduled-jobs/toggle",
+            post(routes_scheduled_jobs::handle_toggle_job),
+        )
+        .route(
+            "/scheduled-jobs/run",
+            post(routes_scheduled_jobs::handle_run_job),
+        )
+        .route(
+            "/scheduled-jobs/running",
+            post(routes_scheduled_jobs::handle_running_jobs),
+        )
         // Static files (React SPA) — fallback
         .fallback(static_files::handle_static_files)
         .layer(cors)

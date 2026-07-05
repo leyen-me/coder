@@ -1,4 +1,4 @@
-mod openai;
+pub mod openai;
 pub mod registry;
 mod stream_log;
 mod types;
@@ -7,10 +7,10 @@ use std::sync::{Arc, Mutex};
 
 use registry::{generate_session_title, refine_prompt, AgentRegistry};
 pub use types::{
-    AgentEvent, AgentStartParams, AgentStatusResponse, GenerateSessionTitleParams,
-    RefinePromptParams,
+    AgentEvent, AgentStartParams, AgentStatusResponse, AgentToolDefinition, ApiToolCall,
+    ApiToolCallFunction, ChatMessage, GenerateSessionTitleParams, RefineContextMessage,
+    RefinePromptParams, ToolCall,
 };
-pub use types::{ChatMessage, AgentToolDefinition, RefineContextMessage};
 
 pub struct AgentState(pub Arc<Mutex<AgentRegistry>>);
 

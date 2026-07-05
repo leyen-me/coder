@@ -4,23 +4,26 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PagePlaceholder } from "@/components/layout/page-placeholder";
 import { useTranslation } from "@/lib/i18n/locale-provider";
-import type { AutomationRecord, CreateAutomationInput, UpdateAutomationInput } from "@/lib/db";
+import type {
+  CreateScheduledJobInput,
+  ScheduledJobRecord,
+  UpdateScheduledJobInput,
+} from "@/features/scheduled-jobs/lib/api";
+import { useScheduledJobs } from "@/features/scheduled-jobs/hooks/use-scheduled-jobs";
+import type { ScheduledJobViewModel } from "@/features/scheduled-jobs/lib/types";
 
-import { useAutomations } from "../hooks/use-automations";
 import { AutomationCard } from "../components/automation-card";
 import { AutomationDialog } from "../components/automation-dialog";
 import { DeleteAutomationDialog } from "../components/delete-automation-dialog";
 
-import type { AutomationViewModel } from "../lib/types";
-
 export function AutomationsPage() {
   const { t } = useTranslation();
   const { items, loading, create, update, remove, toggle, runNow } =
-    useAutomations();
+    useScheduledJobs();
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editItem, setEditItem] = useState<AutomationRecord | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<AutomationViewModel | null>(
+  const [editItem, setEditItem] = useState<ScheduledJobRecord | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ScheduledJobViewModel | null>(
     null
   );
 
@@ -29,14 +32,14 @@ export function AutomationsPage() {
     setDialogOpen(true);
   }, []);
 
-  const handleEdit = useCallback((item: AutomationViewModel) => {
+  const handleEdit = useCallback((item: ScheduledJobViewModel) => {
     setEditItem(item);
     setDialogOpen(true);
   }, []);
 
   const handleSave = useCallback(
     async (
-      input: CreateAutomationInput | (UpdateAutomationInput & { id: string })
+      input: CreateScheduledJobInput | (UpdateScheduledJobInput & { id: string })
     ): Promise<void> => {
       if ("id" in input) {
         const { id, ...patch } = input;

@@ -15,10 +15,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import {
-  startAutomationScheduler,
-  stopAutomationScheduler,
-} from "@/features/automations/lib/scheduler";
-import {
   initCoderStorageSync,
 } from "@/lib/storage/init";
 
@@ -65,14 +61,6 @@ export function AppShell() {
       setSidebarOpen(false);
     }
   }, [isMobile, location.pathname, setSidebarOpen]);
-
-  // Start the automation scheduler on mount; stop on unmount.
-  useEffect(() => {
-    startAutomationScheduler();
-    return () => {
-      stopAutomationScheduler();
-    };
-  }, []);
 
   return (
     <div
