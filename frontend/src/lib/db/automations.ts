@@ -1,4 +1,3 @@
-import { generateId } from "@/lib/generate-id";
 import { inferAutomationRunStatus, trimAutomationRuns } from "./automation-runs";
 import { AUTOMATIONS_STORE } from "./constants";
 import { getDb } from "./client";
@@ -52,7 +51,7 @@ export async function createAutomation(
 ): Promise<AutomationRecord> {
   const now = Date.now();
   const record: AutomationRecord = {
-    id: generateId(),
+    id: crypto.randomUUID(),
     name: input.name.trim(),
     description: input.description.trim(),
     cronExpression: input.cronExpression.trim(),

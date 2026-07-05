@@ -1,4 +1,3 @@
-import { generateId } from "@/lib/generate-id";
 import {
   createMessage,
   createTaskId,
@@ -82,7 +81,7 @@ export async function headlessStartAgentTask(
   input: HeadlessAgentTaskInput,
 ): Promise<HeadlessAgentTaskResult> {
   const taskId = createTaskId();
-  const assistantMessageId = generateId();
+  const assistantMessageId = crypto.randomUUID();
 
   await createMessage({
     id: assistantMessageId,

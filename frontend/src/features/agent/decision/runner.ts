@@ -1,4 +1,3 @@
-import { generateId } from "@/lib/generate-id";
 import type { AgentChatMessage } from "../types";
 import { AgentCancellationError, throwIfAborted } from "../cancellation";
 import { cancelAgent, startAgent } from "../runner";
@@ -85,7 +84,7 @@ export async function requestProxyDecision(input: {
   conversationMessages?: AgentChatMessage[];
   signal?: AbortSignal;
 }): Promise<DecisionResponse> {
-  const decisionTaskId = `${input.taskId}:decision:${generateId()}`;
+  const decisionTaskId = `${input.taskId}:decision:${crypto.randomUUID()}`;
   throwIfAborted(input.signal, decisionTaskId);
 
   const messages: AgentChatMessage[] = [

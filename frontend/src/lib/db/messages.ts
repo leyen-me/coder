@@ -1,16 +1,15 @@
 import { getDb } from "./client";
 import { MESSAGES_STORE } from "./constants";
-import { generateId } from "@/lib/generate-id";
 import { notifyDbChange } from "./subscriptions";
 import { touchSession } from "./sessions";
 import type { MessageRecord, MessageStatus } from "./types";
 
 export function createMessageId(): string {
-  return generateId();
+  return crypto.randomUUID();
 }
 
 export function createTaskId(): string {
-  return generateId();
+  return crypto.randomUUID();
 }
 
 export async function createMessage(

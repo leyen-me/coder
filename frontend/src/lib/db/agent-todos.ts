@@ -1,4 +1,3 @@
-import { generateId } from "@/lib/generate-id";
 import { AGENT_TODOS_STORE } from "./constants";
 import { getDb } from "./client";
 import { notifyDbChange } from "./subscriptions";
@@ -240,7 +239,7 @@ export async function copyAgentTodosForSession(
     sourceTodos.map((todo) =>
       db.put(AGENT_TODOS_STORE, {
         ...todo,
-        id: generateId(),
+        id: crypto.randomUUID(),
         sessionId: targetSessionId,
         updatedAt: now,
       })

@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import { useAgentStore } from "@/features/agent/store/agent-store";
 import { getAssistantAnswerText } from "@/features/chat/lib/get-assistant-answer-text";
 import { extractLastCodeBlock } from "@/features/keyboard-shortcuts/extract-last-code-block";
-import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import type { MessageRecord } from "@/lib/db";
 
 import { useRegisterHotkeyAction } from "./hotkey-actions-context";
@@ -119,7 +118,7 @@ export function ChatHotkeyActions({
       return false;
     }
 
-    void copyTextToClipboard(codeBlock).catch((error: unknown) => {
+    void navigator.clipboard.writeText(codeBlock).catch((error: unknown) => {
       if (error instanceof Error && error.message) {
         toast.error(error.message);
       }
