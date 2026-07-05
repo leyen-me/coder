@@ -7,6 +7,7 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
+import { hoverRevealClassName } from "@/lib/responsive-hover";
 import type { FileUIPart, SourceDocumentUIPart } from "ai";
 import {
   FileTextIcon,
@@ -342,13 +343,13 @@ export const AttachmentRemove = ({
         variant === "grid" && [
           "absolute top-2 right-2 size-6 rounded-full p-0",
           "bg-background/80 backdrop-blur-sm",
-          "opacity-0 transition-opacity group-hover:opacity-100",
+          hoverRevealClassName,
           "hover:bg-background",
           "[&>svg]:size-3",
         ],
         variant === "inline" && [
           "size-5 rounded p-0",
-          "opacity-0 transition-opacity group-hover:opacity-100",
+          hoverRevealClassName,
           "[&>svg]:size-2.5",
         ],
         variant === "list" && ["size-8 shrink-0 rounded p-0", "[&>svg]:size-4"],

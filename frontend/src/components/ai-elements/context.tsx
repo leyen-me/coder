@@ -6,7 +6,13 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import type { LanguageModelUsage } from "ai";
 import type { ComponentProps } from "react";
@@ -30,6 +36,9 @@ interface ContextSchema {
 
 const ContextContext = createContext<ContextSchema | null>(null);
 
+/** Keeps overlay trigger/content in sync with the parent root (Popover vs HoverCard). */
+const ContextOverlayContext = createContext(false);
+
 const useContextValue = () => {
   const context = useContext(ContextContext);
 
@@ -47,8 +56,10 @@ export const Context = ({
   maxTokens,
   usage,
   modelId,
+  children,
   ...props
 }: ContextProps) => {
+  const isMobile = useIsMobile();
   const contextValue = useMemo(
     () => ({ maxTokens, modelId, usage, usedTokens }),
     [maxTokens, modelId, usage, usedTokens]
@@ -56,7 +67,15 @@ export const Context = ({
 
   return (
     <ContextContext.Provider value={contextValue}>
-      <HoverCard closeDelay={0} openDelay={0} {...props} />
+      <ContextOverlayContext.Provider value={isMobile}>
+        {isMobile ? (
+          <Popover {...props}>{children}</Popover>
+        ) : (
+          <HoverCard closeDelay={0} openDelay={0} {...props}>
+            {children}
+          </HoverCard>
+        )}
+      </ContextOverlayContext.Provider>
     </ContextContext.Provider>
   );
 };
@@ -105,15 +124,17 @@ const ContextIcon = () => {
 export type ContextTriggerProps = ComponentProps<typeof Button>;
 
 export const ContextTrigger = ({ children, ...props }: ContextTriggerProps) => {
+  const isMobile = useContext(ContextOverlayContext);
   const { usedTokens, maxTokens } = useContextValue();
   const usedPercent = usedTokens / maxTokens;
   const renderedPercent = new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 1,
     style: "percent",
   }).format(usedPercent);
+  const Trigger = isMobile ? PopoverTrigger : HoverCardTrigger;
 
   return (
-    <HoverCardTrigger asChild>
+    <Trigger asChild>
       {children ?? (
         <Button type="button" variant="ghost" {...props}>
           <span className="font-medium text-muted-foreground">
@@ -122,7 +143,7 @@ export const ContextTrigger = ({ children, ...props }: ContextTriggerProps) => {
           <ContextIcon />
         </Button>
       )}
-    </HoverCardTrigger>
+    </Trigger>
   );
 };
 
@@ -131,12 +152,24 @@ export type ContextContentProps = ComponentProps<typeof HoverCardContent>;
 export const ContextContent = ({
   className,
   ...props
-}: ContextContentProps) => (
-  <HoverCardContent
-    className={cn("min-w-60 divide-y overflow-hidden p-0", className)}
-    {...props}
-  />
-);
+}: ContextContentProps) => {
+  const isMobile = useContext(ContextOverlayContext);
+  const sharedClassName = cn("min-w-60 divide-y overflow-hidden p-0", className);
+
+  if (isMobile) {
+    return (
+      <PopoverContent
+        className={cn(
+          "w-auto gap-0 rounded-3xl p-0 shadow-lg ring-1 ring-foreground/5",
+          sharedClassName
+        )}
+        {...props}
+      />
+    );
+  }
+
+  return <HoverCardContent className={sharedClassName} {...props} />;
+};
 
 export type ContextContentHeaderProps = ComponentProps<"div">;
 

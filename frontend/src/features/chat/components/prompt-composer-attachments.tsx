@@ -38,7 +38,7 @@ const ComposerAttachmentItem = memo(
         <AttachmentHoverCardTrigger asChild>
           <Attachment data={attachment} onRemove={handleRemove}>
             <div className="relative size-5 shrink-0">
-              <div className="absolute inset-0 transition-opacity group-hover:opacity-0">
+              <div className="absolute inset-0 transition-opacity max-md:opacity-100 md:group-hover:opacity-0">
                 <AttachmentPreview />
               </div>
               <AttachmentRemove

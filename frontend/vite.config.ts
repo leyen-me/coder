@@ -18,6 +18,10 @@ export default defineConfig({
   },
   clearScreen: false,
   server: {
+    // Dependencies live in the workspace root node_modules (pnpm hoisting).
+    fs: {
+      allow: [path.resolve(__dirname, "..")],
+    },
     host: "0.0.0.0",
     port: 1420,
     strictPort: true,

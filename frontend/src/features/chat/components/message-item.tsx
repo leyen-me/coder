@@ -19,6 +19,7 @@ import {
 } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
+import { hoverRevealClassName } from "@/lib/responsive-hover";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDownIcon, CopyIcon, GitForkIcon, PencilIcon, RefreshCwIcon } from "lucide-react";
@@ -389,7 +390,7 @@ export const MessageItem = memo(function MessageItem({
               "mt-1 self-end transition-opacity",
               isEditing
                 ? "opacity-100"
-                : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                : hoverRevealClassName
             )}
           >
             <MessageAction
@@ -421,7 +422,7 @@ export const MessageItem = memo(function MessageItem({
       <Message from="assistant">
         <HandoffSourceMessage content={message.content} />
         {showActions ? (
-          <MessageActions className="mt-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          <MessageActions className={cn("mt-1 transition-opacity", hoverRevealClassName)}>
             <MessageAction
               disabled={isActionPending}
               label={t("chat.copyMessage")}
@@ -462,7 +463,7 @@ export const MessageItem = memo(function MessageItem({
         <StreamingMessageContent text={answerText} />
       ) : null}
       {showActions ? (
-        <MessageActions className="mt-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+        <MessageActions className={cn("mt-1 transition-opacity", hoverRevealClassName)}>
           <MessageAction
             disabled={isActionPending}
             label={t("chat.copyMessage")}
