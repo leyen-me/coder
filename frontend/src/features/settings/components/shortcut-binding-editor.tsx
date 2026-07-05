@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { ShortcutKeys } from "@/features/keyboard-shortcuts/shortcut-keys";
-import { getShortcutActionDefinition } from "@/lib/keyboard-shortcuts/constants";
+import { getDefaultBinding } from "@/lib/keyboard-shortcuts/default-bindings";
 import {
   bindingsConflict,
   eventToBinding,
@@ -29,7 +29,7 @@ export function ShortcutBindingEditor({
   const [conflictBinding, setConflictBinding] = useState<string | null>(null);
 
   const binding = getBinding(actionId);
-  const defaultBinding = getShortcutActionDefinition(actionId).defaultBinding;
+  const defaultBinding = getDefaultBinding(actionId);
 
   const finishRecording = useCallback(
     (nextBinding: string | null) => {

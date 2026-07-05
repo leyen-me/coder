@@ -1,8 +1,9 @@
 import { getKVStore } from "@/lib/storage";
+import { KEYBOARD_SHORTCUTS_STORAGE_KEY } from "./constants";
 import {
-  DEFAULT_KEYBOARD_SHORTCUTS,
-  KEYBOARD_SHORTCUTS_STORAGE_KEY,
-} from "./constants";
+  getDefaultKeyboardShortcuts,
+  migrateBrowserConflictBindings,
+} from "./default-bindings";
 import { parseKeyboardShortcutsSettings } from "./parse-keyboard-shortcuts-settings";
 import type { KeyboardShortcutsSettings } from "./types";
 
@@ -10,12 +11,19 @@ export function readKeyboardShortcutsSettings(): KeyboardShortcutsSettings {
   try {
     const raw = getKVStore().getItem(KEYBOARD_SHORTCUTS_STORAGE_KEY);
     if (!raw) {
-      return DEFAULT_KEYBOARD_SHORTCUTS;
+      return getDefaultKeyboardShortcuts();
     }
 
-    return parseKeyboardShortcutsSettings(JSON.parse(raw));
+    const parsed = parseKeyboardShortcutsSettings(JSON.parse(raw));
+    const migrated = migrateBrowserConflictBindings(parsed);
+
+    if (migrated !== parsed) {
+      writeKeyboardShortcutsSettings(migrated);
+    }
+
+    return migrated;
   } catch {
-    return DEFAULT_KEYBOARD_SHORTCUTS;
+    return getDefaultKeyboardShortcuts();
   }
 }
 

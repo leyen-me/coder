@@ -8,9 +8,9 @@ import {
 } from "react";
 
 import {
-  DEFAULT_KEYBOARD_SHORTCUTS,
-  getShortcutActionDefinition,
-} from "./constants";
+  getDefaultBinding,
+  getDefaultKeyboardShortcuts,
+} from "./default-bindings";
 import { mergeKeyboardShortcutsSettings } from "./parse-keyboard-shortcuts-settings";
 import {
   readKeyboardShortcutsSettings,
@@ -69,11 +69,11 @@ export function KeyboardShortcutsProvider({
   );
 
   const resetBinding = useCallback((actionId: ShortcutActionId) => {
-    setBinding(actionId, getShortcutActionDefinition(actionId).defaultBinding);
+    setBinding(actionId, getDefaultBinding(actionId));
   }, [setBinding]);
 
   const resetAllBindings = useCallback(() => {
-    setSettings({ ...DEFAULT_KEYBOARD_SHORTCUTS });
+    setSettings({ ...getDefaultKeyboardShortcuts() });
   }, [setSettings]);
 
   const value = useMemo(

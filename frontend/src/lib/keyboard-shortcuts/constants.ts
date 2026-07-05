@@ -85,11 +85,6 @@ export const SHORTCUT_ACTION_IDS: ShortcutActionId[] = SHORTCUT_ACTIONS.map(
   (action) => action.id
 );
 
-export const DEFAULT_KEYBOARD_SHORTCUTS: KeyboardShortcutsSettings =
-  Object.fromEntries(
-    SHORTCUT_ACTIONS.map((action) => [action.id, action.defaultBinding])
-  ) as KeyboardShortcutsSettings;
-
 export function getShortcutActionDefinition(
   id: ShortcutActionId
 ): ShortcutActionDefinition {

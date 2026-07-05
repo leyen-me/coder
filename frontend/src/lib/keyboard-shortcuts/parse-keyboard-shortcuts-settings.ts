@@ -1,7 +1,5 @@
-import {
-  DEFAULT_KEYBOARD_SHORTCUTS,
-  SHORTCUT_ACTION_IDS,
-} from "./constants";
+import { SHORTCUT_ACTION_IDS } from "./constants";
+import { getDefaultKeyboardShortcuts } from "./default-bindings";
 import { normalizeBinding } from "./match";
 import type {
   KeyboardShortcutsSettings,
@@ -25,11 +23,11 @@ export function parseKeyboardShortcutsSettings(
   value: unknown
 ): KeyboardShortcutsSettings {
   if (!value || typeof value !== "object") {
-    return { ...DEFAULT_KEYBOARD_SHORTCUTS };
+    return { ...getDefaultKeyboardShortcuts() };
   }
 
   const record = value as Record<string, unknown>;
-  const settings = { ...DEFAULT_KEYBOARD_SHORTCUTS };
+  const settings = { ...getDefaultKeyboardShortcuts() };
 
   for (const id of SHORTCUT_ACTION_IDS) {
     if (id in record) {
