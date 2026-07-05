@@ -8,8 +8,6 @@ pub struct ResolvedProvider {
     pub provider: String,
     pub base_url: String,
     pub api_key: String,
-    pub api_key_source: String,
-    pub api_key_env_var: String,
     pub models: Value,
 }
 
@@ -34,8 +32,6 @@ struct ModelProviderSettings {
     #[serde(default)]
     active_provider: String,
     #[serde(default)]
-    enabled_providers: Vec<String>,
-    #[serde(default)]
     providers: Value,
 }
 
@@ -58,7 +54,6 @@ fn read_model_provider_settings() -> ModelProviderSettings {
         .unwrap_or_else(|| json!({}));
     serde_json::from_value(raw).unwrap_or(ModelProviderSettings {
         active_provider: "deepseek".to_string(),
-        enabled_providers: vec!["deepseek".to_string()],
         providers: json!({}),
     })
 }
@@ -178,8 +173,6 @@ pub fn resolve_provider(provider_id: &str) -> Result<ResolvedProvider, String> {
         provider,
         base_url,
         api_key,
-        api_key_source: provider_settings.api_key_source,
-        api_key_env_var: provider_settings.api_key_env_var,
         models,
     })
 }

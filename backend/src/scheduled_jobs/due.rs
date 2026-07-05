@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Utc};
 use cron::Schedule;
 use std::str::FromStr;
 
@@ -85,10 +85,6 @@ fn last_finished_run_at(job: &ScheduledJobRecord) -> Option<i64> {
         .filter_map(|run| run.completed_at.or(Some(run.started_at)))
         .collect();
     finished.into_iter().max()
-}
-
-pub fn format_local_date() -> String {
-    Local::now().format("%Y-%m-%d").to_string()
 }
 
 #[cfg(test)]

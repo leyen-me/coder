@@ -1,7 +1,7 @@
-use std::path::Path;
-use std::process::Command;
+use std::path::{Path, PathBuf};
 
-use super::workspace_path::format_absolute_path;
+#[cfg(target_os = "windows")]
+use super::workspace_path::strip_windows_verbatim_prefix;
 
 pub fn open_in_explorer(path: &str) -> Result<(), String> {
     let trimmed = path.trim();
@@ -18,49 +18,31 @@ pub fn open_in_explorer(path: &str) -> Result<(), String> {
     let canonical = Path::new(trimmed)
         .canonicalize()
         .map_err(|error| format!("Path not found: {error}"))?;
-    let path_arg = format_absolute_path(&canonical);
+    let open_path = path_for_file_manager(&canonical);
 
-    spawn_file_manager(&path_arg).map_err(|error| format!("Failed to open file manager: {error}"))
+    open::that(&open_path).map_err(|error| format!("Failed to open file manager: {error}"))
 }
 
-fn spawn_file_manager(path: &str) -> Result<(), String> {
+/// Returns a native path suitable for spawning the platform file manager.
+///
+/// On Windows, `canonicalize()` yields a `\\?\` verbatim prefix that many
+/// shell helpers mishandle, and `explorer.exe` also mis-parses forward slashes.
+fn path_for_file_manager(path: &Path) -> PathBuf {
     #[cfg(target_os = "windows")]
     {
-        Command::new("explorer")
-            .arg(path)
-            .spawn()
-            .map(|_| ())
-            .map_err(|error| error.to_string())
+        PathBuf::from(strip_windows_verbatim_prefix(&path.to_string_lossy()))
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(not(target_os = "windows"))]
     {
-        Command::new("open")
-            .arg(path)
-            .spawn()
-            .map(|_| ())
-            .map_err(|error| error.to_string())
-    }
-
-    #[cfg(all(unix, not(target_os = "macos")))]
-    {
-        Command::new("xdg-open")
-            .arg(path)
-            .spawn()
-            .map(|_| ())
-            .map_err(|error| error.to_string())
-    }
-
-    #[cfg(not(any(target_os = "windows", target_os = "macos", unix)))]
-    {
-        let _ = path;
-        Err("Opening in file explorer is not supported on this platform".to_string())
+        path.to_path_buf()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::open_in_explorer;
+    use super::{open_in_explorer, path_for_file_manager};
+    use std::path::Path;
 
     #[test]
     fn rejects_empty_path() {
@@ -73,5 +55,13 @@ mod tests {
         let error = open_in_explorer("/path/that/does/not/exist/for/coder-test")
             .expect_err("missing path should fail");
         assert!(error.contains("not found") || error.contains("Path not found"));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn path_for_file_manager_strips_verbatim_prefix_and_keeps_backslashes() {
+        let path = Path::new(r"\\?\C:\Users\test\workspace");
+        let formatted = path_for_file_manager(path);
+        assert_eq!(formatted, Path::new(r"C:\Users\test\workspace"));
     }
 }

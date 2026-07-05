@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use uuid::Uuid;
 
@@ -360,5 +360,3 @@ pub fn put_message(db: &Mutex<Database>, message: &serde_json::Value) -> Result<
         ],
     )
 }
-
-pub type SharedDb = Arc<Mutex<Database>>;
