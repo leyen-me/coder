@@ -10,6 +10,7 @@ import {
   MessageContent,
 } from "@/components/ai-elements/message";
 import { paths } from "@/app/paths";
+import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import { forkSessionFromMessage } from "@/lib/db";
 import {
   normalizeMessageProcessSteps,
@@ -218,7 +219,7 @@ export const MessageItem = memo(function MessageItem({
       return;
     }
     try {
-      await navigator.clipboard.writeText(answerText);
+      await copyTextToClipboard(answerText);
     } catch (error) {
       if (error instanceof Error && error.message) {
         toast.error(error.message);
@@ -239,7 +240,7 @@ export const MessageItem = memo(function MessageItem({
       return;
     }
     try {
-      await navigator.clipboard.writeText(parts.join("\n"));
+      await copyTextToClipboard(parts.join("\n"));
     } catch (error) {
       if (error instanceof Error && error.message) {
         toast.error(error.message);

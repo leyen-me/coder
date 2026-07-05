@@ -1,5 +1,6 @@
 import { AGENT_TODOS_STORE } from "./constants";
 import { getDb } from "./client";
+import { randomUUID } from "@/lib/random-id";
 import { notifyDbChange } from "./subscriptions";
 import type { AgentTodoRecord, AgentTodoStatus } from "./types";
 
@@ -239,7 +240,7 @@ export async function copyAgentTodosForSession(
     sourceTodos.map((todo) =>
       db.put(AGENT_TODOS_STORE, {
         ...todo,
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         sessionId: targetSessionId,
         updatedAt: now,
       })

@@ -34,6 +34,7 @@ import { useWebTools } from "@/lib/web-tools/web-tools-provider";
 import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
 import { appEventBus } from "@/lib/event-bus";
+import { randomUUID } from "@/lib/random-id";
 import { runAgentWithTools } from "../agent-loop";
 import { buildAgentMessages } from "../build-agent-messages";
 import { isAgentCancellationError } from "../cancellation";
@@ -659,7 +660,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     }) => {
       const taskId = createTaskId();
       const assistantMessage = await createMessage({
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         sessionId: input.sessionId,
         role: "assistant",
         messageKind: input.agentMode === "plan" ? "plan" : undefined,
@@ -943,7 +944,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         });
 
         const handoffMessage = await createMessage({
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           sessionId: sourceSession.id,
           role: "assistant",
           messageKind: "handoff",
@@ -969,7 +970,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         });
 
         const userMessage = await createMessage({
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           sessionId: nextSession.id,
           role: "user",
           messageKind: "handoff_continuation",
@@ -1019,7 +1020,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         clearSessionHandoffState(input.sessionId);
         const message = error instanceof Error ? error.message : String(error);
         await createMessage({
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           sessionId: input.sessionId,
           role: "assistant",
           content: `Automatic handoff failed.\n\nError: ${message}`,
@@ -1137,7 +1138,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         const existingMessages = await getMessagesBySession(input.sessionId);
         isFirstTurn = existingMessages.length === 0;
         userMessage = await createMessage({
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           sessionId: input.sessionId,
           role: "user",
           content: trimmed,

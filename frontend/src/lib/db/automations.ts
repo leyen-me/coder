@@ -3,6 +3,7 @@ import { AUTOMATIONS_STORE } from "./constants";
 import { getDb } from "./client";
 import { normalizeAutomationRecord } from "./normalize-automation";
 import { inferProviderFromModel } from "./normalize-session";
+import { randomUUID } from "@/lib/random-id";
 import { notifyDbChange } from "./subscriptions";
 import type { ProviderId } from "@/lib/model-provider/types";
 import type {
@@ -51,7 +52,7 @@ export async function createAutomation(
 ): Promise<AutomationRecord> {
   const now = Date.now();
   const record: AutomationRecord = {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     name: input.name.trim(),
     description: input.description.trim(),
     cronExpression: input.cronExpression.trim(),

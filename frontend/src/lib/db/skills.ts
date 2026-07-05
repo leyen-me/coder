@@ -3,6 +3,7 @@ import {
   USER_SKILLS_STORE,
 } from "./constants";
 import { getDb } from "./client";
+import { randomUUID } from "@/lib/random-id";
 import { notifyDbChange } from "./subscriptions";
 import type { SystemSkillPreference, UserSkillRecord } from "./types";
 
@@ -55,7 +56,7 @@ export async function createUserSkill(
 
   const now = Date.now();
   const record: UserSkillRecord = {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     slug,
     name: input.name.trim(),
     description: input.description.trim(),

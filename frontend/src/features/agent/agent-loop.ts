@@ -32,6 +32,7 @@ import {
 import { requestProxyDecision } from "./decision/runner";
 import { isLongTaskSession } from "./session-policy";
 import type { DecisionResponse } from "@/lib/decision";
+import { randomUUID } from "@/lib/random-id";
 
 type ToolExecutionContextInput = {
   workspaceDir: string | null;
@@ -151,7 +152,7 @@ export async function runAgentWithTools(
             input.decisionPolicyVersion?.trim() || "mvp-v1",
         });
 
-        const decisionId = crypto.randomUUID();
+        const decisionId = randomUUID();
         onEvent({
           type: "decision_requested",
           taskId: input.taskId,

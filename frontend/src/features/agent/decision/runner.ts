@@ -6,6 +6,7 @@ import {
   buildProxyDecisionUserPrompt,
   PROXY_DECISION_SYSTEM_PROMPT,
 } from "./prompt";
+import { randomUUID } from "@/lib/random-id";
 
 function extractJsonObject(content: string): string {
   const trimmed = content.trim();
@@ -84,7 +85,7 @@ export async function requestProxyDecision(input: {
   conversationMessages?: AgentChatMessage[];
   signal?: AbortSignal;
 }): Promise<DecisionResponse> {
-  const decisionTaskId = `${input.taskId}:decision:${crypto.randomUUID()}`;
+  const decisionTaskId = `${input.taskId}:decision:${randomUUID()}`;
   throwIfAborted(input.signal, decisionTaskId);
 
   const messages: AgentChatMessage[] = [

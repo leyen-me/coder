@@ -8,6 +8,7 @@ import {
   DEFAULT_MODEL_CONTEXT_WINDOW,
   findModelDefinition,
 } from "@/lib/model-provider/model-definition";
+import { randomUUID } from "@/lib/random-id";
 import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
 import { runAgentWithTools } from "./agent-loop";
@@ -81,7 +82,7 @@ export async function headlessStartAgentTask(
   input: HeadlessAgentTaskInput,
 ): Promise<HeadlessAgentTaskResult> {
   const taskId = createTaskId();
-  const assistantMessageId = crypto.randomUUID();
+  const assistantMessageId = randomUUID();
 
   await createMessage({
     id: assistantMessageId,
