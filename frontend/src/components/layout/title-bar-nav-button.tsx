@@ -1,6 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { ShortcutKeys } from "@/features/keyboard-shortcuts/shortcut-keys";
+import { useKeyboardShortcuts } from "@/lib/keyboard-shortcuts/keyboard-shortcuts-provider";
+import type { ShortcutActionId } from "@/lib/keyboard-shortcuts/types";
 import {
   Tooltip,
   TooltipContent,
@@ -15,6 +18,7 @@ type TitleBarNavButtonProps = {
   onClick?: () => void;
   isActive?: boolean;
   disabled?: boolean;
+  shortcutActionId?: ShortcutActionId;
 };
 
 export function TitleBarNavButton({
@@ -23,7 +27,13 @@ export function TitleBarNavButton({
   onClick,
   isActive,
   disabled,
+  shortcutActionId,
 }: TitleBarNavButtonProps) {
+  const { getBinding } = useKeyboardShortcuts();
+  const shortcutBinding = shortcutActionId
+    ? getBinding(shortcutActionId)
+    : "";
+
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -40,7 +50,12 @@ export function TitleBarNavButton({
           <Icon className="size-4" />
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
+      <TooltipContent side="bottom">
+        <span>{label}</span>
+        {shortcutBinding ? (
+          <ShortcutKeys binding={shortcutBinding} />
+        ) : null}
+      </TooltipContent>
     </Tooltip>
   );
 }

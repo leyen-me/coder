@@ -1,14 +1,13 @@
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
-import { Button } from "@/components/ui/button";
 import { ShortcutKeys } from "@/features/keyboard-shortcuts/shortcut-keys";
 import { useKeyboardShortcuts } from "@/lib/keyboard-shortcuts/keyboard-shortcuts-provider";
 import type { ShortcutActionId } from "@/lib/keyboard-shortcuts/types";
 import { cn } from "@/lib/utils";
 
 const itemClassName =
-  "group relative inline-flex h-9 w-full items-center justify-start gap-2.5 rounded-xl px-2 text-sm font-normal text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
+  "group/nav relative inline-flex h-9 w-full items-center justify-start gap-2.5 rounded-xl px-2 text-sm font-normal text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
 
 type SidebarNavItemProps = {
   icon: LucideIcon;
@@ -31,7 +30,7 @@ function SidebarShortcutHint({ binding }: { binding: string }) {
       binding={binding}
       className={cn(
         "pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 shrink-0 opacity-0 transition-opacity",
-        "group-hover:opacity-100 group-focus-visible:opacity-100"
+        "group-hover/nav:opacity-100 group-focus-visible/nav:opacity-100"
       )}
     />
   );
@@ -84,9 +83,8 @@ export function SidebarNavItem({
   }
 
   return (
-    <Button
+    <button
       type="button"
-      variant="ghost"
       onClick={onClick}
       aria-label={ariaLabel}
       className={cn(
@@ -96,6 +94,6 @@ export function SidebarNavItem({
       )}
     >
       {content}
-    </Button>
+    </button>
   );
 }
