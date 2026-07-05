@@ -468,32 +468,10 @@ export const enMessages = {
       confirmAction: "Clear all",
     },
     lab: {
-      promptRefineLabel: "Prompt refiner",
-      promptRefineDescription:
-        "Before sending, let AI polish your prompt for clarity and professionalism",
-      promptRefineAriaLabel: "Enable prompt refiner",
       longTaskLabel: "Long task sessions",
       longTaskDescription:
         "Show the long-task session type in the composer for unattended autonomous work",
       longTaskAriaLabel: "Enable long task sessions",
-      promptRefineSystemPromptLabel: "Refiner system prompt",
-      promptRefineSystemPromptDescription:
-        "Instructions sent to the model when polishing prompts. The refined output is always shown for your review before sending.",
-      promptRefineSystemPromptAriaLabel: "Refiner system prompt",
-      promptRefineSystemPromptReset: "Reset to default",
-      responseStyleLabel: "AI response style",
-      responseStyleDescription:
-        "Change how the AI expresses itself — normal, meme-filled, roast-style, or funny",
-      responseStyleAriaLabel: "Enable AI response style",
-      responseStyleSelectLabel: "Style",
-      responseStyleCustomPromptLabel: "Custom prompt",
-      responseStyleCustomPromptDescription:
-        "Custom instructions for this style. Leave empty to use the default.",
-      responseStyleCustomPromptReset: "Reset to default",
-      responseStyleNormalName: "Normal",
-      responseStyleMemeName: "Meme",
-      responseStyleRoastName: "Roast",
-      responseStyleFunnyName: "Funny",
       virtualScrollLabel: "Virtual scroll",
       virtualScrollDescription:
         "Enable virtual scrolling for the message list — may improve rendering performance in long sessions (experimental)",
@@ -571,14 +549,6 @@ export const enMessages = {
         'This will remove the remote machine "{alias}" from your configuration.',
       toggleEnabledAria: 'Toggle remote machine "{alias}"',
     },
-  },
-  lab: {
-    confirmTitle: "Refined prompt",
-    confirmOriginal: "Original",
-    confirmRefined: "Refined",
-    confirmSend: "Send refined prompt",
-    confirmTimeout: "Sending original prompt in {countdown}s…",
-    cancel: "Cancel",
   },
   theme: {
     light: "Light",

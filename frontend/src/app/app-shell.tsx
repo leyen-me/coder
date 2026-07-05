@@ -8,7 +8,6 @@ import { useSidebarOpen } from "@/features/chat/hooks/use-sidebar-open";
 import { paths } from "@/app/paths";
 import { HotkeyActionsProvider } from "@/features/keyboard-shortcuts/hotkey-actions-context";
 import { KeyboardShortcuts } from "@/features/keyboard-shortcuts/keyboard-shortcuts";
-import { PromptRefineProvider } from "@/features/lab/prompt-refine-provider";
 import { SearchDialogProvider } from "@/features/keyboard-shortcuts/search-dialog-context";
 import { ShellChromeProvider } from "@/features/keyboard-shortcuts/shell-chrome-context";
 import { Toaster } from "@/components/ui/sonner";
@@ -75,7 +74,6 @@ export function AppShell() {
             toggleSidebar={toggleSidebar}
             showSearch={showFloatingSearch}
           />
-          <PromptRefineProvider>
           <HotkeyActionsProvider>
             <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
               <ErrorBoundary
@@ -88,7 +86,6 @@ export function AppShell() {
             </div>
             <KeyboardShortcuts />
           </HotkeyActionsProvider>
-          </PromptRefineProvider>
         </SearchDialogProvider>
       </ShellChromeProvider>
       <Toaster richColors />

@@ -456,31 +456,10 @@ export const zhMessages = {
       confirmAction: "确认清除",
     },
     lab: {
-      promptRefineLabel: "提示词润色",
-      promptRefineDescription: "发送前让 AI 优化你的提示词，使其更清晰专业",
-      promptRefineAriaLabel: "启用提示词润色",
       longTaskLabel: "长任务会话",
       longTaskDescription:
         "在输入框中显示长任务会话类型，用于无人值守的自主执行",
       longTaskAriaLabel: "启用长任务会话",
-      promptRefineSystemPromptLabel: "润色系统提示词",
-      promptRefineSystemPromptDescription:
-        "润色时发送给模型的系统指令。润色结果会在发送前展示供你确认或编辑。",
-      promptRefineSystemPromptAriaLabel: "润色系统提示词",
-      promptRefineSystemPromptReset: "恢复默认",
-      responseStyleLabel: "AI 回答风格",
-      responseStyleDescription:
-        "改变 AI 的表达方式 — 正常、玩梗、嘴臭或搞笑风格",
-      responseStyleAriaLabel: "启用 AI 回答风格",
-      responseStyleSelectLabel: "风格",
-      responseStyleCustomPromptLabel: "自定义提示词",
-      responseStyleCustomPromptDescription:
-        "该风格的定制指令。留空则使用默认提示词。",
-      responseStyleCustomPromptReset: "恢复默认",
-      responseStyleNormalName: "正常",
-      responseStyleMemeName: "玩梗",
-      responseStyleRoastName: "嘴臭",
-      responseStyleFunnyName: "搞笑",
       virtualScrollLabel: "虚拟滚动",
       virtualScrollDescription:
         "启用消息列表虚拟滚动，长会话时可能提升渲染性能（实验性功能）",
@@ -557,14 +536,6 @@ export const zhMessages = {
       deleteConfirmDescription: "这将从配置中删除远程机器 \"{alias}\"。",
       toggleEnabledAria: "开关远程机器 \"{alias}\"",
     },
-  },
-  lab: {
-    confirmTitle: "润色后的提示词",
-    confirmOriginal: "原始输入",
-    confirmRefined: "润色后",
-    confirmSend: "发送润色后的提示词",
-    confirmTimeout: "{countdown} 秒后自动发送原始提示词…",
-    cancel: "取消",
   },
   theme: {
     light: "浅色",

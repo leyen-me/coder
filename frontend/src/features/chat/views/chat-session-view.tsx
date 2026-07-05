@@ -15,8 +15,6 @@ import { nanoid } from "nanoid";
 import { storedImagesToFileUIParts } from "@/features/agent/message-content";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
-import { usePromptRefiner } from "@/features/lab/prompt-refine-provider";
-import { buildRefineContextMessages } from "@/features/lab/refine-prompt";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { useTranslation } from "@/lib/i18n/locale-provider";
@@ -31,7 +29,6 @@ import { ChatMessageList } from "../components/chat-message-list";
 import { PromptComposer } from "../components/prompt-composer";
 import { QueuedMessageList } from "../components/queued-message-list";
 import { notifySendMessageError } from "../lib/notify-send-message-error";
-import { PromptSendCancelledError } from "../lib/prompt-send-errors";
 import { buildPlanExecutionPrompt } from "../lib/plan/build-plan-execution-prompt";
 import { resolvePlanContentForBuild } from "../lib/plan/resolve-plan-content";
 import {
@@ -76,7 +73,6 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     getSessionHandoffState,
     isSessionRunning,
   } = useAgentStore();
-  const { refineIfEnabled } = usePromptRefiner();
   const location = useLocation();
   const handoffPreviewMode = getHandoffPreviewMode();
   const { session, messages, isLoading } = useSessionData(chatId);
@@ -356,34 +352,12 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         setWorkspaceBarDismissed(true);
       }
 
-      let finalText = trimmed;
-      if (trimmed) {
-        setIsSubmitting(true);
-        try {
-          const refineResult = await refineIfEnabled(
-            trimmed,
-            buildRefineContextMessages(messages),
-            model
-          );
-          if (refineResult === "cancelled") {
-            if (isFirstMessage) {
-              setWorkspaceBarDismissed(false);
-            }
-            throw new PromptSendCancelledError();
-          }
-          finalText =
-            refineResult === "original" ? trimmed : refineResult.text;
-        } finally {
-          setIsSubmitting(false);
-        }
-      }
-
       if (isRunning && !editingMessageId) {
         setQueuedMessages((currentQueue) => [
           ...currentQueue,
           {
             id: nanoid(),
-            text: finalText,
+            text: trimmed,
             files: payload.files,
             skillSlugs: payload.skillSlugs,
           },
@@ -398,7 +372,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       setEditInitialValue("");
       await sendPayload(
         {
-          text: finalText,
+          text: trimmed,
           files: payload.files,
           skillSlugs: payload.skillSlugs,
         },
@@ -412,9 +386,6 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       editingQueuedMessageId,
       effectiveMessages.length,
       isRunning,
-      messages,
-      model,
-      refineIfEnabled,
       sendPayload,
     ]
   );

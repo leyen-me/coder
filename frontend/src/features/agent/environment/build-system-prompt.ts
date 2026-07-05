@@ -4,8 +4,6 @@ import type {
   AgentProjectInstructions,
 } from "./types";
 import type { AgentMode } from "@/features/agent/types";
-import { getLabSettingsSnapshot } from "@/features/lab/lab-settings-store";
-import { resolveResponseStylePrompt } from "@/features/lab/storage";
 
 export function buildSystemPrompt(
   environment: AgentEnvironment,
@@ -43,11 +41,7 @@ export function buildSystemPrompt(
         ? buildPlanModeGuidance(environment.workspaceDir)
         : [];
 
-  const stylePrompt = resolveResponseStylePrompt(getLabSettingsSnapshot());
-
-  const identityLines = stylePrompt
-    ? [stylePrompt]
-    : ["You are Coder, a helpful desktop AI assistant."];
+  const identityLines = ["You are Coder, a helpful desktop AI assistant."];
 
   const allBlocks: string[] = [];
 

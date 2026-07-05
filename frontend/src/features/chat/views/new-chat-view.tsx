@@ -6,7 +6,6 @@ import { useNavigate } from "react-router-dom";
 import { paths } from "@/app/paths";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
-import { usePromptRefiner } from "@/features/lab/prompt-refine-provider";
 import { useLabSettings } from "@/features/lab/use-lab-settings";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { createSession, inferProviderFromModel, type SessionKind } from "@/lib/db";
@@ -16,7 +15,6 @@ import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { PromptComposer } from "../components/prompt-composer";
 import { StarterPromptList } from "../components/starter-prompt-list";
 import { notifySendMessageError } from "../lib/notify-send-message-error";
-import { PromptSendCancelledError } from "../lib/prompt-send-errors";
 import { useComposerThinking } from "../hooks/use-composer-thinking";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
 import { useNewChatWorkspace } from "../hooks/use-session-workspace-binding";
@@ -27,7 +25,6 @@ export function NewChatView() {
   const navigate = useNavigate();
   const { allModels, modelProviders } = useModelProvider();
   const { sendMessage } = useAgentStore();
-  const { refineIfEnabled } = usePromptRefiner();
   const { settings: labSettings } = useLabSettings();
   const longTaskEnabled = labSettings.longTaskEnabled;
   const { workspaceDir, pickWorkspace, clearWorkspace } = useNewChatWorkspace();
@@ -60,13 +57,6 @@ export function NewChatView() {
 
     setIsSubmitting(true);
     try {
-      const refineResult = await refineIfEnabled(trimmed, [], model);
-      if (refineResult === "cancelled") {
-        throw new PromptSendCancelledError();
-      }
-      const finalText =
-        refineResult === "original" ? trimmed : refineResult.text;
-
       const effectiveSessionKind = longTaskEnabled ? sessionKind : "standard";
       const provider = inferProviderFromModel(null, model);
       const session = await createSession({
@@ -84,7 +74,7 @@ export function NewChatView() {
       });
       await sendMessage({
         sessionId: session.id,
-        content: finalText,
+        content: trimmed,
         images: payload.files,
         model,
         thinkingEnabled,

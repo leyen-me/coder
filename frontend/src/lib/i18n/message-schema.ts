@@ -410,27 +410,9 @@ export type Messages = {
       confirmAction: string;
     };
     lab: {
-      promptRefineLabel: string;
-      promptRefineDescription: string;
-      promptRefineAriaLabel: string;
       longTaskLabel: string;
       longTaskDescription: string;
       longTaskAriaLabel: string;
-      promptRefineSystemPromptLabel: string;
-      promptRefineSystemPromptDescription: string;
-      promptRefineSystemPromptAriaLabel: string;
-      promptRefineSystemPromptReset: string;
-      responseStyleLabel: string;
-      responseStyleDescription: string;
-      responseStyleAriaLabel: string;
-      responseStyleSelectLabel: string;
-      responseStyleCustomPromptLabel: string;
-      responseStyleCustomPromptDescription: string;
-      responseStyleCustomPromptReset: string;
-      responseStyleNormalName: string;
-      responseStyleMemeName: string;
-      responseStyleRoastName: string;
-      responseStyleFunnyName: string;
       virtualScrollLabel: string;
       virtualScrollDescription: string;
       virtualScrollAriaLabel: string;
@@ -506,14 +488,6 @@ export type Messages = {
       deleteConfirmDescription: string;
       toggleEnabledAria: string;
     };
-  };
-  lab: {
-    confirmTitle: string;
-    confirmOriginal: string;
-    confirmRefined: string;
-    confirmSend: string;
-    confirmTimeout: string;
-    cancel: string;
   };
   theme: {
     light: string;
