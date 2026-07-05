@@ -10,15 +10,14 @@ import { useMatch } from "react-router-dom";
 import { toast } from "sonner";
 
 import { paths } from "@/app/paths";
-import { APP_SIDEBAR_WIDTH_PX } from "@/components/layout/constants";
 import { TitleBarDragRegion } from "@/components/layout/title-bar-drag-region";
+import { ResponsiveSidebarPanel } from "@/components/layout/responsive-sidebar-panel";
 import { Separator } from "@/components/ui/separator";
 import { useGeneratingSessionTitles } from "@/features/agent/session-title-store";
 import { useRunningSessionIds } from "@/features/agent/store/agent-store";
 import { useChatSessions } from "@/features/chat/hooks/use-chat-sessions";
 import { deleteSession, getMessagesBySession, getSession, pinSession, unpinSession, updateSessionTitle } from "@/lib/db";
 import { useLocale } from "@/lib/i18n/locale-provider";
-import { cn } from "@/lib/utils";
 
 import { useSearchDialog } from "@/features/keyboard-shortcuts/search-dialog-context";
 
@@ -28,6 +27,7 @@ import { SidebarThemeToggle } from "./sidebar-theme-toggle";
 
 type AppSidebarProps = {
   open: boolean;
+  onOpenChange: (open: boolean) => void;
 };
 
 function formatDate(timestamp: number): string {
@@ -112,7 +112,7 @@ async function exportSessionAsMarkdown(sessionId: string): Promise<boolean> {
   return true;
 }
 
-export function AppSidebar({ open }: AppSidebarProps) {
+export function AppSidebar({ open, onOpenChange }: AppSidebarProps) {
   const { t } = useLocale();
   const { sessions, refresh } = useChatSessions();
   const generatingTitleIds = useGeneratingSessionTitles();
@@ -173,77 +173,64 @@ export function AppSidebar({ open }: AppSidebarProps) {
   );
 
   return (
-    <>
-      <div
-        style={{ width: open ? APP_SIDEBAR_WIDTH_PX : 0 }}
-        className={cn(
-          "flex h-full shrink-0 overflow-hidden border-r border-sidebar-border bg-sidebar transition-[width,border-color] duration-300 ease-in-out",
-          !open && "border-transparent"
-        )}
-        aria-hidden={!open}
-      >
-        <aside
-          style={{ width: APP_SIDEBAR_WIDTH_PX }}
-          className={cn(
-            "flex h-full flex-col text-sidebar-foreground transition-opacity duration-300 ease-in-out",
-            open ? "opacity-100" : "pointer-events-none opacity-0"
-          )}
-        >
-          <TitleBarDragRegion className="h-11 w-full shrink-0 flex-none" />
+    <ResponsiveSidebarPanel
+      open={open}
+      onOpenChange={onOpenChange}
+      ariaLabel={t("sidebar.ariaLabel")}
+    >
+      <TitleBarDragRegion className="h-11 w-full shrink-0 flex-none" />
 
-          <nav className="flex shrink-0 flex-col gap-0.5 px-2 pb-2">
-            <SidebarNavItem
-              icon={Plus}
-              label={t("sidebar.newChat")}
-              shortcutActionId="global.newChat"
-              to={paths.chatNew}
-              end
-            />
-            <SidebarNavItem
-              icon={Search}
-              label={t("sidebar.search")}
-              onClick={openSearch}
-              shortcutActionId="global.search"
-            />
-            <SidebarNavItem
-              icon={Sparkles}
-              label={t("sidebar.skills")}
-              shortcutActionId="global.skills"
-              to={paths.skills}
-            />
-            <SidebarNavItem
-              icon={Workflow}
-              label={t("sidebar.automations")}
-              shortcutActionId="global.automations"
-              to={paths.automations}
-            />
-          </nav>
+      <nav className="flex shrink-0 flex-col gap-0.5 px-2 pb-2">
+        <SidebarNavItem
+          icon={Plus}
+          label={t("sidebar.newChat")}
+          shortcutActionId="global.newChat"
+          to={paths.chatNew}
+          end
+        />
+        <SidebarNavItem
+          icon={Search}
+          label={t("sidebar.search")}
+          onClick={openSearch}
+          shortcutActionId="global.search"
+        />
+        <SidebarNavItem
+          icon={Sparkles}
+          label={t("sidebar.skills")}
+          shortcutActionId="global.skills"
+          to={paths.skills}
+        />
+        <SidebarNavItem
+          icon={Workflow}
+          label={t("sidebar.automations")}
+          shortcutActionId="global.automations"
+          to={paths.automations}
+        />
+      </nav>
 
-          <Separator className="bg-sidebar-border" />
+      <Separator className="bg-sidebar-border" />
 
-          <ChatHistoryList
-            items={sessions}
-            selectedId={selectedChatId}
-            generatingTitleIds={generatingTitleIds}
-            runningSessionIds={runningSessionIds}
-            onDeleteSession={handleDeleteSession}
-            onExportSession={handleExportSession}
-            onRenameSession={handleRenameSession}
-            onPinSession={handlePinSession}
-            onUnpinSession={handleUnpinSession}
-          />
+      <ChatHistoryList
+        items={sessions}
+        selectedId={selectedChatId}
+        generatingTitleIds={generatingTitleIds}
+        runningSessionIds={runningSessionIds}
+        onDeleteSession={handleDeleteSession}
+        onExportSession={handleExportSession}
+        onRenameSession={handleRenameSession}
+        onPinSession={handlePinSession}
+        onUnpinSession={handleUnpinSession}
+      />
 
-          <div className="flex shrink-0 flex-col gap-0.5 border-t border-sidebar-border p-2">
-            <SidebarThemeToggle />
-            <SidebarNavItem
-              icon={Settings}
-              label={t("sidebar.settings")}
-              shortcutActionId="global.settings"
-              to={paths.settings}
-            />
-          </div>
-        </aside>
+      <div className="flex shrink-0 flex-col gap-0.5 border-t border-sidebar-border p-2">
+        <SidebarThemeToggle />
+        <SidebarNavItem
+          icon={Settings}
+          label={t("sidebar.settings")}
+          shortcutActionId="global.settings"
+          to={paths.settings}
+        />
       </div>
-    </>
+    </ResponsiveSidebarPanel>
   );
 }

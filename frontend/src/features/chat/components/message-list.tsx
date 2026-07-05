@@ -463,7 +463,7 @@ export function MessageList({
     >
       <ScrollArea
         className={cn(
-          "h-full px-4 py-6",
+          "h-full px-3 py-4 md:px-4 md:py-6",
           shouldVirtualize &&
             "**:data-[slot=scroll-area-viewport]:will-change-transform"
         )}

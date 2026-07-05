@@ -36,7 +36,7 @@ export function SessionToolbar({
   }, [t, workspaceDir]);
 
   return (
-    <div className="flex shrink-0 items-center gap-1">
+    <div className="flex min-w-0 shrink items-center gap-0.5 sm:gap-1">
       {hasWorkspace ? (
         <TitleBarNavButton
           icon={FolderOpenIcon}
@@ -44,7 +44,9 @@ export function SessionToolbar({
           onClick={handleOpenInExplorer}
         />
       ) : null}
-      <ProviderUsageTag providerId={sessionProvider} />
+      <div className="hidden sm:block">
+        <ProviderUsageTag providerId={sessionProvider} />
+      </div>
     </div>
   );
 }

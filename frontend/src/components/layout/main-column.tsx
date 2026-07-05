@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useOutletContext } from "react-router-dom";
 
 import type { ShellOutletContext } from "@/app/shell-outlet-context";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 import { ContentTitleBar } from "./content-title-bar";
 
@@ -18,13 +19,14 @@ export function MainColumn({
   titleBarTrailing,
 }: MainColumnProps) {
   const { sidebarOpen } = useOutletContext<ShellOutletContext>();
+  const isMobile = useIsMobile();
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <ContentTitleBar
         leading={titleBarLeading}
         trailing={titleBarTrailing}
-        reserveFloatingNavSpace={!sidebarOpen}
+        reserveFloatingNavSpace={isMobile || !sidebarOpen}
       />
       {children}
     </div>

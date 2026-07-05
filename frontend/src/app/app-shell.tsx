@@ -12,6 +12,7 @@ import { PromptRefineProvider } from "@/features/lab/prompt-refine-provider";
 import { SearchDialogProvider } from "@/features/keyboard-shortcuts/search-dialog-context";
 import { ShellChromeProvider } from "@/features/keyboard-shortcuts/shell-chrome-context";
 import { Toaster } from "@/components/ui/sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import {
   startAutomationScheduler,
@@ -47,10 +48,22 @@ function ShellFloatingNav({
 }
 
 export function AppShell() {
-  const { isOpen: isSidebarOpen, toggle: toggleSidebar } = useSidebarOpen();
+  const { isOpen: isSidebarOpen, toggle: toggleSidebar, setOpen: setSidebarOpen } =
+    useSidebarOpen();
+  const isMobile = useIsMobile();
   const location = useLocation();
-  const shellContext: ShellOutletContext = { sidebarOpen: isSidebarOpen };
+  const shellContext: ShellOutletContext = {
+    sidebarOpen: isSidebarOpen,
+    setSidebarOpen,
+  };
   const showSearch = location.pathname !== paths.settings;
+
+  // Close overlay sidebar after navigation on mobile.
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  }, [isMobile, location.pathname, setSidebarOpen]);
 
   // Start the automation scheduler on mount; stop on unmount.
   useEffect(() => {
@@ -77,7 +90,7 @@ export function AppShell() {
           <HotkeyActionsProvider>
             <div className="flex min-h-0 min-w-0 flex-1 flex-row overflow-hidden">
               <ErrorBoundary
-                className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-background px-6 py-8"
+                className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-background px-4 py-6 md:px-6 md:py-8"
                 title="Workspace failed to render"
                 description="This section hit a rendering error. Retry the view or reload the app to recover."
               >

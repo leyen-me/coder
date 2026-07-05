@@ -76,18 +76,18 @@ export function AutomationsPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-2xl space-y-6 p-6">
+      <div className="mx-auto max-w-2xl space-y-6 p-4 md:p-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
               {t("pages.automations.title")}
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className="mt-1 text-sm text-muted-foreground">
               {t("automations.description")}
             </p>
           </div>
-          <Button onClick={handleCreate}>
+          <Button className="w-full shrink-0 sm:w-auto" onClick={handleCreate}>
             <Plus className="h-4 w-4" />
             {t("automations.newAutomation")}
           </Button>

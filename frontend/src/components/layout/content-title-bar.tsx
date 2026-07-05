@@ -41,7 +41,7 @@ export function ContentTitleBar({
         style={mainChromeStyle}
       >
         {leading ? (
-          <div className="flex max-w-[min(50%,16rem)] shrink-0 items-center pl-4 pr-2 sm:max-w-xs md:max-w-sm">
+          <div className="flex min-w-0 max-w-[min(50%,12rem)] shrink items-center pl-2 pr-1 sm:max-w-xs sm:pl-4 sm:pr-2 md:max-w-sm">
             {leading}
           </div>
         ) : null}
@@ -52,7 +52,9 @@ export function ContentTitleBar({
 
       {trailing ? (
         <>
-          <div className="flex shrink-0 items-center gap-1 px-1">{trailing}</div>
+          <div className="flex min-w-0 shrink items-center gap-0.5 px-0.5 sm:gap-1 sm:px-1">
+            {trailing}
+          </div>
           {HAS_WINDOW_CONTROLS ? (
             <div
               role="separator"

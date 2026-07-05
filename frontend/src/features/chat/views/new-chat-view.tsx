@@ -113,8 +113,8 @@ export function NewChatView() {
     : null;
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-6 pb-12">
-        <h2 className="max-w-3xl text-center text-2xl font-semibold tracking-tight">
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 overflow-y-auto px-4 pb-8 md:gap-6 md:px-6 md:pb-12">
+        <h2 className="max-w-3xl text-center text-xl font-semibold tracking-tight md:text-2xl">
           {t("chat.headline", {
             project: workspaceName ?? DEFAULT_PROJECT_NAME,
           })}

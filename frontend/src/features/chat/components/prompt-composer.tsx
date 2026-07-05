@@ -245,10 +245,10 @@ function ComposerContextBar({
     : t("chat.selectWorkspace");
 
   return (
-    <div className="relative z-0 -mt-3 flex items-center gap-1 bg-muted/50 px-3 pb-2 pt-5 dark:bg-[#1c1c1f]">
+    <div className="relative z-0 -mt-3 flex flex-wrap items-center gap-1 bg-muted/50 px-2 pb-2 pt-5 dark:bg-[#1c1c1f] sm:px-3">
       <Button
         aria-label={workspacePickerLabel}
-        className="h-8 max-w-44 min-w-0 shrink-0 rounded-xl px-2.5"
+        className="h-8 max-w-full min-w-0 shrink-0 rounded-xl px-2.5 sm:max-w-44"
         disabled={isRunning || !onPickWorkspace}
         onClick={onPickWorkspace}
         title={workspacePickerLabel}
@@ -581,8 +581,8 @@ export const PromptComposer = memo(function PromptComposer({
         />
       </PromptInputBody>
 
-      <PromptInputFooter className="bg-card px-3 py-2">
-        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      <PromptInputFooter className="flex-col items-stretch gap-2 bg-card px-2 py-2 sm:flex-row sm:items-center sm:px-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 sm:gap-1.5">
           {/* Agent / Ask / Plan mode selector */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -609,7 +609,7 @@ export const PromptComposer = memo(function PromptComposer({
                 ) : (
                   <FileQuestionIcon className="size-3.5 shrink-0" />
                 )}
-                <span className="truncate">
+                <span className="hidden truncate sm:inline">
                   {agentMode === "agent"
                     ? t("chat.modeAgent")
                     : agentMode === "plan"
@@ -661,7 +661,7 @@ export const PromptComposer = memo(function PromptComposer({
                       : t("chat.sessionTypeStandardLabel")
                   }
                 >
-                  <span className="truncate">
+                  <span className="hidden truncate sm:inline">
                     {sessionKind === "long_task"
                       ? t("chat.sessionTypeLongTask")
                       : t("chat.sessionTypeStandard")}
@@ -695,12 +695,12 @@ export const PromptComposer = memo(function PromptComposer({
                 disabled={models.length === 0}
                 className={cn(
                   composerFooterControlClassName,
-                  "inline-flex max-w-44 items-center gap-1.5",
+                  "inline-flex max-w-28 items-center gap-1.5 sm:max-w-44",
                   "data-[state=open]:bg-accent data-[state=open]:text-foreground data-[state=open]:dark:bg-input/50"
                 )}
                 title={selectedModel ? getModelDisplayName(selectedModel) : model || undefined}
               >
-                <span className="truncate">
+                <span className="hidden truncate sm:inline">
                   {selectedModel
                     ? getModelDisplayName(selectedModel)
                     : t("chat.noModel")}
@@ -738,12 +738,14 @@ export const PromptComposer = memo(function PromptComposer({
               }
             >
               <BrainIcon className="size-4 shrink-0" />
-              <span className="truncate">{t("chat.thinkingToggleLabel")}</span>
+              <span className="hidden truncate sm:inline">
+                {t("chat.thinkingToggleLabel")}
+              </span>
             </Toggle>
           ) : null}
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">
           {contextUsage ? (
             <ComposerContextUsage contextUsage={contextUsage} />
           ) : null}

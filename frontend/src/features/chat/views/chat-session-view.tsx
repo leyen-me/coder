@@ -556,7 +556,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         systemPrompt={systemPrompt}
       />
 
-      <div className="shrink-0 px-4 pb-4 pt-3">
+      <div className="shrink-0 px-3 pb-3 pt-2 md:px-4 md:pb-4 md:pt-3">
         <div className="mx-auto w-full max-w-3xl">
           <AgentTodoList sessionId={chatId} isRunning={isRunning} />
           <QueuedMessageList

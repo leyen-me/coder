@@ -8,13 +8,13 @@ import type { ShellOutletContext } from "./shell-outlet-context";
 
 /** Sidebar + main content for chat, history, skills, and automations. */
 export function MainLayout() {
-  const { sidebarOpen } = useOutletContext<ShellOutletContext>();
+  const { sidebarOpen, setSidebarOpen } = useOutletContext<ShellOutletContext>();
   const { pathname } = useLocation();
   const sessionTitleBar = useSessionTitleBarSlots(pathname);
 
   return (
     <>
-      <AppSidebar open={sidebarOpen} />
+      <AppSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} />
 
       <MainColumn
         titleBarLeading={sessionTitleBar?.leading}

@@ -84,7 +84,7 @@ export function SkillsPage() {
   return (
     <>
       <ScrollArea className="h-full min-h-0 flex-1">
-        <div className="mx-auto w-full max-w-6xl space-y-10 px-6 py-6">
+        <div className="mx-auto w-full max-w-6xl space-y-8 px-4 py-4 md:space-y-10 md:px-6 md:py-6">
           {loading ? (
             <div className="flex items-center justify-center py-24">
               <Spinner className="size-6" />

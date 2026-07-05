@@ -26,7 +26,7 @@ export function FloatingShellNav({
     <header
       className={cn(
         TITLE_BAR_CLASS,
-        "pointer-events-none absolute left-0 top-0 z-50 flex items-center",
+        "pointer-events-none absolute left-0 top-0 z-[60] flex items-center",
       )}
       role="banner"
       aria-label={t("titleBar.ariaLabel")}

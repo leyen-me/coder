@@ -14,6 +14,7 @@ export type Messages = {
     close: string;
   };
   sidebar: {
+    ariaLabel: string;
     newChat: string;
     search: string;
     skills: string;

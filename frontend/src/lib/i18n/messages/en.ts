@@ -16,6 +16,7 @@ export const enMessages = {
     close: "Close",
   },
   sidebar: {
+    ariaLabel: "Navigation sidebar",
     newChat: "New chat",
     search: "Search",
     skills: "Skills",

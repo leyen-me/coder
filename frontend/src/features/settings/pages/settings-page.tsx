@@ -4,6 +4,7 @@ import { useOutletContext } from "react-router-dom";
 import type { ShellOutletContext } from "@/app/shell-outlet-context";
 import { MainColumn } from "@/components/layout/main-column";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { DEFAULT_SETTINGS_CATEGORY } from "../constants";
@@ -32,10 +33,18 @@ const SETTINGS_PANELS: Record<SettingsCategoryId, ComponentType> = {
 };
 
 export function SettingsPage() {
-  const { sidebarOpen } = useOutletContext<ShellOutletContext>();
+  const { sidebarOpen, setSidebarOpen } = useOutletContext<ShellOutletContext>();
+  const isMobile = useIsMobile();
   const { t } = useTranslation();
   const [selectedCategory, setSelectedCategory] =
     useState<SettingsCategoryId>(DEFAULT_SETTINGS_CATEGORY);
+
+  const handleSelectCategory = (category: SettingsCategoryId) => {
+    setSelectedCategory(category);
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
+  };
 
   const Panel = SETTINGS_PANELS[selectedCategory];
 
@@ -43,8 +52,9 @@ export function SettingsPage() {
     <>
       <SettingsSidebar
         open={sidebarOpen}
+        onOpenChange={setSidebarOpen}
         selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
+        onSelectCategory={handleSelectCategory}
       />
 
       <MainColumn
@@ -56,7 +66,7 @@ export function SettingsPage() {
       >
         <div className="min-h-0 flex-1 overflow-hidden">
           <ScrollArea className="h-full">
-            <div className="mx-auto w-full max-w-2xl px-6 py-6">
+            <div className="mx-auto w-full max-w-2xl px-4 py-4 md:px-6 md:py-6">
               <Panel />
             </div>
           </ScrollArea>

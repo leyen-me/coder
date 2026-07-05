@@ -16,6 +16,7 @@ export const zhMessages = {
     close: "关闭",
   },
   sidebar: {
+    ariaLabel: "导航侧栏",
     newChat: "新建聊天",
     search: "搜索",
     skills: "技能",
