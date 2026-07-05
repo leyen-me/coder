@@ -19,13 +19,13 @@ import {
   initCoderStorageAsync,
 } from "@/lib/storage/init";
 
-initLocaleBeforeRender();
-initThemeBeforeRender();
 initCoderStorageSync();
 
-// Wait for storage (settings from backend) before rendering React,
-// so all components read the correct initial data.
+// Load settings from ~/.coder/settings.json before first paint and React mount.
 initCoderStorageAsync().then(() => {
+  initLocaleBeforeRender();
+  initThemeBeforeRender();
+
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
       <LocaleProvider>

@@ -48,7 +48,7 @@ export async function getMessage(messageId: string): Promise<MessageRecord | nul
 /**
  * Controls the side effects of a message write.
  *
- * High-frequency streaming flushes persist to IndexedDB purely as a crash/reload
+ * High-frequency streaming flushes persist to SQLite purely as a crash/reload
  * backup while the in-memory streaming overlay drives the visible UI. Such writes
  * should set `silent: true` (skip the global UI re-fetch) and `touch: false`
  * (skip re-ordering the session list on every token) to avoid a re-fetch storm.

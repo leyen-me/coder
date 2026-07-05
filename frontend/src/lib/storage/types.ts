@@ -1,10 +1,8 @@
 /**
- * Synchronous key–value store.
+ * Synchronous key–value store for user settings.
  *
- * Its shape matches the native `Storage` interface (`localStorage`),
- * so the browser KV adapter delegates directly to `localStorage`
- * without a wrapper.  The Node.js adapter will read / write a JSON
- * settings file under `~/.coder/`.
+ * Production: backed by ~/.coder/settings.json via the HTTP KV adapter.
+ * Tests: in-memory implementation via createMemoryKVStore().
  */
 export interface SyncKVStore {
   getItem(key: string): string | null;
@@ -17,12 +15,11 @@ export interface SyncKVStore {
 // ---------------------------------------------------------------------------
 
 /**
- * Low-level storage backend that mirrors the IndexedDB operations used by
- * `src/lib/db/`.  Each method takes a store name (table / object store)
- * as its first parameter so a single backend instance can serve all stores.
+ * Low-level storage backend used by `src/lib/db/`.
+ * Each method takes a store name (table) as its first parameter so a single
+ * backend instance can serve all stores.
  *
- * Browser:  delegates to `idb` (IndexedDB).
- * Node/CLI: delegates to better-sqlite3.
+ * Production: SQLite via HTTP `/db/*` endpoints on the Rust backend.
  */
 export interface StoreBackend {
   /** Retrieve a single record by primary key. */
@@ -41,7 +38,7 @@ export interface StoreBackend {
    * Query records by a named index with an optional filter value.
    *
    * - `getAllFromIndex("sessions", "by-updatedAt")` → all sessions,
-   *   ordered by the index (default IndexedDB behaviour).
+   *   ordered by the index.
    * - `getAllFromIndex("messages", "by-sessionId", "abc")` → messages
    *   whose sessionId equals "abc".
    */

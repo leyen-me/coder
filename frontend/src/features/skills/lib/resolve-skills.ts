@@ -157,7 +157,7 @@ export async function getSystemSkillCards(): Promise<SkillCardViewModel[]> {
   });
 }
 
-/** Fallback when IndexedDB is unavailable — uses defaultEnabled only. */
+/** Fallback when the store is unavailable — uses defaultEnabled only. */
 export function getSystemSkillCardsSync(): SkillCardViewModel[] {
   return SYSTEM_SKILLS.map((skill) => ({
     id: skill.id,

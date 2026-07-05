@@ -78,7 +78,7 @@ Agent 可以读写文件、执行 Shell 命令、搜索网页、浏览页面、�
 │  └──────────┘ └──────────┘ └──────────────────┘ │
 │  ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
 │  │ Skills   │ │ History  │ │ Settings         │ │
-│  │ & Auto   │ │ (IndexedDB)│ │ (Model/Theme)  │ │
+│  │ & Auto   │ │ (SQLite) │ │ (settings.json)│ │
 │  └──────────┘ └──────────┘ └──────────────────┘ │
 └──────────────────────────────────────────────────┘
 ```
@@ -92,7 +92,7 @@ Agent 可以读写文件、执行 Shell 命令、搜索网页、浏览页面、�
 | **编辑器** | Tiptap（富文本）、Tiptap 扩展、xterm.js + @xterm/addon-fit               |
 | **AI**     | AI SDK (`ai`)、流式输出、工具调用、退避重试                               |
 | **Markdown** | remark-gfm、rehype-raw、rehype-sanitize、Shiki、KaTeX、Mermaid        |
-| **存储**   | IndexedDB（通过 `idb`）、服务端 SQLite                                   |
+| **存储**   | 服务端 SQLite（实体数据）、`~/.coder/settings.json`（用户设置）              |
 | **CI/CD**  | GitHub Actions、npm 发布                                               |
 
 ---

@@ -78,7 +78,7 @@ The agent can read and write files, run shell commands, search the web, browse p
 │  └──────────┘ └──────────┘ └──────────────────┘ │
 │  ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
 │  │ Skills   │ │ History  │ │ Settings         │ │
-│  │ & Auto   │ │ (IndexedDB)│ │ (Model/Theme)  │ │
+│  │ & Auto   │ │ (SQLite) │ │ (settings.json)│ │
 │  └──────────┘ └──────────┘ └──────────────────┘ │
 └──────────────────────────────────────────────────┘
 ```
@@ -92,7 +92,7 @@ The agent can read and write files, run shell commands, search the web, browse p
 | **Editor**   | Tiptap (rich text), TipTap extensions, xterm.js + @xterm/addon-fit |
 | **AI**       | AI SDK (`ai`), streaming, tool calling, retry with backoff         |
 | **Markdown** | remark-gfm, rehype-raw, rehype-sanitize, Shiki, KaTeX, Mermaid     |
-| **Storage**  | IndexedDB via `idb`, server-side SQLite                            |
+| **Storage**  | Server-side SQLite (entities), `~/.coder/settings.json` (settings) |
 | **CI/CD**    | GitHub Actions, npm publish                                        |
 
 ---

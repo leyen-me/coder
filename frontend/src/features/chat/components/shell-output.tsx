@@ -206,7 +206,7 @@ export function ShellOutput({
     };
   }, [liveOutput, shellId, status]);
 
-  // Recovery effect: when the session is re-opened from IndexedDB, the persisted
+  // Recovery effect: when the session is re-opened from SQLite, the persisted
   // output may have status === "running" because a background shell (block_until_ms=0)
   // finished after its result was already saved. The Rust-side ShellRegistry has
   // since been lost (app restart) or the shell has completed. Query the real status

@@ -6,7 +6,7 @@ import type { StoreBackend, SyncKVStore } from "./types";
 
 let kvStore: SyncKVStore | null = null;
 
-/** Return the global KV store.  Lazily created on first access. */
+/** Return the global KV store. Lazily created on first access. */
 export function getKVStore(): SyncKVStore {
   if (!kvStore) {
     kvStore = createKVStore();
@@ -15,7 +15,7 @@ export function getKVStore(): SyncKVStore {
 }
 
 /**
- * Override the global KV store (test injection, CLI bootstrap).
+ * Override the global KV store (test injection, app bootstrap).
  * Pass `null` to reset – the next call to `getKVStore()` will create a
  * new default.
  */
@@ -32,16 +32,13 @@ export function resetKVStore(): void {
 }
 
 function createKVStore(): SyncKVStore {
-  if (typeof localStorage !== "undefined") {
-    return localStorage;
-  }
-
-  // Fallback for SSR, test runners, or Node.js (before a proper
-  // filesystem KV adapter is registered).
+  // In production, initCoderStorageSync() registers the HTTP KV store
+  // backed by ~/.coder/settings.json. This in-memory fallback is for
+  // unit tests and environments before bootstrap.
   return createMemoryKVStore();
 }
 
-/** Simple in-memory store for environments without `localStorage`. */
+/** In-memory KV store for unit tests and pre-bootstrap environments. */
 export function createMemoryKVStore(): SyncKVStore {
   const map = new Map<string, string>();
   return {
@@ -63,7 +60,7 @@ export function createMemoryKVStore(): SyncKVStore {
 
 let storeBackend: StoreBackend | null = null;
 
-/** Return the global store backend.  Returns `null` if none has been set. */
+/** Return the global store backend. Returns `null` if none has been set. */
 export function getStoreBackend(): StoreBackend | null {
   return storeBackend;
 }
@@ -72,22 +69,18 @@ export function getStoreBackend(): StoreBackend | null {
 export function requireStoreBackend(): StoreBackend {
   if (!storeBackend) {
     throw new Error(
-      "No store backend configured. " +
-        "In the browser, import and call createBrowserStoreBackend() " +
-        "before accessing the store. " +
-        "In Node.js / CLI, register a filesystem backend via setStoreBackend().",
+      "No store backend configured. Call initCoderStorageSync() before accessing the store.",
     );
   }
   return storeBackend;
 }
 
-/** Override the store backend (test injection, CLI bootstrap). */
+/** Override the store backend (test injection, app bootstrap). */
 export function setStoreBackend(backend: StoreBackend | null): void {
   storeBackend = backend;
 }
 
-/** Reset the store backend singleton – the next `getStoreBackend()` call
- *  creates a fresh default.  Used in tests to isolate state. */
+/** Reset the store backend singleton. Used in tests to isolate state. */
 export function resetStoreBackend(): void {
   storeBackend = null;
 }
