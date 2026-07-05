@@ -56,9 +56,3 @@ export async function processNativeFileDropItems({
     insertFileMentionIntoComposer(path);
   }
 }
-
-export function pathsToNativeFileDropItems(
-  paths: readonly string[]
-): NativeFileDropItem[] {
-  return paths.map((path) => ({ path }));
-}

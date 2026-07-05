@@ -27,10 +27,6 @@ pub struct SendEmailRequest {
     pub body: String,
 }
 
-// ---------------------------------------------------------------------------
-// Tauri command
-// ---------------------------------------------------------------------------
-
 /// Send an email via SMTP using the lettre crate.
 pub async fn send_email(request: SendEmailRequest) -> Result<String, String> {
     let settings = &request.settings;

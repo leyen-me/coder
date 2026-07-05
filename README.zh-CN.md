@@ -9,7 +9,7 @@
 <h1 align="center">Coder</h1>
 
 <p align="center">
-  <strong>AI 原生代码编辑器 —— 基于 Tauri、React 与 Rust 构建。</strong>
+  <strong>AI 原生代码编辑器 —— 基于 React、Rust 与 HTTP 构建。</strong>
 </p>
 
 <p align="center">
@@ -29,12 +29,12 @@
 
 ## 概述
 
-**Coder** 是一款桌面端 AI 编程助手，将本地 Agent 循环运行在原生的 macOS / Windows / Linux 应用中。它集成了：
+**Coder** 是一款 AI 编程助手，由 Rust HTTP 服务器驱动本地 Agent 循环。它集成了：
 
-- **Rust 原生后端**（Tauri v2）—— 管理 AI Agent 生命周期、运行 PTY 终端、提供文件系统、Shell、Git 和 Web 工具。
+- **Rust 后端** —— 管理 AI Agent 生命周期、运行 PTY 终端，并通过 HTTP、SSE 和 WebSocket 提供文件系统、Shell、Git 和 Web 工具。
 - **React + TypeScript 前端** —— 丰富的聊天界面、内联 Markdown 渲染（支持 Mermaid 图表、KaTeX 数学公式、Shiki 代码高亮）、可拖拽面板和 xterm.js 终端。
 
-Agent 可以读写文件、执行 Shell 命令、搜索网页、浏览页面、管理 Git 分支等——全部在一个原生窗口中完成。
+Agent 可以读写文件、执行 Shell 命令、搜索网页、浏览页面、管理 Git 分支等——通过浏览器或内置 CLI 即可使用。
 
 ---
 
@@ -50,8 +50,8 @@ Agent 可以读写文件、执行 Shell 命令、搜索网页、浏览页面、�
 - **会话历史** — 持久化聊天历史，支持自动生成会话标题。
 - **工作区管理** — 每个会话独立的工作区目录，感知 Git 仓库。
 - **主题支持** — 亮色/暗色/系统主题，支持多种代码编辑器配色方案。
-- **跨平台** — 基于 Tauri v2，支持 macOS、Windows 和 Linux。
-- **自动发布** — 通过 GitHub Actions，每次推送到 `main` 分支自动构建原生安装包。
+- **跨平台** — Rust 后端支持 macOS、Windows 和 Linux，通过 npm 分发。
+- **自动发布** — 通过 GitHub Actions，每次推送到 `main` 分支自动构建并发布到 npm。
 
 ---
 
@@ -59,19 +59,19 @@ Agent 可以读写文件、执行 Shell 命令、搜索网页、浏览页面、�
 
 ```
 ┌────────────────────────────────────────────────┐
-│                Tauri Shell (Rust)                │
+│            Rust HTTP 服务器 (1421)              │
 │  ┌────────────┐  ┌──────────┐  ┌────────────┐ │
 │  │ Agent      │  │  PTY     │  │ Shell Pool │ │
 │  │ Registry   │  │  Manager │  │ (Process)  │ │
 │  └────┬───────┘  └──────────┘  └────────────┘ │
 │       │            │                            │
 │  ┌────▼────────────▼────────────────────┐       │
-│  │        IPC（invoke / channels）        │       │
+│  │   HTTP / SSE / WebSocket / SQLite    │       │
 │  └────────────────┬─────────────────────┘       │
 └───────────────────┼─────────────────────────────┘
                     │
 ┌───────────────────▼─────────────────────────────┐
-│              WebView (React 19 + TS)             │
+│              浏览器 (React 19 + TS)              │
 │  ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
 │  │ Chat UI  │ │ Terminal │ │ Markdown Renderer│ │
 │  │ (Agent)  │ │ (xterm)  │ │ (remark/rehype)  │ │
@@ -87,13 +87,13 @@ Agent 可以读写文件、执行 Shell 命令、搜索网页、浏览页面、�
 
 | 层级       | 技术                                                                   |
 |-----------|----------------------------------------------------------------------|
-| **核心**   | Tauri v2，Rust，tokio，reqwest，portable-pty                            |
+| **后端**   | Rust，axum，tokio，reqwest，portable-pty，SQLite                        |
 | **前端**   | React 19，TypeScript，Vite 7，Tailwind CSS 4，shadcn/ui                 |
 | **编辑器** | Tiptap（富文本）、Tiptap 扩展、xterm.js + @xterm/addon-fit               |
 | **AI**     | AI SDK (`ai`)、流式输出、工具调用、退避重试                               |
 | **Markdown** | remark-gfm、rehype-raw、rehype-sanitize、Shiki、KaTeX、Mermaid        |
-| **存储**   | IndexedDB（通过 `idb`）、Redux Toolkit                                   |
-| **CI/CD**  | GitHub Actions、tauri-action                                           |
+| **存储**   | IndexedDB（通过 `idb`）、服务端 SQLite                                   |
+| **CI/CD**  | GitHub Actions、npm 发布                                               |
 
 ---
 
@@ -104,7 +104,6 @@ Agent 可以读写文件、执行 Shell 命令、搜索网页、浏览页面、�
 - [Node.js](https://nodejs.org/) v20+（推荐 LTS）
 - [pnpm](https://pnpm.io/) v9+
 - [Rust](https://www.rust-lang.org/) 工具链（stable）
-- Tauri v2 所需的[平台相关依赖](https://v2.tauri.app/start/prerequisites/)
 
 ### 安装与开发
 
@@ -115,11 +114,11 @@ pnpm install
 # 启动 Vite 开发服务器（端口 1420）
 pnpm dev
 
-# 另开一个终端，启动 Tauri 桌面应用
-pnpm tauri dev
+# 另开一个终端，启动 Rust 后端（端口 1421）
+pnpm dev:server
 ```
 
-Tauri CLI 会自动连接 Vite 开发服务器并打开原生窗口。
+Vite 开发服务器会将 `/api`、`/agent`、`/sse`、`/ws` 和 `/db` 请求代理到 Rust 后端。在浏览器中打开 `http://localhost:1420`。
 
 ### 运行测试
 
@@ -136,42 +135,26 @@ pnpm test:watch
 ## 项目结构
 
 ```
-├── src/                          # React 前端
-│   ├── app/                      # 应用外壳、布局、路由
-│   ├── assets/                   # 静态资源（图标、图片）
-│   ├── components/               # 共享 UI 组件
-│   │   ├── ai-elements/          # AI 相关 UI 原语
-│   │   ├── dnd/                  # 拖拽
-│   │   ├── layout/               # 主列、侧边栏、面板
-│   │   ├── markdown/             # Markdown 渲染器（Shiki、Mermaid、KaTeX）
-│   │   └── ui/                   # shadcn/ui 组件
-│   ├── features/                 # 功能模块
-│   │   ├── agent/                # Agent 循环、运行器、工具执行
-│   │   ├── automations/          # 自动化工作流
-│   │   ├── chat/                 # 聊天界面、消息、会话
-│   │   ├── history/              # 会话历史
-│   │   ├── settings/             # 设置（模型、主题、API 密钥）
-│   │   ├── skills/               # 技能定义与管理
-│   │   └── workspace/            # 工作区目录管理
-│   ├── hooks/                    # 共享 React Hook
-│   ├── lib/                      # 工具库（i18n、主题、平台、数据库）
-│   └── main.tsx                  # 入口文件
-├── src-tauri/                    # Rust 后端
+├── frontend/                     # React 前端
+│   ├── src/
+│   │   ├── app/                  # 应用外壳、布局、路由
+│   │   ├── components/           # 共享 UI 组件
+│   │   ├── features/             # 功能模块（agent、chat、skills 等）
+│   │   ├── lib/                  # 工具库（API 客户端、i18n、主题、数据库）
+│   │   └── main.tsx              # 入口文件
+│   ├── vite.config.ts
+│   └── dist/                     # Vite 构建输出
+├── backend/                      # Rust HTTP 服务器
 │   ├── src/
 │   │   ├── main.rs               # 二进制入口
-│   │   ├── lib.rs                # Tauri builder、插件注册
-│   │   ├── agent/                # Agent 编排（Rust 侧）
+│   │   ├── agent/                # Agent 编排
 │   │   ├── tools/                # 工具实现（文件系统、Shell、Git、Web）
-│   │   ├── shell_env.rs          # Shell 环境预加载
-│   │   └── window_chrome.rs      # 自定义窗口边框（macOS）
-│   ├── capabilities/             # Tauri 权限/ACL
-│   ├── icons/                    # 应用图标
-│   └── Cargo.toml                # Rust 依赖
-├── dist/                         # Vite 构建输出（前端）
-├── docs/                         # 文档
+│   │   └── db/                   # SQLite 持久化
+│   └── Cargo.toml
+├── npm/                          # npm 分发的 CLI 包装器
+├── npm-packages/                 # 各平台二进制包
 ├── .github/workflows/            # CI/CD（release.yml）
 ├── package.json
-├── vite.config.ts
 └── tsconfig.json
 ```
 
@@ -202,23 +185,18 @@ pnpm test:watch
 ### 手动构建
 
 ```bash
-pnpm build            # 构建前端（TypeScript + Vite）
-pnpm tauri build      # 构建 Tauri 原生应用
+pnpm build:frontend    # 构建前端（TypeScript + Vite）
+pnpm build:backend     # 构建 Rust 后端（release）
 ```
 
-原生安装包将输出到 `src-tauri/target/release/bundle/`。
+### 通过 npm 安装
 
-### 安装（macOS）
+```bash
+npm i -g @alanwchat/coder
+coder
+```
 
-1. 从 [Releases](https://github.com/your-org/coder/releases) 页面下载 `.dmg` 文件。
-2. 双击 `.dmg` 挂载，将 `coder.app` 拖入 **应用程序** 文件夹。
-3. 由于应用未经过 Apple Developer 签名，macOS Gatekeeper 会在首次启动时拦截。执行以下命令绕过：
-
-   ```bash
-   xattr -d com.apple.quarantine /Applications/coder.app && open /Applications/coder.app
-   ```
-
-   > **注意：** 每次更新后都需要重新执行此命令，因为新版本会重新打上 quarantine 标记。
+CLI 会自动下载对应平台的二进制文件，启动本地服务器并打开浏览器。
 
 ### 自动发布
 
@@ -226,7 +204,8 @@ pnpm tauri build      # 构建 Tauri 原生应用
 
 1. 生成基于时间戳的发布标签。
 2. 在矩阵策略下为 Ubuntu、macOS 和 Windows 构建原生二进制。
-3. 将构建产物发布到 GitHub Release。
+3. 将各平台包和主包 `@alanwchat/coder` CLI 发布到 npm。
+4. 创建 GitHub Release 并附带发布说明。
 
 ---
 
@@ -238,9 +217,9 @@ pnpm tauri build      # 构建 Tauri 原生应用
 
 ### 添加新工具
 
-1. 在 `src-tauri/src/tools/` 中实现 Rust 函数。
-2. 在 `src-tauri/src/lib.rs` 的 `invoke_handler` 中注册。
-3. 在 `src/features/agent/tools/` 中添加 TypeScript 绑定。
+1. 在 `backend/src/tools/` 中实现 Rust 处理函数。
+2. 在后端路由中注册 HTTP 端点。
+3. 在 `frontend/src/features/agent/tools/` 中添加 TypeScript 绑定。
 4. 编写测试——包括 Rust 单元测试和 Vitest 前端测试。
 
 ---

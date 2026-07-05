@@ -84,7 +84,7 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
     const onParentAbort = () => {
       abortController.abort();
       // Immediately cancel the sub-agent on the Rust side, since AbortController
-      // cannot interrupt an in-flight Tauri invoke("agent_start") call.
+      // cannot interrupt an in-flight agent_start HTTP request.
       cancelAgent(subTaskId).catch(() => {});
     };
     parentSignal.addEventListener("abort", onParentAbort, { once: true });

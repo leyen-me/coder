@@ -656,7 +656,7 @@ fn kill_process_tree(pid: u32) {
 }
 
 // ---------------------------------------------------------------------------
-// Plain public wrapper functions (no Tauri dependency)
+// Public wrapper functions
 // ---------------------------------------------------------------------------
 
 pub async fn tool_shell(

@@ -1,5 +1,4 @@
 // HTTP-based store backend for Coder Server mode.
-// Replaces Tauri SQLite and Tauri KV storage.
 
 import { apiPost } from "@/lib/api/client";
 

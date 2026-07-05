@@ -23,7 +23,6 @@ async function resolveApiKey(
     return resolved.apiKey.trim() || null;
   }
 
-  // env-sourced: try reading via Tauri command
   const envVar = resolved.apiKeyEnvVar.trim() || PRESET_PROVIDERS.deepseek.defaultApiKeyEnvVar;
   try {
     const value = await apiPost<string | null>("/api/resolve_env_var", {
@@ -33,7 +32,7 @@ async function resolveApiKey(
       return value;
     }
   } catch {
-    // Tauri not available or command failed — fall through
+    // Backend env resolution failed — fall through
   }
 
   return null;

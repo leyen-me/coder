@@ -9,7 +9,7 @@
 <h1 align="center">Coder</h1>
 
 <p align="center">
-  <strong>AI‑native code editor — powered by Tauri, React, and Rust.</strong>
+  <strong>AI‑native code editor — powered by React, Rust, and HTTP.</strong>
 </p>
 
 <p align="center">
@@ -29,12 +29,12 @@
 
 ## Overview
 
-**Coder** is a desktop AI coding assistant that runs a local agent loop inside a native macOS / Windows / Linux application. It combines:
+**Coder** is an AI coding assistant that runs a local agent loop backed by a Rust HTTP server. It combines:
 
-- A **Rust‑native backend** (Tauri v2) that manages an AI agent lifecycle, runs a PTY‑based terminal, and exposes filesystem, shell, git, and web tools.
+- A **Rust backend** that manages an AI agent lifecycle, runs a PTY‑based terminal, and exposes filesystem, shell, git, and web tools over HTTP, SSE, and WebSocket.
 - A **React + TypeScript frontend** with a rich chat interface, inline Markdown rendering (with Mermaid diagrams, KaTeX math, and code highlighting via Shiki), resizable panels, and an xterm.js terminal.
 
-The agent can read and write files, run shell commands, search the web, browse pages, manage git branches, and more — all within a single native window.
+The agent can read and write files, run shell commands, search the web, browse pages, manage git branches, and more — all from your browser or the bundled CLI.
 
 ---
 
@@ -50,8 +50,8 @@ The agent can read and write files, run shell commands, search the web, browse p
 - **Session History** — Persistent chat history with session title generation.
 - **Workspace Management** — Per‑session workspace directories with git repository awareness.
 - **Theme Support** — Light/dark/system themes via `next-themes` with multiple code editor themes.
-- **Cross‑platform** — Built with Tauri v2, runs on macOS, Windows, and Linux.
-- **Automatic Releases** — CI/CD via GitHub Actions builds native installers on every push to `main`.
+- **Cross‑platform** — Rust backend runs on macOS, Windows, and Linux; distributed via npm.
+- **Automatic Releases** — CI/CD via GitHub Actions builds platform binaries and publishes to npm on every push to `main`.
 
 ---
 
@@ -59,19 +59,19 @@ The agent can read and write files, run shell commands, search the web, browse p
 
 ```
 ┌────────────────────────────────────────────────┐
-│                 Tauri Shell (Rust)              │
+│              Rust HTTP Server (1421)            │
 │  ┌────────────┐  ┌──────────┐  ┌────────────┐ │
 │  │ Agent      │  │  PTY     │  │ Shell Pool │ │
 │  │ Registry   │  │  Manager │  │ (Process)  │ │
 │  └────┬───────┘  └──────────┘  └────────────┘ │
 │       │            │                            │
 │  ┌────▼────────────▼────────────────────┐       │
-│  │         IPC (invoke / channels)      │       │
+│  │   HTTP / SSE / WebSocket / SQLite    │       │
 │  └────────────────┬─────────────────────┘       │
 └───────────────────┼─────────────────────────────┘
                     │
 ┌───────────────────▼─────────────────────────────┐
-│             WebView (React 19 + TS)              │
+│             Browser (React 19 + TS)              │
 │  ┌──────────┐ ┌──────────┐ ┌──────────────────┐ │
 │  │  Chat UI │ │Terminal  │ │ Markdown Renderer│ │
 │  │  (Agent) │ │ (xterm)  │ │ (remark/rehype)  │ │
@@ -87,13 +87,13 @@ The agent can read and write files, run shell commands, search the web, browse p
 
 | Layer        | Technology                                                        |
 |-------------|-------------------------------------------------------------------|
-| **Shell**    | Tauri v2, Rust, tokio, reqwest, portable-pty                      |
+| **Backend**  | Rust, axum, tokio, reqwest, portable-pty, SQLite                  |
 | **Frontend** | React 19, TypeScript, Vite 7, Tailwind CSS 4, shadcn/ui           |
 | **Editor**   | Tiptap (rich text), TipTap extensions, xterm.js + @xterm/addon-fit |
 | **AI**       | AI SDK (`ai`), streaming, tool calling, retry with backoff         |
 | **Markdown** | remark-gfm, rehype-raw, rehype-sanitize, Shiki, KaTeX, Mermaid     |
-| **Storage**  | IndexedDB via `idb`, Redux Toolkit                                 |
-| **CI/CD**    | GitHub Actions, tauri-action                                       |
+| **Storage**  | IndexedDB via `idb`, server-side SQLite                            |
+| **CI/CD**    | GitHub Actions, npm publish                                        |
 
 ---
 
@@ -104,7 +104,6 @@ The agent can read and write files, run shell commands, search the web, browse p
 - [Node.js](https://nodejs.org/) v20+ (LTS recommended)
 - [pnpm](https://pnpm.io/) v9+
 - [Rust](https://www.rust-lang.org/) toolchain (stable)
-- Platform-specific dependencies for [Tauri v2](https://v2.tauri.app/start/prerequisites/)
 
 ### Install & run in development
 
@@ -115,11 +114,11 @@ pnpm install
 # Start the Vite dev server (port 1420)
 pnpm dev
 
-# In a separate terminal, start the Tauri desktop app
-pnpm tauri dev
+# In a separate terminal, start the Rust backend (port 1421)
+pnpm dev:server
 ```
 
-The Tauri CLI will automatically connect to the Vite dev server and open the native window.
+The Vite dev server proxies `/api`, `/agent`, `/sse`, `/ws`, and `/db` requests to the Rust backend. Open `http://localhost:1420` in your browser.
 
 ### Run tests
 
@@ -136,42 +135,26 @@ pnpm test:watch
 ## Project Structure
 
 ```
-├── src/                          # React frontend
-│   ├── app/                      # App shell, layout, router
-│   ├── assets/                   # Static assets (icons, images)
-│   ├── components/               # Shared UI components
-│   │   ├── ai-elements/          # AI-specific UI primitives
-│   │   ├── dnd/                  # Drag & drop
-│   │   ├── layout/               # Main column, sidebar, panels
-│   │   ├── markdown/             # Markdown renderer (Shiki, Mermaid, KaTeX)
-│   │   └── ui/                   # shadcn/ui components
-│   ├── features/                 # Feature modules
-│   │   ├── agent/                # Agent loop, runner, tool execution
-│   │   ├── automations/          # Automation workflows
-│   │   ├── chat/                 # Chat UI, messages, sessions
-│   │   ├── history/              # Session history
-│   │   ├── settings/             # Settings (model, theme, API keys)
-│   │   ├── skills/               # Skill definitions & management
-│   │   └── workspace/            # Workspace directory management
-│   ├── hooks/                    # Shared React hooks
-│   ├── lib/                      # Utilities (i18n, theme, platform, DB)
-│   └── main.tsx                  # Entry point
-├── src-tauri/                    # Rust backend
+├── frontend/                     # React frontend
+│   ├── src/
+│   │   ├── app/                  # App shell, layout, router
+│   │   ├── components/           # Shared UI components
+│   │   ├── features/             # Feature modules (agent, chat, skills, …)
+│   │   ├── lib/                  # Utilities (API client, i18n, theme, DB)
+│   │   └── main.tsx              # Entry point
+│   ├── vite.config.ts
+│   └── dist/                     # Vite build output
+├── backend/                      # Rust HTTP server
 │   ├── src/
 │   │   ├── main.rs               # Binary entry point
-│   │   ├── lib.rs                # Tauri builder, plugin registration
-│   │   ├── agent/                # Agent orchestration (Rust side)
+│   │   ├── agent/                # Agent orchestration
 │   │   ├── tools/                # Tool implementations (fs, shell, git, web)
-│   │   ├── shell_env.rs          # Shell environment preloader
-│   │   └── window_chrome.rs      # Custom window chrome (macOS)
-│   ├── capabilities/             # Tauri capabilities/ACL
-│   ├── icons/                    # App icons
-│   └── Cargo.toml                # Rust dependencies
-├── dist/                         # Vite build output (frontend)
-├── docs/                         # Documentation
+│   │   └── db/                   # SQLite persistence
+│   └── Cargo.toml
+├── npm/                          # CLI wrapper for npm distribution
+├── npm-packages/                 # Platform-specific binary packages
 ├── .github/workflows/            # CI/CD (release.yml)
 ├── package.json
-├── vite.config.ts
 └── tsconfig.json
 ```
 
@@ -202,23 +185,18 @@ Custom skills define reusable instructions for the agent. They are managed via t
 ### Manual build
 
 ```bash
-pnpm build            # Build frontend (TypeScript + Vite)
-pnpm tauri build      # Build native Tauri application
+pnpm build:frontend    # Build frontend (TypeScript + Vite)
+pnpm build:backend     # Build Rust backend (release)
 ```
 
-The native installers will be placed in `src-tauri/target/release/bundle/`.
+### Install via npm
 
-### Installation (macOS)
+```bash
+npm i -g @alanwchat/coder
+coder
+```
 
-1. Download the `.dmg` from the [Releases](https://github.com/your-org/coder/releases) page.
-2. Double-click the `.dmg` to mount it, then drag `coder.app` into the **Applications** folder.
-3. Since the app is not signed with an Apple Developer certificate, macOS Gatekeeper will block it on first launch. Bypass it with:
-
-   ```bash
-   xattr -d com.apple.quarantine /Applications/coder.app && open /Applications/coder.app
-   ```
-
-   > **Note:** You'll need to run this command again after every update, because each new version gets a fresh quarantine flag.
+The CLI downloads the platform-specific binary and starts the local server, opening your browser automatically.
 
 ### Automatic release
 
@@ -226,7 +204,8 @@ Pushing to the `main` branch triggers the [release workflow](.github/workflows/r
 
 1. Generates a timestamp‑based release tag.
 2. Builds native binaries for Ubuntu, macOS, and Windows (via matrix strategy).
-3. Publishes a GitHub Release with the built assets.
+3. Publishes platform packages and the main `@alanwchat/coder` CLI to npm.
+4. Creates a GitHub Release with release notes.
 
 ---
 
@@ -238,9 +217,9 @@ This project follows the practices defined in [`AGENTS.md`](./AGENTS.md) — all
 
 ### Adding a new tool
 
-1. Implement the Rust function in `src-tauri/src/tools/`.
-2. Register it in the `invoke_handler` in `src-tauri/src/lib.rs`.
-3. Add the TypeScript binding in `src/features/agent/tools/`.
+1. Implement the Rust handler in `backend/src/tools/`.
+2. Register the HTTP route in the backend router.
+3. Add the TypeScript binding in `frontend/src/features/agent/tools/`.
 4. Write tests — both Rust unit tests and Vitest frontend tests.
 
 ---

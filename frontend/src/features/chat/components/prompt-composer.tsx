@@ -46,10 +46,7 @@ import type { SessionKind } from "@/lib/db";
 
 import { collectNativeFileDropItems } from "@/lib/dnd/external-file-drop";
 
-import {
-  pathsToNativeFileDropItems,
-  processNativeFileDropItems,
-} from "../lib/process-native-file-drop-items";
+import { processNativeFileDropItems } from "../lib/process-native-file-drop-items";
 
 import { useRegisterHotkeyAction } from "@/features/keyboard-shortcuts/hotkey-actions-context";
 
@@ -223,19 +220,6 @@ function ComposerSubmit({
       />
     </div>
   );
-}
-
-type ComposerTauriFileDropBridgeProps = {
-  onDropPaths: (
-    paths: string[],
-    addAttachments: (files: File[] | FileList) => void
-  ) => void;
-};
-
-function ComposerTauriFileDropBridge({
-  onDropPaths: _onDropPaths,
-}: ComposerTauriFileDropBridgeProps) {
-  return null;
 }
 
 type ComposerContextBarProps = {
@@ -496,13 +480,6 @@ export const PromptComposer = memo(function PromptComposer({
     [runNativeFileDrop]
   );
 
-  const handleTauriNativeFileDrop = useCallback(
-    (paths: string[], addAttachments: (files: File[] | FileList) => void) => {
-      runNativeFileDrop(pathsToNativeFileDropItems(paths), addAttachments);
-    },
-    [runNativeFileDrop]
-  );
-
   const handleChange = useCallback((nextValue: string) => {
     setValue(nextValue);
   }, []);
@@ -576,9 +553,6 @@ export const PromptComposer = memo(function PromptComposer({
         onSubmit={handleSubmit}
         supportsMultimodal={supportsMultimodal}
         editorRef={editorRef}
-      />
-      <ComposerTauriFileDropBridge
-        onDropPaths={handleTauriNativeFileDrop}
       />
       <PromptComposerAttachmentsHeader />
       <ComposerAttachmentError

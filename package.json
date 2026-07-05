@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "cd frontend && vite",
-    "dev:server": "cd backend && cargo run",
+    "dev:server": "cd backend && cargo run -- --no-open",
     "build:frontend": "cd frontend && vite build",
     "build:backend": "cd backend && cargo build --release",
     "test": "cd frontend && vitest run",

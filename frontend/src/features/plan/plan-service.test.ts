@@ -4,13 +4,13 @@ import { ApiError } from "@/lib/api/client";
 
 import {
   isPlanNotFoundError,
-  parsePlanInvokeError,
+  parsePlanApiError,
 } from "./plan-service";
 
-describe("parsePlanInvokeError", () => {
-  it("reads structured tauri invoke errors", () => {
+describe("parsePlanApiError", () => {
+  it("reads structured API error payloads", () => {
     expect(
-      parsePlanInvokeError({
+      parsePlanApiError({
         code: "plan_not_found",
         message: "Plan not found: .plan/old-plan.md",
       })
@@ -21,7 +21,7 @@ describe("parsePlanInvokeError", () => {
   });
 
   it("does not stringify objects as [object Object]", () => {
-    expect(parsePlanInvokeError({ code: "io_error" }).message).not.toBe(
+    expect(parsePlanApiError({ code: "io_error" }).message).not.toBe(
       "[object Object]"
     );
   });
@@ -37,7 +37,7 @@ describe("parsePlanInvokeError", () => {
 
   it("reads ApiError payloads from the HTTP client", () => {
     expect(
-      parsePlanInvokeError(
+      parsePlanApiError(
         new ApiError(400, "plan_not_found", "Plan not found: .plan/old-plan.md")
       )
     ).toEqual({

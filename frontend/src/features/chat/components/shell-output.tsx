@@ -67,7 +67,7 @@ export function ShellOutput({
   collapsible,
 }: ShellOutputProps) {
   // Live-update state: when a background shell finishes on the Rust side,
-  // the component receives the final output via Tauri events.
+  // the component receives the final output via SSE events.
   const [liveOutput, setLiveOutput] = useState<unknown | null>(null);
   const [liveStdout, setLiveStdout] = useState("");
   const [liveStderr, setLiveStderr] = useState("");

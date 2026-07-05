@@ -74,16 +74,16 @@ export function isPlanPath(path: string): boolean {
   return path.startsWith(`${PLAN_DIRECTORY}/`) && path.endsWith("-plan.md");
 }
 
-type PlanInvokeErrorPayload = {
+type PlanApiErrorPayload = {
   code?: string;
   message?: string;
 };
 
-export function parsePlanInvokeError(error: unknown): {
+export function parsePlanApiError(error: unknown): {
   code?: string;
   message: string;
 } {
-  const structured = parsePlanInvokeErrorPayload(error);
+  const structured = parsePlanApiErrorPayload(error);
   if (structured?.message) {
     return {
       code: structured.code,
@@ -103,12 +103,12 @@ export function parsePlanInvokeError(error: unknown): {
 }
 
 export function isPlanNotFoundError(error: unknown): boolean {
-  return parsePlanInvokeErrorPayload(error)?.code === "plan_not_found";
+  return parsePlanApiErrorPayload(error)?.code === "plan_not_found";
 }
 
-function parsePlanInvokeErrorPayload(
+function parsePlanApiErrorPayload(
   error: unknown
-): PlanInvokeErrorPayload | null {
+): PlanApiErrorPayload | null {
   if (error instanceof ApiError) {
     return {
       code: error.code,
@@ -117,11 +117,11 @@ function parsePlanInvokeErrorPayload(
   }
 
   if (typeof error === "string") {
-    return parseJsonPlanInvokeError(error);
+    return parseJsonPlanApiError(error);
   }
 
   if (error instanceof Error) {
-    const fromMessage = parseJsonPlanInvokeError(error.message);
+    const fromMessage = parseJsonPlanApiError(error.message);
     if (fromMessage) {
       return fromMessage;
     }
@@ -140,7 +140,7 @@ function parsePlanInvokeErrorPayload(
   return null;
 }
 
-function parseJsonPlanInvokeError(raw: string): PlanInvokeErrorPayload | null {
+function parseJsonPlanApiError(raw: string): PlanApiErrorPayload | null {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (typeof parsed !== "object" || parsed === null) {

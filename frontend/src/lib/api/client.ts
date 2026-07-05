@@ -1,5 +1,4 @@
-// Unified API client for Coder HTTP Server mode.
-// Replaces all `invoke()` calls from @tauri-apps/api/core.
+// Unified HTTP API client for the Coder backend.
 
 function getApiBase(): string {
   if (typeof window === "undefined") {

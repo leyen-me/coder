@@ -393,7 +393,7 @@ fn resolve_api_key(
         }
     }
 
-    // 3. Fallback: read from ~/.coder/settings.json (legacy Tauri settings)
+    // 3. Fallback: read from ~/.coder/settings.json (legacy settings file)
     if let Ok(settings) = std::fs::read_to_string(
         crate::get_coder_data_dir().join("settings.json"),
     ) {
