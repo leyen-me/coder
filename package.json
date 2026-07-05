@@ -10,6 +10,7 @@
     "build:backend": "cd backend && cargo build --release",
     "test": "cd frontend && vitest run",
     "test:watch": "cd frontend && vitest",
+    "sync:system-skills": "tsx scripts/export-system-skills.ts",
     "preview": "cd frontend && vite preview"
   },
   "dependencies": {

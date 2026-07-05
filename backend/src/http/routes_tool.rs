@@ -952,10 +952,12 @@ pub struct BuildSystemPromptParams {
 
 /// POST /agent/build_system_prompt
 pub async fn handle_build_system_prompt(
+    State(state): State<Arc<AppState>>,
     Json(params): Json<BuildSystemPromptParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     use crate::agent::prompt::{
-        build_system_prompt, AgentPromptMode, BuildSystemPromptInput, SessionPolicyInput,
+        build_system_prompt, load_prompt_context, AgentPromptMode, BuildSystemPromptInput,
+        SessionPolicyInput,
     };
 
     let workspace_dir = params.workspace_dir.and_then(|dir| {
@@ -985,11 +987,15 @@ pub async fn handle_build_system_prompt(
         _ => None,
     };
 
+    let prompt_context = load_prompt_context(&state.db)
+        .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error))?;
+
     let system_prompt = build_system_prompt(BuildSystemPromptInput {
         workspace_dir,
         agent_mode,
         extra_communication_rules: params.extra_communication_rules.unwrap_or_default(),
         session_policy,
+        prompt_context,
     })
     .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
 

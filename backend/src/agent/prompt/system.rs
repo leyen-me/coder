@@ -3,7 +3,9 @@ use chrono::Local;
 use crate::tools::agent_get_runtime_environment;
 
 use super::lab_settings;
+use super::prompt_context::{PromptContext, RemoteTargetSummary};
 use super::session_policy::{build_session_policy_prompt, SessionPolicyInput};
+use super::system_skills::build_system_skill_block;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AgentPromptMode {
@@ -18,6 +20,19 @@ pub struct BuildSystemPromptInput {
     /// Appended as numbered rules under `## Communication Rules`.
     pub extra_communication_rules: Vec<String>,
     pub session_policy: Option<SessionPolicyInput>,
+    pub prompt_context: PromptContext,
+}
+
+impl Default for BuildSystemPromptInput {
+    fn default() -> Self {
+        Self {
+            workspace_dir: None,
+            agent_mode: AgentPromptMode::Agent,
+            extra_communication_rules: Vec::new(),
+            session_policy: None,
+            prompt_context: PromptContext::default(),
+        }
+    }
 }
 
 pub fn build_system_prompt(input: BuildSystemPromptInput) -> Result<String, String> {
@@ -55,6 +70,11 @@ pub fn build_system_prompt(input: BuildSystemPromptInput) -> Result<String, Stri
     ));
 
     blocks.push(build_communication_rules(&input.extra_communication_rules));
+
+    for skill in &input.prompt_context.enabled_system_skills {
+        blocks.push(build_system_skill_block(skill));
+    }
+
     blocks.push(build_user_skills_section(input.agent_mode));
 
     if let Some(agents_md) = runtime.agents_md {
@@ -64,6 +84,12 @@ pub fn build_system_prompt(input: BuildSystemPromptInput) -> Result<String, Stri
                 agents_md.truncated,
             ));
         }
+    }
+
+    if let Some(remote_targets) =
+        build_remote_targets_section(&input.prompt_context.remote_targets)
+    {
+        blocks.push(remote_targets);
     }
 
     if let Some(mode_guidance) = build_mode_guidance(input.agent_mode, workspace_line) {
@@ -168,6 +194,40 @@ fn build_plan_mode_guidance(workspace_line: &str) -> String {
         "- Use plan_update for major rewrites where you need to replace the entire plan content. For localized changes, use plan_edit instead.".to_string(),
         "- When the user asks to change the current plan, update that plan file; do not create a duplicate.".to_string(),
         "- Use plan_delete only when the user explicitly asks to remove an obsolete plan.".to_string(),
+        String::new(),
+        "### Filename rules".to_string(),
+        String::new(),
+        "- Descriptive slug ending in -plan.md (e.g. refactor-auth-plan.md). Lowercase letters, numbers, and hyphens only.".to_string(),
+        String::new(),
+        "### Plan content structure".to_string(),
+        String::new(),
+        "Write the full plan in the file using Markdown with at least:".to_string(),
+        "- # Title".to_string(),
+        "- ## Goal / context".to_string(),
+        "- ## Steps (numbered, actionable)".to_string(),
+        "- ## Files to touch (when known)".to_string(),
+        "- ## Risks / verification (when relevant)".to_string(),
+        String::new(),
+        "### Chat reply".to_string(),
+        String::new(),
+        "- Briefly summarize which plan file was created or updated. Do NOT paste the full plan in chat.".to_string(),
+        "- Do NOT include greetings, process narration, tool-call commentary, or closing questions.".to_string(),
+        String::new(),
+        "### Tools in this mode".to_string(),
+        String::new(),
+        "- Read, search, and browse to inform the plan.".to_string(),
+        "- When important requirements or trade-offs are unclear, call ask_question to ask the user a batch of structured clarification questions before you continue.".to_string(),
+        "- Prefer one ask_question call with all necessary questions instead of many one-question rounds.".to_string(),
+        "- For ask_question, provide clear options. The UI always adds an Other/custom-text option for every question.".to_string(),
+        "- After calling ask_question, wait for the user's answers and then continue the same planning run.".to_string(),
+        "- Use todo_write for short-lived planning-step tracking during this session.".to_string(),
+        "- todo_write does NOT replace the plan file; always persist the full plan with plan_create/plan_update/plan_edit.".to_string(),
+        "- Do NOT modify project files, run shell commands, or implement changes.".to_string(),
+        String::new(),
+        "### Execution".to_string(),
+        String::new(),
+        "- When the user asks to implement, tell them to open the right panel Plan tab and click \"Build\" (执行) to run the plan in Agent mode.".to_string(),
+        "- Do NOT silently attempt implementation. Keep the user in the planning loop until they explicitly build.".to_string(),
     ];
 
     if workspace_line == "not selected" {
@@ -180,6 +240,36 @@ fn build_plan_mode_guidance(workspace_line: &str) -> String {
     lines.join("\n")
 }
 
+fn build_remote_targets_section(remote_targets: &[RemoteTargetSummary]) -> Option<String> {
+    if remote_targets.is_empty() {
+        return None;
+    }
+
+    let mut lines = vec![
+        "## Remote Machines".to_string(),
+        String::new(),
+        "You have the following remote machines available:".to_string(),
+    ];
+
+    for target in remote_targets {
+        lines.push(format!(
+            "  - \"{}\" ({}@{}:{})",
+            target.alias, target.user, target.host, target.port
+        ));
+    }
+
+    lines.push(String::new());
+    lines.push(
+        "Use `remote_shell(target: \"<alias>\", command: \"...\")` to execute commands on a remote machine. \
+         Set block_until_ms to 0 to run in background and use await to poll, or omit for default 30s timeout. \
+         Supports kill_shell and read_shell_logs for background shells. \
+         To run commands on the local machine, use the regular `shell` tool instead."
+            .to_string(),
+    );
+
+    Some(lines.join("\n"))
+}
+
 fn format_today() -> String {
     Local::now().format("%Y-%m-%d, %A %:z").to_string()
 }
@@ -187,6 +277,7 @@ fn format_today() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::system_skills::SystemSkillDefinition;
 
     #[test]
     fn builds_agent_prompt_with_environment_block() {
@@ -195,6 +286,7 @@ mod tests {
             agent_mode: AgentPromptMode::Agent,
             extra_communication_rules: vec![],
             session_policy: None,
+            prompt_context: PromptContext::default(),
         })
         .expect("prompt");
 
@@ -211,10 +303,56 @@ mod tests {
             agent_mode: AgentPromptMode::Ask,
             extra_communication_rules: vec![],
             session_policy: None,
+            prompt_context: PromptContext::default(),
         })
         .expect("prompt");
 
         assert!(prompt.contains("## Mode Guidance"));
         assert!(prompt.contains("Ask mode"));
+    }
+
+    #[test]
+    fn plan_mode_includes_full_guidance() {
+        let prompt = build_system_prompt(BuildSystemPromptInput {
+            workspace_dir: None,
+            agent_mode: AgentPromptMode::Plan,
+            extra_communication_rules: vec![],
+            session_policy: None,
+            prompt_context: PromptContext::default(),
+        })
+        .expect("prompt");
+
+        assert!(prompt.contains("### Filename rules"));
+        assert!(prompt.contains("### Execution"));
+    }
+
+    #[test]
+    fn includes_enabled_system_skills() {
+        let prompt = build_system_prompt(BuildSystemPromptInput {
+            workspace_dir: None,
+            agent_mode: AgentPromptMode::Agent,
+            extra_communication_rules: vec![],
+            session_policy: None,
+            prompt_context: PromptContext {
+                enabled_system_skills: vec![SystemSkillDefinition {
+                    id: "test".to_string(),
+                    slug: "test".to_string(),
+                    name: "Agent Operating Principles".to_string(),
+                    content: "Follow the user.".to_string(),
+                    default_enabled: true,
+                }],
+                remote_targets: vec![RemoteTargetSummary {
+                    alias: "prod".to_string(),
+                    host: "example.com".to_string(),
+                    port: 22,
+                    user: "deploy".to_string(),
+                }],
+            },
+        })
+        .expect("prompt");
+
+        assert!(prompt.contains("## Agent Operating Principles"));
+        assert!(prompt.contains("## Remote Machines"));
+        assert!(prompt.contains("\"prod\" (deploy@example.com:22)"));
     }
 }

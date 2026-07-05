@@ -12,7 +12,9 @@ use super::provider::{resolve_model, resolve_provider, resolve_workspace_dir};
 use super::store::{
     finish_job_run, get_job, patch_message, put_message, put_session, start_job_run,
 };
-use crate::agent::prompt::{build_system_prompt, AgentPromptMode, BuildSystemPromptInput};
+use crate::agent::prompt::{
+    build_system_prompt, load_prompt_context, AgentPromptMode, BuildSystemPromptInput,
+};
 use super::system_prompt::derive_session_title;
 use super::types::{AgentMode, RunStatus, ScheduledJobRecord};
 
@@ -164,6 +166,7 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
         AgentMode::Ask => AgentPromptMode::Ask,
         AgentMode::Agent => AgentPromptMode::Agent,
     };
+    let prompt_context = load_prompt_context(&state.db)?;
     let system_prompt = build_system_prompt(BuildSystemPromptInput {
         workspace_dir: workspace_dir.clone(),
         agent_mode: prompt_mode,
@@ -171,6 +174,7 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
             "This is a scheduled background job; complete the task without asking clarifying questions unless blocked.".to_string(),
         ],
         session_policy: None,
+        prompt_context,
     })?;
     let loop_result = run_to_completion(
         &state.agent_registry,
