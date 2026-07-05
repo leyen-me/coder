@@ -150,10 +150,8 @@ pnpm test:watch
 │   │   ├── automations/          # 自动化工作流
 │   │   ├── chat/                 # 聊天界面、消息、会话
 │   │   ├── history/              # 会话历史
-│   │   ├── right-panel/          # 右侧面板（文件树等）
 │   │   ├── settings/             # 设置（模型、主题、API 密钥）
 │   │   ├── skills/               # 技能定义与管理
-│   │   ├── terminal/             # xterm.js 终端集成
 │   │   └── workspace/            # 工作区目录管理
 │   ├── hooks/                    # 共享 React Hook
 │   ├── lib/                      # 工具库（i18n、主题、平台、数据库）

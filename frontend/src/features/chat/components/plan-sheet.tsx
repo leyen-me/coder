@@ -162,7 +162,7 @@ export function PlanSheet({
     return (
       <div className="mb-2 flex items-center gap-2 overflow-hidden rounded-2xl border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground dark:bg-muted/20">
         <ClipboardListIcon className="size-4 shrink-0" />
-        <span>{t("rightPanel.planLoading")}</span>
+        <span>{t("chat.planLoading")}</span>
       </div>
     );
   }
@@ -197,7 +197,7 @@ export function PlanSheet({
             type="button"
           >
             <BotIcon className="size-3.5 shrink-0" />
-            <span>{t("rightPanel.planBuild")}</span>
+            <span>{t("chat.planBuild")}</span>
           </button>
         ) : null}
 

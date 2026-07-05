@@ -12,7 +12,6 @@ import { PromptRefineProvider } from "@/features/lab/prompt-refine-provider";
 import { SearchDialogProvider } from "@/features/keyboard-shortcuts/search-dialog-context";
 import { ShellChromeProvider } from "@/features/keyboard-shortcuts/shell-chrome-context";
 import { Toaster } from "@/components/ui/sonner";
-import { WorkspacePathDragPreview } from "@/components/dnd/workspace-path-drag-preview";
 import { cn } from "@/lib/utils";
 import {
   startAutomationScheduler,
@@ -91,7 +90,6 @@ export function AppShell() {
         </SearchDialogProvider>
       </ShellChromeProvider>
       <Toaster richColors />
-      <WorkspacePathDragPreview />
     </div>
   );
 }

@@ -150,10 +150,8 @@ pnpm test:watch
 │   │   ├── automations/          # Automation workflows
 │   │   ├── chat/                 # Chat UI, messages, sessions
 │   │   ├── history/              # Session history
-│   │   ├── right-panel/          # Right-side panels (file tree, etc.)
 │   │   ├── settings/             # Settings (model, theme, API keys)
 │   │   ├── skills/               # Skill definitions & management
-│   │   ├── terminal/             # xterm.js terminal integration
 │   │   └── workspace/            # Workspace directory management
 │   ├── hooks/                    # Shared React hooks
 │   ├── lib/                      # Utilities (i18n, theme, platform, DB)

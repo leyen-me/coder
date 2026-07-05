@@ -42,11 +42,6 @@ import {
 import { isBlobAttachmentUrl } from "@/features/chat/lib/composer-image-attachments";
 import { cn } from "@/lib/utils";
 import { hasExtractableExternalPaths } from "@/lib/dnd/external-file-drop";
-import {
-  endWorkspacePathDrag,
-  getWorkspacePathFromDrag,
-  isWorkspacePathDragActive,
-} from "@/lib/dnd/workspace-path";
 import { composerFooterControlClassName } from "@/components/ai-elements/composer-footer-control";
 import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";
 import {
@@ -538,7 +533,6 @@ export type PromptInputProps = Omit<
     message: PromptInputMessage,
     event: FormEvent<HTMLFormElement>
   ) => void | Promise<void>;
-  onWorkspacePathDrop?: (path: string) => void;
   onNativeFileDrop?: (event: NativeFileDropEvent) => void;
 };
 
@@ -566,7 +560,6 @@ function mapInitialPromptFiles(
 function acceptsPromptInputDrop(
   dataTransfer: DataTransfer | null,
   options: {
-    allowWorkspacePath: boolean;
     allowNativeFileDrop: boolean;
   }
 ): boolean {
@@ -578,27 +571,23 @@ function acceptsPromptInputDrop(
     return true;
   }
 
-  if (options.allowNativeFileDrop && hasExtractableExternalPaths(dataTransfer)) {
-    return true;
-  }
-
-  return options.allowWorkspacePath && isWorkspacePathDragActive(dataTransfer);
+  return (
+    options.allowNativeFileDrop && hasExtractableExternalPaths(dataTransfer)
+  );
 }
 
 function handlePromptInputDrop(
   event: globalThis.DragEvent,
   options: {
     add: (files: File[] | FileList) => void;
-    onWorkspacePathDrop?: (path: string) => void;
     onNativeFileDrop?: (event: NativeFileDropEvent) => void;
   }
 ): void {
-  const { add, onWorkspacePathDrop, onNativeFileDrop } = options;
+  const { add, onNativeFileDrop } = options;
   const dataTransfer = event.dataTransfer;
 
   if (
     !acceptsPromptInputDrop(dataTransfer, {
-      allowWorkspacePath: Boolean(onWorkspacePathDrop),
       allowNativeFileDrop: Boolean(onNativeFileDrop),
     })
   ) {
@@ -607,15 +596,6 @@ function handlePromptInputDrop(
 
   event.preventDefault();
   event.stopPropagation();
-
-  if (onWorkspacePathDrop && dataTransfer && isWorkspacePathDragActive(dataTransfer)) {
-    const path = getWorkspacePathFromDrag(dataTransfer);
-    if (path) {
-      onWorkspacePathDrop(path);
-      endWorkspacePathDrag();
-    }
-    return;
-  }
 
   if (
     onNativeFileDrop &&
@@ -642,7 +622,6 @@ export const PromptInput = ({
   maxFileSize,
   onError,
   onSubmit,
-  onWorkspacePathDrop,
   onNativeFileDrop,
   children,
   ...props
@@ -857,7 +836,6 @@ export const PromptInput = ({
     (event: ReactDragEvent<HTMLFormElement>) => {
       if (
         acceptsPromptInputDrop(event.dataTransfer, {
-          allowWorkspacePath: Boolean(onWorkspacePathDrop),
           allowNativeFileDrop: Boolean(onNativeFileDrop),
         })
       ) {
@@ -865,7 +843,7 @@ export const PromptInput = ({
         event.dataTransfer.dropEffect = "copy";
       }
     },
-    [onNativeFileDrop, onWorkspacePathDrop]
+    [onNativeFileDrop]
   );
 
   const handleDropCapture = useCallback(
@@ -873,10 +851,9 @@ export const PromptInput = ({
       handlePromptInputDrop(event.nativeEvent, {
         add,
         onNativeFileDrop,
-        onWorkspacePathDrop,
       });
     },
-    [add, onNativeFileDrop, onWorkspacePathDrop]
+    [add, onNativeFileDrop]
   );
 
   useEffect(() => {
@@ -887,7 +864,6 @@ export const PromptInput = ({
     const onDragOver = (event: globalThis.DragEvent) => {
       if (
         acceptsPromptInputDrop(event.dataTransfer, {
-          allowWorkspacePath: Boolean(onWorkspacePathDrop),
           allowNativeFileDrop: Boolean(onNativeFileDrop),
         })
       ) {
@@ -901,7 +877,6 @@ export const PromptInput = ({
       handlePromptInputDrop(event, {
         add,
         onNativeFileDrop,
-        onWorkspacePathDrop,
       });
     };
     document.addEventListener("dragover", onDragOver);
@@ -910,7 +885,7 @@ export const PromptInput = ({
       document.removeEventListener("dragover", onDragOver);
       document.removeEventListener("drop", onDrop);
     };
-  }, [add, globalDrop, onNativeFileDrop, onWorkspacePathDrop]);
+  }, [add, globalDrop, onNativeFileDrop]);
 
   useEffect(
     () => () => {

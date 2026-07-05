@@ -143,10 +143,6 @@
   html {
     @apply font-sans;
     }
-  body[data-workspace-path-drag="true"],
-  body[data-workspace-path-drag="true"] * {
-    cursor: grabbing !important;
-  }
 }
 
 @keyframes agent-stop-confirm-shrink {

@@ -46,12 +46,10 @@ import type { SessionKind } from "@/lib/db";
 
 import { collectNativeFileDropItems } from "@/lib/dnd/external-file-drop";
 
-import { insertFileMentionIntoComposer } from "../lib/composer-insert-store";
 import {
   pathsToNativeFileDropItems,
   processNativeFileDropItems,
 } from "../lib/process-native-file-drop-items";
-import { useWorkspacePathDropTarget } from "../hooks/use-workspace-path-drop-target";
 
 import { useRegisterHotkeyAction } from "@/features/keyboard-shortcuts/hotkey-actions-context";
 
@@ -228,7 +226,6 @@ function ComposerSubmit({
 }
 
 type ComposerTauriFileDropBridgeProps = {
-  dropTargetRef: RefObject<HTMLElement | null>;
   onDropPaths: (
     paths: string[],
     addAttachments: (files: File[] | FileList) => void
@@ -236,7 +233,6 @@ type ComposerTauriFileDropBridgeProps = {
 };
 
 function ComposerTauriFileDropBridge({
-  dropTargetRef: _dropTargetRef,
   onDropPaths: _onDropPaths,
 }: ComposerTauriFileDropBridgeProps) {
   return null;
@@ -462,10 +458,6 @@ export const PromptComposer = memo(function PromptComposer({
     [supportsMultimodal, t]
   );
 
-  const handleWorkspacePathDrop = useCallback((path: string) => {
-    insertFileMentionIntoComposer(path);
-  }, []);
-
   const dropMessages = useCallback(
     () => ({
       externalDropImageLoadFailed: t("chat.externalDropImageLoadFailed"),
@@ -510,9 +502,6 @@ export const PromptComposer = memo(function PromptComposer({
     },
     [runNativeFileDrop]
   );
-
-  const dropTargetRef = useRef<HTMLDivElement>(null);
-  useWorkspacePathDropTarget(dropTargetRef, handleWorkspacePathDrop);
 
   const handleChange = useCallback((nextValue: string) => {
     setValue(nextValue);
@@ -582,7 +571,6 @@ export const PromptComposer = memo(function PromptComposer({
       onError={handleAttachmentError}
       onSubmit={handleSubmit}
       onNativeFileDrop={handleNativeFileDrop}
-      onWorkspacePathDrop={handleWorkspacePathDrop}
     >
       <ComposerHotkeyActions
         onSubmit={handleSubmit}
@@ -590,7 +578,6 @@ export const PromptComposer = memo(function PromptComposer({
         editorRef={editorRef}
       />
       <ComposerTauriFileDropBridge
-        dropTargetRef={dropTargetRef}
         onDropPaths={handleTauriNativeFileDrop}
       />
       <PromptComposerAttachmentsHeader />
@@ -802,12 +789,8 @@ export const PromptComposer = memo(function PromptComposer({
   return (
     <div className={cn("flex w-full max-w-3xl flex-col", className)}>
       <div
-        ref={dropTargetRef}
         className={cn(
           "overflow-hidden rounded-3xl border border-border shadow-none transition-[border-color,box-shadow,background-color] duration-200",
-          "data-[workspace-path-drop-hover=true]:border-primary/50",
-          "data-[workspace-path-drop-hover=true]:bg-primary/5",
-          "data-[workspace-path-drop-hover=true]:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-primary)_16%,transparent)]",
           !showWorkspaceControls && "bg-card text-card-foreground",
           isCompact && "shadow-sm"
         )}
