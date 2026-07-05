@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 import {
-  FLOATING_SHELL_NAV_WIDTH_PX,
+  getFloatingShellNavWidthPx,
   TITLE_BAR_CLASS,
 } from "./constants";
 import { TitleBarDragRegion } from "./title-bar-drag-region";
@@ -14,6 +14,8 @@ type ContentTitleBarProps = {
   trailing?: ReactNode;
   /** When the sidebar is collapsed, reserve space for floating shell nav buttons. */
   reserveFloatingNavSpace?: boolean;
+  /** Whether the floating nav includes the search button. */
+  showFloatingSearch?: boolean;
 };
 
 /** Drag region, optional page chrome, and window controls for the main column. */
@@ -21,11 +23,12 @@ export function ContentTitleBar({
   leading,
   trailing,
   reserveFloatingNavSpace = false,
+  showFloatingSearch = true,
 }: ContentTitleBarProps) {
   const hasPageChrome = leading != null || trailing != null;
 
   const mainChromeStyle: CSSProperties | undefined = reserveFloatingNavSpace
-    ? { paddingLeft: FLOATING_SHELL_NAV_WIDTH_PX }
+    ? { paddingLeft: getFloatingShellNavWidthPx(showFloatingSearch) }
     : undefined;
 
   return (
@@ -41,7 +44,12 @@ export function ContentTitleBar({
         style={mainChromeStyle}
       >
         {leading ? (
-          <div className="flex min-w-0 max-w-[min(50%,12rem)] shrink items-center pl-2 pr-1 sm:max-w-xs sm:pl-4 sm:pr-2 md:max-w-sm">
+          <div
+            className={cn(
+              "flex min-w-0 max-w-[min(50%,12rem)] shrink items-center pr-1 sm:max-w-xs sm:pr-2 md:max-w-sm",
+              reserveFloatingNavSpace ? "pl-1" : "pl-2 sm:pl-4",
+            )}
+          >
             {leading}
           </div>
         ) : null}
