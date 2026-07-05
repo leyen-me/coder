@@ -48,7 +48,7 @@ import type { FileUIPart } from "ai";
 import { getAgentToolDefinitions, SEND_EMAIL_TOOL } from "../tools";
 import type { AgentToolDefinition } from "../tools/types";
 import { ensureSessionWorkspaceForAgent } from "../ensure-session-workspace";
-import { resolveSystemPromptForAgent } from "../api/build-system-prompt";
+import { resolveAgentEnvironment } from "../environment";
 import { applyGeneratedSessionTitle } from "../generate-session-title";
 import {
   resolveApiKey,
@@ -792,18 +792,16 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
       const workspaceDir = session.workspaceDir?.trim() || null;
       const sessionPolicy = resolveAgentSessionPolicy(session);
-      const [historyMessages, systemPrompt] = await Promise.all([
+      const [historyMessages, environment] = await Promise.all([
         getMessagesBySession(input.sessionId),
-        resolveSystemPromptForAgent({ workspaceDir, sessionPolicy }),
+        resolveAgentEnvironment(workspaceDir),
       ]);
       const history = await buildAgentMessages(
         historyMessages.flatMap(messageRecordToAgentMessages),
-        {
-          workspaceDir,
-          sessionId: input.sessionId,
-          sessionPolicy,
-          systemPrompt,
-        }
+        environment,
+        undefined,
+        input.sessionId,
+        sessionPolicy
       );
 
       const handoffTaskId = createTaskId();
@@ -988,23 +986,16 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
         const workspaceDir = nextSession.workspaceDir?.trim() || null;
         const sessionPolicy = resolveAgentSessionPolicy(nextSession);
-        const [historyMessages, systemPrompt] = await Promise.all([
+        const [historyMessages, environment] = await Promise.all([
           getMessagesBySession(nextSession.id),
-          resolveSystemPromptForAgent({
-            workspaceDir,
-            agentMode: input.agentMode,
-            sessionPolicy,
-          }),
+          resolveAgentEnvironment(workspaceDir),
         ]);
         const history = await buildAgentMessages(
           historyMessages.flatMap(messageRecordToAgentMessages),
-          {
-            workspaceDir,
-            agentMode: input.agentMode,
-            sessionId: nextSession.id,
-            sessionPolicy,
-            systemPrompt,
-          }
+          environment,
+          input.agentMode,
+          nextSession.id,
+          sessionPolicy
         );
 
         setSessionHandoffState(input.sessionId, "starting_new_session");
@@ -1202,23 +1193,16 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const extraTools = session.enableEmail
         ? [...(input.extraTools ?? []), SEND_EMAIL_TOOL]
         : input.extraTools;
-      const [historyMessages, systemPrompt] = await Promise.all([
+      const [historyMessages, environment] = await Promise.all([
         getMessagesBySession(input.sessionId),
-        resolveSystemPromptForAgent({
-          workspaceDir,
-          agentMode: input.agentMode,
-          sessionPolicy,
-        }),
+        resolveAgentEnvironment(workspaceDir),
       ]);
       const history = await buildAgentMessages(
         historyMessages.flatMap(messageRecordToAgentMessages),
-        {
-          workspaceDir,
-          agentMode: input.agentMode,
-          sessionId: input.sessionId,
-          sessionPolicy,
-          systemPrompt,
-        }
+        environment,
+        input.agentMode,
+        input.sessionId,
+        sessionPolicy
       );
       const thinkingEnabled = resolveThinkingEnabledForRequest(
         sessionResolved,
@@ -1327,23 +1311,16 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       });
 
       const sessionResolved = resolveProviderForModel(input.model) ?? resolved;
-      const [historyMessages, systemPrompt] = await Promise.all([
+      const [historyMessages, environment] = await Promise.all([
         getMessagesBySession(input.sessionId),
-        resolveSystemPromptForAgent({
-          workspaceDir,
-          agentMode: resolvedAgentMode,
-          sessionPolicy,
-        }),
+        resolveAgentEnvironment(workspaceDir),
       ]);
       const history = await buildAgentMessages(
         historyMessages.flatMap(messageRecordToAgentMessages),
-        {
-          workspaceDir,
-          agentMode: resolvedAgentMode,
-          sessionId: input.sessionId,
-          sessionPolicy,
-          systemPrompt,
-        }
+        environment,
+        resolvedAgentMode,
+        input.sessionId,
+        sessionPolicy
       );
       const storedImages = userMessage.images ?? [];
       const thinkingEnabled = resolveThinkingEnabledForRequest(

@@ -1,8 +1,12 @@
-import { resolveSystemPromptForAgent } from "./api/build-system-prompt";
+import { buildSystemPrompt } from "./environment/build-system-prompt";
+import type { AgentEnvironment } from "./environment/types";
 import { hasAgentMessageContent } from "./message-content";
 import { assertValidToolCallChain } from "./process-steps";
-import type { AgentSessionPolicy } from "./session-policy";
 import type { AgentChatMessage, AgentMode } from "./types";
+import {
+  buildSessionPolicySystemPrompt,
+  type AgentSessionPolicy,
+} from "./session-policy";
 import { getAgentTodosBySession } from "@/lib/db/agent-todos";
 import {
   extractSkillSlugsFromText,
@@ -12,18 +16,12 @@ import { resolveEnabledSkillsBySlugs } from "@/features/skills/lib/resolve-skill
 
 const TODO_SNAPSHOT_LIMIT = 8;
 
-export type BuildAgentMessagesContext = {
-  workspaceDir: string | null;
-  agentMode?: AgentMode;
-  sessionId?: string;
-  sessionPolicy?: AgentSessionPolicy | null;
-  /** When provided, skips the backend system-prompt round trip. */
-  systemPrompt?: string;
-};
-
 export async function buildAgentMessages(
   history: AgentChatMessage[],
-  context: BuildAgentMessagesContext
+  environment: AgentEnvironment,
+  agentMode?: AgentMode,
+  sessionId?: string,
+  sessionPolicy?: AgentSessionPolicy | null
 ): Promise<AgentChatMessage[]> {
   const conversation = history.filter((message) => hasMessagePayload(message));
   assertValidToolCallChain(conversation);
@@ -36,17 +34,14 @@ export async function buildAgentMessages(
   const trimmedConversation = trimToBuildBoundary(conversation);
 
   const withSkillInjection = await applyReferencedSkillsToConversation(trimmedConversation);
-  const todoSnapshotMessage = await buildTodoSnapshotSystemMessage(context.sessionId);
-  const systemPrompt =
-    context.systemPrompt ??
-    (await resolveSystemPromptForAgent({
-      workspaceDir: context.workspaceDir,
-      agentMode: context.agentMode,
-      sessionPolicy: context.sessionPolicy,
-    }));
+  const todoSnapshotMessage = await buildTodoSnapshotSystemMessage(sessionId);
+  const sessionPolicyPrompt = buildSessionPolicySystemPrompt(sessionPolicy);
 
   return [
-    { role: "system", content: systemPrompt },
+    { role: "system", content: buildSystemPrompt(environment, agentMode) },
+    ...(sessionPolicyPrompt
+      ? [{ role: "system" as const, content: sessionPolicyPrompt }]
+      : []),
     ...(todoSnapshotMessage ? [todoSnapshotMessage] : []),
     ...withSkillInjection,
   ];

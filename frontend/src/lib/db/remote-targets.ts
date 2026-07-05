@@ -1,5 +1,3 @@
-import { invalidateBuiltSystemPromptCache } from "@/features/agent/api/build-system-prompt";
-
 import { REMOTE_TARGETS_STORE } from "./constants";
 import { getDb } from "./client";
 import { notifyDbChange } from "./subscriptions";
@@ -23,7 +21,6 @@ export async function saveRemoteTarget(
 ): Promise<void> {
   const db = await getDb();
   await db.put(REMOTE_TARGETS_STORE, config);
-  invalidateBuiltSystemPromptCache();
   notifyDbChange();
 }
 
@@ -35,7 +32,6 @@ export async function deleteRemoteTarget(alias: string): Promise<boolean> {
   }
 
   await db.delete(REMOTE_TARGETS_STORE, alias);
-  invalidateBuiltSystemPromptCache();
   notifyDbChange();
   return true;
 }
