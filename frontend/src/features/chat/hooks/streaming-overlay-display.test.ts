@@ -6,7 +6,9 @@ import type { MessageRecord } from "@/lib/db";
 import {
   hasStreamingOverlayCaughtUp,
   isCachedStreamingOverlayBehindDb,
+  mergeActiveAssistantPlaceholders,
 } from "./use-session-messages";
+import type { ActiveTaskState } from "@/features/agent/types";
 
 function createMessage(
   overrides: Partial<MessageRecord> = {}
@@ -104,5 +106,55 @@ describe("streaming overlay display helpers", () => {
 
     expect(hasStreamingOverlayCaughtUp(message, cached)).toBe(false);
     expect(isCachedStreamingOverlayBehindDb(message, cached)).toBe(true);
+  });
+
+  it("adds a placeholder assistant row for active tasks missing from messages", () => {
+    const messages = [
+      createMessage({
+        id: "user-1",
+        role: "user",
+        content: "hello",
+        status: "completed",
+        taskId: null,
+      }),
+    ];
+    const activeTasks = new Map<string, ActiveTaskState>([
+      [
+        "task-1",
+        {
+          taskId: "task-1",
+          sessionId: "session-1",
+          assistantMessageId: "assistant-1",
+          status: "running",
+          error: null,
+          chatRetry: null,
+          isFirstTurn: false,
+          model: "test-model",
+          userContent: "hello",
+          thinkingEnabled: false,
+          handoff: null,
+          agentMode: "agent",
+          sessionKind: "standard",
+          autonomyMode: "interactive",
+          decisionPolicyVersion: "mvp-v1",
+          decisionModel: "test-model",
+        },
+      ],
+    ]);
+
+    const merged = mergeActiveAssistantPlaceholders(
+      messages,
+      activeTasks,
+      "session-1"
+    );
+
+    expect(merged).toHaveLength(2);
+    expect(merged[1]).toMatchObject({
+      id: "assistant-1",
+      role: "assistant",
+      sessionId: "session-1",
+      status: "streaming",
+      taskId: "task-1",
+    });
   });
 });

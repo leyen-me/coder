@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { useStreamingMessageOverlays } from "@/features/agent/store/agent-store";
+import { useAgentStore, useStreamingMessageOverlays } from "@/features/agent/store/agent-store";
 import type { StreamingFields } from "@/features/agent/streaming-buffer";
+import type { ActiveTaskState, AgentStatus } from "@/features/agent/types";
 import {
   getMessagesBySession,
   getSession,
@@ -43,6 +44,58 @@ export function isCachedStreamingOverlayBehindDb(
     message.content.length > cached.content.length ||
     message.thinking.length > cached.thinking.length
   );
+}
+
+function isActiveAgentTask(status: AgentStatus): boolean {
+  return (
+    status !== "completed" &&
+    status !== "cancelled" &&
+    status !== "failed" &&
+    status !== "cancelling"
+  );
+}
+
+/** Keep in-flight assistant rows visible before IndexedDB refresh catches up. */
+export function mergeActiveAssistantPlaceholders(
+  messages: MessageRecord[],
+  activeTasks: ReadonlyMap<string, ActiveTaskState>,
+  sessionId: string | undefined
+): MessageRecord[] {
+  if (!sessionId) {
+    return messages;
+  }
+
+  const messageIds = new Set(messages.map((message) => message.id));
+  const placeholders: MessageRecord[] = [];
+
+  for (const task of activeTasks.values()) {
+    if (task.sessionId !== sessionId || !isActiveAgentTask(task.status)) {
+      continue;
+    }
+    if (messageIds.has(task.assistantMessageId)) {
+      continue;
+    }
+
+    placeholders.push({
+      id: task.assistantMessageId,
+      sessionId: task.sessionId,
+      role: "assistant",
+      content: "",
+      thinking: "",
+      processSteps: [],
+      toolInvocations: [],
+      status: "streaming",
+      taskId: task.taskId,
+      error: null,
+      createdAt: Date.now(),
+    });
+  }
+
+  if (placeholders.length === 0) {
+    return messages;
+  }
+
+  return [...messages, ...placeholders];
 }
 
 function applyStreamingOverlays(
@@ -197,9 +250,11 @@ export function useSessionData(sessionId: string) {
     })();
 
     const unsubscribe = subscribeDb(() => {
+      // Structural writes (new messages, tool rows, status) notify the DB.
+      // Streaming token flushes stay silent, so debounced refresh is safe even
+      // while an overlay is active — useDisplayMessages re-applies live tokens.
       if (hasStreamingOverlayForSessionRef.current) {
         pendingRefreshRef.current = true;
-        return;
       }
 
       if (refreshTimeoutRef.current) {
@@ -243,17 +298,42 @@ export function useSessionData(sessionId: string) {
 }
 
 export function useDisplayMessages(messages: MessageRecord[]) {
+  const { activeTasks } = useAgentStore();
   const streamingOverlays = useStreamingMessageOverlays();
-  const messageIndexById = useMemo(() => buildMessageIndexById(messages), [messages]);
+  const sessionId = useMemo(() => {
+    if (messages.length > 0) {
+      return messages[0]?.sessionId;
+    }
+
+    for (const task of activeTasks.values()) {
+      if (isActiveAgentTask(task.status)) {
+        return task.sessionId;
+      }
+    }
+
+    return undefined;
+  }, [activeTasks, messages]);
+  const messagesWithPlaceholders = useMemo(
+    () => mergeActiveAssistantPlaceholders(messages, activeTasks, sessionId),
+    [activeTasks, messages, sessionId]
+  );
+  const messageIndexById = useMemo(
+    () => buildMessageIndexById(messagesWithPlaceholders),
+    [messagesWithPlaceholders]
+  );
   // Cache the last known overlay content per message. When an overlay is removed
   // but the DB content is still stale (async refresh in flight), continue using
   // the cached value so the UI doesn't flash empty content.
   const cachedOverlaysRef = useRef(new Map<string, StreamingFields>());
 
   return useMemo(() => {
-    const applied = applyStreamingOverlays(messages, streamingOverlays, messageIndexById);
+    const applied = applyStreamingOverlays(
+      messagesWithPlaceholders,
+      streamingOverlays,
+      messageIndexById
+    );
     let nextMessages: MessageRecord[] | null =
-      applied === messages ? null : applied.slice();
+      applied === messagesWithPlaceholders ? null : applied.slice();
 
     // Update cache with active overlay values.
     for (const [messageId, overlay] of streamingOverlays) {
@@ -273,7 +353,7 @@ export function useDisplayMessages(messages: MessageRecord[]) {
         continue; // message no longer in the list
       }
 
-      const message = messages[messageIndex];
+      const message = messagesWithPlaceholders[messageIndex];
       if (hasStreamingOverlayCaughtUp(message, cached)) {
         cachedOverlaysRef.current.delete(messageId);
         continue; // DB has caught up, drop the cache
@@ -288,13 +368,13 @@ export function useDisplayMessages(messages: MessageRecord[]) {
 
       // DB is still stale — apply cached overlay
       if (!nextMessages) {
-        nextMessages = messages.slice();
+        nextMessages = messagesWithPlaceholders.slice();
       }
       nextMessages[messageIndex] = { ...message, ...cached };
     }
 
     return nextMessages ?? applied;
-  }, [messages, messageIndexById, streamingOverlays]);
+  }, [messageIndexById, messagesWithPlaceholders, streamingOverlays]);
 }
 
 /** @deprecated Prefer `useSessionData` + `useDisplayMessages` for narrower subscriptions. */
