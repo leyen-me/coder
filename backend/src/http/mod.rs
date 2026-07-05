@@ -95,6 +95,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/agent/status", post(routes_tool::handle_agent_status))
         .route("/agent/generate_title", post(routes_tool::handle_generate_session_title))
         .route("/agent/refine_prompt", post(routes_tool::handle_refine_prompt))
+        .route(
+            "/agent/build_system_prompt",
+            post(routes_tool::handle_build_system_prompt),
+        )
         .route("/sse/events/{topic}", get(routes_sse::handle_sse_events))
         // Shell output SSE
         .route("/sse/shell/{shell_id}", get(routes_sse::handle_shell_sse))

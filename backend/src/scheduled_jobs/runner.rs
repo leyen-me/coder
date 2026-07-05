@@ -170,6 +170,7 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
         extra_communication_rules: vec![
             "This is a scheduled background job; complete the task without asking clarifying questions unless blocked.".to_string(),
         ],
+        session_policy: None,
     })?;
     let loop_result = run_to_completion(
         &state.agent_registry,

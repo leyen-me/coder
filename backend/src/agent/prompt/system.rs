@@ -2,6 +2,9 @@ use chrono::Local;
 
 use crate::tools::agent_get_runtime_environment;
 
+use super::lab_settings;
+use super::session_policy::{build_session_policy_prompt, SessionPolicyInput};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AgentPromptMode {
     Agent,
@@ -14,6 +17,7 @@ pub struct BuildSystemPromptInput {
     pub agent_mode: AgentPromptMode,
     /// Appended as numbered rules under `## Communication Rules`.
     pub extra_communication_rules: Vec<String>,
+    pub session_policy: Option<SessionPolicyInput>,
 }
 
 pub fn build_system_prompt(input: BuildSystemPromptInput) -> Result<String, String> {
@@ -44,7 +48,7 @@ pub fn build_system_prompt(input: BuildSystemPromptInput) -> Result<String, Stri
 
     blocks.push(format!(
         "{identity}\n\n## Environment\n\n- workspaceDir: {workspace_line}\n- os: {os}\n- shell: {shell}\n- gitRepository: {git_line}\n- date: {date}\n- mode: {mode_line}",
-        identity = resolve_identity_line(),
+        identity = lab_settings::resolve_identity_line(),
         os = runtime.os,
         shell = runtime.shell,
         date = format_today(),
@@ -66,11 +70,13 @@ pub fn build_system_prompt(input: BuildSystemPromptInput) -> Result<String, Stri
         blocks.push(mode_guidance);
     }
 
-    Ok(blocks.join("\n\n---\n\n"))
-}
+    if let Some(policy) = input.session_policy.as_ref() {
+        if let Some(policy_prompt) = build_session_policy_prompt(policy) {
+            blocks.push(policy_prompt);
+        }
+    }
 
-fn resolve_identity_line() -> String {
-    "You are Coder, a helpful desktop AI assistant.".to_string()
+    Ok(blocks.join("\n\n---\n\n"))
 }
 
 fn build_communication_rules(extra_rules: &[String]) -> String {
@@ -188,6 +194,7 @@ mod tests {
             workspace_dir: None,
             agent_mode: AgentPromptMode::Agent,
             extra_communication_rules: vec![],
+            session_policy: None,
         })
         .expect("prompt");
 
@@ -203,6 +210,7 @@ mod tests {
             workspace_dir: None,
             agent_mode: AgentPromptMode::Ask,
             extra_communication_rules: vec![],
+            session_policy: None,
         })
         .expect("prompt");
 

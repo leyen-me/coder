@@ -1,12 +1,9 @@
-import { buildSystemPrompt } from "./environment/build-system-prompt";
+import { resolveSystemPromptForAgent } from "./api/build-system-prompt";
 import type { AgentEnvironment } from "./environment/types";
 import { hasAgentMessageContent } from "./message-content";
 import { assertValidToolCallChain } from "./process-steps";
+import type { AgentSessionPolicy } from "./session-policy";
 import type { AgentChatMessage, AgentMode } from "./types";
-import {
-  buildSessionPolicySystemPrompt,
-  type AgentSessionPolicy,
-} from "./session-policy";
 import { getAgentTodosBySession } from "@/lib/db/agent-todos";
 import {
   extractSkillSlugsFromText,
@@ -35,13 +32,14 @@ export async function buildAgentMessages(
 
   const withSkillInjection = await applyReferencedSkillsToConversation(trimmedConversation);
   const todoSnapshotMessage = await buildTodoSnapshotSystemMessage(sessionId);
-  const sessionPolicyPrompt = buildSessionPolicySystemPrompt(sessionPolicy);
+  const systemPrompt = await resolveSystemPromptForAgent({
+    workspaceDir: environment.workspaceDir,
+    agentMode,
+    sessionPolicy,
+  });
 
   return [
-    { role: "system", content: buildSystemPrompt(environment, agentMode) },
-    ...(sessionPolicyPrompt
-      ? [{ role: "system" as const, content: sessionPolicyPrompt }]
-      : []),
+    { role: "system", content: systemPrompt },
     ...(todoSnapshotMessage ? [todoSnapshotMessage] : []),
     ...withSkillInjection,
   ];

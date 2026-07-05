@@ -8,6 +8,44 @@ vi.mock("@/features/skills/lib/resolve-skills", () => ({
   resolveEnabledSkillsBySlugs: vi.fn(async () => ({ ok: true, skills: [] })),
 }));
 
+vi.mock("@/features/agent/api/build-system-prompt", () => ({
+  resolveSystemPromptForAgent: vi.fn(async (input: {
+    sessionPolicy?: {
+      sessionKind?: string;
+      decisionModel?: string | null;
+    } | null;
+  }) => {
+    const blocks = [
+      [
+        "You are Coder, a helpful desktop AI assistant.",
+        "",
+        "## Environment",
+        "",
+        "- workspaceDir: /Users/apple/project",
+        "- os: macos aarch64 (15.5)",
+        "- shell: /bin/zsh",
+        "- gitRepository: yes",
+        "- date: 2026-06-02, Monday",
+        "- mode: agent (full tool access)",
+      ].join("\n"),
+    ];
+
+    if (input.sessionPolicy?.sessionKind === "long_task") {
+      blocks.push(
+        [
+          "## Session execution policy",
+          "- sessionKind: long_task",
+          "- autonomyMode: unattended",
+          "- decisionPolicyVersion: mvp-v1",
+          `- decisionModel: ${input.sessionPolicy.decisionModel ?? "default"}`,
+        ].join("\n")
+      );
+    }
+
+    return blocks.join("\n\n---\n\n");
+  }),
+}));
+
 import { buildAgentMessages } from "@/features/agent/build-agent-messages";
 import { normalizeEnvironment } from "@/features/agent/environment/build-system-prompt";
 import { getAgentTodosBySession } from "@/lib/db/agent-todos";
@@ -201,12 +239,9 @@ describe("buildAgentMessages", () => {
       }
     );
 
-    expect(messages[1]).toEqual({
-      role: "system",
-      content: expect.stringContaining("## Session execution policy"),
-    });
-    expect(messages[1]?.content).toContain("sessionKind: long_task");
-    expect(messages[1]?.content).toContain("decisionModel: decision-model");
+    expect(messages[0]?.content).toContain("## Session execution policy");
+    expect(messages[0]?.content).toContain("sessionKind: long_task");
+    expect(messages[0]?.content).toContain("decisionModel: decision-model");
   });
 
   it("omits the snapshot when only terminal todos exist", async () => {
