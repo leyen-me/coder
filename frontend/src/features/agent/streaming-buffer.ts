@@ -264,7 +264,9 @@ export function createStreamingBufferManager(options: {
     }
 
     applyPromotedSteps(buffer);
-    scheduleEmitChange();
+    // Emit immediately so the terminal snapshot is visible before overlay clear,
+    // instead of relying on a coalesced animation frame that may race with clear().
+    emitChangeNow();
   };
 
   const flush = async (messageId: string): Promise<void> => {

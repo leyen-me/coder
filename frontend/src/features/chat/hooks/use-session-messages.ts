@@ -20,7 +20,7 @@ function buildMessageIndexById(messages: readonly MessageRecord[]) {
   return indexById;
 }
 
-function hasStreamingOverlayCaughtUp(
+export function hasStreamingOverlayCaughtUp(
   message: MessageRecord,
   cached: StreamingFields
 ): boolean {
@@ -31,6 +31,17 @@ function hasStreamingOverlayCaughtUp(
       JSON.stringify(cached.processSteps ?? []) &&
     JSON.stringify(message.toolInvocations ?? []) ===
       JSON.stringify(cached.toolInvocations ?? [])
+  );
+}
+
+/** True when IndexedDB already has more streamed text than the cached overlay snapshot. */
+export function isCachedStreamingOverlayBehindDb(
+  message: MessageRecord,
+  cached: StreamingFields
+): boolean {
+  return (
+    message.content.length > cached.content.length ||
+    message.thinking.length > cached.thinking.length
   );
 }
 
@@ -266,6 +277,13 @@ export function useDisplayMessages(messages: MessageRecord[]) {
       if (hasStreamingOverlayCaughtUp(message, cached)) {
         cachedOverlaysRef.current.delete(messageId);
         continue; // DB has caught up, drop the cache
+      }
+
+      if (isCachedStreamingOverlayBehindDb(message, cached)) {
+        // Overlay stopped early but the DB refresh already has newer text.
+        // Never clobber fresher DB content with a stale cached overlay.
+        cachedOverlaysRef.current.delete(messageId);
+        continue;
       }
 
       // DB is still stale — apply cached overlay

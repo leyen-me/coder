@@ -264,9 +264,10 @@ describe("createStreamingBufferManager", () => {
   });
 
   it("promotes reasoning-only turns on finalize", () => {
+    const onChange = vi.fn();
     const manager = createStreamingBufferManager({
       onFlush: vi.fn().mockResolvedValue(undefined),
-      onChange: () => {},
+      onChange,
     });
 
     manager.append("msg-1", "thinking", "你好！");
@@ -279,6 +280,7 @@ describe("createStreamingBufferManager", () => {
 
     manager.finalize("msg-1");
 
+    expect(onChange).toHaveBeenCalledTimes(1);
     expect(manager.get("msg-1")).toMatchObject({
       content: "你好！",
       thinking: "你好！",
