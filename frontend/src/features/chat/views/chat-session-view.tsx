@@ -154,6 +154,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   });
   const { systemPrompt, refreshSystemPrompt } = useSystemPrompt(
     workspaceBinding.workspaceDir,
+    chatId,
     agentMode,
     sessionPolicy
   );

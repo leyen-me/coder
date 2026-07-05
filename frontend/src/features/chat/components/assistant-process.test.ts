@@ -230,7 +230,7 @@ describe("buildAssistantProcessSteps", () => {
     ).toBe("");
   });
 
-  it("keeps answer steps in the timeline for non-plan messages", () => {
+  it("prefers standalone answers for routine non-plan messages", () => {
     const steps = buildAssistantProcessSteps({
       processSteps: [
         { id: "reasoning:0", kind: "reasoning", text: "先打招呼。" },
@@ -249,9 +249,12 @@ describe("buildAssistantProcessSteps", () => {
       getAssistantTimelineSteps({ steps, isPlanMessage: false }).map(
         (step) => step.kind
       )
-    ).toEqual(["reasoning", "answer"]);
+    ).toEqual([]);
     expect(
       shouldRenderStandaloneAssistantAnswer({ steps, isPlanMessage: false })
+    ).toBe(true);
+    expect(
+      shouldShowAssistantProcessTimeline({ steps, isPlanMessage: false })
     ).toBe(false);
   });
 
@@ -283,7 +286,7 @@ describe("buildAssistantProcessSteps", () => {
     ).toBe(true);
   });
 
-  it("shows answer-only non-plan turns in the process timeline", () => {
+  it("renders answer-only non-plan turns as standalone answers", () => {
     const steps = buildAssistantProcessSteps({
       processSteps: [],
       answerText: "你好！",
@@ -298,13 +301,13 @@ describe("buildAssistantProcessSteps", () => {
     expect(steps.map((step) => step.kind)).toEqual(["answer"]);
     expect(
       shouldShowAssistantProcessTimeline({ steps, isPlanMessage: false })
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldRenderStandaloneAssistantAnswer({ steps, isPlanMessage: false })
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it("shows answer-only non-plan turns when reasoning is hidden", () => {
+  it("renders non-plan answers standalone when reasoning is hidden", () => {
     const steps = buildAssistantProcessSteps({
       processSteps: [
         { id: "reasoning:0", kind: "reasoning", text: "先想一下。" },
@@ -321,10 +324,10 @@ describe("buildAssistantProcessSteps", () => {
     expect(steps.map((step) => step.kind)).toEqual(["answer"]);
     expect(
       shouldShowAssistantProcessTimeline({ steps, isPlanMessage: false })
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldRenderStandaloneAssistantAnswer({ steps, isPlanMessage: false })
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("appends a fallback answer when persisted steps only contain reasoning", () => {

@@ -3,7 +3,7 @@ import { apiPost } from "@/lib/api/client";
 import { getEnabledSystemSkills } from "@/features/skills/lib/resolve-skills";
 import { listRemoteTargets } from "@/lib/db/remote-targets";
 
-import { normalizeEnvironment } from "./build-system-prompt";
+import { normalizeEnvironment } from "./normalize-environment";
 import type { AgentEnvironment, AgentProjectInstructions } from "./types";
 
 type RuntimeEnvironmentResponse = {

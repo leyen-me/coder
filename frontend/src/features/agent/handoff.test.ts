@@ -26,6 +26,8 @@ const contextUsage = {
 
 describe("handoff helpers", () => {
   it("provides a structured handoff system prompt", () => {
+    expect(AGENT_HANDOFF_SYSTEM_PROMPT).toContain("## Communication Rules");
+    expect(AGENT_HANDOFF_SYSTEM_PROMPT).toContain("## Handoff Constraints");
     expect(AGENT_HANDOFF_SYSTEM_PROMPT).toContain("## Original User Intent");
     expect(AGENT_HANDOFF_SYSTEM_PROMPT).toContain("## Resume Instructions");
   });

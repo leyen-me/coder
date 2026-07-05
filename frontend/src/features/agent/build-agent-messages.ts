@@ -1,20 +1,14 @@
-import { buildSystemPrompt } from "./environment/build-system-prompt";
 import type { AgentEnvironment } from "./environment/types";
 import { hasAgentMessageContent } from "./message-content";
 import { assertValidToolCallChain } from "./process-steps";
+import { assembleSystemMessages } from "./system-messages";
 import type { AgentChatMessage, AgentMode } from "./types";
-import {
-  buildSessionPolicySystemPrompt,
-  type AgentSessionPolicy,
-} from "./session-policy";
-import { getAgentTodosBySession } from "@/lib/db/agent-todos";
+import type { AgentSessionPolicy } from "./session-policy";
 import {
   extractSkillSlugsFromText,
   injectReferencedSkillsIntoUserContent,
 } from "@/features/skills/lib/parse-skill-references";
 import { resolveEnabledSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
-
-const TODO_SNAPSHOT_LIMIT = 8;
 
 export async function buildAgentMessages(
   history: AgentChatMessage[],
@@ -34,60 +28,17 @@ export async function buildAgentMessages(
   const trimmedConversation = trimToBuildBoundary(conversation);
 
   const withSkillInjection = await applyReferencedSkillsToConversation(trimmedConversation);
-  const todoSnapshotMessage = await buildTodoSnapshotSystemMessage(sessionId);
-  const sessionPolicyPrompt = buildSessionPolicySystemPrompt(sessionPolicy);
+  const systemMessages = await assembleSystemMessages({
+    environment,
+    agentMode,
+    sessionId,
+    sessionPolicy,
+  });
 
   return [
-    { role: "system", content: buildSystemPrompt(environment, agentMode) },
-    ...(sessionPolicyPrompt
-      ? [{ role: "system" as const, content: sessionPolicyPrompt }]
-      : []),
-    ...(todoSnapshotMessage ? [todoSnapshotMessage] : []),
+    ...systemMessages,
     ...withSkillInjection,
   ];
-}
-
-async function buildTodoSnapshotSystemMessage(
-  sessionId: string | undefined
-): Promise<AgentChatMessage | null> {
-  const normalizedSessionId = sessionId?.trim();
-  if (!normalizedSessionId) {
-    return null;
-  }
-
-  const todos = await getAgentTodosBySession(normalizedSessionId);
-  if (todos.length === 0) {
-    return null;
-  }
-
-  const activeTodos = todos.filter(
-    (todo) => todo.status === "pending" || todo.status === "in_progress"
-  );
-  if (activeTodos.length === 0) {
-    return null;
-  }
-
-  const visibleTodos = activeTodos.slice(0, TODO_SNAPSHOT_LIMIT);
-  const hiddenTodos = activeTodos.length - visibleTodos.length;
-
-  const lines = [
-    "## Current session todo state",
-    "Persisted active todos for this chat session.",
-    "Completed or cancelled todos are omitted to save tokens.",
-    "Use todo_read if you need the full list before updating with todo_write.",
-    "",
-    ...visibleTodos.map(
-      (todo) => `- [${todo.status}] ${todo.id}: ${todo.content}`
-    ),
-    ...(hiddenTodos > 0
-      ? [`- ... ${hiddenTodos} more active todos omitted; call todo_read for full state.`]
-      : []),
-  ];
-
-  return {
-    role: "system",
-    content: lines.join("\n"),
-  };
 }
 
 async function applyReferencedSkillsToConversation(

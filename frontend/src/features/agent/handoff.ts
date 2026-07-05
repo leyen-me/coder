@@ -1,4 +1,5 @@
 import type { AgentContextUsageSnapshot } from "./types";
+import { buildHandoffSystemPrompt } from "./auxiliary-prompts";
 import type { MessageKind, MessageRecord } from "@/lib/db/types";
 
 export const HANDOFF_ARTIFACT_HEADING = "# Automatic Session Handoff";
@@ -16,27 +17,7 @@ export type ParsedHandoffArtifact = {
   generatedAt: string | null;
 };
 
-export const AGENT_HANDOFF_SYSTEM_PROMPT = `You are preparing a structured handoff for the next session of the same coding agent.
-Write in the same language as the conversation.
-Output markdown only.
-Be concrete, concise, and evidence-based.
-Do not invent files, tests, decisions, or background jobs.
-If something is unknown, say "Unknown".
-This handoff is for an unattended continuation flow: the next session should keep going autonomously whenever a reasonable default or verifiable next step exists.
-
-Use exactly these sections and keep the order:
-## Original User Intent
-## Current Objective
-## Constraints
-## Completed
-## In Progress
-## Pending Next Actions
-## Key Decisions
-## Rejected Or Superseded Approaches
-## Artifacts And Evidence
-## Background Jobs And Follow-ups
-## Open Questions
-## Resume Instructions`;
+export const AGENT_HANDOFF_SYSTEM_PROMPT = buildHandoffSystemPrompt();
 
 export function buildAgentHandoffUserPrompt(input: {
   sessionTitle: string;

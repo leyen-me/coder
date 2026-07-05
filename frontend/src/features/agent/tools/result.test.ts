@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildSystemPrompt } from "@/features/agent/environment/build-system-prompt";
-import { normalizeEnvironment } from "@/features/agent/environment/build-system-prompt";
+import { normalizeEnvironment } from "@/features/agent/environment/normalize-environment";
 import {
   serializeToolResult,
   toolFailure,

@@ -1,4 +1,5 @@
 import { buildThinkingRequestExtensions } from "../thinking-preference";
+import { buildSubAgentSystemPrompt } from "../auxiliary-prompts";
 import { SPAWN_SUBAGENT_TOOL_NAME } from "./definitions";
 import { getAgentToolDefinitions } from "./registry";
 import { toolFailure, toolSuccess } from "./result";
@@ -60,7 +61,13 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
   let finalError: string | undefined;
 
   // Build system prompt for the sub-agent
-  const systemPrompt = buildSubAgentSystemPrompt(args.value, currentDepth);
+  const systemPrompt = buildSubAgentSystemPrompt({
+    task: args.value.task,
+    context: args.value.context,
+    tools: args.value.tools,
+    depth: currentDepth,
+    maxDepth: MAX_DEPTH,
+  });
 
   // Build messages list: system + user task
   const messages: AgentChatMessage[] = [
@@ -212,32 +219,6 @@ function contextDepth(context: { taskId?: string }): number {
   // Depth is encoded in taskId like "root/sub-123/sub-456"
   const matches = taskId.match(/\/sub-/g);
   return matches ? matches.length : 0;
-}
-
-function buildSubAgentSystemPrompt(
-  input: SubAgentInput,
-  depth: number
-): string {
-  const contextSection = input.context
-    ? `\n\n## Additional Context\n${input.context}`
-    : "";
-
-  const toolSection = input.tools
-    ? `\n\n## Allowed Tools\nYou may only use the following tools: ${input.tools.join(", ")}.`
-    : "";
-
-  return `You are a sub-agent operating at nesting depth ${depth + 1} (maximum: ${MAX_DEPTH}).
-
-## Your Role
-You are a focused assistant that performs a specific sub-task delegated by the parent agent. Complete the task below efficiently and report your findings.
-
-## Constraints
-- You have access to the same workspace and tools as the parent agent.
-- Do not spawn further sub-agents.
-- Keep your work focused on the delegated task.
-- When finished, provide a concise summary of what was accomplished.
-${contextSection}
-${toolSection}`;
 }
 
 function collectSubAgentEvent(

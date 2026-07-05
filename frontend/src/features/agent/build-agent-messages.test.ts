@@ -9,9 +9,9 @@ vi.mock("@/features/skills/lib/resolve-skills", () => ({
 }));
 
 import { buildAgentMessages } from "@/features/agent/build-agent-messages";
-import { normalizeEnvironment } from "@/features/agent/environment/build-system-prompt";
 import { getAgentTodosBySession } from "@/lib/db/agent-todos";
 import { resolveEnabledSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
+import { normalizeEnvironment } from "@/features/agent/environment/normalize-environment";
 
 const environment = normalizeEnvironment({
   workspaceDir: "/Users/apple/project",
