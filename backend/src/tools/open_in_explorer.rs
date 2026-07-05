@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 #[cfg(target_os = "windows")]
 use super::workspace_path::strip_windows_verbatim_prefix;
@@ -20,7 +21,7 @@ pub fn open_in_explorer(path: &str) -> Result<(), String> {
         .map_err(|error| format!("Path not found: {error}"))?;
     let open_path = path_for_file_manager(&canonical);
 
-    open::that(&open_path).map_err(|error| format!("Failed to open file manager: {error}"))
+    spawn_file_manager(&open_path).map_err(|error| format!("Failed to open file manager: {error}"))
 }
 
 /// Returns a native path suitable for spawning the platform file manager.
@@ -36,6 +37,46 @@ fn path_for_file_manager(path: &Path) -> PathBuf {
     #[cfg(not(target_os = "windows"))]
     {
         path.to_path_buf()
+    }
+}
+
+fn spawn_file_manager(path: &Path) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        // Do not use `open::that` / `start` here. On Windows, `start <dir>` can
+        // launch an unrelated executable when the folder basename matches an app
+        // on PATH (for example `...\coder` vs `coder.exe`). Explorer accepts a
+        // trailing `\.` suffix to unambiguously open the directory itself.
+        let explorer_target = path.join(".");
+        Command::new("explorer")
+            .arg(explorer_target)
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(path)
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        Command::new("xdg-open")
+            .arg(path)
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", unix)))]
+    {
+        let _ = path;
+        Err("Opening in file explorer is not supported on this platform".to_string())
     }
 }
 
@@ -63,5 +104,13 @@ mod tests {
         let path = Path::new(r"\\?\C:\Users\test\workspace");
         let formatted = path_for_file_manager(path);
         assert_eq!(formatted, Path::new(r"C:\Users\test\workspace"));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_explorer_target_uses_trailing_dot_suffix() {
+        let path = path_for_file_manager(Path::new(r"C:\Users\test\coder"));
+        let explorer_target = path.join(".");
+        assert_eq!(explorer_target, Path::new(r"C:\Users\test\coder\."));
     }
 }
