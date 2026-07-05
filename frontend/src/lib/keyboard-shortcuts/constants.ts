@@ -45,12 +45,6 @@ export const SHORTCUT_ACTIONS: ShortcutActionDefinition[] = [
     allowInInput: true,
   },
   {
-    id: "global.history",
-    defaultBinding: "mod+shift+h",
-    scope: "global",
-    allowInInput: true,
-  },
-  {
     id: "panel.toggleSidebar",
     defaultBinding: "mod+b",
     scope: "global",
@@ -116,7 +110,6 @@ export function getActionsForGroup(
       "global.settings",
       "global.skills",
       "global.automations",
-      "global.history",
     ],
     panels: ["panel.toggleSidebar"],
     chat: [

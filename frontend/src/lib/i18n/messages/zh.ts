@@ -323,10 +323,6 @@ export const zhMessages = {
             label: "打开自动化页",
             description: "进入自动化页面",
           },
-          history: {
-            label: "打开历史记录",
-            description: "进入历史记录页面",
-          },
         },
         panel: {
           toggleSidebar: {
@@ -616,7 +612,6 @@ export const zhMessages = {
     loading: "搜索中…",
   },
   pages: {
-    history: { title: "所有聊天" },
     skills: { title: "技能" },
     automations: { title: "自动化" },
     chatSession: { title: "聊天 {id}" },

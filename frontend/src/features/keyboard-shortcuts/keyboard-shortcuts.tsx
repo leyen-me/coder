@@ -43,9 +43,6 @@ export function KeyboardShortcuts() {
         case "global.automations":
           navigate(paths.automations);
           return true;
-        case "global.history":
-          navigate(paths.history);
-          return true;
         case "panel.toggleSidebar":
           toggleSidebar();
           return true;

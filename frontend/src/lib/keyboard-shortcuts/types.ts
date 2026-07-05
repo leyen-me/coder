@@ -4,7 +4,6 @@ export type ShortcutActionId =
   | "global.settings"
   | "global.skills"
   | "global.automations"
-  | "global.history"
   | "panel.toggleSidebar"
   | "chat.send"
   | "chat.cancel"

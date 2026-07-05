@@ -296,7 +296,6 @@ export type Messages = {
           settings: { label: string; description: string };
           skills: { label: string; description: string };
           automations: { label: string; description: string };
-          history: { label: string; description: string };
         };
         panel: {
           toggleSidebar: { label: string; description: string };
@@ -551,7 +550,6 @@ export type Messages = {
     loading: string;
   };
   pages: {
-    history: { title: string };
     skills: { title: string };
     automations: { title: string };
     chatSession: { title: string };

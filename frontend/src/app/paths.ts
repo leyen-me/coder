@@ -3,7 +3,6 @@ export const paths = {
   home: "/",
   chatNew: "/chat/new",
   chat: (chatId: string) => `/chat/${chatId}` as const,
-  history: "/history",
   skills: "/skills",
   automations: "/automations",
   settings: "/settings",

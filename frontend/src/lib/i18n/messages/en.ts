@@ -333,10 +333,6 @@ export const enMessages = {
             label: "Open automations",
             description: "Go to the automations page",
           },
-          history: {
-            label: "Open history",
-            description: "Go to the history page",
-          },
         },
         panel: {
           toggleSidebar: {
@@ -630,7 +626,6 @@ export const enMessages = {
     loading: "Searching…",
   },
   pages: {
-    history: { title: "All chats" },
     skills: { title: "Skills" },
     automations: { title: "Automations" },
     chatSession: { title: "Chat {id}" },

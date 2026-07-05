@@ -6,7 +6,7 @@ import { useSessionTitleBarSlots } from "@/features/chat/hooks/use-session-title
 
 import type { ShellOutletContext } from "./shell-outlet-context";
 
-/** Sidebar + main content for chat, history, skills, and automations. */
+/** Sidebar + main content for chat, skills, and automations. */
 export function MainLayout() {
   const { sidebarOpen, setSidebarOpen } = useOutletContext<ShellOutletContext>();
   const { pathname } = useLocation();

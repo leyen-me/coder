@@ -24,10 +24,6 @@ const ACTION_MESSAGE_KEYS = {
     description:
       "settings.keyboardShortcuts.actions.global.automations.description",
   },
-  "global.history": {
-    label: "settings.keyboardShortcuts.actions.global.history.label",
-    description: "settings.keyboardShortcuts.actions.global.history.description",
-  },
   "panel.toggleSidebar": {
     label: "settings.keyboardShortcuts.actions.panel.toggleSidebar.label",
     description:
