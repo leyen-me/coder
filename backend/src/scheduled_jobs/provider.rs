@@ -256,6 +256,31 @@ pub fn model_supports_thinking(models: &Value, model_id: &str) -> bool {
         .unwrap_or(false)
 }
 
+pub fn build_thinking_request_extensions(
+    models: &Value,
+    model_id: &str,
+    thinking_enabled: bool,
+) -> Option<Value> {
+    if !thinking_enabled || !model_supports_thinking(models, model_id) {
+        return None;
+    }
+
+    let thinking_config = models.as_array()?.iter().find_map(|item| {
+        let id = item.get("id")?.as_str()?;
+        if id != model_id {
+            return None;
+        }
+        item.get("thinkingConfig").cloned()
+    })?;
+
+    let enabled = thinking_config.get("enabled")?.clone();
+    if enabled.is_null() || enabled.as_object().is_some_and(|object| object.is_empty()) {
+        return None;
+    }
+
+    Some(enabled)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

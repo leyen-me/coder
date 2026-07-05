@@ -645,6 +645,44 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const observedExternalRunsRef = useRef(new Set<string>());
   const externalSseConnectionsRef = useRef(new Map<string, AgentSseConnection>());
 
+  const finalizeExternalAgentRun = useCallback(
+    (input: {
+      taskId: string;
+      assistantMessageId: string;
+    }) => {
+      externalSseConnectionsRef.current.delete(input.taskId);
+      observedExternalRunsRef.current.delete(input.taskId);
+
+      void (async () => {
+        const task = tasksRef.current.get(input.taskId);
+        if (!task || !isActiveAgentTask(task.status)) {
+          return;
+        }
+
+        const message = await getMessage(input.assistantMessageId);
+        const messageStatus = message?.status;
+        if (
+          messageStatus === "completed" ||
+          messageStatus === "failed" ||
+          messageStatus === "cancelled"
+        ) {
+          dispatchAgentEvent(input.taskId, input.assistantMessageId, {
+            type: "status",
+            taskId: input.taskId,
+            status: messageStatus,
+          });
+          return;
+        }
+
+        // SSE dropped while the backend job may still be running — release the
+        // slot so ScheduledJobStreamBridge can reconnect on the next poll.
+        tasksRef.current.delete(input.taskId);
+        emit();
+      })();
+    },
+    [dispatchAgentEvent, emit]
+  );
+
   const observeExternalAgentRun = useCallback(
     (input: {
       taskId: string;
@@ -674,7 +712,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         handoff: null,
         agentMode: "agent",
         sessionKind: "automation",
-        autonomyMode: "unattended",
+        autonomyMode: "interactive",
         decisionPolicyVersion: "mvp-v1",
         decisionModel: null,
       };
@@ -684,6 +722,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       void (async () => {
         const message = await getMessage(input.assistantMessageId);
         if (!message) {
+          tasksRef.current.delete(input.taskId);
+          observedExternalRunsRef.current.delete(input.taskId);
+          emit();
           return;
         }
         if (message.content) {
@@ -713,8 +754,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           );
         },
         () => {
-          externalSseConnectionsRef.current.delete(input.taskId);
-          observedExternalRunsRef.current.delete(input.taskId);
+          finalizeExternalAgentRun(input);
         },
         (error) => {
           dispatchAgentEvent(input.taskId, input.assistantMessageId, {
@@ -726,7 +766,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       );
       externalSseConnectionsRef.current.set(input.taskId, connection);
     },
-    [dispatchAgentEvent, emit]
+    [dispatchAgentEvent, emit, finalizeExternalAgentRun]
   );
 
   const startAgentTask = useCallback(

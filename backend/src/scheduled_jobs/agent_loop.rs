@@ -71,6 +71,7 @@ pub struct AgentLoopInput<'a> {
     pub system_prompt: &'a str,
     pub user_prompt: &'a str,
     pub http_base_url: &'a str,
+    pub thinking_enabled: bool,
     pub sse_broadcaster: Option<Arc<SseBroadcaster>>,
     pub on_agent_event: Option<Arc<dyn Fn(AgentEvent) + Send + Sync>>,
 }
@@ -168,6 +169,7 @@ pub async fn run_to_completion(
             &messages,
             tools_option,
             &task_id,
+            input.thinking_enabled,
             sse,
             on_event,
         )
@@ -331,11 +333,17 @@ async fn run_single_turn(
     messages: &[ChatMessage],
     tools: Option<&[AgentToolDefinition]>,
     task_id: &str,
+    thinking_enabled: bool,
     sse_broadcaster: Option<&SseBroadcaster>,
     on_agent_event: Option<&Arc<dyn Fn(AgentEvent) + Send + Sync>>,
 ) -> Result<TurnResult, String> {
     let cancel = CancellationToken::new();
     let mut collector = TurnCollector::new();
+    let request_extensions = super::provider::build_thinking_request_extensions(
+        &provider.models,
+        model,
+        thinking_enabled,
+    );
     stream_chat_completion(
         client,
         chat_completions_url(&provider.base_url),
@@ -343,7 +351,7 @@ async fn run_single_turn(
         model,
         messages,
         tools,
-        None,
+        request_extensions.as_ref(),
         cancel,
         |event| {
             collector.on_event(event.clone());

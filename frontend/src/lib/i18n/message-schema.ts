@@ -192,6 +192,7 @@ export type Messages = {
     sessionTypeStandard: string;
     sessionTypeLongTask: string;
     sessionTypeAutomation: string;
+    automationSessionViewOnly: string;
     sessionTypeLabel: string;
     sessionTypeStandardLabel: string;
     sessionTypeLongTaskLabel: string;

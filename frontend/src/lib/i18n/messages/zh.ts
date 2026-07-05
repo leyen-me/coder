@@ -200,6 +200,8 @@ export const zhMessages = {
     sessionTypeStandard: "标准会话",
     sessionTypeLongTask: "长任务",
     sessionTypeAutomation: "自动化",
+    automationSessionViewOnly:
+      "自动化会话为只读查看。请前往「自动化」页面管理或触发任务。",
     sessionTypeLabel: "会话类型",
     sessionTypeStandardLabel: "标准会话 — 默认按交互式方式执行",
     sessionTypeLongTaskLabel:

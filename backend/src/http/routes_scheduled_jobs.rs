@@ -94,10 +94,12 @@ pub async fn handle_run_job(
         return Err((StatusCode::NOT_FOUND, "Scheduled job not found".to_string()));
     }
 
-    run_job_by_id(state, &params.id)
+    let started = run_job_by_id(state, &params.id)
         .await
         .map_err(bad_request)?;
-    Ok(Json(json!({ "status": "started" })))
+    Ok(Json(json!({
+        "status": if started { "started" } else { "already_running" }
+    })))
 }
 
 pub async fn handle_running_jobs(

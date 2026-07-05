@@ -205,6 +205,8 @@ export const enMessages = {
     sessionTypeStandard: "Standard",
     sessionTypeLongTask: "Long task",
     sessionTypeAutomation: "Automation",
+    automationSessionViewOnly:
+      "Automation sessions are view-only here. Manage or trigger tasks from the Automations page.",
     sessionTypeLabel: "Session type",
     sessionTypeStandardLabel:
       "Standard session — use the default interactive behavior",

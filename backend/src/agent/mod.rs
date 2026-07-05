@@ -1,4 +1,5 @@
 pub mod openai;
+pub mod prompt;
 pub mod registry;
 mod stream_log;
 mod types;

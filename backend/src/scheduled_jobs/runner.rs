@@ -12,12 +12,13 @@ use super::provider::{resolve_model, resolve_provider, resolve_workspace_dir};
 use super::store::{
     finish_job_run, get_job, patch_message, put_message, put_session, start_job_run,
 };
-use super::system_prompt::{build_system_prompt, derive_session_title};
-use super::types::{RunStatus, ScheduledJobRecord};
+use crate::agent::prompt::{build_system_prompt, AgentPromptMode, BuildSystemPromptInput};
+use super::system_prompt::derive_session_title;
+use super::types::{AgentMode, RunStatus, ScheduledJobRecord};
 
-pub fn queue_job_run(state: Arc<AppState>, job: ScheduledJobRecord) {
+pub fn queue_job_run(state: Arc<AppState>, job: ScheduledJobRecord) -> bool {
     if !state.scheduled_job_lock.try_acquire(&job.id) {
-        return;
+        return false;
     }
 
     let state_for_task = state.clone();
@@ -29,13 +30,13 @@ pub fn queue_job_run(state: Arc<AppState>, job: ScheduledJobRecord) {
         }
         state_for_task.scheduled_job_lock.release(&job_id);
     });
+    true
 }
 
-pub async fn run_job_by_id(state: Arc<AppState>, job_id: &str) -> Result<(), String> {
+pub async fn run_job_by_id(state: Arc<AppState>, job_id: &str) -> Result<bool, String> {
     let job = get_job(&state.db, job_id)?
         .ok_or_else(|| format!("Scheduled job not found: {job_id}"))?;
-    queue_job_run(state, job);
-    Ok(())
+    Ok(queue_job_run(state, job))
 }
 
 fn patch_message_from_event(
@@ -93,7 +94,7 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
             "provider": provider.provider,
             "workspaceDir": workspace_dir,
             "sessionKind": "automation",
-            "autonomyMode": "unattended",
+            "autonomyMode": "interactive",
             "decisionPolicyVersion": "mvp-v1",
             "decisionModel": null,
             "parentSessionId": null,
@@ -159,7 +160,17 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
             patch_message_from_event(&db, &assistant_id_for_events, &event);
         });
 
-    let system_prompt = build_system_prompt(workspace_dir.as_deref(), &job.agent_mode);
+    let prompt_mode = match job.agent_mode {
+        AgentMode::Ask => AgentPromptMode::Ask,
+        AgentMode::Agent => AgentPromptMode::Agent,
+    };
+    let system_prompt = build_system_prompt(BuildSystemPromptInput {
+        workspace_dir: workspace_dir.clone(),
+        agent_mode: prompt_mode,
+        extra_communication_rules: vec![
+            "This is a scheduled background job; complete the task without asking clarifying questions unless blocked.".to_string(),
+        ],
+    })?;
     let loop_result = run_to_completion(
         &state.agent_registry,
         AgentLoopInput {
@@ -172,6 +183,7 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
             system_prompt: &system_prompt,
             user_prompt: &job.prompt,
             http_base_url: &state.http_base_url,
+            thinking_enabled: job.thinking_enabled,
             sse_broadcaster: Some(state.sse_broadcaster.clone()),
             on_agent_event: Some(on_agent_event),
         },
@@ -201,6 +213,11 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
                 summary,
                 RunStatus::Completed,
             )?;
+            let touch_now = chrono::Utc::now().timestamp_millis();
+            if let Ok(Some(mut session)) = super::store::get_session(&state.db, &session_id) {
+                session["updatedAt"] = json!(touch_now);
+                let _ = put_session(&state.db, &session, &session_id, touch_now);
+            }
             Ok(())
         }
         Err(error) => {

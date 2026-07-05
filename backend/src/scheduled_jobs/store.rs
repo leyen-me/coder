@@ -252,6 +252,15 @@ pub fn put_session(
     )
 }
 
+pub fn get_session(
+    db: &Mutex<Database>,
+    session_id: &str,
+) -> Result<Option<serde_json::Value>, String> {
+    let db = db.lock().map_err(|_| "Database lock poisoned".to_string())?;
+    db.get(super::types::SESSIONS_STORE, session_id)
+        .map_err(|error| error.to_string())
+}
+
 pub fn get_message(db: &Mutex<Database>, message_id: &str) -> Result<Option<serde_json::Value>, String> {
     let db = db.lock().map_err(|_| "Database lock poisoned".to_string())?;
     db.get(super::types::MESSAGES_STORE, message_id)

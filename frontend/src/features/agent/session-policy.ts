@@ -32,6 +32,10 @@ export function resolveAgentSessionPolicy(
 export function isLongTaskSession(
   policy: Pick<AgentSessionPolicy, "sessionKind" | "autonomyMode">
 ): boolean {
+  if (policy.sessionKind === "automation") {
+    return false;
+  }
+
   return (
     policy.sessionKind === "long_task" || policy.autonomyMode === "unattended"
   );
@@ -50,8 +54,8 @@ export function buildSessionPolicySystemPrompt(
 
   return [
     "## Session execution policy",
-    "- sessionKind: long_task",
-    "- autonomyMode: unattended",
+    `- sessionKind: ${policy.sessionKind}`,
+    `- autonomyMode: ${policy.autonomyMode}`,
     `- decisionPolicyVersion: ${policy.decisionPolicyVersion}`,
     `- decisionModel: ${policy.decisionModel ?? "default"}`,
     "- This is a long-running unattended task session.",
