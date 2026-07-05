@@ -55,6 +55,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/api/browse_directories",
             post(routes_tool::handle_browse_directories),
         )
+        .route(
+            "/api/open_in_explorer",
+            post(routes_tool::handle_open_in_explorer),
+        )
         .route("/api/send_email", post(routes_tool::handle_send_email))
         .route("/api/server_info", get(routes_tool::handle_server_info))
         // ── Compat: `tool_` prefix (used by frontend agent tools) ────────

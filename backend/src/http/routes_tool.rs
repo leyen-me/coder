@@ -780,6 +780,20 @@ pub async fn handle_validate_workspace_dir(
 }
 
 #[derive(Deserialize)]
+pub struct OpenInExplorerParams {
+    pub path: String,
+}
+
+/// POST /api/open_in_explorer
+pub async fn handle_open_in_explorer(
+    State(_state): State<Arc<AppState>>,
+    Json(params): Json<OpenInExplorerParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    open_in_explorer(&params.path).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+#[derive(Deserialize)]
 pub struct BrowseDirectoriesParams {
     pub path: Option<String>,
 }

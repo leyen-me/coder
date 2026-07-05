@@ -59,6 +59,8 @@ export const zhMessages = {
     shareLink: "分享链接",
     splitLayout: "分屏布局",
     workbench: "工作台",
+    openWorkspaceInExplorer: "在资源管理器中打开工作目录",
+    openWorkspaceInExplorerFailed: "无法打开工作目录",
   },
   chat: {
     headline: "想在 {project} 里构建什么？",

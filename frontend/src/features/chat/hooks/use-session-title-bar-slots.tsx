@@ -3,6 +3,7 @@ import { useMatch } from "react-router-dom";
 
 import { isChatRoute, paths } from "@/app/paths";
 import { useIsSessionTitleGenerating } from "@/features/agent/session-title-store";
+import { useWorkspace } from "@/features/workspace/workspace-provider";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { SessionTitleLabel } from "../components/session-title-label";
@@ -17,6 +18,8 @@ export function useSessionTitleBarSlots(pathname: string) {
       ? chatMatch.params.chatId
       : null;
   const { session } = useSessionMessages(chatId ?? "");
+  const { workspaceDir: globalWorkspaceDir } = useWorkspace();
+  const workspaceDir = session?.workspaceDir?.trim() || globalWorkspaceDir;
   const isGeneratingTitle = useIsSessionTitleGenerating(chatId);
   const handleDoubleClick = useCallback(() => {
     window.dispatchEvent(new CustomEvent("chat:scroll-to-bottom"));
@@ -59,6 +62,11 @@ export function useSessionTitleBarSlots(pathname: string) {
         onDoubleClick={handleDoubleClick}
       />
     ),
-    trailing: <SessionToolbar sessionProvider={session?.provider ?? null} sessionId={chatId} />,
+    trailing: (
+      <SessionToolbar
+        sessionProvider={session?.provider ?? null}
+        workspaceDir={workspaceDir}
+      />
+    ),
   };
 }

@@ -59,6 +59,8 @@ export const enMessages = {
     shareLink: "Share link",
     splitLayout: "Split layout",
     workbench: "Workbench",
+    openWorkspaceInExplorer: "Open workspace in file explorer",
+    openWorkspaceInExplorerFailed: "Could not open workspace directory",
   },
   chat: {
     headline: "What do you want to build in {project}?",

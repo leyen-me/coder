@@ -56,6 +56,8 @@ export type Messages = {
     shareLink: string;
     splitLayout: string;
     workbench: string;
+    openWorkspaceInExplorer: string;
+    openWorkspaceInExplorerFailed: string;
   };
   chat: {
     headline: string;

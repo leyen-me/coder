@@ -13,6 +13,7 @@ pub mod mail;
 mod page_cache;
 mod workspace_tree;
 mod network;
+mod open_in_explorer;
 mod plan;
 mod project_instructions;
 mod read_editor_file;
@@ -41,6 +42,7 @@ pub use file_ops::{
 pub use glob::tool_glob;
 pub use grep::tool_grep;
 pub use list_dir::tool_list_dir;
+pub use open_in_explorer::open_in_explorer;
 pub use mail::send_email;
 pub use page_cache::PageCache;
 pub use plan::{
