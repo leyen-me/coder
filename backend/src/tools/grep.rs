@@ -314,8 +314,27 @@ pub fn tool_grep(
                 }
 
                 total_matches += count;
-                if skipped_for_offset < offset {
-                    skipped_for_offset = skipped_for_offset.saturating_add(count);
+
+                if skipped_for_offset >= offset {
+                    if count_matches.len() as u32 >= head_limit {
+                        truncated = true;
+                        break 'files;
+                    }
+                    count_matches.push(GrepCountMatch {
+                        path: relative,
+                        count,
+                    });
+                    continue;
+                }
+
+                if skipped_for_offset + count <= offset {
+                    skipped_for_offset += count;
+                    continue;
+                }
+
+                let included_count = count - (offset - skipped_for_offset);
+                skipped_for_offset = offset;
+                if included_count == 0 {
                     continue;
                 }
                 if count_matches.len() as u32 >= head_limit {
@@ -324,7 +343,7 @@ pub fn tool_grep(
                 }
                 count_matches.push(GrepCountMatch {
                     path: relative,
-                    count,
+                    count: included_count,
                 });
             }
         }
@@ -596,6 +615,39 @@ mod tests {
         let counts = result.counts.expect("counts");
         assert_eq!(counts.len(), 1);
         assert_eq!(counts[0].count, 2);
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn count_mode_respects_offset_within_partial_file() {
+        let temp = temp_workspace("count-offset");
+        fs::write(temp.join("a.txt"), "foo\n".repeat(30)).expect("write a");
+        fs::write(temp.join("b.txt"), "foo\n".repeat(30)).expect("write b");
+        fs::write(temp.join("c.txt"), "foo\n".repeat(10)).expect("write c");
+
+        let result = tool_grep(
+            temp.to_string_lossy().into_owned(),
+            "foo".to_string(),
+            None,
+            None,
+            Some("count".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(50),
+            None,
+            None,
+        )
+        .expect("grep");
+
+        let counts = result.counts.expect("counts");
+        assert_eq!(counts.len(), 2);
+        assert_eq!(counts[0].path, "b.txt");
+        assert_eq!(counts[0].count, 10);
+        assert_eq!(counts[1].path, "c.txt");
+        assert_eq!(counts[1].count, 10);
         let _ = fs::remove_dir_all(temp);
     }
 

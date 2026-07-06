@@ -126,6 +126,15 @@ pub fn tool_read_file(
     let relative_path = workspace_relative_path(&canonical_workspace, &target);
     let mime_type = guess_text_mime_type(&relative_path);
     let contains_secrets = detect_secrets(&text);
+    let total_line_count = text.lines().count() as u32;
+    if total_line_count > 0 && start_line > total_line_count {
+        return Err(ReadFileToolError::new(
+            "invalid_range",
+            format!(
+                "start_line ({start_line}) exceeds file line count ({total_line_count})"
+            ),
+        ));
+    }
     let (total_lines, selected_lines, truncated_by_lines) =
         select_lines(&text, start_line, max_lines);
     let (content, truncated_by_bytes) = if numbered {
@@ -265,6 +274,27 @@ mod tests {
         assert_eq!(result.end_line, 3);
         assert!(result.truncated);
         assert_eq!(result.content, "2 | beta\n3 | gamma\n");
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn rejects_start_line_past_end_of_file() {
+        let temp = temp_workspace("invalid-start");
+        fs::write(temp.join("sample.txt"), "alpha\nbeta\ngamma\n").expect("write file");
+
+        let error = tool_read_file(
+            temp.to_string_lossy().into_owned(),
+            "sample.txt".to_string(),
+            Some(100),
+            None,
+            Some(false),
+            None,
+        )
+        .expect_err("start line out of range");
+
+        assert_eq!(error.code, "invalid_range");
+        assert!(error.message.contains("100"));
+        assert!(error.message.contains("3"));
         let _ = fs::remove_dir_all(temp);
     }
 

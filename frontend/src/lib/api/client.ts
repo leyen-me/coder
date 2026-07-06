@@ -79,6 +79,27 @@ async function readApiError(response: Response): Promise<ApiError> {
   );
 }
 
+async function readJsonResponse<T>(response: Response): Promise<T> {
+  const body = await readResponseBody(response);
+  if (!body.trim()) {
+    throw new ApiError(
+      response.status,
+      "empty_response",
+      "Response body is empty",
+    );
+  }
+
+  try {
+    return JSON.parse(body) as T;
+  } catch {
+    throw new ApiError(
+      response.status,
+      "invalid_json",
+      "Response body is not valid JSON",
+    );
+  }
+}
+
 export async function apiPost<T>(
   path: string,
   body?: unknown,
@@ -95,7 +116,7 @@ export async function apiPost<T>(
     throw await readApiError(response);
   }
 
-  return response.json();
+  return readJsonResponse<T>(response);
 }
 
 export async function apiGet<T>(
@@ -111,7 +132,7 @@ export async function apiGet<T>(
     throw await readApiError(response);
   }
 
-  return response.json();
+  return readJsonResponse<T>(response);
 }
 
 export async function apiGetText(

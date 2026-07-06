@@ -27,6 +27,26 @@ type StreamChunk = {
 
 const activeControllers = new Map<string, AbortController>();
 
+export function consumeSseLines(buffer: string): { lines: string[]; rest: string } {
+  const lines: string[] = [];
+  let rest = buffer;
+
+  while (true) {
+    const lineBreak = rest.indexOf("\n");
+    if (lineBreak === -1) {
+      break;
+    }
+
+    const line = rest.slice(0, lineBreak).trim();
+    rest = rest.slice(lineBreak + 1);
+    if (line) {
+      lines.push(line);
+    }
+  }
+
+  return { lines, rest };
+}
+
 export async function startBrowserAgent(
   input: AgentStartInput,
   onEvent: (event: AgentEvent) => void
@@ -81,25 +101,39 @@ export async function startBrowserAgent(
 
     while (true) {
       const { done, value } = await reader.read();
-      if (done) {
-        break;
+      if (value) {
+        buffer += decoder.decode(value, { stream: true });
       }
 
-      buffer += decoder.decode(value, { stream: true });
-
-      while (true) {
-        const lineBreak = buffer.indexOf("\n");
-        if (lineBreak === -1) {
-          break;
-        }
-
-        const line = buffer.slice(0, lineBreak).trim();
-        buffer = buffer.slice(lineBreak + 1);
+      const consumed = consumeSseLines(buffer);
+      buffer = consumed.rest;
+      for (const line of consumed.lines) {
         const result = parseSseLine(line, input.taskId, onEvent, toolCalls, finishReason);
         finishReason = result.finishReason ?? finishReason;
         if (result.usage) {
           chunkUsage = result.usage;
         }
+      }
+
+      if (done) {
+        buffer += decoder.decode();
+        const trailing = consumeSseLines(buffer);
+        for (const line of trailing.lines) {
+          const result = parseSseLine(line, input.taskId, onEvent, toolCalls, finishReason);
+          finishReason = result.finishReason ?? finishReason;
+          if (result.usage) {
+            chunkUsage = result.usage;
+          }
+        }
+        const finalLine = trailing.rest.trim();
+        if (finalLine) {
+          const result = parseSseLine(finalLine, input.taskId, onEvent, toolCalls, finishReason);
+          finishReason = result.finishReason ?? finishReason;
+          if (result.usage) {
+            chunkUsage = result.usage;
+          }
+        }
+        break;
       }
     }
 

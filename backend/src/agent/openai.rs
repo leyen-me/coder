@@ -13,6 +13,7 @@ use super::stream_log::{
     sanitize_url_for_log,
 };
 use super::types::{AgentEvent, AgentStatus, AgentToolDefinition, ChatMessage, ToolCall};
+use crate::tools::shell::Utf8StreamDecoder;
 
 const NON_STREAM_REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 /// Hard cap for an entire SSE stream (slow local models can run for many minutes).
@@ -308,6 +309,7 @@ pub async fn stream_chat_completion(
 
     let mut stream = response.bytes_stream();
     let mut line_buffer = String::new();
+    let mut byte_decoder = Utf8StreamDecoder::default();
     let mut bytes_received: usize = 0;
     let mut chunk_count: usize = 0;
     let mut tool_calls = ToolCallAccumulator {
@@ -373,7 +375,7 @@ pub async fn stream_chat_completion(
         };
         bytes_received += chunk.len();
         chunk_count += 1;
-        line_buffer.push_str(&String::from_utf8_lossy(&chunk));
+        line_buffer.push_str(&byte_decoder.push(&chunk));
 
         while let Some(newline_index) = line_buffer.find('\n') {
             let line = line_buffer[..newline_index].trim().to_string();
@@ -391,6 +393,8 @@ pub async fn stream_chat_completion(
             }
         }
     }
+
+    line_buffer.push_str(&byte_decoder.finish());
 
     if !line_buffer.trim().is_empty() {
         let remaining = line_buffer.trim().to_string();
@@ -639,6 +643,24 @@ mod tests {
         assert!(events[0].contains("ContentDelta"));
         assert!(events[0].contains("你好"));
         assert!(stream_usage.is_none());
+    }
+
+    #[test]
+    fn utf8_stream_decoder_preserves_multibyte_across_sse_chunks() {
+        use crate::tools::shell::Utf8StreamDecoder;
+
+        let payload = r#"data: {"choices":[{"delta":{"content":"你好"}}]}"#;
+        let bytes = payload.as_bytes();
+        let mut decoder = Utf8StreamDecoder::default();
+        let mut line_buffer = String::new();
+
+        for chunk in bytes.chunks(4) {
+            line_buffer.push_str(&decoder.push(chunk));
+        }
+        line_buffer.push_str(&decoder.finish());
+
+        assert!(line_buffer.contains("你好"));
+        assert!(!line_buffer.contains('\u{FFFD}'));
     }
 
     #[test]
