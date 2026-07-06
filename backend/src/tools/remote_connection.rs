@@ -12,6 +12,10 @@ use tokio::time::sleep;
 const IDLE_TIMEOUT: Duration = Duration::from_secs(5 * 60); // 5 minutes
 const IDLE_SCAN_INTERVAL: Duration = Duration::from_secs(60);
 const SSH_KEEPALIVE_INTERVAL: u32 = 15;
+/// Retry count for new SSH connections (first attempt + retries).
+const CONNECT_RETRY_ATTEMPTS: u32 = 2;
+/// Pause before retrying so VPN/routing can settle (e.g. EHOSTUNREACH on cold start).
+const CONNECT_RETRY_DELAY: Duration = Duration::from_millis(750);
 
 /// Hard limit for remote command execution. Prevents Agent from hanging forever
 /// on interactive commands (top, vim, node, etc.).
@@ -68,7 +72,45 @@ pub struct SshSession {
     last_used: Mutex<Instant>,
 }
 
+fn is_retryable_connect_error(err: &str) -> bool {
+    err.starts_with("TCP connection failed:")
+        || err.starts_with("SSH handshake failed:")
+}
+
 impl SshSession {
+    /// Create a new SSH session and authenticate, retrying transient network failures.
+    fn connect_with_retry(config: &RemoteTargetConfig) -> Result<Arc<Self>, String> {
+        let mut last_err: Option<String> = None;
+
+        for attempt in 0..CONNECT_RETRY_ATTEMPTS {
+            if attempt > 0 {
+                log::info!(
+                    "Retrying SSH connection to {}@{}:{} (attempt {}/{})",
+                    config.user,
+                    config.host,
+                    config.port,
+                    attempt + 1,
+                    CONNECT_RETRY_ATTEMPTS
+                );
+                std::thread::sleep(CONNECT_RETRY_DELAY);
+            }
+
+            match Self::connect(config) {
+                Ok(session) => return Ok(session),
+                Err(e) => {
+                    let retryable = is_retryable_connect_error(&e);
+                    if !retryable || attempt + 1 >= CONNECT_RETRY_ATTEMPTS {
+                        return Err(e);
+                    }
+                    log::info!("SSH connection failed (will retry): {e}");
+                    last_err = Some(e);
+                }
+            }
+        }
+
+        Err(last_err.unwrap_or_else(|| "SSH connection failed".to_string()))
+    }
+
     /// Create a new SSH session and authenticate.
     fn connect(config: &RemoteTargetConfig) -> Result<Arc<Self>, String> {
         let tcp = std::net::TcpStream::connect(format!("{}:{}", config.host, config.port))
@@ -484,9 +526,9 @@ impl RemoteConnectionPool {
             return Ok(session);
         }
 
-        // Create new session
+        // Create new session (retries transient TCP / handshake failures)
         log::info!("Connecting to remote target: {}@{}:{}", config.user, config.host, config.port);
-        let session = SshSession::connect(config)?;
+        let session = SshSession::connect_with_retry(config)?;
 
         let now = Instant::now();
         guard.push((alias.to_string(), session.clone(), now));
@@ -494,30 +536,23 @@ impl RemoteConnectionPool {
         Ok(session)
     }
 
+    fn remove_sessions_for_alias(&self, alias: &str) {
+        if let Ok(mut guard) = self.sessions.lock() {
+            guard.retain(|(a, _, _)| a != alias);
+        }
+    }
+
     /// Execute a command on a remote target with streaming reads and hard time limit.
-    /// Retries once on transient connection or execution failures (e.g. network jitter,
-    /// SSH server momentarily busy).
+    /// Retries once on execution failures after reconnecting (e.g. SSH server momentarily busy).
     pub fn exec(&self, config: &RemoteTargetConfig, command: &str) -> Result<RemoteExecResult, String> {
         let alias = &config.alias;
-
-        // First attempt — includes both connection and execution
-        let session = self.get_or_connect(alias, config).or_else(|_| {
-            log::info!("Retrying remote exec on {} after connection failure", alias);
-            // Remove any stale session entry
-            if let Ok(mut guard) = self.sessions.lock() {
-                guard.retain(|(a, _, _)| a != alias);
-            }
-            self.get_or_connect(alias, config)
-        })?;
-
+        let session = self.get_or_connect(alias, config)?;
         let result = session.exec_streaming(command);
 
         // On execution failure, retry once after reconnection
         if result.is_err() {
             log::info!("Retrying remote exec on {} after reconnection", alias);
-            if let Ok(mut guard) = self.sessions.lock() {
-                guard.retain(|(a, _, _)| a != alias);
-            }
+            self.remove_sessions_for_alias(alias);
             let session = self.get_or_connect(alias, config)?;
             return session.exec_streaming(command);
         }
@@ -540,7 +575,7 @@ pub async fn test_remote_connection(
 
     let result = tokio::time::timeout(
         TEST_CONNECT_TIMEOUT,
-        tokio::task::spawn_blocking(move || SshSession::connect(&config)),
+        tokio::task::spawn_blocking(move || SshSession::connect_with_retry(&config)),
     )
     .await
     .map_err(|_| {
