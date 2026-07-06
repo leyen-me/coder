@@ -27,6 +27,7 @@ Installing `@leyen/coder` automatically pulls the correct platform binary (`darw
 
 - Node.js 20+ (CLI wrapper)
 - An OpenAI-compatible model API configured on first run
+- Linux (x64): glibc 2.35+ (e.g. Ubuntu 22.04 LTS or newer)
 
 ## Links
 
@@ -36,6 +37,8 @@ Installing `@leyen/coder` automatically pulls the correct platform binary (`darw
 ## 中文
 
 **Coder** 是一款本地运行的 AI 编程助手。安装后执行 `coder` 即可启动服务并在浏览器中使用。
+
+Linux (x64) 需要 glibc 2.35+（例如 Ubuntu 22.04 LTS 及以上）。
 
 ```bash
 npm i -g @leyen/coder
