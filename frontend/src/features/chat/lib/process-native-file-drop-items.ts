@@ -4,6 +4,7 @@ import {
   type NativeFileDropItem,
 } from "@/lib/dnd/external-file-drop";
 
+import { imageFileFromAbsolutePath } from "./composer-image-attachments";
 import { insertFileMentionIntoComposer } from "./composer-insert-store";
 
 type ProcessNativeFileDropMessages = {
@@ -44,7 +45,18 @@ export async function processNativeFileDropItems({
         continue;
       }
 
-      onError(messages.externalDropPathUnresolved);
+      if (!path) {
+        onError(messages.externalDropPathUnresolved);
+        continue;
+      }
+
+      const file = await imageFileFromAbsolutePath(path);
+      if (!file) {
+        onError(messages.externalDropImageLoadFailed);
+        continue;
+      }
+
+      addAttachments([file]);
       continue;
     }
 

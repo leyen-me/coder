@@ -101,6 +101,20 @@ describe("external-file-drop", () => {
     ]);
   });
 
+  it("pairs paths to files by basename when index order differs", () => {
+    const first = new File(["x"], "b.ts", { type: "text/plain" });
+    const second = new File(["y"], "a.ts", { type: "text/plain" });
+    const dataTransfer = createDataTransfer({
+      uriList: ["file:///Users/test/a.ts", "file:///Users/test/b.ts"].join("\n"),
+      files: [first, second],
+    });
+
+    expect(collectNativeFileDropItems(dataTransfer)).toEqual([
+      { path: "/Users/test/a.ts", file: second },
+      { path: "/Users/test/b.ts", file: first },
+    ]);
+  });
+
   it("classifies image paths by extension", () => {
     expect(isImagePath("photo.PNG")).toBe(true);
     expect(isImagePath("notes.md")).toBe(false);

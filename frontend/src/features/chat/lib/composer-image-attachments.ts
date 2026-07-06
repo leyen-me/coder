@@ -1,7 +1,9 @@
 import type { FileUIPart } from "ai";
 import { nanoid } from "nanoid";
 
+import { apiPost } from "@/lib/api/client";
 import {
+  basenameFromPath,
   guessImageMimeType,
 } from "@/lib/dnd/external-file-drop";
 
@@ -21,8 +23,32 @@ export function createImageAttachmentFromFile(
   };
 }
 
+type LocalImageBytesResponse = {
+  bytes: number[];
+  mimeType: string;
+};
+
 export async function imageFileFromAbsolutePath(
-  _path: string
+  path: string
 ): Promise<File | null> {
-  return null;
+  const trimmed = path.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const result = await apiPost<LocalImageBytesResponse>(
+      "/api/read_local_image_bytes",
+      { path: trimmed }
+    );
+    if (!result.bytes?.length) {
+      return null;
+    }
+
+    const bytes = new Uint8Array(result.bytes);
+    const mimeType = result.mimeType || guessImageMimeType(trimmed);
+    return new File([bytes], basenameFromPath(trimmed), { type: mimeType });
+  } catch {
+    return null;
+  }
 }

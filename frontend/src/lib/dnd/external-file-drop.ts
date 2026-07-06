@@ -129,10 +129,20 @@ export function collectNativeFileDropItems(
   const files = dataTransfer.files ? [...dataTransfer.files] : [];
 
   if (paths.length > 0) {
-    return paths.map((path, index) => ({
-      path,
-      file: files[index],
-    }));
+    const unmatchedFiles = [...files];
+    return paths.map((path) => {
+      const pathBasename = basenameFromPath(path).toLowerCase();
+      const matchedIndex = unmatchedFiles.findIndex(
+        (file) => file.name.toLowerCase() === pathBasename
+      );
+      if (matchedIndex >= 0) {
+        const [file] = unmatchedFiles.splice(matchedIndex, 1);
+        return { path, file };
+      }
+
+      const file = unmatchedFiles.shift();
+      return { path, file };
+    });
   }
 
   return files.map((file) => ({ file }));
