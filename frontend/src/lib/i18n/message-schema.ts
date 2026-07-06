@@ -413,9 +413,6 @@ export type Messages = {
       longTaskLabel: string;
       longTaskDescription: string;
       longTaskAriaLabel: string;
-      virtualScrollLabel: string;
-      virtualScrollDescription: string;
-      virtualScrollAriaLabel: string;
     };
     email: {
       providerLabel: string;

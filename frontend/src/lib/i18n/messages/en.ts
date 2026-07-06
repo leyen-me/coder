@@ -472,10 +472,6 @@ export const enMessages = {
       longTaskDescription:
         "Show the long-task session type in the composer for unattended autonomous work",
       longTaskAriaLabel: "Enable long task sessions",
-      virtualScrollLabel: "Virtual scroll",
-      virtualScrollDescription:
-        "Enable virtual scrolling for the message list — may improve rendering performance in long sessions (experimental)",
-      virtualScrollAriaLabel: "Enable virtual scroll",
     },
     email: {
       providerLabel: "Email provider",

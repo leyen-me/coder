@@ -15,13 +15,7 @@ export function parseLabSettings(value: unknown): LabSettings {
       ? value.longTaskEnabled
       : DEFAULT_LAB_SETTINGS.longTaskEnabled;
 
-  const virtualScrollEnabled =
-    typeof value.virtualScrollEnabled === "boolean"
-      ? value.virtualScrollEnabled
-      : DEFAULT_LAB_SETTINGS.virtualScrollEnabled;
-
   return {
     longTaskEnabled,
-    virtualScrollEnabled,
   };
 }

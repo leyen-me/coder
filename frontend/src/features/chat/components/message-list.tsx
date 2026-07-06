@@ -40,7 +40,6 @@ type MessageListProps = {
   editingMessageId?: string | null;
   onEditUserMessage?: (message: MessageRecord) => void;
   onRegenerateAssistantMessage?: (message: MessageRecord) => void;
-  virtualScrollEnabled?: boolean;
 };
 
 const ESTIMATED_MESSAGE_HEIGHT_PX = 220;
@@ -114,7 +113,6 @@ export function MessageList({
   editingMessageId,
   onEditUserMessage,
   onRegenerateAssistantMessage,
-  virtualScrollEnabled = false,
 }: MessageListProps) {
   const { t } = useTranslation();
   const streamingMessageIds = useActiveStreamingMessageIds();
@@ -139,14 +137,13 @@ export function MessageList({
     [messages, streamingMessageIds]
   );
   const isStreaming = streamingMessageCount > 0;
-  const shouldVirtualize = virtualScrollEnabled && !isStreaming;
+  const shouldVirtualize = !isStreaming;
   const pendingVirtualizationAnchorRef = useRef<number | null>(null);
   const wasStreamingRef = useRef(isStreaming);
 
   if (
     wasStreamingRef.current &&
     !isStreaming &&
-    virtualScrollEnabled &&
     scrollViewport &&
     !isPinnedToBottomRef.current
   ) {

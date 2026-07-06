@@ -460,10 +460,6 @@ export const zhMessages = {
       longTaskDescription:
         "在输入框中显示长任务会话类型，用于无人值守的自主执行",
       longTaskAriaLabel: "启用长任务会话",
-      virtualScrollLabel: "虚拟滚动",
-      virtualScrollDescription:
-        "启用消息列表虚拟滚动，长会话时可能提升渲染性能（实验性功能）",
-      virtualScrollAriaLabel: "启用虚拟滚动",
     },
     email: {
       providerLabel: "邮件服务商",

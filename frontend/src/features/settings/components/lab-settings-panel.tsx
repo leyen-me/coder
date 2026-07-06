@@ -23,20 +23,6 @@ export function LabSettingsPanel() {
           />
         }
       />
-
-      <SettingRow
-        label={t("settings.lab.virtualScrollLabel")}
-        description={t("settings.lab.virtualScrollDescription")}
-        control={
-          <Switch
-            checked={settings.virtualScrollEnabled}
-            onCheckedChange={(checked) => {
-              updateSettings({ virtualScrollEnabled: checked });
-            }}
-            aria-label={t("settings.lab.virtualScrollAriaLabel")}
-          />
-        }
-      />
     </section>
   );
 }
