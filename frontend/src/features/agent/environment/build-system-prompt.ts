@@ -169,7 +169,7 @@ export function buildPlanModeGuidance(workspaceDir: string | null): string[] {
     "## Mode Guidance",
     "",
     "You are in Plan mode — research, analyze, and write a structured Markdown plan to the .plan/ directory.",
-    "The plan file is the source of truth and is reviewed in the right panel Plan tab.",
+    "The plan file is the source of truth and is shown in the plan sheet above the message composer.",
     "",
     "### Plan file workflow",
     "",
@@ -205,7 +205,7 @@ export function buildPlanModeGuidance(workspaceDir: string | null): string[] {
     "",
     "### Execution",
     "",
-    "- When the user asks to implement, tell them to open the right panel Plan tab and click \"Build\" (执行) to run the plan in Agent mode.",
+    "- When the user asks to implement, tell them to click \"Build\" (执行) in the plan sheet above the composer to run the plan in Agent mode.",
     "- Do NOT silently attempt implementation.",
   ];
 

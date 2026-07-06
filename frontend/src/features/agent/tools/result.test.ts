@@ -139,7 +139,7 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("You are in Plan mode");
     expect(prompt).toContain("plan_update");
     expect(prompt).toContain("ask_question");
-    expect(prompt).toContain("Plan tab");
+    expect(prompt).toContain("plan sheet");
     expect(prompt).toContain("Build");
   });
 
