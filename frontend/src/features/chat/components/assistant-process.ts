@@ -116,10 +116,10 @@ export function shouldRenderStandaloneAssistantAnswer(input: {
   steps: AssistantProcessStep[];
   isPlanMessage: boolean;
 }): boolean {
-  return !input.steps.some((step) => step.kind === "answer");
+  return !shouldShowAssistantProcessTimeline(input);
 }
 
-/** Whether the ordered process timeline should render (reasoning, tools, and answers for non-plan turns). */
+/** Whether the ordered process timeline should render (reasoning, tools, or decisions). */
 export function shouldShowAssistantProcessTimeline(input: {
   steps: AssistantProcessStep[];
   isPlanMessage: boolean;
@@ -128,7 +128,6 @@ export function shouldShowAssistantProcessTimeline(input: {
     (step) =>
       step.kind === "reasoning" ||
       step.kind === "tool" ||
-      step.kind === "answer" ||
       (step.kind === "decision" &&
         (step.status === "requested" ||
           (step.status === "resolved" && step.response != null)))
