@@ -28,12 +28,12 @@ if (!key) {
 let binaryPath;
 try {
   // resolve package.json explicitly because the platform package has no "main" field
-  const pkgJson = require.resolve(`@alanwchat/coder-${key}/package.json`);
+  const pkgJson = require.resolve(`@leyen/coder-${key}/package.json`);
   binaryPath = path.join(path.dirname(pkgJson), PLATFORM === "win32" ? "coder.exe" : "coder");
 } catch {
   console.error(
     `Missing binary for ${PLATFORM} ${ARCH}.\n` +
-    `Make sure @alanwchat/coder-${key} is installed.`
+    `Make sure @leyen/coder-${key} is installed.`
   );
   process.exit(1);
 }

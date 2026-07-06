@@ -1,5 +1,5 @@
 # 推送 main 后自动构建全平台二进制并发布到 npm。
-# 发布策略：主包 @alanwchat/coder + 各平台 optional 包。
+# 发布策略：主包 @leyen/coder + 各平台 optional 包。
 #
 # 首次使用前需要在仓库设置中添加 Secrets:
 #   NPM_TOKEN — npm automation token（publish 权限）
@@ -122,7 +122,7 @@ jobs:
           esac
           cat > npm-packages/$PLATFORM/package.json <<EOF
           {
-            "name": "@alanwchat/coder-$PLATFORM",
+            "name": "@leyen/coder-$PLATFORM",
             "version": "$VERSION",
             "description": "Coder binary for $PLATFORM",
             "main": "$BIN_NAME",
@@ -159,7 +159,7 @@ jobs:
           node-version: lts/*
           registry-url: https://registry.npmjs.org
 
-      - name: Generate and publish main package @alanwchat/coder
+      - name: Generate and publish main package @leyen/coder
         shell: bash
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -170,7 +170,7 @@ jobs:
 
           cat > npm-main/package.json <<EOF
           {
-            "name": "@alanwchat/coder",
+            "name": "@leyen/coder",
             "version": "$VERSION",
             "description": "Coder — AI-powered coding assistant",
             "license": "MIT",
@@ -182,10 +182,10 @@ jobs:
               "coder": "cli.mjs"
             },
             "optionalDependencies": {
-              "@alanwchat/coder-darwin-arm64": "$VERSION",
-              "@alanwchat/coder-darwin-x64": "$VERSION",
-              "@alanwchat/coder-linux-x64": "$VERSION",
-              "@alanwchat/coder-win32-x64": "$VERSION"
+              "@leyen/coder-darwin-arm64": "$VERSION",
+              "@leyen/coder-darwin-x64": "$VERSION",
+              "@leyen/coder-linux-x64": "$VERSION",
+              "@leyen/coder-win32-x64": "$VERSION"
             }
           }
           EOF
@@ -206,7 +206,7 @@ jobs:
             v${{ needs.prepare.outputs.version }} 发布到 npm
 
             ```
-            npm i -g @alanwchat/coder
+            npm i -g @leyen/coder
             coder --help
             ```
           draft: false

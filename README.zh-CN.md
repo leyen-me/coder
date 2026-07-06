@@ -184,7 +184,7 @@ pnpm test:watch
 ### 通过 npm 安装（生产环境）
 
 ```bash
-npm i -g @alanwchat/coder
+npm i -g @leyen/coder
 coder
 ```
 
@@ -306,7 +306,7 @@ pnpm preview           # 本地服务构建后的前端
    - `x86_64-apple-darwin`（macOS Intel）
    - `x86_64-unknown-linux-gnu`（Linux x64）
    - `x86_64-pc-windows-msvc`（Windows x64）
-4. **npm 发布** — 发布平台特定包（`@alanwchat/coder-*`）和主 CLI 包（`@alanwchat/coder`）。
+4. **npm 发布** — 发布平台特定包（`@leyen/coder-*`）和主 CLI 包（`@leyen/coder`）。
 5. **GitHub Release** — 创建包含安装说明的 Release。
 
 ---

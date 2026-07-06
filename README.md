@@ -185,7 +185,7 @@ pnpm test:watch
 ### Install via npm (production)
 
 ```bash
-npm i -g @alanwchat/coder
+npm i -g @leyen/coder
 coder
 ```
 
@@ -319,7 +319,7 @@ Pushing to `main` triggers the [release workflow](.github/workflows/release.yml)
    - `x86_64-apple-darwin` (macOS Intel)
    - `x86_64-unknown-linux-gnu` (Linux x64)
    - `x86_64-pc-windows-msvc` (Windows x64)
-4. **npm publish** — Publishes platform-specific packages (`@alanwchat/coder-*`) and the main CLI package (`@alanwchat/coder`).
+4. **npm publish** — Publishes platform-specific packages (`@leyen/coder-*`) and the main CLI package (`@leyen/coder`).
 5. **GitHub Release** — Creates a release with installation instructions.
 
 ---
