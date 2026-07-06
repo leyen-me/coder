@@ -136,6 +136,15 @@ jobs:
           }
           EOF
 
+          case "$PLATFORM" in
+            darwin-arm64) PLATFORM_LABEL="macOS (Apple Silicon)" ;;
+            darwin-x64)   PLATFORM_LABEL="macOS (Intel)" ;;
+            linux-x64)    PLATFORM_LABEL="Linux (x64)" ;;
+            win32-x64)    PLATFORM_LABEL="Windows (x64)" ;;
+          esac
+          sed -e "s/{{PLATFORM}}/$PLATFORM/g" -e "s/{{PLATFORM_LABEL}}/$PLATFORM_LABEL/g" \
+            npm/README.platform.md > npm-packages/$PLATFORM/README.md
+
       - name: Publish platform package to npm
         shell: bash
         working-directory: npm-packages/${{ matrix.npm_platform }}
@@ -191,6 +200,7 @@ jobs:
           EOF
 
           cp npm/cli.mjs npm-main/cli.mjs
+          cp npm/README.md npm-main/README.md
           chmod +x npm-main/cli.mjs
 
           cd npm-main
