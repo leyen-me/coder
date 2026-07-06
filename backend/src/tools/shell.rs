@@ -119,6 +119,14 @@ pub fn resolve_working_directory(
     }
 }
 
+pub fn floor_char_boundary(content: &str, index: usize) -> usize {
+    let mut boundary = index.min(content.len());
+    while boundary > 0 && !content.is_char_boundary(boundary) {
+        boundary -= 1;
+    }
+    boundary
+}
+
 pub fn truncate_stream_for_llm(raw: &str) -> (String, bool, u64) {
     let total_bytes = raw.len() as u64;
     if raw.len() <= MAX_STREAM_BYTES_FOR_LLM {
@@ -131,7 +139,10 @@ pub fn truncate_stream_for_llm(raw: &str) -> (String, bool, u64) {
     let mut candidate = format!("{truncated_marker}{tail}");
 
     if candidate.len() > MAX_STREAM_BYTES_FOR_LLM {
-        let keep_from = candidate.len().saturating_sub(MAX_STREAM_BYTES_FOR_LLM);
+        let keep_from = floor_char_boundary(
+            &candidate,
+            candidate.len().saturating_sub(MAX_STREAM_BYTES_FOR_LLM),
+        );
         candidate = candidate[keep_from..].to_string();
     }
 
@@ -221,6 +232,23 @@ mod tests {
         assert!(!was_truncated);
         assert_eq!(truncated, raw);
         assert_eq!(total_bytes, raw.len() as u64);
+    }
+
+    #[test]
+    fn truncates_long_output_without_panicking_on_utf8_boundaries() {
+        let line = format!("progress {}", "━".repeat(100));
+        let raw = (0..800)
+            .map(|index| format!("line-{index}-{line}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let (truncated, was_truncated, total_bytes) = truncate_stream_for_llm(&raw);
+
+        assert!(was_truncated);
+        assert!(total_bytes > MAX_STREAM_BYTES_FOR_LLM as u64);
+        assert!(truncated.len() <= MAX_STREAM_BYTES_FOR_LLM);
+        assert!(truncated.is_char_boundary(truncated.len()));
+        assert!(truncated.contains("bytes truncated"));
     }
 
     #[test]

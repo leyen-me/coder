@@ -16,9 +16,9 @@ use super::remote_connection::RemoteConnectionPool;
 const POST_KILL_WAIT_MS: u64 = 3_000;
 
 use super::shell::{
-    build_shell_output, normalize_block_until_ms, resolve_command_shell, resolve_working_directory,
-    shell_command_builder, ReadShellLogsResponse, ShellInfo, ShellOutput,
-    ShellStatus, ShellStatusFilter,
+    build_shell_output, floor_char_boundary, normalize_block_until_ms, resolve_command_shell,
+    resolve_working_directory, shell_command_builder, ReadShellLogsResponse, ShellInfo,
+    ShellOutput, ShellStatus, ShellStatusFilter,
 };
 use super::workspace_path::format_absolute_path;
 
@@ -41,14 +41,6 @@ struct RunningShell {
 
 pub struct ShellRegistry {
     shells: HashMap<String, RunningShell>,
-}
-
-fn floor_char_boundary(content: &str, index: usize) -> usize {
-    let mut boundary = index.min(content.len());
-    while boundary > 0 && !content.is_char_boundary(boundary) {
-        boundary -= 1;
-    }
-    boundary
 }
 
 impl ShellRegistry {
