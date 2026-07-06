@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./public/app-icon.png">
-    <img alt="Coder" src="./public/app-icon.png" width="128">
+    <source media="(prefers-color-scheme: dark)" srcset="./public/favicon.png">
+    <img alt="Coder" src="./public/favicon.png" width="128">
   </picture>
 </p>
 
