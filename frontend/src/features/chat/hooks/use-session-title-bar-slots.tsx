@@ -8,6 +8,7 @@ import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { SessionTitleLabel } from "../components/session-title-label";
 import { SessionToolbar } from "../components/session-toolbar";
+import { requestMessageListScrollToBottom } from "../components/message-list-scroll";
 import { useSessionMessages } from "./use-session-messages";
 
 export function useSessionTitleBarSlots(pathname: string) {
@@ -22,7 +23,7 @@ export function useSessionTitleBarSlots(pathname: string) {
   const workspaceDir = session?.workspaceDir?.trim() || globalWorkspaceDir;
   const isGeneratingTitle = useIsSessionTitleGenerating(chatId);
   const handleDoubleClick = useCallback(() => {
-    window.dispatchEvent(new CustomEvent("chat:scroll-to-bottom"));
+    requestMessageListScrollToBottom();
   }, []);
 
   if (pathname === paths.skills) {

@@ -26,6 +26,7 @@ import { AgentTodoList } from "../components/agent-todo-list";
 import { PlanSheet } from "../components/plan-sheet";
 import { useAgentStopConfirmation } from "../hooks/use-agent-stop-confirmation";
 import { ChatMessageList } from "../components/chat-message-list";
+import { requestMessageListScrollToBottom } from "../components/message-list-scroll";
 import { PromptComposer } from "../components/prompt-composer";
 import { QueuedMessageList } from "../components/queued-message-list";
 import { notifySendMessageError } from "../lib/notify-send-message-error";
@@ -222,6 +223,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
           agentMode,
           skillSlugs: payload.skillSlugs,
         });
+        requestMessageListScrollToBottom();
       } catch (error) {
         notifySendMessageError(error, (key, params) =>
           t(`chat.${key}`, params)

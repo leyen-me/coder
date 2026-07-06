@@ -13,6 +13,7 @@ import { useTranslation } from "@/lib/i18n/locale-provider";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
 import { PromptComposer } from "../components/prompt-composer";
+import { requestMessageListScrollToBottom } from "../components/message-list-scroll";
 import { StarterPromptList } from "../components/starter-prompt-list";
 import { notifySendMessageError } from "../lib/notify-send-message-error";
 import { useComposerThinking } from "../hooks/use-composer-thinking";
@@ -81,6 +82,7 @@ export function NewChatView() {
         agentMode,
         skillSlugs: payload.skillSlugs,
       });
+      requestMessageListScrollToBottom();
     } catch (error) {
       notifySendMessageError(error, (key, params) =>
         t(`chat.${key}`, params)
