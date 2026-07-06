@@ -64,7 +64,6 @@ Choose the narrowest tool that gives reliable evidence.
 
 - Keep commands non-interactive.
 - For long-running commands such as dev servers or watch mode, run shell with \`block_until_ms=0\`, then await the returned \`shell_id\` only when needed.
-- When using \`shell(target: "<alias>")\`, background mode does not support \`await\`, \`list_shells\`, \`kill_shell\`, or \`read_shell_logs\`.
 
 ### Web and skills
 
