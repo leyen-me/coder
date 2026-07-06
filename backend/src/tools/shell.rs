@@ -127,6 +127,54 @@ pub fn floor_char_boundary(content: &str, index: usize) -> usize {
     boundary
 }
 
+/// Incrementally decodes byte chunks into UTF-8 without splitting multibyte characters.
+#[derive(Debug, Default)]
+pub struct Utf8StreamDecoder {
+    pending: Vec<u8>,
+}
+
+impl Utf8StreamDecoder {
+    pub fn push(&mut self, bytes: &[u8]) -> String {
+        if bytes.is_empty() {
+            return String::new();
+        }
+        self.pending.extend_from_slice(bytes);
+        self.take_complete()
+    }
+
+    pub fn finish(&mut self) -> String {
+        if self.pending.is_empty() {
+            return String::new();
+        }
+        let rest = std::mem::take(&mut self.pending);
+        String::from_utf8_lossy(&rest).into_owned()
+    }
+
+    pub fn pending_len(&self) -> usize {
+        self.pending.len()
+    }
+
+    fn take_complete(&mut self) -> String {
+        if self.pending.is_empty() {
+            return String::new();
+        }
+
+        let mut end = self.pending.len();
+        while end > 0 {
+            if std::str::from_utf8(&self.pending[..end]).is_ok() {
+                let chunk = self.pending.drain(..end).collect::<Vec<_>>();
+                return String::from_utf8(chunk).unwrap_or_default();
+            }
+            end -= 1;
+        }
+
+        let byte = self.pending.remove(0);
+        let mut out = String::from_utf8_lossy(std::slice::from_ref(&byte)).into_owned();
+        out.push_str(&self.take_complete());
+        out
+    }
+}
+
 pub fn truncate_stream_for_llm(raw: &str) -> (String, bool, u64) {
     let total_bytes = raw.len() as u64;
     if raw.len() <= MAX_STREAM_BYTES_FOR_LLM {
@@ -259,5 +307,21 @@ mod tests {
             normalize_block_until_ms(Some(MAX_BLOCK_UNTIL_MS + 1)),
             MAX_BLOCK_UNTIL_MS
         );
+    }
+
+    #[test]
+    fn utf8_stream_decoder_preserves_multibyte_across_chunk_boundaries() {
+        let text = "中".repeat(5000);
+        let bytes = text.as_bytes();
+        let mut decoder = Utf8StreamDecoder::default();
+        let mut decoded = String::new();
+
+        for chunk in bytes.chunks(8192) {
+            decoded.push_str(&decoder.push(chunk));
+        }
+        decoded.push_str(&decoder.finish());
+
+        assert_eq!(decoded, text);
+        assert!(!decoded.contains('\u{FFFD}'));
     }
 }

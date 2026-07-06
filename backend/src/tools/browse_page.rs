@@ -72,7 +72,7 @@ pub async fn tool_browse_page(
             truncated,
             total_lines,
             start_line: start,
-            end_line: end as u32,
+            end_line: page_end_line(start, end, total_lines),
             status_code: 0, // Cache hit – status not stored.
             content_type: None,
         });
@@ -123,10 +123,18 @@ pub async fn tool_browse_page(
         truncated,
         total_lines,
         start_line: start,
-        end_line: end as u32,
+        end_line: page_end_line(start, end, total_lines),
         status_code: fetched.status_code,
         content_type: fetched.content_type,
     })
+}
+
+fn page_end_line(start: u32, slice_end: usize, total_lines: u32) -> u32 {
+    if (start as usize) > total_lines as usize {
+        start
+    } else {
+        slice_end as u32
+    }
 }
 
 fn convert_body_to_text(fetched: &FetchedResponse) -> String {
@@ -210,5 +218,15 @@ mod tests {
     fn looks_like_html_not_html() {
         assert!(!looks_like_html("Hello, world!"));
         assert!(!looks_like_html("{ \"json\": true }"));
+    }
+
+    #[test]
+    fn page_end_line_when_start_past_total_is_start() {
+        assert_eq!(page_end_line(50, 10, 10), 50);
+    }
+
+    #[test]
+    fn page_end_line_when_in_range_uses_slice_end() {
+        assert_eq!(page_end_line(1, 5, 10), 5);
     }
 }

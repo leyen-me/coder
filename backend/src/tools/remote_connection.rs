@@ -306,6 +306,8 @@ impl SshSession {
 
             // Check hard limit
             if Instant::now() >= deadline {
+                channel.close().ok();
+                channel.wait_close().ok();
                 // Restore default timeout
                 session.set_timeout(30000);
                 return Ok(RemoteExecResult {

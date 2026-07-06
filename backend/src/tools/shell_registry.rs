@@ -15,10 +15,43 @@ use super::remote_connection::RemoteConnectionPool;
 
 const POST_KILL_WAIT_MS: u64 = 3_000;
 
+fn append_shell_stream_chunk(
+    registry: &Arc<Mutex<ShellRegistry>>,
+    shell_id: &str,
+    stream: &str,
+    chunk: &str,
+    broadcaster: Option<&crate::SseBroadcaster>,
+) {
+    if chunk.is_empty() {
+        return;
+    }
+
+    if let Ok(mut reg) = registry.lock() {
+        if let Some(shell) = reg.shells.get_mut(shell_id) {
+            if stream == "stdout" {
+                shell.stdout.push_str(chunk);
+            } else {
+                shell.stderr.push_str(chunk);
+            }
+        }
+    }
+
+    if let Some(b) = broadcaster {
+        let _ = b.emit_event(
+            &format!("shell-{shell_id}"),
+            &crate::AgentSseEvent::ShellOutput {
+                shell_id: shell_id.to_string(),
+                stream: stream.to_string(),
+                data: chunk.to_string(),
+            },
+        );
+    }
+}
+
 use super::shell::{
     build_shell_output, floor_char_boundary, normalize_block_until_ms, resolve_command_shell,
     resolve_working_directory, shell_command_builder, ReadShellLogsResponse, ShellInfo,
-    ShellOutput, ShellStatus, ShellStatusFilter,
+    ShellOutput, ShellStatus, ShellStatusFilter, Utf8StreamDecoder,
 };
 use super::workspace_path::format_absolute_path;
 
@@ -533,6 +566,7 @@ async fn read_stream<R: tokio::io::AsyncRead + Unpin>(
 ) {
     let mut reader = BufReader::new(reader);
     let mut buf = [0u8; 8192];
+    let mut decoder = Utf8StreamDecoder::default();
 
     loop {
         let read_result = reader.read(&mut buf).await;
@@ -543,32 +577,12 @@ async fn read_stream<R: tokio::io::AsyncRead + Unpin>(
             Err(_) => break,
         };
 
-        let chunk = String::from_utf8_lossy(&buf[..n]).into_owned();
-        if chunk.is_empty() {
-            continue;
-        }
-
-        if let Ok(mut reg) = registry.lock() {
-            if let Some(shell) = reg.shells.get_mut(shell_id) {
-                if stream == "stdout" {
-                    shell.stdout.push_str(&chunk);
-                } else {
-                    shell.stderr.push_str(&chunk);
-                }
-            }
-        }
-
-        if let Some(b) = broadcaster {
-            let _ = b.emit_event(
-                &format!("shell-{shell_id}"),
-                &crate::AgentSseEvent::ShellOutput {
-                    shell_id: shell_id.to_string(),
-                    stream: stream.to_string(),
-                    data: chunk,
-                },
-            );
-        }
+        let chunk = decoder.push(&buf[..n]);
+        append_shell_stream_chunk(&registry, shell_id, stream, &chunk, broadcaster);
     }
+
+    let tail = decoder.finish();
+    append_shell_stream_chunk(&registry, shell_id, stream, &tail, broadcaster);
 }
 
 async fn wait_for_child(
@@ -763,47 +777,49 @@ pub async fn tool_remote_shell(
     let broadcaster_consumer = broadcaster.clone();
     let sid = shell_id.clone();
     tokio::task::spawn_blocking(move || {
+        let mut stdout_decoder = Utf8StreamDecoder::default();
+        let mut stderr_decoder = Utf8StreamDecoder::default();
+
         loop {
             let Ok(event) = rx.recv() else {
-                // All senders dropped, stream ended
+                let stdout_tail = stdout_decoder.finish();
+                let stderr_tail = stderr_decoder.finish();
+                append_shell_stream_chunk(
+                    &registry_consumer,
+                    &sid,
+                    "stdout",
+                    &stdout_tail,
+                    broadcaster_consumer.as_deref(),
+                );
+                append_shell_stream_chunk(
+                    &registry_consumer,
+                    &sid,
+                    "stderr",
+                    &stderr_tail,
+                    broadcaster_consumer.as_deref(),
+                );
                 break;
             };
             match event {
                 SshStreamEvent::Stdout(data) => {
-                    let chunk = String::from_utf8_lossy(&data).to_string();
-                    if let Ok(mut reg) = registry_consumer.lock() {
-                        if let Some(s) = reg.shells.get_mut(&sid) {
-                            s.stdout.push_str(&chunk);
-                        }
-                    }
-                    if let Some(b) = &broadcaster_consumer {
-                        let _ = b.emit_event(
-                            &format!("shell-{sid}"),
-                            &crate::AgentSseEvent::ShellOutput {
-                                shell_id: sid.clone(),
-                                stream: "stdout".to_string(),
-                                data: chunk,
-                            },
-                        );
-                    }
+                    let chunk = stdout_decoder.push(&data);
+                    append_shell_stream_chunk(
+                        &registry_consumer,
+                        &sid,
+                        "stdout",
+                        &chunk,
+                        broadcaster_consumer.as_deref(),
+                    );
                 }
                 SshStreamEvent::Stderr(data) => {
-                    let chunk = String::from_utf8_lossy(&data).to_string();
-                    if let Ok(mut reg) = registry_consumer.lock() {
-                        if let Some(s) = reg.shells.get_mut(&sid) {
-                            s.stderr.push_str(&chunk);
-                        }
-                    }
-                    if let Some(b) = &broadcaster_consumer {
-                        let _ = b.emit_event(
-                            &format!("shell-{sid}"),
-                            &crate::AgentSseEvent::ShellOutput {
-                                shell_id: sid.clone(),
-                                stream: "stderr".to_string(),
-                                data: chunk,
-                            },
-                        );
-                    }
+                    let chunk = stderr_decoder.push(&data);
+                    append_shell_stream_chunk(
+                        &registry_consumer,
+                        &sid,
+                        "stderr",
+                        &chunk,
+                        broadcaster_consumer.as_deref(),
+                    );
                 }
                 SshStreamEvent::ExitCode(code) => {
                     if let Ok(mut reg) = registry_consumer.lock() {

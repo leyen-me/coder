@@ -49,9 +49,15 @@ pub async fn send_email(request: SendEmailRequest) -> Result<String, String> {
 
     let creds = Credentials::new(settings.username.clone(), settings.password.clone());
 
-    // Build transport: TLS on port 465, STARTTLS on 587/25
-    let mailer = if settings.use_tls || settings.smtp_port == 465 {
+    // Port 465 uses implicit TLS (SMTPS). Other ports use STARTTLS when encryption is enabled.
+    let mailer = if settings.smtp_port == 465 {
         AsyncSmtpTransport::<Tokio1Executor>::relay(&settings.smtp_host)
+            .map_err(|e| format!("Failed to create SMTP transport: {e}"))?
+            .port(settings.smtp_port)
+            .credentials(creds)
+            .build()
+    } else if settings.use_tls {
+        AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&settings.smtp_host)
             .map_err(|e| format!("Failed to create SMTP transport: {e}"))?
             .port(settings.smtp_port)
             .credentials(creds)

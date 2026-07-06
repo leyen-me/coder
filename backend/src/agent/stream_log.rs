@@ -93,10 +93,14 @@ pub fn format_error_chain(error: &(dyn Error + 'static)) -> String {
 
 pub fn sanitize_url_for_log(url: &str) -> String {
     let trimmed = url.trim();
-    if trimmed.len() <= 160 {
+    if trimmed.chars().count() <= 160 {
         return trimmed.to_string();
     }
-    format!("{}... (len={})", &trimmed[..160], trimmed.len())
+    format!(
+        "{}... (len={})",
+        preview_for_log(trimmed, 160),
+        trimmed.len()
+    )
 }
 
 pub fn preview_for_log(value: &str, limit: usize) -> String {
@@ -106,5 +110,18 @@ pub fn preview_for_log(value: &str, limit: usize) -> String {
         format!("{preview}...")
     } else {
         preview
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitize_url_for_log_does_not_panic_on_multibyte_boundary() {
+        let url = format!("https://example.com/{}", "测".repeat(200));
+        let sanitized = sanitize_url_for_log(&url);
+        assert!(sanitized.contains("(len="));
+        assert!(sanitized.chars().count() < url.chars().count());
     }
 }
