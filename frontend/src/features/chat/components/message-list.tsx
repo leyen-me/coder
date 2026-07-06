@@ -114,7 +114,9 @@ export function MessageList({
   const streamingMessageIds = useActiveStreamingMessageIds();
   const chatRetryByMessageId = useChatRetryByMessageId();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const virtualListRef = useRef<HTMLDivElement>(null);
   const [scrollViewport, setScrollViewport] = useState<HTMLElement | null>(null);
+  const [virtualListScrollMargin, setVirtualListScrollMargin] = useState(0);
   const [isViewportNearBottom, setIsViewportNearBottom] = useState(true);
   const previousMessageCountRef = useRef(messages.length);
   const isPinnedToBottomRef = useRef(true);
@@ -174,6 +176,7 @@ export function MessageList({
     getItemKey,
     getScrollElement,
     overscan: MESSAGE_OVERSCAN,
+    scrollMargin: virtualListScrollMargin,
   });
 
   const markProgrammaticScroll = useCallback((smooth: boolean) => {
@@ -282,6 +285,45 @@ export function MessageList({
       currentViewport === viewport ? currentViewport : viewport
     );
   }, []);
+
+  // System prompt and handoff banners sit above the virtual list in the same
+  // scroll viewport. scrollMargin tells the virtualizer where the list starts.
+  useLayoutEffect(() => {
+    if (!shouldVirtualize) {
+      setVirtualListScrollMargin(0);
+      return;
+    }
+
+    const listElement = virtualListRef.current;
+    const contentWrapper = listElement?.parentElement;
+    if (!listElement || !contentWrapper) {
+      return;
+    }
+
+    const measureScrollMargin = () => {
+      setVirtualListScrollMargin((current) => {
+        const next = listElement.offsetTop;
+        return current === next ? current : next;
+      });
+    };
+
+    measureScrollMargin();
+
+    const resizeObserver = new ResizeObserver(measureScrollMargin);
+    resizeObserver.observe(contentWrapper);
+    for (const child of contentWrapper.children) {
+      if (child !== listElement) {
+        resizeObserver.observe(child);
+      }
+    }
+
+    return () => resizeObserver.disconnect();
+  }, [
+    shouldVirtualize,
+    systemPrompt,
+    handoffFromSessionId,
+    handoffContinuedSessionId,
+  ]);
 
   useEffect(() => {
     setPinnedToBottom(true);
@@ -464,8 +506,6 @@ export function MessageList({
       <ScrollArea
         className={cn(
           "h-full px-3 py-4 md:px-4 md:py-6",
-          shouldVirtualize &&
-            "**:data-[slot=scroll-area-viewport]:will-change-transform"
         )}
       >
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
@@ -486,6 +526,7 @@ export function MessageList({
             /* ── Virtualized rendering ── */
             messages.length > 0 ? (
               <div
+                ref={virtualListRef}
                 className="relative w-full"
                 style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
               >
@@ -505,7 +546,7 @@ export function MessageList({
                         left: 0,
                         position: "absolute",
                         top: 0,
-                        transform: `translateY(${virtualItem.start}px) translateZ(0)`,
+                        transform: `translateY(${virtualItem.start - rowVirtualizer.options.scrollMargin}px) translateZ(0)`,
                         width: "100%",
                         willChange: "transform",
                       }}
