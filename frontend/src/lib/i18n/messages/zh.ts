@@ -212,7 +212,7 @@ export const zhMessages = {
     planLoading: "正在加载计划…",
     planBuildStart: "开始执行",
     askQuestionTitle: "需要你确认",
-    askQuestionDescription: "请回答这些问题，智能体会据此继续生成计划。",
+    askQuestionDescription: "请回答这些问题，以便智能体继续处理。",
     askQuestionSingle: "单选",
     askQuestionMultiple: "多选",
     askQuestionOther: "其他",

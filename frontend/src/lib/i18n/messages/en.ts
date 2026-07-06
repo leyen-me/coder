@@ -219,7 +219,7 @@ export const enMessages = {
     planBuildStart: "Build started",
     askQuestionTitle: "Need your input",
     askQuestionDescription:
-      "Answer these questions so the agent can continue planning with the right assumptions.",
+      "Answer these questions so the agent can continue with the right assumptions.",
     askQuestionSingle: "Choose one",
     askQuestionMultiple: "Choose one or more",
     askQuestionOther: "Other",

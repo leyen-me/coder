@@ -14,11 +14,11 @@ import {
 } from "@/features/agent/tools/definitions";
 
 describe("getAgentToolDefinitions", () => {
-  it("returns all tools for agent mode", () => {
+  it("returns all tools including ask_question for agent mode", () => {
     const tools = getAgentToolDefinitions("agent");
     expect(tools.length).toBeGreaterThan(ASK_MODE_TOOL_NAMES.length);
     expect(tools.some((tool) => tool.function.name === ASK_QUESTION_TOOL_NAME)).toBe(
-      false
+      true
     );
   });
 
@@ -36,6 +36,9 @@ describe("getAgentToolDefinitions", () => {
     const tools = getAgentToolDefinitions("ask");
     expect(tools.map((tool) => tool.function.name).sort()).toEqual(
       [...ASK_MODE_TOOL_NAMES].sort()
+    );
+    expect(tools.some((tool) => tool.function.name === ASK_QUESTION_TOOL_NAME)).toBe(
+      true
     );
   });
 

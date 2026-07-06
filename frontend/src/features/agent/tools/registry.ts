@@ -115,7 +115,6 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
 const ASK_MODE_TOOL_NAMES_SET = new Set(ASK_MODE_TOOL_NAMES);
 const PLAN_MODE_TOOL_NAMES_SET = new Set(PLAN_MODE_TOOL_NAMES);
 const AGENT_MODE_EXCLUDED_TOOL_NAMES_SET = new Set([
-  ASK_QUESTION_TOOL_NAME,
   SEND_EMAIL_TOOL_NAME,
   PLAN_CREATE_TOOL_NAME,
   PLAN_READ_TOOL_NAME,
@@ -127,7 +126,7 @@ const AGENT_MODE_EXCLUDED_TOOL_NAMES_SET = new Set([
 
 /**
  * Returns tool definitions for the given mode.
- * - `"agent"`: all tools except plan-only interaction helpers.
+ * - `"agent"`: all tools except plan file management helpers.
  * - `"ask"`: only read-only / information-gathering tools.
  * - `"plan"`: read-only tools plus plan file management and todo_write.
  */

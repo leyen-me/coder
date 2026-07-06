@@ -1,4 +1,5 @@
 import {
+  ASK_QUESTION_TOOL_NAME,
   LIST_DIR_TOOL_NAME,
   READ_FILE_TOOL_NAME,
   TODO_READ_TOOL_NAME,
@@ -16,9 +17,10 @@ import {
 
 /**
  * Tools available in "ask" mode.
- * Only read-only / information-gathering tools are included.
+ * Read-only / information-gathering tools plus structured user clarification.
  */
 export const ASK_MODE_TOOL_NAMES: readonly string[] = [
+  ASK_QUESTION_TOOL_NAME,
   LIST_DIR_TOOL_NAME,
   READ_FILE_TOOL_NAME,
   TODO_READ_TOOL_NAME,

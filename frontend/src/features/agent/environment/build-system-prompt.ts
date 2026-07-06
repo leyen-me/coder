@@ -61,7 +61,7 @@ export function buildIdentityAndEnvironmentSection(
 
   const modeLine =
     agentMode === "ask"
-      ? "ask (read-only: can read files, search code, browse the web, and list skills — cannot modify files or run shell commands)"
+      ? "ask (read-only: can read files, search code, browse the web, list skills, and ask structured clarification questions — cannot modify files or run shell commands)"
       : agentMode === "plan"
         ? "plan (planning: can read files, search, browse, manage .plan/ files and todos — cannot modify project files or run shell commands)"
         : "agent (full tool access)";
@@ -100,6 +100,7 @@ export function buildModeGuidanceSection(
       "You are in Ask mode — stay read-only.",
       "- You may read files, search code, and browse.",
       "- Do not modify files, run shell commands, or perform write operations.",
+      "- Use ask_question when key requirements or trade-offs are unclear; prefer one batched call over many small rounds.",
       '- If the task needs write access, say so clearly and tell the user to switch to Agent mode instead of silently refusing.',
     ];
   }
