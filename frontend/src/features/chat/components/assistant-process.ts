@@ -109,7 +109,18 @@ export function getAssistantProcessInteriorSteps(input: {
     return input.steps;
   }
 
-  return input.steps.filter((step) => step.kind !== "answer");
+  const lastAnswerIndex = input.steps.findLastIndex(
+    (step) => step.kind === "answer"
+  );
+  if (lastAnswerIndex === -1) {
+    return input.steps;
+  }
+
+  // Hide only the final answer inside the process panel. It is rendered
+  // outside the collapsible after the turn finishes to avoid duplication.
+  return input.steps.filter(
+    (step, index) => step.kind !== "answer" || index !== lastAnswerIndex
+  );
 }
 
 export function shouldRenderStandaloneAssistantAnswer(input: {

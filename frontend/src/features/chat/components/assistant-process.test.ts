@@ -287,7 +287,7 @@ describe("buildAssistantProcessSteps", () => {
     ).toBe(true);
   });
 
-  it("hides interior answer steps after the turn finishes", () => {
+  it("hides only the final interior answer after the turn finishes", () => {
     const steps = buildAssistantProcessSteps({
       processSteps: [
         { id: "reasoning:0", kind: "reasoning", text: "先分析一下。" },
@@ -308,6 +308,47 @@ describe("buildAssistantProcessSteps", () => {
         isMessageStreaming: false,
       }).map((step) => step.kind)
     ).toEqual(["reasoning"]);
+  });
+
+  it("keeps intermediate interior answers but hides the final one", () => {
+    const steps = buildAssistantProcessSteps({
+      processSteps: [
+        { id: "answer:1", kind: "answer", text: "我先看看目录。" },
+        { id: "tool:call_1", kind: "tool", toolCallId: "call_1" },
+        { id: "answer:4", kind: "answer", text: "项目结构如下。" },
+      ],
+      answerText: "项目结构如下。",
+      thinkingText: "",
+      isThinkingStreaming: false,
+      showReasoning: false,
+      toolInvocations: [
+        {
+          id: "call_1",
+          name: "list_dir",
+          input: { path: "." },
+          output: { ok: true },
+          state: "output-available",
+        },
+      ],
+      isAnswerStreaming: false,
+      isMessageStreaming: false,
+    });
+
+    expect(
+      getAssistantProcessInteriorSteps({
+        steps,
+        isMessageStreaming: false,
+      }).map((step) => step.kind)
+    ).toEqual(["answer", "tool"]);
+    expect(
+      getAssistantProcessInteriorSteps({
+        steps,
+        isMessageStreaming: false,
+      })[0]
+    ).toMatchObject({
+      kind: "answer",
+      text: "我先看看目录。",
+    });
   });
 
   it("keeps interior answer steps while the turn is still streaming", () => {

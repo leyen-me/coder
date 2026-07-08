@@ -99,7 +99,7 @@ export const AssistantProcessCollapsible = memo(
 
     // Keep answer steps in the interior view during streaming so the user
     // can see the answer being written in real time. After the turn finishes,
-    // the answer moves outside the collapsible.
+    // only the final answer moves outside the collapsible.
     const interiorSteps = useMemo(
       () =>
         getAssistantProcessInteriorSteps({
