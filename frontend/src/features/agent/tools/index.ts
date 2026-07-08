@@ -78,7 +78,7 @@ export type {
   TodoSnapshotItem,
   WorkspaceTreeData,
   WebSearchData,
-  TavilyConfig,
+  WebSearchConfig,
   ToolExecutionContext,
   SubAgentInput,
   SubAgentStep,

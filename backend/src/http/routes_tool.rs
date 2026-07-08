@@ -179,9 +179,12 @@ pub struct ReadShellLogsParams {
 #[serde(rename_all = "camelCase")]
 pub struct WebSearchParams {
     pub search_term: String,
+    pub provider: Option<String>,
     pub api_key_source: Option<String>,
     pub api_key: Option<String>,
     pub api_key_env_var: Option<String>,
+    pub searxng_base_url: Option<String>,
+    pub allow_private_network: Option<bool>,
     pub max_results: Option<u8>,
 }
 
@@ -607,9 +610,12 @@ pub async fn handle_web_search(
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let result = tool_web_search(
         params.search_term,
-        params.api_key_source.unwrap_or_else(|| "manual".to_string()),
+        params.provider,
+        params.api_key_source,
         params.api_key,
         params.api_key_env_var,
+        params.searxng_base_url,
+        params.allow_private_network,
         params.max_results,
     )
     .await

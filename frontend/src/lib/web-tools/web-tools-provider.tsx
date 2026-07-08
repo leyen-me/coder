@@ -7,13 +7,17 @@ import {
   type ReactNode,
 } from "react";
 
-import { resolveTavilyConfig } from "./resolve-tavily-config";
+import {
+  getWebSearchConfigError,
+  resolveWebSearchConfig,
+} from "./resolve-web-search-config";
 import { readWebToolsSettings, writeWebToolsSettings } from "./storage";
-import type { ResolvedTavilyConfig, WebToolsSettings } from "./types";
+import type { WebSearchConfig, WebToolsSettings } from "./types";
 
 type WebToolsContextValue = {
   settings: WebToolsSettings;
-  tavilyConfig: ResolvedTavilyConfig | null;
+  webSearchConfig: WebSearchConfig | null;
+  webSearchConfigError: string;
   updateSettings: (patch: Partial<WebToolsSettings>) => void;
   setSettings: (settings: WebToolsSettings) => void;
 };
@@ -42,19 +46,25 @@ export function WebToolsProvider({ children }: WebToolsProviderProps) {
     });
   }, []);
 
-  const tavilyConfig = useMemo(
-    () => resolveTavilyConfig(settings),
+  const webSearchConfig = useMemo(
+    () => resolveWebSearchConfig(settings),
+    [settings]
+  );
+
+  const webSearchConfigError = useMemo(
+    () => getWebSearchConfigError(settings),
     [settings]
   );
 
   const value = useMemo(
     () => ({
       settings,
-      tavilyConfig,
+      webSearchConfig,
+      webSearchConfigError,
       updateSettings,
       setSettings,
     }),
-    [settings, tavilyConfig, updateSettings, setSettings]
+    [settings, webSearchConfig, webSearchConfigError, updateSettings, setSettings]
   );
 
   return (

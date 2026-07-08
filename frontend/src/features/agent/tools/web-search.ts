@@ -12,28 +12,35 @@ type WebSearchArgs = {
 };
 
 export const webSearchHandler: ToolHandler = async (rawArgs, context) => {
-
-
   const args = parseWebSearchArgs(rawArgs);
   if (!args.ok) {
     return toolFailure(WEB_SEARCH_TOOL_NAME, "invalid_arguments", args.message);
   }
 
-  const tavilyConfig = context.tavilyConfig;
-  if (!tavilyConfig) {
-    return toolFailure(
-      WEB_SEARCH_TOOL_NAME,
-      "missing_api_key",
-      "Tavily API key is required. Configure it in Settings > Web tools."
-    );
+  const webSearchConfig = context.webSearchConfig;
+  if (!webSearchConfig) {
+    const message =
+      context.webSearchConfigError ??
+      "Web search is not configured. Configure it in Settings > Web tools.";
+    return toolFailure(WEB_SEARCH_TOOL_NAME, "missing_api_key", message);
   }
 
   try {
     const data = await apiPost<WebSearchData>("/api/tool_web_search", {
       searchTerm: args.value.search_term,
-      apiKeySource: tavilyConfig.apiKeySource,
-      apiKey: tavilyConfig.apiKeySource === "manual" ? tavilyConfig.apiKey : null,
-      apiKeyEnvVar: tavilyConfig.apiKeyEnvVar,
+      provider: webSearchConfig.provider,
+      apiKeySource: webSearchConfig.tavilyApiKeySource,
+      apiKey:
+        webSearchConfig.provider === "tavily" &&
+        webSearchConfig.tavilyApiKeySource === "manual"
+          ? webSearchConfig.tavilyApiKey
+          : null,
+      apiKeyEnvVar: webSearchConfig.tavilyApiKeyEnvVar,
+      searxngBaseUrl:
+        webSearchConfig.provider === "searxng"
+          ? webSearchConfig.searxngBaseUrl
+          : null,
+      allowPrivateNetwork: context.allowPrivateNetworkAccess ?? false,
       maxResults: args.value.max_results ?? null,
     });
     return toolSuccess(WEB_SEARCH_TOOL_NAME, data);

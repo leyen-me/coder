@@ -431,6 +431,14 @@ export const enMessages = {
       showUsageAriaLabel: "Toggle usage display",
     },
     webTools: {
+      webSearchProviderLabel: "Search provider",
+      webSearchProviderDescription:
+        "Choose the backend used by the web_search tool",
+      webSearchProviderAriaLabel: "Search provider",
+      webSearchProviders: {
+        tavily: "Tavily (default)",
+        searxng: "SearXNG",
+      },
       tavilyApiKeySourceLabel: "Tavily API key source",
       tavilyApiKeySourceDescription:
         "Enter the Tavily key manually or read it from an environment variable",
@@ -449,9 +457,14 @@ export const enMessages = {
         "Read the Tavily API key from this variable at runtime",
       tavilyApiKeyEnvVarPlaceholder: "TAVILY_API_KEY",
       tavilyApiKeyEnvVarAriaLabel: "Tavily API key environment variable",
+      searxngBaseUrlLabel: "SearXNG instance URL",
+      searxngBaseUrlDescription:
+        "Base URL for SearXNG when web_search uses it. JSON search (format=json) must be enabled.",
+      searxngBaseUrlPlaceholder: "https://searxng.example.com",
+      searxngBaseUrlAriaLabel: "SearXNG instance URL",
       allowPrivateNetworkAccessLabel: "Allow private network access",
       allowPrivateNetworkAccessDescription:
-        "Let browse_page fetch URLs on localhost and private networks (e.g. internal Swagger). Cloud metadata endpoints remain blocked.",
+        "Let browse_page and SearXNG access localhost and private networks (e.g. internal Swagger). Cloud metadata endpoints remain blocked.",
       allowPrivateNetworkAccessAriaLabel: "Allow private network access",
     },
     data: {

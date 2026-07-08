@@ -217,6 +217,15 @@ export type ReadShellLogsData = {
   truncated: boolean;
 };
 
+export type WebSearchConfig = {
+  provider: "tavily" | "searxng";
+  tavilyApiKeySource: "manual" | "env";
+  tavilyApiKey: string;
+  tavilyApiKeyEnvVar: string;
+  searxngBaseUrl: string;
+};
+
+/** @deprecated Use WebSearchConfig */
 export type TavilyConfig = {
   apiKeySource: "manual" | "env";
   apiKey: string;
@@ -273,7 +282,8 @@ export type ToolExecutionContext = {
   sessionId?: string;
   taskId?: string;
   signal?: AbortSignal;
-  tavilyConfig?: TavilyConfig | null;
+  webSearchConfig?: WebSearchConfig | null;
+  webSearchConfigError?: string;
   allowPrivateNetworkAccess?: boolean;
   /** Agent mode used to enforce tool permission at execution time. */
   agentMode?: AgentMode;

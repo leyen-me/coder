@@ -2,10 +2,18 @@ import {
   DEFAULT_TAVILY_API_KEY_ENV_VAR,
   DEFAULT_WEB_TOOLS_SETTINGS,
 } from "./constants";
-import type { ApiKeySource, WebToolsSettings } from "./types";
+import type {
+  ApiKeySource,
+  WebSearchProvider,
+  WebToolsSettings,
+} from "./types";
 
 function isApiKeySource(value: unknown): value is ApiKeySource {
   return value === "manual" || value === "env";
+}
+
+function isWebSearchProvider(value: unknown): value is WebSearchProvider {
+  return value === "tavily" || value === "searxng";
 }
 
 export function parseWebToolsSettings(raw: unknown): WebToolsSettings {
@@ -15,8 +23,12 @@ export function parseWebToolsSettings(raw: unknown): WebToolsSettings {
 
   const record = raw as Record<string, unknown>;
   const tavilyApiKeySource = record.tavilyApiKeySource;
+  const webSearchProvider = record.webSearchProvider;
 
   return {
+    webSearchProvider: isWebSearchProvider(webSearchProvider)
+      ? webSearchProvider
+      : DEFAULT_WEB_TOOLS_SETTINGS.webSearchProvider,
     tavilyApiKeySource: isApiKeySource(tavilyApiKeySource)
       ? tavilyApiKeySource
       : DEFAULT_WEB_TOOLS_SETTINGS.tavilyApiKeySource,
@@ -29,6 +41,10 @@ export function parseWebToolsSettings(raw: unknown): WebToolsSettings {
       record.tavilyApiKeyEnvVar.trim().length > 0
         ? record.tavilyApiKeyEnvVar.trim()
         : DEFAULT_TAVILY_API_KEY_ENV_VAR,
+    searxngBaseUrl:
+      typeof record.searxngBaseUrl === "string"
+        ? record.searxngBaseUrl
+        : DEFAULT_WEB_TOOLS_SETTINGS.searxngBaseUrl,
     allowPrivateNetworkAccess:
       typeof record.allowPrivateNetworkAccess === "boolean"
         ? record.allowPrivateNetworkAccess

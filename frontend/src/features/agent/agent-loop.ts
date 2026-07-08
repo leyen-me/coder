@@ -7,7 +7,7 @@ import type { ToolResultEnvelope } from "./tools/result";
 import { AgentCancellationError, isAgentCancellationError, throwIfAborted } from "./cancellation";
 import { parseToolCallInput, toolResultToInvocationPatch } from "./tools/tool-display";
 import { toApiToolCalls } from "./tools/api-tool-call";
-import type { AgentToolCall, TavilyConfig } from "./tools/types";
+import type { AgentToolCall, WebSearchConfig } from "./tools/types";
 import type { ModelDefinition } from "@/lib/model-provider/types";
 import { startAgent } from "./runner";
 import type { AgentChatMessage, AgentEvent, AgentEventHandler, AgentMode, AgentStartInput, TokenUsage } from "./types";
@@ -39,7 +39,8 @@ type ToolExecutionContextInput = {
   sessionId: string;
   taskId: string;
   signal?: AbortSignal;
-  tavilyConfig?: TavilyConfig | null;
+  webSearchConfig?: WebSearchConfig | null;
+  webSearchConfigError?: string;
   allowPrivateNetworkAccess?: boolean;
   agentMode?: AgentMode;
   spawnSubAgentConfig?: {
@@ -492,7 +493,8 @@ async function appendToolResults(
           sessionId: context.sessionId,
           taskId: context.taskId,
           signal: context.signal,
-          tavilyConfig: context.tavilyConfig,
+          webSearchConfig: context.webSearchConfig,
+          webSearchConfigError: context.webSearchConfigError,
           allowPrivateNetworkAccess: context.allowPrivateNetworkAccess,
           agentMode: context.agentMode,
           explicitlyAllowedToolNames,

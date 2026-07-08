@@ -133,23 +133,26 @@ describe("runAgentWithTools", () => {
         sessionId: "session-1",
         taskId: "task-1",
         signal: undefined,
-        tavilyConfig: undefined,
+        webSearchConfig: undefined,
+        webSearchConfigError: undefined,
         allowPrivateNetworkAccess: undefined,
       })
     );
   });
 
-  it("passes tavilyConfig through to tool execution", async () => {
+  it("passes webSearchConfig through to tool execution", async () => {
     executeToolCallMock.mockResolvedValue({
       ok: true,
       tool: "web_search",
       data: { query: "rust async", results: [] },
     });
 
-    const tavilyConfig = {
-      apiKeySource: "manual" as const,
-      apiKey: "tvly-test-key",
-      apiKeyEnvVar: "TAVILY_API_KEY",
+    const webSearchConfig = {
+      provider: "tavily" as const,
+      tavilyApiKeySource: "manual" as const,
+      tavilyApiKey: "tvly-test-key",
+      tavilyApiKeyEnvVar: "TAVILY_API_KEY",
+      searxngBaseUrl: "",
     };
 
     startAgentMock
@@ -181,7 +184,7 @@ describe("runAgentWithTools", () => {
         model: "deepseek-v4-pro",
         messages: [{ role: "user", content: "搜索 rust async" }],
       },
-      { workspaceDir: null, sessionId: "session-1", taskId: "task-1", tavilyConfig },
+      { workspaceDir: null, sessionId: "session-1", taskId: "task-1", webSearchConfig },
       () => {}
     );
 
@@ -193,7 +196,8 @@ describe("runAgentWithTools", () => {
         sessionId: "session-1",
         taskId: "task-1",
         signal: undefined,
-        tavilyConfig,
+        webSearchConfig,
+        webSearchConfigError: undefined,
         allowPrivateNetworkAccess: undefined,
       })
     );
@@ -545,7 +549,8 @@ describe("runAgentWithTools", () => {
         sessionId: "session-1",
         taskId: "task-1",
         signal: undefined,
-        tavilyConfig: undefined,
+        webSearchConfig: undefined,
+        webSearchConfigError: undefined,
         allowPrivateNetworkAccess: undefined,
       })
     );

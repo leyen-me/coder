@@ -1,11 +1,10 @@
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
-use super::network::{build_http_client, resolve_api_key, NetworkToolError};
+use super::{WebSearchResult, WebSearchResultItem, WebSearchToolError};
+use crate::tools::network::{build_http_client, resolve_api_key, NetworkToolError};
 
 const TAVILY_SEARCH_URL: &str = "https://api.tavily.com/search";
-const DEFAULT_MAX_RESULTS: u8 = 5;
-const MAX_MAX_RESULTS: u8 = 10;
 
 #[derive(Debug, Serialize)]
 struct TavilySearchRequest {
@@ -31,51 +30,18 @@ struct TavilySearchResult {
     score: Option<f64>,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WebSearchResultItem {
-    pub title: String,
-    pub url: String,
-    pub snippet: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub score: Option<f64>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WebSearchResult {
-    pub query: String,
-    pub results: Vec<WebSearchResultItem>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub answer: Option<String>,
-}
-
-pub type WebSearchToolError = NetworkToolError;
-
-pub async fn tool_web_search(
-    search_term: String,
+pub async fn search_tavily(
+    query: &str,
     api_key_source: String,
     api_key: Option<String>,
     api_key_env_var: Option<String>,
-    max_results: Option<u8>,
+    max_results: u8,
 ) -> Result<WebSearchResult, WebSearchToolError> {
-    let query = search_term.trim();
-    if query.is_empty() {
-        return Err(NetworkToolError::new(
-            "invalid_arguments",
-            "search_term is required",
-        ));
-    }
-
     let api_key = resolve_api_key(
         api_key_source.as_str(),
         api_key.as_deref(),
         api_key_env_var.as_deref().unwrap_or("TAVILY_API_KEY"),
     )?;
-
-    let max_results = max_results
-        .unwrap_or(DEFAULT_MAX_RESULTS)
-        .clamp(1, MAX_MAX_RESULTS);
 
     let client = build_http_client()?;
     let request = TavilySearchRequest {

@@ -380,6 +380,13 @@ export type Messages = {
       showUsageAriaLabel: string;
     };
     webTools: {
+      webSearchProviderLabel: string;
+      webSearchProviderDescription: string;
+      webSearchProviderAriaLabel: string;
+      webSearchProviders: {
+        tavily: string;
+        searxng: string;
+      };
       tavilyApiKeySourceLabel: string;
       tavilyApiKeySourceDescription: string;
       tavilyApiKeySourceAriaLabel: string;
@@ -395,6 +402,10 @@ export type Messages = {
       tavilyApiKeyEnvVarDescription: string;
       tavilyApiKeyEnvVarPlaceholder: string;
       tavilyApiKeyEnvVarAriaLabel: string;
+      searxngBaseUrlLabel: string;
+      searxngBaseUrlDescription: string;
+      searxngBaseUrlPlaceholder: string;
+      searxngBaseUrlAriaLabel: string;
       allowPrivateNetworkAccessLabel: string;
       allowPrivateNetworkAccessDescription: string;
       allowPrivateNetworkAccessAriaLabel: string;

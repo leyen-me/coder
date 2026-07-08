@@ -179,7 +179,11 @@ function navigateToSession(sessionId: string): void {
 
 export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const { resolved, resolveProviderForModel } = useModelProvider();
-  const { tavilyConfig, settings: webToolsSettings } = useWebTools();
+  const {
+    webSearchConfig,
+    webSearchConfigError,
+    settings: webToolsSettings,
+  } = useWebTools();
   const resolvedRef = useRef(resolved);
   resolvedRef.current = resolved;
   const tasksRef = useRef(new Map<string, ActiveTaskState>());
@@ -729,7 +733,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           sessionId: input.sessionId,
           taskId,
           signal: abortController.signal,
-          tavilyConfig,
+          webSearchConfig,
+          webSearchConfigError,
           allowPrivateNetworkAccess: webToolsSettings.allowPrivateNetworkAccess,
           agentMode: input.agentMode,
         },
@@ -769,7 +774,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     [
       dispatchAgentEvent,
       emit,
-      tavilyConfig,
+      webSearchConfig,
+      webSearchConfigError,
       webToolsSettings.allowPrivateNetworkAccess,
     ]
   );

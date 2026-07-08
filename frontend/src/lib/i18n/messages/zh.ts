@@ -421,6 +421,13 @@ export const zhMessages = {
       showUsageAriaLabel: "切换用量显示",
     },
     webTools: {
+      webSearchProviderLabel: "搜索 Provider",
+      webSearchProviderDescription: "选择 web_search 工具使用的搜索后端",
+      webSearchProviderAriaLabel: "搜索 Provider",
+      webSearchProviders: {
+        tavily: "Tavily（默认）",
+        searxng: "SearXNG",
+      },
       tavilyApiKeySourceLabel: "Tavily API Key 获取方式",
       tavilyApiKeySourceDescription: "选择手动填写或从环境变量读取",
       tavilyApiKeySourceAriaLabel: "Tavily API Key 获取方式",
@@ -437,9 +444,14 @@ export const zhMessages = {
       tavilyApiKeyEnvVarDescription: "运行时从此环境变量读取 Tavily API Key",
       tavilyApiKeyEnvVarPlaceholder: "TAVILY_API_KEY",
       tavilyApiKeyEnvVarAriaLabel: "Tavily API Key 环境变量名",
+      searxngBaseUrlLabel: "SearXNG 实例 URL",
+      searxngBaseUrlDescription:
+        "web_search 使用 SearXNG 时的实例地址，需支持 JSON 搜索（format=json）",
+      searxngBaseUrlPlaceholder: "https://searxng.example.com",
+      searxngBaseUrlAriaLabel: "SearXNG 实例 URL",
       allowPrivateNetworkAccessLabel: "允许访问内网地址",
       allowPrivateNetworkAccessDescription:
-        "允许 browse_page 访问 localhost 和私有网络地址（如内网 Swagger）。云元数据等高危地址仍会被拦截。",
+        "允许 browse_page 和 SearXNG 访问 localhost 和私有网络地址（如内网 Swagger）。云元数据等高危地址仍会被拦截。",
       allowPrivateNetworkAccessAriaLabel: "允许访问内网地址",
     },
     data: {
