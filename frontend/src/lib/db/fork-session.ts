@@ -46,7 +46,6 @@ export async function forkSessionFromMessage(
     decisionModel: session.decisionModel ?? null,
     planFileName: session.planFileName ?? null,
     planBuiltAt: session.planBuiltAt ?? null,
-    enableEmail: session.enableEmail,
   });
 
   await Promise.all(

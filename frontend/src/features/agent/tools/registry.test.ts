@@ -10,6 +10,7 @@ import {
   PLAN_LIST_TOOL_NAME,
   PLAN_READ_TOOL_NAME,
   PLAN_UPDATE_TOOL_NAME,
+  SEND_EMAIL_TOOL_NAME,
   TODO_WRITE_TOOL_NAME,
 } from "@/features/agent/tools/definitions";
 
@@ -25,6 +26,7 @@ describe("getAgentToolDefinitions", () => {
   it("excludes plan-only tools from agent mode", () => {
     const tools = getAgentToolDefinitions("agent");
     const toolNames = tools.map((tool) => tool.function.name);
+    expect(toolNames).toContain(SEND_EMAIL_TOOL_NAME);
     expect(toolNames).not.toContain(PLAN_CREATE_TOOL_NAME);
     expect(toolNames).not.toContain(PLAN_READ_TOOL_NAME);
     expect(toolNames).not.toContain(PLAN_UPDATE_TOOL_NAME);

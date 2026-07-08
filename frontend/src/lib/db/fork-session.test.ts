@@ -100,7 +100,6 @@ describe("forkSessionFromMessage", () => {
       decisionPolicyVersion: "mvp-v1",
       planFileName: "auth-plan.md",
       planBuiltAt: 123,
-      enableEmail: true,
       createdAt: 1,
       updatedAt: 1,
     });
@@ -137,7 +136,6 @@ describe("forkSessionFromMessage", () => {
       expect.objectContaining({
         planFileName: "auth-plan.md",
         planBuiltAt: 123,
-        enableEmail: true,
       }),
     );
   });

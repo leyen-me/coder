@@ -45,7 +45,7 @@ import { createStreamingBufferManager } from "../streaming-buffer";
 import { fileUIPartsToStoredImages } from "../message-content";
 import { messageRecordToAgentMessages } from "../message-history";
 import type { FileUIPart } from "ai";
-import { getAgentToolDefinitions, SEND_EMAIL_TOOL } from "../tools";
+import { getAgentToolDefinitions } from "../tools";
 import type { AgentToolDefinition } from "../tools/types";
 import { ensureSessionWorkspaceForAgent } from "../ensure-session-workspace";
 import { resolveAgentEnvironment } from "../environment";
@@ -1196,9 +1196,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const workspaceDir = session.workspaceDir?.trim() || null;
       const sessionPolicy = resolveAgentSessionPolicy(session);
       const sessionResolved = resolveProviderForModel(input.model) ?? resolved;
-      const extraTools = session.enableEmail
-        ? [...(input.extraTools ?? []), SEND_EMAIL_TOOL]
-        : input.extraTools;
       const [historyMessages, environment] = await Promise.all([
         getMessagesBySession(input.sessionId),
         resolveAgentEnvironment(workspaceDir),
@@ -1232,7 +1229,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         decisionPolicyVersion: sessionPolicy.decisionPolicyVersion,
         decisionModel: sessionPolicy.decisionModel,
         resolvedConfig: sessionResolved,
-        extraTools,
+        extraTools: input.extraTools,
       });
 
       return {
@@ -1334,7 +1331,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         input.model,
         input.thinkingEnabled
       );
-      const extraTools = session.enableEmail ? [SEND_EMAIL_TOOL] : undefined;
       const { assistantMessageId, taskId } = await startAgentTask({
         sessionId: input.sessionId,
         model: input.model,
@@ -1352,7 +1348,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         decisionPolicyVersion: sessionPolicy.decisionPolicyVersion,
         decisionModel: sessionPolicy.decisionModel,
         resolvedConfig: sessionResolved,
-        extraTools,
       });
 
       return {

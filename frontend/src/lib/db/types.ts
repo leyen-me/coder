@@ -44,8 +44,6 @@ export type SessionRecord = {
   planFileName?: string | null;
   /** Timestamp (ms) when the plan was built/executed. null/undefined means not yet built. */
   planBuiltAt?: number | null;
-  /** Whether the send_email tool was enabled for this session. */
-  enableEmail?: boolean;
   /** Timestamp (ms) when the session was pinned. null means not pinned. */
   pinnedAt?: number | null;
   createdAt: number;
