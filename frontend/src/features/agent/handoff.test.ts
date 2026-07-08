@@ -363,4 +363,45 @@ describe("handoff helpers", () => {
     expect(report.ok).toBe(true);
     expect(report.failures).toHaveLength(0);
   });
+
+  it("passes quality checks when concrete paths come from the working set alone", () => {
+    const report = evaluateHandoffQuality({
+      handoffBody: [
+        "## Pending Next Actions",
+        "1. Continue editing the handoff module",
+        "",
+        "## Key Decisions",
+        "- Trust the working set.",
+        "",
+        "## Artifacts And Evidence",
+        "- Ran exploratory grep only",
+      ].join("\n"),
+      workingSet: [
+        {
+          path: "frontend/src/features/agent/handoff.ts",
+          operationType: "edit",
+          lastOperation: "2026-07-08T10:00:00.000Z",
+          createdAt: 1,
+        },
+      ],
+      verification: null,
+    });
+
+    expect(report.ok).toBe(true);
+  });
+
+  it("includes quality failures in the handoff user prompt on retry", () => {
+    const prompt = buildAgentHandoffUserPrompt({
+      sessionTitle: "长任务排查",
+      contextUsage,
+      sessionKind: "long_task",
+      autonomyMode: "unattended",
+      decisionPolicyVersion: "mvp-v1",
+      decisionModel: "decision-model",
+      qualityFailures: ["Missing pending next actions."],
+    });
+
+    expect(prompt).toContain("Previous attempt failed quality checks");
+    expect(prompt).toContain("Missing pending next actions.");
+  });
 });

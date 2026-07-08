@@ -68,8 +68,11 @@ export async function runAgentWithTools(
       : undefined;
   const stallDetector = new ToolCallStallDetector();
 
-  // Accumulate token usage across all turns in a multi-turn agent loop.
+  // Accumulate token usage across all turns for billing/reporting.
   let cumulativeUsage: TokenUsage | undefined;
+  // Provider promptTokens reflect the full prompt for the latest request, not
+  // incremental usage — keep only the latest value for handoff threshold checks.
+  let latestPromptTokens: number | undefined;
 
   // Build spawnSubAgentConfig from input if not already provided,
   // so the spawn_subagent tool can reuse the parent's provider config.
@@ -95,7 +98,7 @@ export async function runAgentWithTools(
       messages,
       maxTokens: input.maxContextTokens,
       triggerThreshold: input.handoffTriggerThreshold,
-      reportedPromptTokens: cumulativeUsage?.promptTokens,
+      reportedPromptTokens: latestPromptTokens,
     });
     if (handoffUsage) {
       onEvent({
@@ -127,6 +130,7 @@ export async function runAgentWithTools(
     // Accumulate token usage across turns so multi-turn agent runs
     // (e.g., tool calls → results → follow-up) record the full cost.
     if (turn.usage) {
+      latestPromptTokens = turn.usage.promptTokens;
       cumulativeUsage = cumulativeUsage
         ? {
             promptTokens: cumulativeUsage.promptTokens + turn.usage.promptTokens,

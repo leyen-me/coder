@@ -3,6 +3,10 @@ use std::process::Command;
 
 use serde::Serialize;
 
+use crate::tools::git::git_current_branch;
+
+const MAX_DIFF_CHARS: usize = 65_536;
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GitSnapshotResult {
@@ -17,7 +21,7 @@ pub struct GitSnapshotResult {
 pub fn tool_collect_git_snapshot(workspace_dir: String) -> Result<GitSnapshotResult, String> {
     let trimmed = workspace_dir.trim();
     if trimmed.is_empty() {
-        return Ok(empty_snapshot());
+        return Err("workspaceDir is required".to_string());
     }
 
     let git_dir = Path::new(trimmed).join(".git");
@@ -26,12 +30,12 @@ pub fn tool_collect_git_snapshot(workspace_dir: String) -> Result<GitSnapshotRes
     }
 
     Ok(GitSnapshotResult {
-        branch: git_command(trimmed, &["rev-parse", "--abbrev-ref", "HEAD"])?,
-        status_short: git_command(trimmed, &["status", "--short"])?.unwrap_or_default(),
-        diff_stat: git_command(trimmed, &["diff", "--stat"])?.unwrap_or_default(),
-        unstaged_diff: git_command(trimmed, &["diff"])?.unwrap_or_default(),
-        staged_diff: git_command(trimmed, &["diff", "--staged"])?.unwrap_or_default(),
-        recent_log: git_command(trimmed, &["log", "--oneline", "-n", "20"])?.unwrap_or_default(),
+        branch: git_current_branch(trimmed.to_string()).unwrap_or(None),
+        status_short: git_command(trimmed, &["status", "--short"]),
+        diff_stat: git_command(trimmed, &["diff", "--stat"]),
+        unstaged_diff: git_command(trimmed, &["diff"]),
+        staged_diff: git_command(trimmed, &["diff", "--staged"]),
+        recent_log: git_command(trimmed, &["log", "--oneline", "-n", "20"]),
     })
 }
 
@@ -46,23 +50,39 @@ fn empty_snapshot() -> GitSnapshotResult {
     }
 }
 
-fn git_command(working_dir: &str, args: &[&str]) -> Result<Option<String>, String> {
-    let output = Command::new("git")
+fn git_command(working_dir: &str, args: &[&str]) -> String {
+    let output = match Command::new("git")
         .args(args)
         .current_dir(working_dir)
         .output()
-        .map_err(|error| format!("Failed to run git {:?}: {error}", args))?;
+    {
+        Ok(output) => output,
+        Err(error) => {
+            log::warn!("Failed to run git {:?} in {working_dir}: {error}", args);
+            return String::new();
+        }
+    };
 
     if !output.status.success() {
-        return Ok(None);
+        log::warn!(
+            "git {:?} exited with {} in {working_dir}",
+            args,
+            output.status
+        );
+        return String::new();
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if stdout.is_empty() {
-        return Ok(None);
+    truncate_text(stdout, MAX_DIFF_CHARS)
+}
+
+fn truncate_text(text: String, max_chars: usize) -> String {
+    if text.chars().count() <= max_chars {
+        return text;
     }
 
-    Ok(Some(stdout))
+    let truncated: String = text.chars().take(max_chars).collect();
+    format!("{truncated}\n\n... [truncated]")
 }
 
 #[cfg(test)]
@@ -72,7 +92,7 @@ mod tests {
     use std::process::Command;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use super::tool_collect_git_snapshot;
+    use super::{tool_collect_git_snapshot, truncate_text, MAX_DIFF_CHARS};
 
     #[test]
     fn returns_empty_snapshot_outside_git_repo() {
@@ -104,6 +124,16 @@ mod tests {
         assert!(snapshot.unstaged_diff.contains("world"));
         assert!(snapshot.recent_log.contains("init"));
         let _ = fs::remove_dir_all(repo);
+    }
+
+    #[test]
+    fn truncates_large_diff_output() {
+        let large = "x".repeat(MAX_DIFF_CHARS + 100);
+        let original_len = large.chars().count();
+        let truncated = truncate_text(large, MAX_DIFF_CHARS);
+        assert!(truncated.contains("... [truncated]"));
+        assert!(truncated.chars().count() > MAX_DIFF_CHARS);
+        assert!(truncated.chars().count() < original_len);
     }
 
     fn run_git(repo: &Path, args: &[&str]) {

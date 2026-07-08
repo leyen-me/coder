@@ -69,15 +69,36 @@ export const readPriorToolOutputHandler: ToolHandler = async (rawArgs) => {
     );
   }
 
+  const outputPath = candidate.outputPath?.trim() || null;
+  if (outputPath) {
+    const outputFile = await readWorkspaceTextFile(workspaceDir, outputPath);
+    if (!outputFile) {
+      return toolFailure(
+        READ_PRIOR_TOOL_OUTPUT_TOOL_NAME,
+        "not_found",
+        "The archived tool output file could not be read."
+      );
+    }
+
+    const data: PriorToolOutputData = {
+      sessionId: args.value.session_id,
+      toolName: candidate.toolName,
+      archivePath: candidate.archivePath,
+      outputPath,
+      content: outputFile.content,
+    };
+
+    return toolSuccess(READ_PRIOR_TOOL_OUTPUT_TOOL_NAME, data);
+  }
+
   const archivePath =
-    candidate.outputPath ??
     buildToolArchiveFilePath(
       args.value.session_id,
       candidate.messageId,
       { id: candidate.invocationId, name: candidate.toolName }
     );
-  const content = await readWorkspaceTextFile(workspaceDir, archivePath);
-  if (!content) {
+  const archiveFile = await readWorkspaceTextFile(workspaceDir, archivePath);
+  if (!archiveFile) {
     return toolFailure(
       READ_PRIOR_TOOL_OUTPUT_TOOL_NAME,
       "not_found",
@@ -90,11 +111,28 @@ export const readPriorToolOutputHandler: ToolHandler = async (rawArgs) => {
     toolName: candidate.toolName,
     archivePath: candidate.archivePath,
     outputPath: candidate.outputPath,
-    content: content.content,
+    content: extractPriorToolOutputContent(archiveFile.content),
   };
 
   return toolSuccess(READ_PRIOR_TOOL_OUTPUT_TOOL_NAME, data);
 };
+
+function extractPriorToolOutputContent(rawContent: string): string {
+  try {
+    const parsed = JSON.parse(rawContent) as Record<string, unknown>;
+    if (parsed.output !== undefined && parsed.output !== null) {
+      return typeof parsed.output === "string"
+        ? parsed.output
+        : JSON.stringify(parsed.output, null, 2);
+    }
+    if (typeof parsed.summary === "string" && parsed.summary.trim()) {
+      return parsed.summary;
+    }
+  } catch {
+    // Not JSON — return the raw archive text.
+  }
+  return rawContent;
+}
 
 function parseArgs(
   rawArgs: unknown

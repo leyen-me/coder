@@ -72,6 +72,58 @@ describe("readPriorToolOutputHandler", () => {
     }
   });
 
+  it("extracts embedded output from archive wrapper JSON", async () => {
+    vi.mocked(getSession).mockResolvedValue({
+      id: "session-1",
+      title: "Chat",
+      model: "gpt-test",
+      provider: "custom",
+      workspaceDir: "/workspace",
+      sessionKind: "standard",
+      autonomyMode: "interactive",
+      decisionPolicyVersion: "mvp-v1",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    vi.mocked(readToolArchiveIndex).mockResolvedValue({
+      sessionId: "session-1",
+      generatedAt: "2026-07-08T10:00:00.000Z",
+      entries: [
+        {
+          sessionId: "session-1",
+          messageId: "msg-1",
+          invocationId: "call-1",
+          toolName: "grep",
+          createdAt: 10,
+          archivePath: ".agent/archive.json",
+          outputPath: null,
+          relativeTargetPath: "src/handoff.ts",
+          queryPattern: "handoff",
+        },
+      ],
+    });
+    vi.mocked(readWorkspaceTextFile).mockResolvedValue({
+      path: ".agent/archive.json",
+      sha256: "abc",
+      content: JSON.stringify({
+        toolName: "grep",
+        output: { ok: true, data: { matches: 3 } },
+        summary: "3 matches",
+      }),
+    });
+
+    const result = await readPriorToolOutputHandler(
+      { session_id: "session-1", tool_name: "grep" },
+      { workspaceDir: "/workspace" }
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.content).toContain('"matches": 3');
+      expect(result.data.content).not.toContain('"summary"');
+    }
+  });
+
   it("fails when no archive exists", async () => {
     vi.mocked(getSession).mockResolvedValue({
       id: "session-1",

@@ -37,9 +37,13 @@ export async function collectGitSnapshot(
     return null;
   }
 
-  return apiPost<HandoffGitSnapshot>("/api/handoff_git_snapshot", {
-    workspaceDir: trimmed,
-  });
+  try {
+    return await apiPost<HandoffGitSnapshot>("/api/handoff_git_snapshot", {
+      workspaceDir: trimmed,
+    });
+  } catch {
+    return null;
+  }
 }
 
 export async function collectBackgroundJobSnapshot(
@@ -72,7 +76,9 @@ export function collectVerificationSnapshot(
 ): HandoffVerificationSnapshot {
   const shellInvocations = messages.flatMap((message) =>
     (message.toolInvocations ?? [])
-      .filter((invocation) => invocation.name === "shell")
+      .filter((invocation) =>
+        invocation.name === "shell" || invocation.name === "remote_shell"
+      )
       .map((invocation) => ({
         createdAt: message.createdAt,
         input: invocation.input,

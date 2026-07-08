@@ -17,6 +17,7 @@ import {
   createSession,
   createTaskId,
   deleteMessagesAfter,
+  deleteSession,
   deriveSessionTitle,
   getMessage,
   getMessagesBySession,
@@ -825,6 +826,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const generateHandoffDocument = useCallback(
     async (input: {
       sessionId: string;
+      taskId: string;
       model: string;
       userContent: string;
       contextUsage: AgentContextUsageSnapshot;
@@ -843,7 +845,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const [sourceMessages, environment, gitSnapshot, backgroundJobs] = await Promise.all([
         getMessagesBySession(input.sessionId),
         resolveAgentEnvironment(workspaceDir),
-        collectGitSnapshot(workspaceDir),
+        collectGitSnapshot(workspaceDir).catch(() => null),
         collectBackgroundJobSnapshot(input.taskId).catch(() => []),
       ]);
       const replay = await prepareReplayRecords({
@@ -881,6 +883,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
       const handoffResolved = resolveProviderForModel(input.model) ?? resolvedRef.current;
 
+      let lastQualityFailures: string[] = [];
+
       for (let attempt = 0; attempt < 3; attempt += 1) {
         const handoffTaskId = createTaskId();
         const handoffMessages: AgentChatMessage[] = [
@@ -895,12 +899,15 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               autonomyMode: input.autonomyMode,
               decisionPolicyVersion: input.decisionPolicyVersion,
               decisionModel: input.decisionModel,
+              qualityFailures:
+                lastQualityFailures.length > 0 ? lastQualityFailures : undefined,
             }),
           },
         ];
 
         let handoffContent = "";
         let handoffError: string | null = null;
+        let generationFailed = false;
 
         try {
           await new Promise<void>((resolve, reject) => {
@@ -954,32 +961,22 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             ).catch(reject);
           });
         } catch {
-          return {
-            handoffBody: buildFallbackHandoffBody({
-              userContent: input.userContent,
-              sourceSessionTitle: session.title,
-            }),
-            sourceMessages,
-            replayArtifacts: replay.artifacts,
-            workingSet,
-            verification,
-            gitSnapshot,
-            backgroundJobs,
-            referencedSkills,
-            verificationChecklist,
-            assumptions,
-            knownErrors,
-            invariants: [],
-            openRisks: [],
-          };
+          generationFailed = true;
+          if (attempt < 2) {
+            continue;
+          }
         }
 
-        const finalBody =
-          handoffContent.trim() ||
-          buildFallbackHandoffBody({
-            userContent: input.userContent,
-            sourceSessionTitle: session.title,
-          });
+        const finalBody = generationFailed
+          ? buildFallbackHandoffBody({
+              userContent: input.userContent,
+              sourceSessionTitle: session.title,
+            })
+          : handoffContent.trim() ||
+            buildFallbackHandoffBody({
+              userContent: input.userContent,
+              sourceSessionTitle: session.title,
+            });
         const qualityBody = buildAugmentedHandoffBody(finalBody, {
           workingSet,
           verification,
@@ -1016,6 +1013,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             openRisks: extractOpenRisksFromBody(finalBody),
           };
         }
+
+        lastQualityFailures = quality.failures;
       }
 
       throw new Error(
@@ -1027,6 +1026,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
   const continueTaskFromHandoff = useCallback(
     async (input: PendingSessionHandoff) => {
+      let continuedSessionId: string | null = null;
+
       try {
         setSessionHandoffState(input.sessionId, "generating_handoff");
         const sourceSession = await getSession(input.sessionId);
@@ -1036,6 +1037,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
         const generated = await generateHandoffDocument({
           sessionId: input.sessionId,
+          taskId: input.taskId,
           model: input.model,
           userContent: input.userContent,
           contextUsage: input.contextUsage,
@@ -1062,6 +1064,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           planFileName: sourceSession.planFileName ?? null,
           planBuiltAt: sourceSession.planBuiltAt ?? null,
         });
+        continuedSessionId = nextSession.id;
 
         await copyAgentTodosForSession(sourceSession.id, nextSession.id);
 
@@ -1195,6 +1198,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         clearSessionHandoffState(input.sessionId);
         navigateToSession(nextSession.id);
       } catch (error) {
+        if (continuedSessionId) {
+          await deleteSession(continuedSessionId).catch(() => undefined);
+        }
         clearSessionHandoffState(input.sessionId);
         const message = error instanceof Error ? error.message : String(error);
         await createMessage({
