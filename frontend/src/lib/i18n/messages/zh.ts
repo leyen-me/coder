@@ -421,11 +421,11 @@ export const zhMessages = {
       showUsageAriaLabel: "切换用量显示",
     },
     webTools: {
-      webSearchProviderLabel: "搜索 Provider",
-      webSearchProviderDescription: "选择 web_search 工具使用的搜索后端",
-      webSearchProviderAriaLabel: "搜索 Provider",
+      webSearchProviderLabel: "搜索服务",
+      webSearchProviderDescription: "选择联网搜索工具使用的搜索服务",
+      webSearchProviderAriaLabel: "搜索服务",
       webSearchProviders: {
-        tavily: "Tavily（默认）",
+        tavily: "Tavily",
         searxng: "SearXNG",
       },
       tavilyApiKeySourceLabel: "Tavily API Key 获取方式",

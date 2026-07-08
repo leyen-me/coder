@@ -436,7 +436,7 @@ export const enMessages = {
         "Choose the backend used by the web_search tool",
       webSearchProviderAriaLabel: "Search provider",
       webSearchProviders: {
-        tavily: "Tavily (default)",
+        tavily: "Tavily",
         searxng: "SearXNG",
       },
       tavilyApiKeySourceLabel: "Tavily API key source",
