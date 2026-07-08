@@ -51,6 +51,17 @@ function getScrollViewport(container: HTMLElement): HTMLElement | null {
   return viewport instanceof HTMLElement ? viewport : null;
 }
 
+function resolveScrollViewport(
+  scrollViewport: HTMLElement | null,
+  scrollContainer: HTMLElement | null
+): HTMLElement | null {
+  if (scrollViewport) {
+    return scrollViewport;
+  }
+
+  return scrollContainer ? getScrollViewport(scrollContainer) : null;
+}
+
 function scrollViewportToBottom(
   viewport: HTMLElement | null,
   smooth: boolean,
@@ -218,7 +229,10 @@ export function MessageList({
       // scroll container, so native scrollHeight is reliable — unlike
       // scrollToIndex, which fails when non-virtual content sits above the list.
       scrollViewportToBottom(
-        scrollViewportRef.current,
+        resolveScrollViewport(
+          scrollViewportRef.current,
+          scrollContainerRef.current
+        ),
         smooth,
         () => markProgrammaticScroll(smooth)
       );
@@ -232,7 +246,10 @@ export function MessageList({
       suppressScrollPinUpdatesRef.current = true;
       scrollToBottom(smooth);
 
-      const viewport = scrollViewportRef.current;
+      const viewport = resolveScrollViewport(
+        scrollViewportRef.current,
+        scrollContainerRef.current
+      );
       if (!viewport) {
         return;
       }
@@ -289,7 +306,7 @@ export function MessageList({
     return -1;
   }, [messages]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) {
       return;
@@ -340,11 +357,32 @@ export function MessageList({
     handoffContinuedSessionId,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setPinnedToBottom(true);
     setIsViewportNearBottom(true);
     previousMessageCountRef.current = messages.length;
-  }, [sessionId, setPinnedToBottom]);
+
+    if (!sessionId || messages.length === 0) {
+      return;
+    }
+
+    scheduleScrollToBottom();
+  }, [sessionId, messages.length, scheduleScrollToBottom, setPinnedToBottom]);
+
+  // Virtual list scroll margin and viewport readiness affect scrollHeight.
+  useEffect(() => {
+    if (!sessionId || messages.length === 0 || !isPinnedToBottomRef.current) {
+      return;
+    }
+
+    scheduleScrollToBottom();
+  }, [
+    sessionId,
+    messages.length,
+    scrollViewport,
+    virtualListScrollMargin,
+    scheduleScrollToBottom,
+  ]);
 
   useEffect(() => {
     if (!scrollViewport) {
