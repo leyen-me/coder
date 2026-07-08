@@ -4,9 +4,14 @@ import {
   AGENT_HANDOFF_SYSTEM_PROMPT,
   buildAgentHandoffUserPrompt,
   buildContinuationPrompt,
+  buildVerificationChecklist,
   buildFallbackHandoffBody,
   buildStoredHandoffArtifact,
   deriveContinuationSessionTitle,
+  evaluateHandoffQuality,
+  extractKnownErrorFingerprints,
+  extractReferencedSkillSlugs,
+  extractWorkingSet,
   findLatestHandoffArtifactMessage,
   extractHandoffArtifactFromContinuationPrompt,
   isHandoffArtifactContent,
@@ -79,11 +84,23 @@ describe("handoff helpers", () => {
       sessionKind: "long_task",
       autonomyMode: "unattended",
       decisionPolicyVersion: "mvp-v1",
+      workingSet: [
+        {
+          path: "frontend/src/features/agent/handoff.ts",
+          operationType: "edit",
+          lastOperation: "2026-07-08T10:00:00.000Z",
+          createdAt: 1,
+        },
+      ],
+      verificationChecklist: ["Re-run `pnpm test handoff`."],
+      toolArchiveIndexPath: ".agent/sessions/source/tool-archive/index.json",
     });
 
     expect(prompt).toContain("authoritative working state");
     expect(prompt).toContain("Continue autonomously without waiting for user input");
-    expect(prompt).toContain("choose the best reasonable default");
+    expect(prompt).toContain("Do NOT glob or broadly explore the codebase");
+    expect(prompt).toContain("Tool archive index");
+    expect(prompt).toContain("Continuation Verification Checklist");
     expect(prompt).toContain("Previous session: 长任务排查");
     expect(prompt).toContain("Session policy: long_task / unattended / mvp-v1");
   });
@@ -188,5 +205,162 @@ describe("handoff helpers", () => {
 
     expect(findLatestHandoffArtifactMessage(messages)?.content).toBe(artifact);
     expect(resolveContinuedSessionIdFromMessages(messages)).toBe("session-new");
+  });
+
+  it("extracts a deduplicated working set from tool invocations", () => {
+    const workingSet = extractWorkingSet([
+      {
+        id: "msg-1",
+        sessionId: "session",
+        role: "assistant",
+        content: "done",
+        thinking: "",
+        processSteps: [],
+        toolInvocations: [
+          {
+            id: "call-1",
+            name: "read_file",
+            input: { path: "src/a.ts" },
+            output: { ok: true, tool: "read_file", data: { sha256: "abc" } },
+            state: "output-available",
+          },
+          {
+            id: "call-2",
+            name: "edit_file",
+            input: { path: "src/a.ts" },
+            state: "input-available",
+          },
+          {
+            id: "call-3",
+            name: "glob",
+            input: { glob_pattern: "**/*.ts" },
+            state: "input-available",
+          },
+        ],
+        status: "completed",
+        taskId: null,
+        error: null,
+        createdAt: 2,
+      },
+    ]);
+
+    expect(workingSet).toHaveLength(2);
+    expect(workingSet[0]?.path).toBe("src/a.ts");
+    expect(workingSet[0]?.operationType).toBe("edit");
+    expect(workingSet[0]?.lastKnownHash).toBeNull();
+    expect(workingSet[1]?.path).toBe("[glob]");
+  });
+
+  it("extracts referenced skills and known errors from session messages", () => {
+    expect(
+      extractReferencedSkillSlugs([
+        {
+          id: "user-1",
+          sessionId: "session",
+          role: "user",
+          content: "/review please",
+          referencedSkills: ["review", "debug"],
+          thinking: "",
+          processSteps: [],
+          toolInvocations: [],
+          status: "completed",
+          taskId: null,
+          error: null,
+          createdAt: 1,
+        },
+      ])
+    ).toEqual(["review", "debug"]);
+
+    expect(
+      extractKnownErrorFingerprints([
+        {
+          id: "assistant-1",
+          sessionId: "session",
+          role: "assistant",
+          content: "",
+          thinking: "",
+          processSteps: [],
+          toolInvocations: [
+            {
+              id: "call-1",
+              name: "shell",
+              input: {},
+              state: "output-error",
+              errorText: "TS2345 at handoff.ts:42",
+            },
+          ],
+          status: "failed",
+          taskId: null,
+          error: "TS2345",
+          createdAt: 1,
+        },
+      ])
+    ).toEqual(["shell: TS2345 at handoff.ts:42"]);
+  });
+
+  it("builds a continuation verification checklist and quality gate", () => {
+    const checklist = buildVerificationChecklist({
+      verification: {
+        lastTestCommand: "pnpm test handoff",
+        lastTestExitCode: 0,
+        lastBuildCommand: null,
+        lastBuildExitCode: null,
+        failingCommandSnippet: null,
+      },
+      workingSet: [
+        {
+          path: "frontend/src/features/agent/handoff.ts",
+          operationType: "edit",
+          lastOperation: "2026-07-08T10:00:00.000Z",
+          createdAt: 1,
+        },
+      ],
+      backgroundJobs: [
+        {
+          shellId: "shell-1",
+          command: "pnpm dev",
+          workingDirectory: "/workspace",
+          status: "running",
+          lastOutput: "ready",
+        },
+      ],
+    });
+
+    expect(checklist[0]).toContain("pnpm test handoff");
+    expect(checklist[1]).toContain("handoff.ts");
+    expect(checklist[2]).toContain("shell-1");
+
+    const report = evaluateHandoffQuality({
+      handoffBody: [
+        "## Pending Next Actions",
+        "1. Update frontend/src/features/agent/handoff.ts",
+        "",
+        "## Key Decisions",
+        "- Keep working set limited.",
+        "",
+        "## Artifacts And Evidence",
+        "- Unknown",
+        "",
+        "Files: frontend/src/features/agent/handoff.ts frontend/src/features/agent/store/agent-store.tsx frontend/src/features/agent/context-monitor.ts",
+      ].join("\n"),
+      workingSet: [
+        {
+          path: "frontend/src/features/agent/handoff.ts",
+          operationType: "edit",
+          lastOperation: "2026-07-08T10:00:00.000Z",
+          createdAt: 1,
+        },
+      ],
+      verification: {
+        lastTestCommand: "pnpm test handoff",
+        lastTestExitCode: 0,
+        lastBuildCommand: null,
+        lastBuildExitCode: null,
+        failingCommandSnippet: null,
+      },
+    });
+
+    expect(report.ok).toBe(true);
+    expect(report.failures).toHaveLength(0);
   });
 });

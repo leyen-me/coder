@@ -44,6 +44,7 @@ describe("context-monitor", () => {
     });
 
     expect(usage.usedTokens).toBeGreaterThan(IMAGE_TOKEN_ESTIMATE_BASELINE);
+    expect(usage.estimatedTokens).toBeGreaterThan(0);
     expect(usage.remainingTokens).toBe(10_000 - usage.usedTokens);
     expect(usage.reservedTokens).toBeGreaterThan(0);
   });
@@ -90,6 +91,17 @@ describe("context-monitor", () => {
     });
 
     expect(usage.triggerThreshold).toBe(agentContextMonitorConfig.defaultThreshold);
+  });
+
+  it("prefers provider-reported prompt token usage when available", () => {
+    const usage = estimateAgentContextUsage({
+      maxTokens: 20_000,
+      reportedPromptTokens: 5_000,
+      messages: [{ role: "assistant", content: "hello" }],
+    });
+
+    expect(usage.usedTokens).toBe(5_000);
+    expect(usage.estimatedTokens).toBeLessThan(usage.usedTokens);
   });
 });
 

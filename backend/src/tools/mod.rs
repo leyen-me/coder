@@ -2,6 +2,7 @@ mod browse_directories;
 mod browse_page;
 mod edit_file;
 mod git;
+mod handoff;
 mod replace_lines;
 pub mod env;
 mod file_modify;
@@ -41,6 +42,7 @@ pub use file_ops::{
 };
 pub use glob::tool_glob;
 pub use grep::tool_grep;
+pub use handoff::tool_collect_git_snapshot;
 pub use list_dir::tool_list_dir;
 pub use open_in_explorer::open_in_explorer;
 pub use mail::send_email;

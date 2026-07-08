@@ -15,6 +15,7 @@ const MAX_HANDOFF_RESERVE_TOKENS = 24_000;
 
 export type AgentContextUsage = {
   usedTokens: number;
+  estimatedTokens: number;
   maxTokens: number;
   remainingTokens: number;
   reservedTokens: number;
@@ -25,6 +26,7 @@ export function estimateAgentContextUsage(input: {
   messages: readonly AgentChatMessage[];
   maxTokens?: number;
   triggerThreshold?: number;
+  reportedPromptTokens?: number | null;
 }): AgentContextUsage {
   const maxTokens = normalizePositiveInteger(
     input.maxTokens,
@@ -34,9 +36,13 @@ export function estimateAgentContextUsage(input: {
     input.triggerThreshold,
     DEFAULT_AGENT_HANDOFF_THRESHOLD
   );
-  const usedTokens = input.messages.reduce(
+  const estimatedTokens = input.messages.reduce(
     (total, message) => total + estimateAgentMessageTokens(message),
     0
+  );
+  const usedTokens = normalizeReportedTokens(
+    input.reportedPromptTokens,
+    estimatedTokens
   );
   const remainingTokens = Math.max(maxTokens - usedTokens, 0);
   const reservedTokens = clamp(
@@ -50,6 +56,7 @@ export function estimateAgentContextUsage(input: {
 
   return {
     usedTokens,
+    estimatedTokens,
     maxTokens,
     remainingTokens,
     reservedTokens,
@@ -61,6 +68,7 @@ export function shouldTriggerContextHandoff(input: {
   messages: readonly AgentChatMessage[];
   maxTokens?: number;
   triggerThreshold?: number;
+  reportedPromptTokens?: number | null;
 }): AgentContextUsage | null {
   if (!hasReplayableWork(input.messages)) {
     return null;
@@ -143,6 +151,20 @@ function normalizePositiveInteger(value: number | undefined, fallback: number): 
     return fallback;
   }
   return Math.floor(value);
+}
+
+function normalizeReportedTokens(
+  reportedPromptTokens: number | null | undefined,
+  estimatedTokens: number
+): number {
+  if (
+    typeof reportedPromptTokens === "number" &&
+    Number.isFinite(reportedPromptTokens) &&
+    reportedPromptTokens > 0
+  ) {
+    return Math.max(Math.floor(reportedPromptTokens), estimatedTokens);
+  }
+  return estimatedTokens;
 }
 
 function normalizeThreshold(value: number | undefined, fallback: number): number {

@@ -2,6 +2,7 @@ import type { AgentToolDefinition } from "./types";
 
 export const LIST_DIR_TOOL_NAME = "list_dir";
 export const READ_FILE_TOOL_NAME = "read_file";
+export const READ_PRIOR_TOOL_OUTPUT_TOOL_NAME = "read_prior_tool_output";
 export const WRITE_FILE_TOOL_NAME = "write_file";
 export const REPLACE_FILE_TOOL_NAME = "replace_file";
 export const EDIT_FILE_TOOL_NAME = "edit_file";
@@ -101,6 +102,35 @@ export const READ_FILE_TOOL: AgentToolDefinition = {
         },
       },
       required: ["path"],
+      additionalProperties: false,
+    },
+  },
+};
+
+export const READ_PRIOR_TOOL_OUTPUT_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: READ_PRIOR_TOOL_OUTPUT_TOOL_NAME,
+    description:
+      "Read archived tool output from a previous session handoff instead of re-running the original tool.",
+    parameters: {
+      type: "object",
+      properties: {
+        session_id: {
+          type: "string",
+          description: "Source session id that owns the tool archive.",
+        },
+        tool_name: {
+          type: "string",
+          description: "Optional tool name filter, such as read_file or shell.",
+        },
+        path_pattern: {
+          type: "string",
+          description:
+            "Optional substring filter matched against the archived target path or query pattern.",
+        },
+      },
+      required: ["session_id"],
       additionalProperties: false,
     },
   },
@@ -1102,6 +1132,7 @@ export const SPAWN_SUBAGENT_TOOL: AgentToolDefinition = {
 export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   LIST_DIR_TOOL,
   READ_FILE_TOOL,
+  READ_PRIOR_TOOL_OUTPUT_TOOL,
   WRITE_FILE_TOOL,
   REPLACE_FILE_TOOL,
   EDIT_FILE_TOOL,

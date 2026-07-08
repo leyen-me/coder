@@ -65,6 +65,14 @@ export type ReadFileToolErrorPayload = {
   size?: number;
 };
 
+export type PriorToolOutputData = {
+  sessionId: string;
+  toolName?: string;
+  archivePath: string;
+  outputPath?: string | null;
+  content: string;
+};
+
 export type WriteFileData = {
   path: string;
   action: "created";

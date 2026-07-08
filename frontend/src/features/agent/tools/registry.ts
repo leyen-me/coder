@@ -22,6 +22,7 @@ import {
   PLAN_READ_TOOL_NAME,
   PLAN_UPDATE_TOOL_NAME,
   READ_FILE_TOOL_NAME,
+  READ_PRIOR_TOOL_OUTPUT_TOOL_NAME,
   READ_SKILL_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
   SEND_EMAIL_TOOL_NAME,
@@ -55,6 +56,7 @@ import {
   planUpdateHandler,
 } from "./plan";
 import { readFileHandler } from "./read-file";
+import { readPriorToolOutputHandler } from "./read-prior-tool-output";
 import { readShellLogsHandler } from "./read-shell-logs";
 import { remoteShellHandler } from "./remote-shell";
 import { readSkillHandler } from "./read-skill";
@@ -81,6 +83,7 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [ASK_QUESTION_TOOL_NAME]: askQuestionHandler,
   [LIST_DIR_TOOL_NAME]: listDirHandler,
   [READ_FILE_TOOL_NAME]: readFileHandler,
+  [READ_PRIOR_TOOL_OUTPUT_TOOL_NAME]: readPriorToolOutputHandler,
   [WRITE_FILE_TOOL_NAME]: writeFileHandler,
   [REPLACE_FILE_TOOL_NAME]: replaceFileHandler,
   [EDIT_FILE_TOOL_NAME]: editFileHandler,

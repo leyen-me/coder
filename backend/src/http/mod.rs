@@ -47,6 +47,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/runtime_environment", post(routes_tool::handle_runtime_environment))
         .route("/api/test_remote_connection", post(routes_tool::handle_test_remote_connection))
         .route("/api/git_current_branch", post(routes_tool::handle_git_current_branch))
+        .route("/api/handoff_git_snapshot", post(routes_tool::handle_handoff_git_snapshot))
         .route(
             "/api/validate_workspace_dir",
             post(routes_tool::handle_validate_workspace_dir),

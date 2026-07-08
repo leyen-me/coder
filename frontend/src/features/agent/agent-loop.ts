@@ -95,6 +95,7 @@ export async function runAgentWithTools(
       messages,
       maxTokens: input.maxContextTokens,
       triggerThreshold: input.handoffTriggerThreshold,
+      reportedPromptTokens: cumulativeUsage?.promptTokens,
     });
     if (handoffUsage) {
       onEvent({

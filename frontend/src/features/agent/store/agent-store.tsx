@@ -11,6 +11,7 @@ import {
 import {
   addMessageToolInvocation,
   completeMessageToolInvocation,
+  copyAgentTodosForSession,
   mergeToolInvocations,
   createMessage,
   createSession,
@@ -73,13 +74,36 @@ import type {
 } from "../types";
 import {
   AGENT_HANDOFF_SYSTEM_PROMPT,
+  buildAugmentedHandoffBody,
   buildAgentHandoffUserPrompt,
+  buildVerificationChecklist,
   buildContinuationPrompt,
   buildFallbackHandoffBody,
   buildStoredHandoffArtifact,
   deriveContinuationSessionTitle,
+  evaluateHandoffQuality,
+  extractAssumptionsFromBody,
+  extractDecisionSummaries,
+  extractInvariantsFromBody,
+  extractKnownErrorFingerprints,
+  extractOpenRisksFromBody,
+  extractPendingNextActions,
+  extractReferencedSkillSlugs,
+  extractWorkingSet,
 } from "../handoff";
 import { readAgentHandoffThreshold } from "../handoff-settings";
+import {
+  collectBackgroundJobSnapshot,
+  collectGitSnapshot,
+  collectVerificationSnapshot,
+} from "../handoff-snapshot";
+import {
+  markWorkingSetVerificationStatus,
+  prepareReplayRecords,
+  resolveHandoffRootSessionId,
+  upsertSessionChainManifest,
+  type PreparedReplayArtifacts,
+} from "../handoff-workspace";
 import { resolveAgentSessionPolicy } from "../session-policy";
 
 export type StreamingMessageOverlay = {
@@ -151,6 +175,7 @@ function resolveThinkingEnabledForRequest(
 }
 
 type PendingSessionHandoff = {
+  taskId: string;
   sessionId: string;
   model: string;
   userContent: string;
@@ -161,6 +186,22 @@ type PendingSessionHandoff = {
   decisionPolicyVersion: ActiveTaskState["decisionPolicyVersion"];
   decisionModel: ActiveTaskState["decisionModel"];
   agentMode: AgentMode;
+};
+
+type GeneratedHandoffDocument = {
+  handoffBody: string;
+  sourceMessages: MessageRecord[];
+  replayArtifacts: PreparedReplayArtifacts;
+  workingSet: ReturnType<typeof extractWorkingSet>;
+  verification: ReturnType<typeof collectVerificationSnapshot>;
+  gitSnapshot: Awaited<ReturnType<typeof collectGitSnapshot>>;
+  backgroundJobs: Awaited<ReturnType<typeof collectBackgroundJobSnapshot>>;
+  referencedSkills: string[];
+  verificationChecklist: string[];
+  assumptions: string[];
+  knownErrors: string[];
+  invariants: string[];
+  openRisks: string[];
 };
 
 function navigateToSession(sessionId: string): void {
@@ -547,6 +588,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             const pendingHandoff =
               effectiveStatus === "completed" && task.handoff
                 ? {
+                    taskId: event.taskId,
                     sessionId: task.sessionId,
                     model: task.model,
                     userContent: task.userContent,
@@ -790,7 +832,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       autonomyMode: ActiveTaskState["autonomyMode"];
       decisionPolicyVersion: ActiveTaskState["decisionPolicyVersion"];
       decisionModel: ActiveTaskState["decisionModel"];
-    }): Promise<string> => {
+    }): Promise<GeneratedHandoffDocument> => {
       const session = await getSession(input.sessionId);
       if (!session) {
         throw new Error(`Session not found: ${input.sessionId}`);
@@ -798,103 +840,186 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
       const workspaceDir = session.workspaceDir?.trim() || null;
       const sessionPolicy = resolveAgentSessionPolicy(session);
-      const [historyMessages, environment] = await Promise.all([
+      const [sourceMessages, environment, gitSnapshot, backgroundJobs] = await Promise.all([
         getMessagesBySession(input.sessionId),
         resolveAgentEnvironment(workspaceDir),
+        collectGitSnapshot(workspaceDir),
+        collectBackgroundJobSnapshot(input.taskId).catch(() => []),
       ]);
+      const replay = await prepareReplayRecords({
+        workspaceDir,
+        sessionId: input.sessionId,
+        messages: sourceMessages,
+      });
       const history = await buildAgentMessages(
-        historyMessages.flatMap(messageRecordToAgentMessages),
+        replay.messages.flatMap(messageRecordToAgentMessages),
         environment,
         undefined,
         input.sessionId,
         sessionPolicy
       );
 
-      const handoffTaskId = createTaskId();
-      const handoffMessages: AgentChatMessage[] = [
-        ...history,
-        { role: "system", content: AGENT_HANDOFF_SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: buildAgentHandoffUserPrompt({
-            sessionTitle: session.title,
-            contextUsage: input.contextUsage,
-            sessionKind: input.sessionKind,
-            autonomyMode: input.autonomyMode,
-            decisionPolicyVersion: input.decisionPolicyVersion,
-            decisionModel: input.decisionModel,
-          }),
-        },
-      ];
-
-      let handoffContent = "";
-      let handoffError: string | null = null;
-
-      try {
-        const handoffResolved = resolveProviderForModel(input.model) ?? resolvedRef.current;
-        await new Promise<void>((resolve, reject) => {
-          void startAgent(
-            {
-              taskId: handoffTaskId,
-              baseUrl: handoffResolved.baseUrl,
-              apiKey: resolveApiKey(handoffResolved),
-              apiKeySource: handoffResolved.apiKeySource,
-              apiKeyEnvVar: resolveApiKeyEnvVar(handoffResolved),
-              model: input.model,
-              messages: handoffMessages,
-              requestExtensions: buildThinkingRequestExtensions({
-                models: handoffResolved.models,
-                modelId: input.model,
-                thinkingEnabled: false,
-              }),
-              maxContextTokens: resolveContextWindowForModel(
-                handoffResolved,
-                input.model
-              ),
-            },
-            (event) => {
-              if (event.type === "content_delta") {
-                handoffContent += event.delta;
-                return;
-              }
-
-              if (event.type === "error") {
-                handoffError = event.message;
-                reject(new Error(event.message));
-                return;
-              }
-
-              if (event.type === "status") {
-                if (event.status === "completed") {
-                  resolve();
-                  return;
-                }
-
-                if (event.status === "failed" || event.status === "cancelled") {
-                  reject(
-                    new Error(
-                      handoffError ??
-                        `Automatic handoff ended with status: ${event.status}`
-                    )
-                  );
-                }
-              }
-            }
-          ).catch(reject);
-        });
-      } catch {
-        return buildFallbackHandoffBody({
-          userContent: input.userContent,
-          sourceSessionTitle: session.title,
-        });
-      }
-
-      return (
-        handoffContent.trim() ||
+      const workingSet = await markWorkingSetVerificationStatus(
+        workspaceDir,
+        extractWorkingSet(sourceMessages)
+      );
+      const verification = collectVerificationSnapshot(sourceMessages);
+      const decisionSummaries = extractDecisionSummaries(sourceMessages);
+      const assumptions = extractAssumptionsFromBody(
         buildFallbackHandoffBody({
           userContent: input.userContent,
           sourceSessionTitle: session.title,
         })
+      );
+      const knownErrors = extractKnownErrorFingerprints(sourceMessages);
+      const verificationChecklist = buildVerificationChecklist({
+        verification,
+        workingSet,
+        backgroundJobs,
+      });
+      const referencedSkills = extractReferencedSkillSlugs(sourceMessages);
+
+      const handoffResolved = resolveProviderForModel(input.model) ?? resolvedRef.current;
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const handoffTaskId = createTaskId();
+        const handoffMessages: AgentChatMessage[] = [
+          ...history,
+          { role: "system", content: AGENT_HANDOFF_SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: buildAgentHandoffUserPrompt({
+              sessionTitle: session.title,
+              contextUsage: input.contextUsage,
+              sessionKind: input.sessionKind,
+              autonomyMode: input.autonomyMode,
+              decisionPolicyVersion: input.decisionPolicyVersion,
+              decisionModel: input.decisionModel,
+            }),
+          },
+        ];
+
+        let handoffContent = "";
+        let handoffError: string | null = null;
+
+        try {
+          await new Promise<void>((resolve, reject) => {
+            void startAgent(
+              {
+                taskId: handoffTaskId,
+                baseUrl: handoffResolved.baseUrl,
+                apiKey: resolveApiKey(handoffResolved),
+                apiKeySource: handoffResolved.apiKeySource,
+                apiKeyEnvVar: resolveApiKeyEnvVar(handoffResolved),
+                model: input.model,
+                messages: handoffMessages,
+                requestExtensions: buildThinkingRequestExtensions({
+                  models: handoffResolved.models,
+                  modelId: input.model,
+                  thinkingEnabled: false,
+                }),
+                maxContextTokens: resolveContextWindowForModel(
+                  handoffResolved,
+                  input.model
+                ),
+              },
+              (event) => {
+                if (event.type === "content_delta") {
+                  handoffContent += event.delta;
+                  return;
+                }
+
+                if (event.type === "error") {
+                  handoffError = event.message;
+                  reject(new Error(event.message));
+                  return;
+                }
+
+                if (event.type === "status") {
+                  if (event.status === "completed") {
+                    resolve();
+                    return;
+                  }
+
+                  if (event.status === "failed" || event.status === "cancelled") {
+                    reject(
+                      new Error(
+                        handoffError ??
+                          `Automatic handoff ended with status: ${event.status}`
+                      )
+                    );
+                  }
+                }
+              }
+            ).catch(reject);
+          });
+        } catch {
+          return {
+            handoffBody: buildFallbackHandoffBody({
+              userContent: input.userContent,
+              sourceSessionTitle: session.title,
+            }),
+            sourceMessages,
+            replayArtifacts: replay.artifacts,
+            workingSet,
+            verification,
+            gitSnapshot,
+            backgroundJobs,
+            referencedSkills,
+            verificationChecklist,
+            assumptions,
+            knownErrors,
+            invariants: [],
+            openRisks: [],
+          };
+        }
+
+        const finalBody =
+          handoffContent.trim() ||
+          buildFallbackHandoffBody({
+            userContent: input.userContent,
+            sourceSessionTitle: session.title,
+          });
+        const qualityBody = buildAugmentedHandoffBody(finalBody, {
+          workingSet,
+          verification,
+          gitSnapshot,
+          backgroundJobs,
+          assumptions,
+          knownErrors,
+          decisionSummaries,
+          historyFilePath: replay.artifacts.historyFilePath,
+          toolArchiveIndexPath: replay.artifacts.toolArchiveIndexPath,
+          chainManifestPath: null,
+        });
+        const quality = evaluateHandoffQuality({
+          handoffBody: qualityBody,
+          workingSet,
+          verification,
+        });
+        if (quality.ok) {
+          return {
+            handoffBody: finalBody,
+            sourceMessages,
+            replayArtifacts: {
+              ...replay.artifacts,
+            },
+            workingSet,
+            verification,
+            gitSnapshot,
+            backgroundJobs,
+            referencedSkills,
+            verificationChecklist,
+            assumptions: extractAssumptionsFromBody(finalBody),
+            knownErrors,
+            invariants: extractInvariantsFromBody(finalBody),
+            openRisks: extractOpenRisksFromBody(finalBody),
+          };
+        }
+      }
+
+      throw new Error(
+        "Handoff quality gate failed after 3 attempts. Automatic continuation was paused."
       );
     },
     [resolveProviderForModel]
@@ -909,7 +1034,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           throw new Error(`Session not found: ${input.sessionId}`);
         }
 
-        const handoffBody = await generateHandoffDocument({
+        const generated = await generateHandoffDocument({
           sessionId: input.sessionId,
           model: input.model,
           userContent: input.userContent,
@@ -934,6 +1059,29 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           decisionModel: input.decisionModel,
           parentSessionId: sourceSession.id,
           handoffFromSessionId: sourceSession.id,
+          planFileName: sourceSession.planFileName ?? null,
+          planBuiltAt: sourceSession.planBuiltAt ?? null,
+        });
+
+        await copyAgentTodosForSession(sourceSession.id, nextSession.id);
+
+        const rootSessionId = await resolveHandoffRootSessionId(
+          sourceSession,
+          getSession
+        );
+        const chainManifestPath = await upsertSessionChainManifest({
+          workspaceDir: sourceSession.workspaceDir,
+          rootSessionId,
+          sourceSessionId: sourceSession.id,
+          continuedSessionId: nextSession.id,
+          generatedAt: new Date().toISOString(),
+          summary:
+            extractPendingNextActions(generated.handoffBody)[0] ??
+            generated.handoffBody.slice(0, 160),
+          workingSet: generated.workingSet.map((entry) => entry.path),
+          invariants: generated.invariants,
+          assumptions: generated.assumptions,
+          openRisks: generated.openRisks,
         });
 
         const handoffArtifact = buildStoredHandoffArtifact({
@@ -947,7 +1095,19 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           autonomyMode: input.autonomyMode,
           decisionPolicyVersion: input.decisionPolicyVersion,
           decisionModel: input.decisionModel,
-          handoffBody,
+          handoffBody: generated.handoffBody,
+          supplementalContext: {
+            workingSet: generated.workingSet,
+            verification: generated.verification,
+            gitSnapshot: generated.gitSnapshot,
+            backgroundJobs: generated.backgroundJobs,
+            assumptions: generated.assumptions,
+            knownErrors: generated.knownErrors,
+            decisionSummaries: extractDecisionSummaries(generated.sourceMessages),
+            historyFilePath: generated.replayArtifacts.historyFilePath,
+            toolArchiveIndexPath: generated.replayArtifacts.toolArchiveIndexPath,
+            chainManifestPath,
+          },
         });
 
         const handoffMessage = await createMessage({
@@ -974,6 +1134,11 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           sessionKind: input.sessionKind,
           autonomyMode: input.autonomyMode,
           decisionPolicyVersion: input.decisionPolicyVersion,
+          workingSet: generated.workingSet,
+          verificationChecklist: generated.verificationChecklist,
+          historyFilePath: generated.replayArtifacts.historyFilePath,
+          toolArchiveIndexPath: generated.replayArtifacts.toolArchiveIndexPath,
+          chainManifestPath,
         });
 
         const userMessage = await createMessage({
@@ -988,6 +1153,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           status: "completed",
           taskId: null,
           error: null,
+          referencedSkills:
+            generated.referencedSkills.length > 0
+              ? generated.referencedSkills
+              : undefined,
         });
 
         const workspaceDir = nextSession.workspaceDir?.trim() || null;

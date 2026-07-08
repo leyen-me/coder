@@ -94,6 +94,12 @@ pub struct ReplaceFileParams {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GitSnapshotParams {
+    pub workspace_dir: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GlobParams {
     pub workspace_dir: Option<String>,
     pub glob_pattern: String,
@@ -766,6 +772,18 @@ pub async fn handle_git_current_branch(
     Json(params): Json<GitCurrentBranchParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let result = git_current_branch(params.workspace_dir)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    Ok(Json(serde_json::to_value(result).map_err(|e| {
+        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+    })?))
+}
+
+/// POST /api/handoff_git_snapshot
+pub async fn handle_handoff_git_snapshot(
+    State(_state): State<Arc<AppState>>,
+    Json(params): Json<GitSnapshotParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let result = tool_collect_git_snapshot(params.workspace_dir)
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(serde_json::to_value(result).map_err(|e| {
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
