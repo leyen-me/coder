@@ -62,7 +62,7 @@ export function SkillCard({
         tabIndex={onView ? 0 : undefined}
       >
         <div className="flex min-w-0 items-center gap-2 overflow-hidden pr-1">
-          <CardTitle className="truncate text-sm font-semibold leading-tight">
+          <CardTitle className="truncate text-base font-semibold leading-tight">
             {skill.name}
           </CardTitle>
           <Badge className="shrink-0 text-[10px]" variant="secondary">
@@ -72,7 +72,7 @@ export function SkillCard({
           </Badge>
         </div>
 
-        <CardDescription className="line-clamp-3 text-xs leading-relaxed">
+        <CardDescription className="line-clamp-3 py-1.5 text-xs leading-relaxed">
           {skill.description}
         </CardDescription>
 
@@ -109,7 +109,7 @@ export function SkillCard({
         ) : null}
       </CardHeader>
 
-      <CardContent className="pt-0">
+      <CardContent className="pt-0 text-right">
         <p className="text-[11px] tabular-nums text-muted-foreground">
           {t("skills.estimatedTokens", { count: skill.estimatedTokens })}
         </p>
