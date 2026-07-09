@@ -629,6 +629,7 @@ export const enMessages = {
     deleted: 'Deleted skill "{name}"',
     cancel: "Cancel",
     emptyUserSkills: "No imported user skills yet.",
+    cardActions: "Skill actions",
     openFolder: "Open folder",
     openRootFolder: "Open skills folder",
     openFolderFailed: "Could not open the skill folder",

@@ -559,6 +559,7 @@ export type Messages = {
     deleted: string;
     cancel: string;
     emptyUserSkills: string;
+    cardActions: string;
     openFolder: string;
     openRootFolder: string;
     openFolderFailed: string;

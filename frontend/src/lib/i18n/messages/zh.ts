@@ -615,6 +615,7 @@ export const zhMessages = {
     deleted: "已删除技能「{name}」",
     cancel: "取消",
     emptyUserSkills: "还没有导入任何用户技能。",
+    cardActions: "技能操作",
     openFolder: "打开目录",
     openRootFolder: "打开技能目录",
     openFolderFailed: "无法打开技能目录",
