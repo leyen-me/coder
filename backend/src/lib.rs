@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use agent::registry::AgentRegistry;
 use db::Database;
-use tools::{PageCache, RemoteConnectionPool, ShellRegistry};
+use tools::{ensure_skill_roots, PageCache, RemoteConnectionPool, ShellRegistry};
 
 /// Global shared state for all HTTP handlers.
 pub struct AppState {
@@ -120,6 +120,7 @@ pub fn get_coder_data_dir() -> PathBuf {
 pub fn initialize_app_state(workspace_dir: &PathBuf, http_base_url: String) -> Arc<AppState> {
     let coder_dir = get_coder_data_dir();
     std::fs::create_dir_all(&coder_dir).expect("Failed to create ~/.coder/");
+    ensure_skill_roots(None).expect("Failed to create user skill directory");
 
     // Preload shell environment
     shell_env::preload_shell_environment();

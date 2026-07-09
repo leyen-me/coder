@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import {
-  readEnabledSkillBySlug,
+  resolveWorkspaceAwareSkillsBySlugs,
 } from "@/features/skills/lib/resolve-skills";
 import type { ResolvedSkill } from "@/features/skills/types";
 
@@ -70,7 +70,7 @@ export function UserMessageContent({
     [segments]
   );
 
-  // Resolve which slugs correspond to real enabled skills
+  // Resolve which slugs correspond to real skills in the current environment.
   useEffect(() => {
     if (slugSegments.length === 0) {
       return;
@@ -81,8 +81,8 @@ export function UserMessageContent({
     async function resolve() {
       const valid = new Set<string>();
       for (const { slug } of slugSegments) {
-        const result = await readEnabledSkillBySlug(slug);
-        if (!cancelled && !("error" in result)) {
+        const result = await resolveWorkspaceAwareSkillsBySlugs(null, [slug]);
+        if (!cancelled && result.ok && result.skills.length > 0) {
           valid.add(slug);
         }
       }
@@ -98,21 +98,21 @@ export function UserMessageContent({
   }, [slugSegments]);
 
   if (slugSegments.length === 0) {
-    return <span className="block whitespace-pre-wrap break-words">{text}</span>;
+    return <span className="block whitespace-pre-wrap wrap-break-word">{text}</span>;
   }
 
   const handleSlugClick = async (slug: string) => {
-    const result = await readEnabledSkillBySlug(slug);
-    if ("error" in result) {
+    const result = await resolveWorkspaceAwareSkillsBySlugs(null, [slug]);
+    if (!result.ok || result.skills.length === 0) {
       return;
     }
-    setSelectedSkill(result);
+    setSelectedSkill(result.skills[0] ?? null);
     setIsDialogOpen(true);
   };
 
   return (
     <>
-      <span className="block whitespace-pre-wrap break-words">
+      <span className="block whitespace-pre-wrap wrap-break-word">
         {segments.map((segment, index) => {
           if (segment.kind === "text") {
             return <span key={index}>{segment.text}</span>;
@@ -146,7 +146,6 @@ export function UserMessageContent({
           }}
           skill={{
             ...selectedSkill,
-            enabled: true,
             estimatedTokens: Math.ceil(selectedSkill.content.length / 4),
           }}
         />

@@ -1,6 +1,6 @@
 
 import { apiPost } from "@/lib/api/client";
-import { getEnabledSystemSkills } from "@/features/skills/lib/resolve-skills";
+import { getSystemModules } from "@/features/skills/lib/resolve-skills";
 import { listRemoteTargets } from "@/lib/db/remote-targets";
 
 import { normalizeEnvironment } from "./normalize-environment";
@@ -11,16 +11,27 @@ type RuntimeEnvironmentResponse = {
   shell: string;
   isGitRepository: boolean;
   agentsMd?: AgentProjectInstructions;
+  skillRoots?: {
+    user: string;
+    workspace: string | null;
+  };
+  availableSkills?: Array<{
+    slug: string;
+    name: string;
+    description: string;
+    path: string;
+    source: "user" | "workspace";
+  }>;
 };
 
 export async function resolveAgentEnvironment(
   workspaceDir: string | null
 ): Promise<AgentEnvironment> {
-  const enabledSystemSkills = await getEnabledSystemSkills();
-  const skillPayload = enabledSystemSkills.map((skill) => ({
-    slug: skill.slug,
-    name: skill.name,
-    content: skill.content,
+  const systemModules = getSystemModules();
+  const modulePayload = systemModules.map((module) => ({
+    slug: module.slug,
+    name: module.name,
+    content: module.content,
   }));
 
   // Load remote targets — only expose enabled ones to the agent
@@ -47,7 +58,12 @@ export async function resolveAgentEnvironment(
       shell: runtime.shell,
       isGitRepository: runtime.isGitRepository,
       agentsMd: runtime.agentsMd ?? null,
-      enabledSystemSkills: skillPayload,
+      systemModules: modulePayload,
+      skillRoots: runtime.skillRoots ?? {
+        user: "",
+        workspace: workspaceDir ? `${workspaceDir}/.coder/skills` : null,
+      },
+      availableSkills: runtime.availableSkills ?? [],
       remoteTargets,
     });
   } catch {
@@ -60,7 +76,9 @@ export async function resolveAgentEnvironment(
     shell: resolveBrowserShell(),
     isGitRepository: false,
     agentsMd: null,
-    enabledSystemSkills: skillPayload,
+    systemModules: modulePayload,
+    skillRoots: { user: "", workspace: workspaceDir ? `${workspaceDir}/.coder/skills` : null },
+    availableSkills: [],
     remoteTargets,
   });
 }

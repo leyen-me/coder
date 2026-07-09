@@ -3,6 +3,7 @@ use std::path::Path;
 use serde::Serialize;
 
 use super::project_instructions::{load_workspace_agents_md, AgentsMdContent};
+use super::{list_available_skills, SkillRoots, SkillSummary};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -11,6 +12,8 @@ pub struct RuntimeEnvironmentResponse {
     pub shell: String,
     pub is_git_repository: bool,
     pub agents_md: Option<AgentsMdContent>,
+    pub skill_roots: SkillRoots,
+    pub available_skills: Vec<SkillSummary>,
 }
 
 pub fn agent_get_runtime_environment(
@@ -22,6 +25,7 @@ pub fn agent_get_runtime_environment(
     } else {
         load_workspace_agents_md(trimmed_workspace)?
     };
+    let skills = list_available_skills(workspace_dir.as_deref())?;
 
     Ok(RuntimeEnvironmentResponse {
         os: resolve_os(),
@@ -31,6 +35,8 @@ pub fn agent_get_runtime_environment(
             .map(is_git_repository)
             .unwrap_or(false),
         agents_md,
+        skill_roots: skills.roots,
+        available_skills: skills.skills,
     })
 }
 

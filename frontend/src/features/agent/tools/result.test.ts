@@ -27,7 +27,7 @@ describe("buildSystemPrompt", () => {
     expect(prompt).not.toContain("## Git");
   });
 
-  it("includes enabled system skills such as tools guidance", () => {
+  it("includes built-in system modules such as tools guidance", () => {
     const prompt = buildSystemPrompt(
       normalizeEnvironment({
         workspaceDir: "/tmp/project",
@@ -35,7 +35,7 @@ describe("buildSystemPrompt", () => {
         shell: "/bin/zsh",
         isGitRepository: true,
         today: "2026-06-09, Tuesday",
-        enabledSystemSkills: [
+        systemModules: [
           {
             slug: "tools",
             name: "Tools Rules",
@@ -46,7 +46,7 @@ describe("buildSystemPrompt", () => {
     );
 
     expect(prompt).toContain("## Tools Rules");
-    expect(prompt).not.toContain("## Active skills (system)");
+    expect(prompt).toContain("## Skill Catalog");
     expect(prompt).toContain("Use glob to find files by name pattern.");
     expect(prompt).not.toContain("## Git");
   });

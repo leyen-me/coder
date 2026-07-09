@@ -1,5 +1,5 @@
-import type { SystemSkillDefinition } from "../../types";
-import { createSystemSkill } from "./helpers";
+import type { SystemModuleDefinition } from "../../types";
+import { createSystemModule } from "./helpers";
 
 const OPERATING_PRINCIPLES_CONTENT = `# Agent Operating Principles
 
@@ -69,8 +69,9 @@ Choose the narrowest tool that gives reliable evidence.
 
 - Use web_search for current or external information.
 - Use browse_page after web_search finds a promising source, and quote retrieved content instead of inventing details.
-- Use list_skills to inspect available skills and read_skill before following one.
-- Use create_skill only when the user asks to save reusable instructions.
+- Use the available skill catalog in the system prompt to identify relevant \`SKILL.md\` folders.
+- Read a skill's \`SKILL.md\` file directly when the task or an explicit /slug reference makes it relevant.
+- Create or update skills by editing files under the documented skill roots when the user asks for reusable instructions.
 
 ### Failure handling
 
@@ -108,45 +109,41 @@ When the user asks for a review, lead with findings in severity order: correctne
 If no issues are found, say so and mention residual risk or unrun checks.
 `;
 
-export const CORE_SYSTEM_SKILLS: SystemSkillDefinition[] = [
-  createSystemSkill({
+export const CORE_SYSTEM_MODULES: SystemModuleDefinition[] = [
+  createSystemModule({
     id: "agent-operating-principles",
     slug: "agent-operating-principles",
     name: "Agent Operating Principles",
     description:
       "Core identity, priorities, and decision order for software engineering agent work.",
     content: OPERATING_PRINCIPLES_CONTENT,
-    defaultEnabled: true,
     category: "core",
   }),
-  createSystemSkill({
+  createSystemModule({
     id: "context-and-evidence",
     slug: "context-and-evidence",
     name: "Context and Evidence",
     description:
       "How to treat workspace context, tool output, uncertainty, and evidence before acting.",
     content: CONTEXT_AND_EVIDENCE_CONTENT,
-    defaultEnabled: true,
     category: "core",
   }),
-  createSystemSkill({
+  createSystemModule({
     id: "tool-usage",
     slug: "tool-usage",
     name: "Tool Usage",
     description:
-      "When and how to use filesystem, shell, web, and skill tools for reliable evidence.",
+      "When and how to use filesystem, shell, web, and skill file reads for reliable evidence.",
     content: TOOL_USAGE_CONTENT,
-    defaultEnabled: true,
     category: "core",
   }),
-  createSystemSkill({
+  createSystemModule({
     id: "communication",
     slug: "communication",
     name: "Communication",
     description:
       "How to communicate outcomes, uncertainty, blockers, verification, and review findings.",
     content: COMMUNICATION_CONTENT,
-    defaultEnabled: true,
     category: "core",
   }),
 ];

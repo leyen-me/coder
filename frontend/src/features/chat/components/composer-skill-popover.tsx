@@ -14,17 +14,17 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
-import type { SkillListItem } from "@/features/skills/types";
+import type { AvailableSkill } from "@/features/skills/types";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
 type ComposerSkillPopoverProps = {
   open: boolean;
   anchorWidth: number | undefined;
-  results: SkillListItem[];
+  results: AvailableSkill[];
   loading: boolean;
   selectedIndex: number;
-  onSelect: (item: SkillListItem) => void;
+  onSelect: (item: AvailableSkill) => void;
   onSelectedIndexChange: (index: number) => void;
 };
 
@@ -107,6 +107,11 @@ export function ComposerSkillPopover({
                     </span>
                     <span className="min-w-0 truncate font-mono text-muted-foreground text-xs">
                       /{item.slug}
+                    </span>
+                    <span className="shrink-0 rounded-full bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                      {item.source === "workspace"
+                        ? t("skills.badgeWorkspace")
+                        : t("skills.badgeUser")}
                     </span>
                   </CommandItem>
                 ))}

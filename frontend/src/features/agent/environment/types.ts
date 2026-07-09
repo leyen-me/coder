@@ -11,10 +11,21 @@ export type AgentEnvironment = {
   isGitRepository: boolean;
   today: string;
   agentsMd: AgentProjectInstructions;
-  enabledSystemSkills: Array<{
+  systemModules: Array<{
     slug: string;
     name: string;
     content: string;
+  }>;
+  skillRoots: {
+    user: string;
+    workspace: string | null;
+  };
+  availableSkills: Array<{
+    slug: string;
+    name: string;
+    description: string;
+    path: string;
+    source: "user" | "workspace";
   }>;
   remoteTargets: Array<{
     alias: string;
@@ -31,6 +42,8 @@ export type AgentEnvironmentInput = {
   isGitRepository: boolean;
   today?: string;
   agentsMd?: AgentProjectInstructions;
-  enabledSystemSkills?: AgentEnvironment["enabledSystemSkills"];
+  systemModules?: AgentEnvironment["systemModules"];
+  skillRoots?: AgentEnvironment["skillRoots"];
+  availableSkills?: AgentEnvironment["availableSkills"];
   remoteTargets?: AgentEnvironment["remoteTargets"];
 };

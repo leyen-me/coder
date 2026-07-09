@@ -1,21 +1,24 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { listEnabledSkillsForTools } from "@/features/skills/lib/resolve-skills";
-import type { SkillListItem } from "@/features/skills/types";
-import { subscribeDb } from "@/lib/db";
+import { listAvailableSkills } from "@/features/skills/api";
+import type { AvailableSkill } from "@/features/skills/types";
 
-export function useEnabledSkills(open: boolean) {
-  const [skills, setSkills] = useState<SkillListItem[]>([]);
+export function useAvailableSkills(
+  workspaceDir: string | null | undefined,
+  open: boolean
+) {
+  const [skills, setSkills] = useState<AvailableSkill[]>([]);
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      setSkills(await listEnabledSkillsForTools());
+      const response = await listAvailableSkills(workspaceDir);
+      setSkills(response.skills);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [workspaceDir]);
 
   useEffect(() => {
     if (!open) {
@@ -23,18 +26,15 @@ export function useEnabledSkills(open: boolean) {
     }
 
     void refresh();
-    return subscribeDb(() => {
-      void refresh();
-    });
   }, [open, refresh]);
 
   return { skills, loading, refresh };
 }
 
-export function filterEnabledSkills(
-  skills: SkillListItem[],
+export function filterAvailableSkills(
+  skills: AvailableSkill[],
   query: string
-): SkillListItem[] {
+): AvailableSkill[] {
   const normalized = query.trim().toLowerCase();
   if (!normalized) {
     return skills;

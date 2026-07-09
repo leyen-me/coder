@@ -12,8 +12,6 @@ import {
   REMOTE_SHELL_TOOL_NAME,
   LIST_DIR_TOOL_NAME,
   LIST_SHELLS_TOOL_NAME,
-  CREATE_SKILL_TOOL_NAME,
-  LIST_SKILLS_TOOL_NAME,
   TODO_READ_TOOL_NAME,
   PLAN_CREATE_TOOL_NAME,
   PLAN_DELETE_TOOL_NAME,
@@ -23,12 +21,10 @@ import {
   PLAN_UPDATE_TOOL_NAME,
   READ_FILE_TOOL_NAME,
   READ_PRIOR_TOOL_OUTPUT_TOOL_NAME,
-  READ_SKILL_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
   SEND_EMAIL_TOOL_NAME,
   SHELL_TOOL_NAME,
   TODO_WRITE_TOOL_NAME,
-  UPDATE_SKILL_TOOL_NAME,
   WEB_SEARCH_TOOL_NAME,
   WRITE_FILE_TOOL_NAME,
   GET_WORKSPACE_TREE_TOOL_NAME,
@@ -45,8 +41,6 @@ import { grepHandler } from "./grep";
 import { killShellHandler } from "./kill-shell";
 import { listDirHandler } from "./list-dir";
 import { listShellsHandler } from "./list-shells";
-import { createSkillHandler } from "./create-skill";
-import { listSkillsHandler } from "./list-skills";
 import {
   planCreateHandler,
   planDeleteHandler,
@@ -59,13 +53,11 @@ import { readFileHandler } from "./read-file";
 import { readPriorToolOutputHandler } from "./read-prior-tool-output";
 import { readShellLogsHandler } from "./read-shell-logs";
 import { remoteShellHandler } from "./remote-shell";
-import { readSkillHandler } from "./read-skill";
 import { replaceFileHandler } from "./replace-file";
 import { sendEmailHandler } from "./send-email";
 import { shellHandler } from "./shell";
 import { todoReadHandler } from "./todo-read";
 import { todoWriteHandler } from "./todo-write";
-import { updateSkillHandler } from "./update-skill";
 import { webSearchHandler } from "./web-search";
 import { writeFileHandler } from "./write-file";
 import { spawnSubAgentHandler } from "./spawn-subagent";
@@ -98,10 +90,6 @@ const TOOL_HANDLERS: Record<string, ToolHandler> = {
   [READ_SHELL_LOGS_TOOL_NAME]: readShellLogsHandler,
   [WEB_SEARCH_TOOL_NAME]: webSearchHandler,
   [BROWSE_PAGE_TOOL_NAME]: browsePageHandler,
-  [LIST_SKILLS_TOOL_NAME]: listSkillsHandler,
-  [READ_SKILL_TOOL_NAME]: readSkillHandler,
-  [CREATE_SKILL_TOOL_NAME]: createSkillHandler,
-  [UPDATE_SKILL_TOOL_NAME]: updateSkillHandler,
   [TODO_READ_TOOL_NAME]: todoReadHandler,
   [TODO_WRITE_TOOL_NAME]: todoWriteHandler,
   [GET_WORKSPACE_TREE_TOOL_NAME]: getWorkspaceTreeHandler,

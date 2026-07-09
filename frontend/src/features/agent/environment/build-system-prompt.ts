@@ -16,8 +16,8 @@ export function buildSystemPromptSections(
   const allBlocks = [
     buildIdentityAndEnvironmentSection(environment, agentMode),
     buildCoreRulesSection().join("\n"),
-    ...buildSystemSkillSections(environment),
-    buildUserSkillsSection(agentMode).join("\n"),
+    ...buildSystemModuleSections(environment),
+    buildSkillCatalogSection(environment, agentMode).join("\n"),
   ];
 
   const projectInstructionsSection = buildProjectInstructionsSection(
@@ -61,14 +61,14 @@ export function buildIdentityAndEnvironmentSection(
 
   const modeLine =
     agentMode === "ask"
-      ? "ask (read-only: can read files, search code, browse the web, list skills, and ask structured clarification questions — cannot modify files or run shell commands)"
+      ? "ask (read-only: can read files, search code, browse the web, and ask structured clarification questions — cannot modify files or run shell commands)"
       : agentMode === "plan"
         ? "plan (planning: can read files, search, browse, manage .plan/ files and todos — cannot modify project files or run shell commands)"
         : "agent (full tool access)";
 
   return [
     "You are Coder, a desktop coding agent.",
-    "Use the environment, enabled skills, and project instructions below as your operating context.",
+    "Use the environment, built-in prompt modules, available skill catalog, and project instructions below as your operating context.",
     "",
     "## Environment",
     "",
@@ -81,11 +81,11 @@ export function buildIdentityAndEnvironmentSection(
   ].join("\n");
 }
 
-export function buildSystemSkillSections(
+export function buildSystemModuleSections(
   environment: AgentEnvironment
 ): string[] {
-  return environment.enabledSystemSkills.map(
-    (skill) => `## ${skill.name}\n\n${stripLeadingMarkdownH1(skill.content)}`
+  return environment.systemModules.map(
+    (module) => `## ${module.name}\n\n${stripLeadingMarkdownH1(module.content)}`
   );
 }
 
@@ -225,23 +225,56 @@ function stripLeadingMarkdownH1(content: string): string {
   return content.replace(/^#\s+[^\n]+\n+/, "").trim();
 }
 
-export function buildUserSkillsSection(agentMode?: AgentMode): string[] {
+export function buildSkillCatalogSection(
+  environment: AgentEnvironment,
+  agentMode?: AgentMode
+): string[] {
   const canWriteSkills = agentMode !== "plan" && agentMode !== "ask";
-
-  return [
-    "## User skills",
+  const lines = [
+    "## Skill Catalog",
     "",
-    "User skills are opt-in and are not included in this prompt by default.",
-    "- Call list_skills to browse enabled user skills (slug, name, description).",
-    "- Call read_skill with a slug to load full instructions before following them.",
+    "Skills use the standard file-system `SKILL.md` format. Only metadata is listed here by default; read a skill file only when it is relevant.",
+    `- User skills root: ${environment.skillRoots.user || "unavailable"}`,
+    `- Workspace skills root: ${environment.skillRoots.workspace ?? "unavailable"}`,
+    "- Use the listed skill file path with `read_file` when the task clearly matches a skill or the user explicitly references `/slug`.",
+    "- A user `/slug` reference is an explicit request to load that skill before following it.",
     ...(canWriteSkills
       ? [
-          "- Call create_skill to persist new custom skills when the user wants reusable instructions.",
-          "- Call update_skill to modify an existing user skill (name, description, or content).",
+          "- Create or update reusable skills by editing files under the user skills root or workspace skills root.",
+          "- Prefer modifying an existing skill directory instead of creating a duplicate with a similar slug.",
         ]
       : []),
-    "- Newly created skills stay disabled until the user enables them on the Skills page.",
-    "- The user may also reference an enabled skill via /slug in their message.",
+  ];
+
+  if (environment.availableSkills.length === 0) {
+    lines.push("", "No skills were discovered for the current environment.");
+    return lines;
+  }
+
+  lines.push("", "### Available skills", "");
+  for (const skill of environment.availableSkills) {
+    lines.push(
+      `- /${skill.slug} | ${skill.name} | ${skill.source} | ${skill.path}`,
+      `  ${compactDescription(skill.description)}`
+    );
+  }
+
+  return lines;
+}
+
+function compactDescription(description: string): string {
+  const normalized = description.replace(/\s+/g, " ").trim();
+  if (normalized.length <= 220) {
+    return normalized;
+  }
+  return `${normalized.slice(0, 217)}...`;
+}
+
+export function buildUserSkillsSection(_agentMode?: AgentMode): string[] {
+  return [
+    "## Legacy skills",
+    "",
+    "Dedicated skill tools are disabled. Use the skill catalog above together with normal file tools.",
   ];
 }
 

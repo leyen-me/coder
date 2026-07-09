@@ -1,53 +1,33 @@
-import { EyeIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { EyeIcon, FolderOpenIcon, Trash2Icon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { useTranslation } from "@/lib/i18n/locale-provider";
-import { cn } from "@/lib/utils";
 
-import type { SkillCardViewModel } from "../types";
-import { SkillEnableToggle } from "./skill-enable-toggle";
+import type { UserSkillCardViewModel } from "../types";
 
 type SkillCardProps = {
-  skill: SkillCardViewModel;
-  onToggleEnabled: (enabled: boolean) => void;
+  skill: UserSkillCardViewModel;
   onView?: () => void;
-  onEdit?: () => void;
+  onOpenFolder?: () => void;
   onDelete?: () => void;
 };
 
 export function SkillCard({
   skill,
-  onToggleEnabled,
   onView,
-  onEdit,
+  onOpenFolder,
   onDelete,
 }: SkillCardProps) {
   const { t } = useTranslation();
-  const isUser = skill.source === "user";
-  const handleContentActivate = onView ?? (isUser && onEdit ? onEdit : undefined);
-  const isContentClickable = Boolean(handleContentActivate);
+  const handleContentActivate = onView;
+  const isContentClickable = Boolean(onView);
 
   return (
-    <Card
-      className={cn("relative", !skill.enabled && "opacity-70")}
-      size="sm"
-    >
-      <div className="absolute top-(--card-spacing) right-(--card-spacing)">
-        <SkillEnableToggle
-          enabled={skill.enabled}
-          label={
-            skill.enabled
-              ? t("skills.disableSkill", { name: skill.name })
-              : t("skills.enableSkill", { name: skill.name })
-          }
-          onToggle={onToggleEnabled}
-        />
-      </div>
-
+    <Card size="sm">
       <CardContent
-        className={cn("space-y-2 pr-10", isContentClickable && "cursor-pointer")}
+        className={`space-y-2 ${isContentClickable ? "cursor-pointer" : ""}`}
         onClick={handleContentActivate}
         onKeyDown={
           handleContentActivate
@@ -65,7 +45,9 @@ export function SkillCard({
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-sm font-medium leading-tight">{skill.name}</h3>
           <Badge variant="secondary">
-            {isUser ? t("skills.badgeUser") : t("skills.badgeSystem")}
+            {skill.source === "workspace"
+              ? t("skills.badgeWorkspace")
+              : t("skills.badgeUser")}
           </Badge>
         </div>
 
@@ -73,36 +55,33 @@ export function SkillCard({
           {skill.description}
         </p>
 
-        <p className="font-mono text-xs text-muted-foreground">
-          {isUser ? `/${skill.slug}` : t("skills.estimatedTokens", { count: skill.estimatedTokens })}
+        <p className="font-mono text-xs text-muted-foreground">{`/${skill.slug}`}</p>
+        <p className="truncate font-mono text-[11px] text-muted-foreground">
+          {skill.directoryPath}
         </p>
       </CardContent>
 
-      {onView ? (
+      {onView || onOpenFolder || onDelete ? (
         <CardFooter className="gap-2 border-t pt-(--card-spacing)">
           <Button
             className="h-8 px-2 text-muted-foreground"
             onClick={onView}
             type="button"
             variant="ghost"
+            disabled={!onView}
           >
             <EyeIcon className="size-3.5" />
             {t("skills.viewDetails")}
           </Button>
-        </CardFooter>
-      ) : null}
-
-      {isUser && (onEdit || onDelete) ? (
-        <CardFooter className="gap-2 border-t pt-(--card-spacing)">
-          {onEdit ? (
+          {onOpenFolder ? (
             <Button
               className="h-8 px-2 text-muted-foreground"
-              onClick={onEdit}
+              onClick={onOpenFolder}
               type="button"
               variant="ghost"
             >
-              <PencilIcon className="size-3.5" />
-              {t("skills.edit")}
+              <FolderOpenIcon className="size-3.5" />
+              {t("skills.openFolder")}
             </Button>
           ) : null}
           {onDelete ? (

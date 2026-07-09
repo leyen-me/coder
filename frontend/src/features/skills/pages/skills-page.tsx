@@ -1,5 +1,6 @@
-import { PlusIcon } from "lucide-react";
-import { useState } from "react";
+import { FolderOpenIcon, UploadIcon } from "lucide-react";
+import { useRef, useState, type ChangeEvent } from "react";
+import { toast } from "sonner";
 
 import {
   AlertDialog,
@@ -14,62 +15,64 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
+import { importUserSkillZip } from "@/features/skills/api";
+import { openPathInExplorer } from "@/features/workspace/open-path-in-explorer";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { SkillCard } from "../components/skill-card";
 import { SkillDetailDialog } from "../components/skill-detail-dialog";
 import { SkillGrid } from "../components/skill-grid";
 import { SkillSection } from "../components/skill-section";
-import { UserSkillDialog } from "../components/user-skill-dialog";
 import { useSkills } from "../hooks/use-skills";
-import type { SkillCardViewModel } from "../types";
-import type { EditableUserSkill } from "../types-editable";
+import type { UserSkillCardViewModel } from "../types";
 
 export function SkillsPage() {
   const { t } = useTranslation();
-  const {
-    systemSkills,
-    userSkills,
-    loading,
-    error,
-    setSystemEnabled,
-    setUserEnabled,
-    removeUserSkill,
-  } = useSkills();
+  const { userSkills, userSkillsRootPath, loading, error, refresh, removeUserSkill } =
+    useSkills();
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingSkill, setEditingSkill] = useState<EditableUserSkill | null>(null);
-  const [viewingSkill, setViewingSkill] = useState<SkillCardViewModel | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<EditableUserSkill | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [viewingSkill, setViewingSkill] = useState<UserSkillCardViewModel | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserSkillCardViewModel | null>(null);
 
-  const openCreateDialog = () => {
-    setEditingSkill(null);
-    setDialogOpen(true);
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
   };
 
-  const openEditDialog = (skillId: string) => {
-    const skill = userSkills.find((item) => item.id === skillId);
-    if (!skill) {
+  const handleImportChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) {
       return;
     }
 
-    setEditingSkill({
-      id: skill.id,
-      slug: skill.slug,
-      name: skill.name,
-      description: skill.description,
-      content: skill.content,
-    });
-    setDialogOpen(true);
+    setImporting(true);
+    try {
+      const skill = await importUserSkillZip(file);
+      await refresh();
+      toast.success(t("skills.imported", { name: skill.name }));
+    } catch (cause) {
+      const message =
+        cause instanceof Error ? cause.message : t("skills.importFailed");
+      toast.error(message);
+    } finally {
+      setImporting(false);
+    }
   };
 
-  const openViewDialog = (skillId: string) => {
-    const skill = systemSkills.find((item) => item.id === skillId);
-    if (!skill) {
-      return;
+  const handleOpenRootFolder = async () => {
+    const result = await openPathInExplorer(userSkillsRootPath);
+    if (!result.ok) {
+      toast.error(result.message || t("skills.openFolderFailed"));
     }
+  };
 
-    setViewingSkill(skill);
+  const handleOpenSkillFolder = async (path: string) => {
+    const result = await openPathInExplorer(path);
+    if (!result.ok) {
+      toast.error(result.message || t("skills.openFolderFailed"));
+    }
   };
 
   const handleConfirmDelete = async () => {
@@ -77,7 +80,8 @@ export function SkillsPage() {
       return;
     }
 
-    await removeUserSkill(deleteTarget.id);
+    await removeUserSkill(deleteTarget.slug);
+    toast.success(t("skills.deleted", { name: deleteTarget.name }));
     setDeleteTarget(null);
   };
 
@@ -99,60 +103,64 @@ export function SkillsPage() {
           ) : (
             <>
               <SkillSection
-                description={t("skills.systemSectionDescription")}
-                title={t("skills.systemSectionTitle")}
-              >
-                <SkillGrid>
-                  {systemSkills.map((skill) => (
-                    <SkillCard
-                      key={skill.id}
-                      onToggleEnabled={(enabled) =>
-                        void setSystemEnabled(skill.id, enabled)
-                      }
-                      onView={() => openViewDialog(skill.id)}
-                      skill={skill}
-                    />
-                  ))}
-                </SkillGrid>
-              </SkillSection>
-
-              <SkillSection
                 action={
-                  <Button onClick={openCreateDialog} size="sm" type="button">
-                    <PlusIcon className="size-4" />
-                    {t("skills.createSkill")}
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      ref={fileInputRef}
+                      accept=".zip,application/zip"
+                      className="hidden"
+                      onChange={(event) => void handleImportChange(event)}
+                      type="file"
+                    />
+                    <Button
+                      disabled={importing}
+                      onClick={handleImportClick}
+                      size="sm"
+                      type="button"
+                    >
+                      <UploadIcon className="size-4" />
+                      {importing ? t("skills.importing") : t("skills.importSkill")}
+                    </Button>
+                    <Button
+                      disabled={!userSkillsRootPath}
+                      onClick={() => void handleOpenRootFolder()}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <FolderOpenIcon className="size-4" />
+                      {t("skills.openRootFolder")}
+                    </Button>
+                  </div>
                 }
                 description={t("skills.userSectionDescription")}
                 title={t("skills.userSectionTitle")}
               >
+                {userSkillsRootPath ? (
+                  <div className="rounded-2xl border bg-muted/20 px-4 py-3 font-mono text-xs text-muted-foreground">
+                    {userSkillsRootPath}
+                  </div>
+                ) : null}
+
                 {userSkills.length === 0 ? (
                   <div className="flex flex-col items-center justify-center gap-3 rounded-4xl border border-dashed py-16 text-center">
                     <p className="text-sm text-muted-foreground">
                       {t("skills.emptyUserSkills")}
                     </p>
-                    <Button onClick={openCreateDialog} type="button" variant="outline">
-                      {t("skills.createFirstSkill")}
+                    <Button onClick={handleImportClick} type="button" variant="outline">
+                      {t("skills.importFirstSkill")}
                     </Button>
                   </div>
                 ) : (
                   <SkillGrid>
                     {userSkills.map((skill) => (
                       <SkillCard
-                        key={skill.id}
+                        key={`${skill.source}:${skill.slug}`}
                         onDelete={() => {
-                          setDeleteTarget({
-                            id: skill.id,
-                            slug: skill.slug,
-                            name: skill.name,
-                            description: skill.description,
-                            content: skill.content,
-                          });
+                          setDeleteTarget(skill);
                         }}
-                        onEdit={() => openEditDialog(skill.id)}
-                        onToggleEnabled={(enabled) =>
-                          void setUserEnabled(skill.id, enabled)
-                        }
+                        onOpenFolder={() => void handleOpenSkillFolder(skill.directoryPath)}
+                        onView={() => setViewingSkill(skill)}
                         skill={skill}
                       />
                     ))}
@@ -163,12 +171,6 @@ export function SkillsPage() {
           )}
         </div>
       </ScrollArea>
-
-      <UserSkillDialog
-        onOpenChange={setDialogOpen}
-        open={dialogOpen}
-        skill={editingSkill}
-      />
 
       <SkillDetailDialog
         onOpenChange={(open) => {

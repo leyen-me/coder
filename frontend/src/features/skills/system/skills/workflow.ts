@@ -1,5 +1,5 @@
-import type { SystemSkillDefinition } from "../../types";
-import { createSystemSkill } from "./helpers";
+import type { SystemModuleDefinition } from "../../types";
+import { createSystemModule } from "./helpers";
 
 const TASK_PLANNING_CONTENT = `# Task Planning
 
@@ -89,35 +89,32 @@ Git operations must reflect actual repository state.
 - Never push unless explicitly instructed.
 `;
 
-export const WORKFLOW_SYSTEM_SKILLS: SystemSkillDefinition[] = [
-  createSystemSkill({
+export const WORKFLOW_SYSTEM_MODULES: SystemModuleDefinition[] = [
+  createSystemModule({
     id: "task-planning",
     slug: "task-planning",
     name: "Task Planning",
     description:
       "When and how to use the session task-progress list for multi-step work.",
     content: TASK_PLANNING_CONTENT,
-    defaultEnabled: true,
     category: "workflow",
   }),
-  createSystemSkill({
+  createSystemModule({
     id: "verification",
     slug: "verification",
     name: "Verification",
     description:
       "How to validate changes before claiming success and how to report unverified work.",
     content: VERIFICATION_CONTENT,
-    defaultEnabled: true,
     category: "workflow",
   }),
-  createSystemSkill({
+  createSystemModule({
     id: "git-workflow",
     slug: "git-workflow",
     name: "Git Workflow",
     description:
       "Safe staging, commit, and push boundaries based on actual git state.",
     content: GIT_WORKFLOW_CONTENT,
-    defaultEnabled: true,
     category: "workflow",
   }),
 ];

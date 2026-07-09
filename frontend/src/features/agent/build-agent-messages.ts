@@ -8,7 +8,7 @@ import {
   extractSkillSlugsFromText,
   injectReferencedSkillsIntoUserContent,
 } from "@/features/skills/lib/parse-skill-references";
-import { resolveEnabledSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
+import { resolveWorkspaceAwareSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
 
 export async function buildAgentMessages(
   history: AgentChatMessage[],
@@ -27,7 +27,10 @@ export async function buildAgentMessages(
   // The plan content is already embedded in the build prompt message.
   const trimmedConversation = trimToBuildBoundary(conversation);
 
-  const withSkillInjection = await applyReferencedSkillsToConversation(trimmedConversation);
+  const withSkillInjection = await applyReferencedSkillsToConversation(
+    trimmedConversation,
+    environment.workspaceDir
+  );
   const systemMessages = await assembleSystemMessages({
     environment,
     agentMode,
@@ -42,7 +45,8 @@ export async function buildAgentMessages(
 }
 
 async function applyReferencedSkillsToConversation(
-  messages: AgentChatMessage[]
+  messages: AgentChatMessage[],
+  workspaceDir: string | null
 ): Promise<AgentChatMessage[]> {
   const result: AgentChatMessage[] = [];
 
@@ -63,14 +67,13 @@ async function applyReferencedSkillsToConversation(
       continue;
     }
 
-    const resolved = await resolveEnabledSkillsBySlugs(slugs);
+    const resolved = await resolveWorkspaceAwareSkillsBySlugs(workspaceDir, slugs);
     if (!resolved.ok) {
       result.push(message);
       continue;
     }
 
-    const userSkills = resolved.skills.filter((skill) => skill.source === "user");
-    if (userSkills.length === 0) {
+    if (resolved.skills.length === 0) {
       result.push(message);
       continue;
     }
@@ -79,7 +82,7 @@ async function applyReferencedSkillsToConversation(
       ...message,
       content: injectReferencedSkillsIntoUserContent(
         content,
-        userSkills.map((skill) => ({ slug: skill.slug, content: skill.content }))
+        resolved.skills.map((skill) => ({ slug: skill.slug, content: skill.content }))
       ),
     });
   }

@@ -10,7 +10,9 @@ export function normalizeEnvironment(
     isGitRepository: input.isGitRepository,
     today: input.today ?? formatToday(new Date()),
     agentsMd: input.agentsMd ?? null,
-    enabledSystemSkills: input.enabledSystemSkills ?? [],
+    systemModules: input.systemModules ?? [],
+    skillRoots: input.skillRoots ?? { user: "", workspace: null },
+    availableSkills: input.availableSkills ?? [],
     remoteTargets: input.remoteTargets ?? [],
   };
 }

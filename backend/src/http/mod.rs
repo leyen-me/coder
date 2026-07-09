@@ -1,5 +1,6 @@
 pub mod routes_tool;
 pub mod routes_db;
+pub mod routes_skills;
 pub mod routes_settings;
 pub mod routes_sse;
 pub mod static_files;
@@ -45,6 +46,14 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/read_local_image_bytes", post(routes_tool::handle_read_local_image_bytes))
         .route("/api/resolve_env_var", post(routes_tool::handle_resolve_env_var))
         .route("/api/runtime_environment", post(routes_tool::handle_runtime_environment))
+        .route("/api/skills/catalog", post(routes_skills::handle_skills_catalog))
+        .route("/api/skills/user_list", post(routes_skills::handle_user_skills))
+        .route(
+            "/api/skills/resolve_references",
+            post(routes_skills::handle_resolve_skill_references),
+        )
+        .route("/api/skills/import", post(routes_skills::handle_import_skill))
+        .route("/api/skills/delete", post(routes_skills::handle_delete_skill))
         .route("/api/test_remote_connection", post(routes_tool::handle_test_remote_connection))
         .route("/api/git_current_branch", post(routes_tool::handle_git_current_branch))
         .route("/api/handoff_git_snapshot", post(routes_tool::handle_handoff_git_snapshot))

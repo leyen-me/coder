@@ -1,8 +1,8 @@
 export class SkillReferenceValidationError extends Error {
-  readonly code: "not_found" | "not_enabled";
+  readonly code: "not_found";
   readonly slug: string;
 
-  constructor(code: "not_found" | "not_enabled", slug: string) {
+  constructor(code: "not_found", slug: string) {
     super(code);
     this.name = "SkillReferenceValidationError";
     this.code = code;

@@ -1,11 +1,11 @@
-import type { SystemSkillDefinition } from "../../types";
+import type { SystemModuleDefinition } from "../../types";
 
-type SystemSkillInput = Omit<SystemSkillDefinition, "category"> & {
-  category: NonNullable<SystemSkillDefinition["category"]>;
+type SystemModuleInput = Omit<SystemModuleDefinition, "category"> & {
+  category: NonNullable<SystemModuleDefinition["category"]>;
 };
 
-export function createSystemSkill(
-  input: SystemSkillInput
-): SystemSkillDefinition {
+export function createSystemModule(
+  input: SystemModuleInput
+): SystemModuleDefinition {
   return input;
 }

@@ -5,12 +5,12 @@ vi.mock("@/lib/db/agent-todos", () => ({
 }));
 
 vi.mock("@/features/skills/lib/resolve-skills", () => ({
-  resolveEnabledSkillsBySlugs: vi.fn(async () => ({ ok: true, skills: [] })),
+  resolveWorkspaceAwareSkillsBySlugs: vi.fn(async () => ({ ok: true, skills: [] })),
 }));
 
 import { buildAgentMessages } from "@/features/agent/build-agent-messages";
 import { getAgentTodosBySession } from "@/lib/db/agent-todos";
-import { resolveEnabledSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
+import { resolveWorkspaceAwareSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
 import { normalizeEnvironment } from "@/features/agent/environment/normalize-environment";
 
 const environment = normalizeEnvironment({
@@ -24,7 +24,7 @@ const environment = normalizeEnvironment({
 describe("buildAgentMessages", () => {
   beforeEach(() => {
     vi.mocked(getAgentTodosBySession).mockResolvedValue([]);
-    vi.mocked(resolveEnabledSkillsBySlugs).mockResolvedValue({
+    vi.mocked(resolveWorkspaceAwareSkillsBySlugs).mockResolvedValue({
       ok: true,
       skills: [],
     });
@@ -259,22 +259,26 @@ describe("buildAgentMessages", () => {
   });
 
   it("injects only explicit referencedSkills, not plain-text /slug tokens", async () => {
-    vi.mocked(resolveEnabledSkillsBySlugs).mockImplementation(async (slugs) => {
-      expect(slugs).toEqual(["review"]);
-      return {
-        ok: true,
-        skills: [
-          {
-            id: "skill-review",
-            slug: "review",
-            name: "Review",
-            description: "Review code",
-            content: "Review checklist",
-            source: "user",
-          },
-        ],
-      };
-    });
+    vi.mocked(resolveWorkspaceAwareSkillsBySlugs).mockImplementation(
+      async (workspaceDir, slugs) => {
+        expect(workspaceDir).toBe("/Users/apple/project");
+        expect(slugs).toEqual(["review"]);
+        return {
+          ok: true,
+          skills: [
+            {
+              slug: "review",
+              name: "Review",
+              description: "Review code",
+              path: "/Users/apple/.coder/skills/review/SKILL.md",
+              directoryPath: "/Users/apple/.coder/skills/review",
+              content: "Review checklist",
+              source: "user",
+            },
+          ],
+        };
+      }
+    );
 
     const messages = await buildAgentMessages(
       [

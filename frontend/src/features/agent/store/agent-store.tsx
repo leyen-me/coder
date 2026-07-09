@@ -40,7 +40,7 @@ import { runAgentWithTools } from "../agent-loop";
 import { buildAgentMessages } from "../build-agent-messages";
 import { isAgentCancellationError } from "../cancellation";
 import { SkillReferenceValidationError } from "@/features/skills/lib/skill-errors";
-import { resolveEnabledSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
+import { resolveWorkspaceAwareSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
 import { extractSkillSlugsFromText } from "@/features/skills/lib/parse-skill-references";
 import { mergeProcessSteps } from "../process-steps";
 import { createStreamingBufferManager } from "../streaming-buffer";
@@ -1262,7 +1262,11 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         (trimmed ? extractSkillSlugsFromText(trimmed) : []);
 
       if (skillSlugs.length > 0) {
-        const skillValidation = await resolveEnabledSkillsBySlugs(skillSlugs);
+        const session = await getSession(input.sessionId);
+        const skillValidation = await resolveWorkspaceAwareSkillsBySlugs(
+          session?.workspaceDir ?? null,
+          skillSlugs
+        );
         if (!skillValidation.ok) {
           throw new SkillReferenceValidationError(
             skillValidation.error,

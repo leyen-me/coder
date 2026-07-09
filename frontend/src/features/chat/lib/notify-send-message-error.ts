@@ -4,17 +4,10 @@ import { isSkillReferenceValidationError } from "@/features/skills/lib/skill-err
 
 export function notifySendMessageError(
   error: unknown,
-  t: (key: "skillNotEnabled" | "skillNotFound", params?: { slug: string }) => string
+  t: (key: "skillNotFound", params?: { slug: string }) => string
 ): void {
   if (isSkillReferenceValidationError(error)) {
-    toast.error(
-      t(
-        error.code === "not_enabled"
-          ? "skillNotEnabled"
-          : "skillNotFound",
-        { slug: error.slug }
-      )
-    );
+    toast.error(t("skillNotFound", { slug: error.slug }));
     return;
   }
 

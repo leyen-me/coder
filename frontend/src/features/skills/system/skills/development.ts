@@ -1,5 +1,5 @@
-import type { SystemSkillDefinition } from "../../types";
-import { createSystemSkill } from "./helpers";
+import type { SystemModuleDefinition } from "../../types";
+import { createSystemModule } from "./helpers";
 
 const CODE_NAVIGATION_CONTENT = `# Code Navigation
 
@@ -60,25 +60,23 @@ Make changes as a maintainer, not as a patch generator.
 Be extra careful with authentication, authorization, persistence, migrations, production configuration, secrets, and destructive operations.
 `;
 
-export const DEVELOPMENT_SYSTEM_SKILLS: SystemSkillDefinition[] = [
-  createSystemSkill({
+export const DEVELOPMENT_SYSTEM_MODULES: SystemModuleDefinition[] = [
+  createSystemModule({
     id: "code-navigation",
     slug: "code-navigation",
     name: "Code Navigation",
     description:
       "Search-first navigation rules for locating relevant code without wasting context.",
     content: CODE_NAVIGATION_CONTENT,
-    defaultEnabled: true,
     category: "development",
   }),
-  createSystemSkill({
+  createSystemModule({
     id: "code-modification",
     slug: "code-modification",
     name: "Code Modification",
     description:
       "Rules for making minimal, maintainable, and project-consistent code changes.",
     content: CODE_MODIFICATION_CONTENT,
-    defaultEnabled: true,
     category: "development",
   }),
 ];

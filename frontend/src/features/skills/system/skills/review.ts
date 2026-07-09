@@ -1,5 +1,5 @@
-import type { SystemSkillDefinition } from "../../types";
-import { createSystemSkill } from "./helpers";
+import type { SystemModuleDefinition } from "../../types";
+import { createSystemModule } from "./helpers";
 
 const CODE_REVIEW_CONTENT = `# Code Review Workflow
 
@@ -23,15 +23,14 @@ Use this workflow when reviewing code rather than implementing changes.
 - If there are no findings, say that clearly and list any verification gaps.
 `;
 
-export const REVIEW_SYSTEM_SKILLS: SystemSkillDefinition[] = [
-  createSystemSkill({
+export const REVIEW_SYSTEM_MODULES: SystemModuleDefinition[] = [
+  createSystemModule({
     id: "code-review",
     slug: "code-review",
     name: "Code Review Workflow",
     description:
       "Specialized workflow for reviewing code for correctness, security, regressions, and tests.",
     content: CODE_REVIEW_CONTENT,
-    defaultEnabled: false,
     category: "review",
   }),
 ];

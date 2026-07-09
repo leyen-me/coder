@@ -24,6 +24,7 @@ mod replace_file;
 mod runtime;
 mod search;
 mod search_workspace;
+mod skills;
 pub mod shell;
 mod shell_registry;
 mod text_file;
@@ -57,6 +58,12 @@ pub use remote_connection::{test_remote_connection, RemoteConnectionPool, SshStr
 pub use replace_file::tool_replace_file;
 pub use runtime::agent_get_runtime_environment;
 pub use search_workspace::tool_search_workspace_paths;
+pub use skills::{
+    delete_user_skill, ensure_skill_roots, import_user_skill, list_available_skills,
+    list_user_skills, resolve_skill_references, DeleteSkillResult, ImportedSkillFile,
+    ResolveSkillReferencesResult, SkillCatalogResult, SkillRecord, SkillRoots, SkillSource,
+    SkillSummary, UserSkillListResult,
+};
 pub use shell_registry::{
     shell_kill, shell_kill_by_task, shell_list, shell_read_logs, tool_await, tool_remote_shell, tool_shell,
     ShellRegistry,

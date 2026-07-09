@@ -5,7 +5,7 @@ vi.mock("@/lib/api/client", () => ({
 }));
 
 vi.mock("@/features/skills/lib/resolve-skills", () => ({
-  getEnabledSystemSkills: vi.fn(async () => []),
+  getSystemModules: vi.fn(() => []),
 }));
 
 vi.mock("@/lib/db/remote-targets", () => ({
@@ -30,6 +30,11 @@ describe("resolveAgentEnvironment", () => {
         content: "## Rules\nBe careful.",
         truncated: false,
       },
+      skillRoots: {
+        user: "/Users/test/.coder/skills",
+        workspace: "/tmp/project/.coder/skills",
+      },
+      availableSkills: [],
     });
 
     const environment = await resolveAgentEnvironment("/tmp/project");
@@ -50,6 +55,11 @@ describe("resolveAgentEnvironment", () => {
       os: "macos aarch64 (15.5)",
       shell: "/bin/zsh",
       isGitRepository: false,
+      skillRoots: {
+        user: "/Users/test/.coder/skills",
+        workspace: "/tmp/project/.coder/skills",
+      },
+      availableSkills: [],
     });
 
     const environment = await resolveAgentEnvironment("/tmp/project");
@@ -64,5 +74,6 @@ describe("resolveAgentEnvironment", () => {
 
     expect(environment.agentsMd).toBeNull();
     expect(environment.shell).toBe("unavailable in browser preview");
+    expect(environment.availableSkills).toEqual([]);
   });
 });

@@ -9,12 +9,12 @@ import {
 } from "@/components/ui/dialog";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
-import type { SkillCardViewModel } from "../types";
+import type { UserSkillCardViewModel } from "../types";
 
 type SkillDetailDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  skill: SkillCardViewModel | null;
+  skill: UserSkillCardViewModel | null;
 };
 
 export function SkillDetailDialog({
@@ -28,8 +28,6 @@ export function SkillDetailDialog({
     return null;
   }
 
-  const isSystem = skill.source === "system";
-
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="flex max-h-[min(100dvh-2rem,88dvh)] flex-col gap-3 overflow-hidden sm:max-h-none sm:max-w-lg sm:gap-4">
@@ -37,20 +35,17 @@ export function SkillDetailDialog({
           <div className="flex flex-wrap items-center gap-2 pr-8">
             <DialogTitle>{skill.name}</DialogTitle>
             <Badge variant="secondary">
-              {isSystem ? t("skills.badgeSystem") : t("skills.badgeUser")}
+              {skill.source === "workspace"
+                ? t("skills.badgeWorkspace")
+                : t("skills.badgeUser")}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">{skill.description}</p>
-          <p className="font-mono text-xs text-muted-foreground">
-            {isSystem
-              ? t("skills.estimatedTokens", { count: skill.estimatedTokens })
-              : `/${skill.slug}`}
+          <p className="font-mono text-xs text-muted-foreground">{`/${skill.slug}`}</p>
+          <p className="font-mono text-[11px] text-muted-foreground">{skill.path}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("skills.skillDetailTokenEstimate", { count: skill.estimatedTokens })}
           </p>
-          {isSystem ? (
-            <p className="text-xs text-muted-foreground">
-              {t("skills.systemSkillReadOnlyHint")}
-            </p>
-          ) : null}
         </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border bg-muted/30 sm:max-h-[50vh]">

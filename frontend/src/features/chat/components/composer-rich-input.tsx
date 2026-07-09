@@ -39,10 +39,10 @@ import {
   type ActiveComposerSkill,
 } from "../lib/composer-skill-state";
 import {
-  filterEnabledSkills,
-  useEnabledSkills,
+  filterAvailableSkills,
+  useAvailableSkills,
 } from "../hooks/use-enabled-skills";
-import type { SkillListItem } from "@/features/skills/types";
+import type { AvailableSkill } from "@/features/skills/types";
 
 import { ComposerMentionPopover } from "./composer-mention-popover";
 import { ComposerSkillPopover } from "./composer-skill-popover";
@@ -84,7 +84,7 @@ export function ComposerRichInput({
   const skillRef = useRef<ActiveComposerSkill | null>(null);
   const selectedIndexRef = useRef(0);
   const resultsRef = useRef<WorkspacePathMatch[]>([]);
-  const skillResultsRef = useRef<SkillListItem[]>([]);
+  const skillResultsRef = useRef<AvailableSkill[]>([]);
   const [mention, setMention] = useState<ActiveComposerMention | null>(null);
   const [skillMention, setSkillMention] = useState<ActiveComposerSkill | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -97,18 +97,21 @@ export function ComposerRichInput({
     mention?.query ?? "",
     Boolean(mention)
   );
-  const { skills: enabledSkills, loading: skillsLoading } = useEnabledSkills(true);
-  const skillResults = filterEnabledSkills(
-    enabledSkills,
+  const { skills: availableSkills, loading: skillsLoading } = useAvailableSkills(
+    workspaceDir,
+    true
+  );
+  const skillResults = filterAvailableSkills(
+    availableSkills,
     skillMention?.query ?? ""
   );
-  const enabledSkillSlugs = useMemo(
-    () => new Set(enabledSkills.map((s) => s.slug)),
+  const availableSkillSlugs = useMemo(
+    () => new Set(availableSkills.map((s) => s.slug)),
     // Stringify to produce a stable reference when the skill list hasn't changed.
     // `new Set(...)` creates a new object every render, breaking referential
     // equality and causing downstream memo / useEffect to fire unnecessarily.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify(enabledSkills.map((s) => s.slug).sort())]
+    [JSON.stringify(availableSkills.map((s) => s.slug).sort())]
   );
   const deserializeOptions = useMemo(
     () => ({
@@ -119,11 +122,11 @@ export function ComposerRichInput({
         ) {
           return false;
         }
-        return enabledSkillSlugs.has(slug);
+        return availableSkillSlugs.has(slug);
       },
       isValidWorkspacePath: hasWorkspace ? looksLikeFilePath : undefined,
     }),
-    [enabledSkillSlugs, hasWorkspace, initialReferencedSkills]
+    [availableSkillSlugs, hasWorkspace, initialReferencedSkills]
   );
 
   const updateSelectedIndex = useCallback((nextIndex: number) => {
@@ -152,7 +155,7 @@ export function ComposerRichInput({
   );
 
   const handleSelectSkill = useCallback(
-    (item: SkillListItem) => {
+    (item: AvailableSkill) => {
       const editor = editorRef.current;
       const activeSkill = skillRef.current;
       if (!editor || !activeSkill) {
@@ -514,13 +517,13 @@ export function ComposerRichInput({
       editor.commands.focus("end");
     }
     syncMentionState(editor);
-  }, [editor, syncMentionState, value, enabledSkillSlugs, deserializeOptions]);
+  }, [editor, syncMentionState, value, availableSkillSlugs, deserializeOptions]);
 
   // Re-process editor content once enabled skills become available, so
   // patterns matching real skills are upgraded to skillReference nodes.
   const processedWithSkillsRef = useRef(false);
   useEffect(() => {
-    if (!editor || enabledSkillSlugs.size === 0 || processedWithSkillsRef.current) {
+    if (!editor || availableSkillSlugs.size === 0 || processedWithSkillsRef.current) {
       return;
     }
     processedWithSkillsRef.current = true;
@@ -542,7 +545,7 @@ export function ComposerRichInput({
       editor.commands.focus("end");
     }
     syncMentionState(editor);
-  }, [editor, enabledSkillSlugs, value, syncMentionState]);
+  }, [editor, availableSkillSlugs, value, syncMentionState]);
 
   // Auto-focus the editor when the component mounts.
   // Move cursor to the end so editing an existing message puts the
