@@ -97,10 +97,11 @@ export function ComposerRichInput({
     mention?.query ?? "",
     Boolean(mention)
   );
-  const { skills: availableSkills, loading: skillsLoading } = useAvailableSkills(
-    workspaceDir,
-    true
-  );
+  const {
+    skills: availableSkills,
+    loading: skillsLoading,
+    refresh: refreshAvailableSkills,
+  } = useAvailableSkills(workspaceDir, true);
   const skillResults = filterAvailableSkills(
     availableSkills,
     skillMention?.query ?? ""
@@ -517,22 +518,30 @@ export function ComposerRichInput({
       editor.commands.focus("end");
     }
     syncMentionState(editor);
-  }, [editor, syncMentionState, value, availableSkillSlugs, deserializeOptions]);
+  }, [editor, syncMentionState, value, deserializeOptions]);
 
-  // Re-process editor content once enabled skills become available, so
-  // patterns matching real skills are upgraded to skillReference nodes.
-  const processedWithSkillsRef = useRef(false);
+  const knownSkillSlugsRef = useRef("");
   useEffect(() => {
-    if (!editor || availableSkillSlugs.size === 0 || processedWithSkillsRef.current) {
+    if (!editor) {
       return;
     }
-    processedWithSkillsRef.current = true;
 
+    const slugsKey = JSON.stringify([...availableSkillSlugs].sort());
+    if (slugsKey === knownSkillSlugsRef.current) {
+      return;
+    }
+    knownSkillSlugsRef.current = slugsKey;
+
+    if (availableSkillSlugs.size === 0) {
+      return;
+    }
+
+    const currentText = serializeEditorToAgentText(editor);
     const previousSelection = editor.state.selection;
     const shouldPreserveSelection = editor.isFocused;
 
     editor.commands.setContent(
-      deserializeAgentTextToDoc(value, deserializeOptions),
+      deserializeAgentTextToDoc(currentText, deserializeOptions),
       { emitUpdate: false }
     );
     if (shouldPreserveSelection) {
@@ -545,7 +554,16 @@ export function ComposerRichInput({
       editor.commands.focus("end");
     }
     syncMentionState(editor);
-  }, [editor, availableSkillSlugs, value, syncMentionState]);
+  }, [editor, availableSkillSlugs, deserializeOptions, syncMentionState]);
+
+  const hadSkillMentionRef = useRef(false);
+  useEffect(() => {
+    const active = skillMention !== null;
+    if (active && !hadSkillMentionRef.current) {
+      void refreshAvailableSkills();
+    }
+    hadSkillMentionRef.current = active;
+  }, [skillMention, refreshAvailableSkills]);
 
   // Auto-focus the editor when the component mounts.
   // Move cursor to the end so editing an existing message puts the

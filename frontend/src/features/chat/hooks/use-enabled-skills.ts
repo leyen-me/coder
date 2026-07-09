@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { listAvailableSkills } from "@/features/skills/api";
 import type { AvailableSkill } from "@/features/skills/types";
+import { appEventBus } from "@/lib/event-bus";
 
 export function useAvailableSkills(
   workspaceDir: string | null | undefined,
@@ -26,6 +27,17 @@ export function useAvailableSkills(
     }
 
     void refresh();
+  }, [open, refresh]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const unsubscribe = appEventBus.on("agent:task_completed", () => {
+      void refresh();
+    });
+    return unsubscribe;
   }, [open, refresh]);
 
   return { skills, loading, refresh };
