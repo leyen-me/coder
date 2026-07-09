@@ -39,7 +39,10 @@ import {
   type QueuedMessage,
 } from "../lib/message-queue";
 import { useComposerThinking } from "../hooks/use-composer-thinking";
-import { estimateSessionContextUsage } from "../lib/estimate-session-context-usage";
+import {
+  estimateSessionContextUsage,
+  type SessionContextUsage,
+} from "../lib/estimate-session-context-usage";
 import {
   useDisplayMessages,
   useSessionData,
@@ -513,17 +516,30 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   }, [handoffPreviewMode, handoffState, t]);
 
   const contextUsage = useMemo(
-    () =>
-      estimateSessionContextUsage({
+    () => {
+      const liveHandoffUsage = activeTask?.handoff?.contextUsage;
+      if (liveHandoffUsage) {
+        return createDisplayContextUsage(liveHandoffUsage);
+      }
+
+      const persistedHandoffUsage = effectiveSession?.contextUsageSnapshot;
+      if (persistedHandoffUsage) {
+        return createDisplayContextUsage(persistedHandoffUsage);
+      }
+
+      return estimateSessionContextUsage({
         messages: deferredContextMessages,
         systemPrompt,
         modelId: model,
         models: allModels,
         editingMessageId,
-      }),
+      });
+    },
     [
+      activeTask?.handoff?.contextUsage,
       deferredContextMessages,
       editingMessageId,
+      effectiveSession?.contextUsageSnapshot,
       model,
       allModels,
       systemPrompt,
@@ -645,4 +661,34 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   );
 
   return chatContent;
+}
+
+function createDisplayContextUsage(input: {
+  usedTokens: number;
+  maxTokens: number;
+  remainingTokens: number;
+  reservedTokens: number;
+  triggerThreshold: number;
+}): SessionContextUsage {
+  return {
+    modelId: "handoff",
+    maxTokens: input.maxTokens,
+    usedTokens: input.usedTokens,
+    usage: {
+      inputTokens: input.usedTokens,
+      outputTokens: 0,
+      reasoningTokens: 0,
+      cachedInputTokens: 0,
+      totalTokens: input.usedTokens,
+      inputTokenDetails: {
+        noCacheTokens: input.usedTokens,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+      },
+      outputTokenDetails: {
+        textTokens: 0,
+        reasoningTokens: 0,
+      },
+    },
+  };
 }

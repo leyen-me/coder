@@ -18,6 +18,16 @@ export const DEFAULT_SESSION_KIND: SessionKind = "standard";
 export const DEFAULT_SESSION_AUTONOMY_MODE: SessionAutonomyMode = "interactive";
 export const DEFAULT_DECISION_POLICY_VERSION = "mvp-v1";
 
+export type SessionContextUsageSnapshot = {
+  usedTokens: number;
+  maxTokens: number;
+  remainingTokens: number;
+  reservedTokens: number;
+  triggerThreshold: number;
+  source: "handoff";
+  updatedAt: number;
+};
+
 export type MessageStatus =
   | "pending"
   | "streaming"
@@ -44,6 +54,8 @@ export type SessionRecord = {
   planFileName?: string | null;
   /** Timestamp (ms) when the plan was built/executed. null/undefined means not yet built. */
   planBuiltAt?: number | null;
+  /** Latest persisted context-usage snapshot for this session. */
+  contextUsageSnapshot?: SessionContextUsageSnapshot | null;
   /** Timestamp (ms) when the session was pinned. null means not pinned. */
   pinnedAt?: number | null;
   createdAt: number;

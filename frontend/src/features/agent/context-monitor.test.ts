@@ -103,6 +103,28 @@ describe("context-monitor", () => {
     expect(usage.usedTokens).toBe(5_000);
     expect(usage.estimatedTokens).toBeLessThan(usage.usedTokens);
   });
+
+  it("ignores implausibly large provider-reported prompt usage", () => {
+    const usage = estimateAgentContextUsage({
+      maxTokens: 2_000_000,
+      reportedPromptTokens: 1_476_174,
+      messages: [
+        {
+          role: "assistant",
+          content: "简短回复",
+        },
+        {
+          role: "tool",
+          tool_call_id: "call_1",
+          name: "read_file",
+          content: "文件内容".repeat(2_000),
+        },
+      ],
+    });
+
+    expect(usage.usedTokens).toBe(usage.estimatedTokens);
+    expect(usage.usedTokens).toBeLessThan(1_476_174);
+  });
 });
 
 const IMAGE_TOKEN_ESTIMATE_BASELINE = 765;

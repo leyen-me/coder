@@ -89,6 +89,7 @@ export type SessionPatch = Partial<
     | "handoffMessageId"
     | "planFileName"
     | "planBuiltAt"
+    | "contextUsageSnapshot"
     | "pinnedAt"
   >
 >;

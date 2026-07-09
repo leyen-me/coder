@@ -12,6 +12,8 @@ const IMAGE_TOKEN_ESTIMATE = 765;
 const HANDOFF_RESERVE_RATIO = 0.25;
 const MIN_HANDOFF_RESERVE_TOKENS = 1_000;
 const MAX_HANDOFF_RESERVE_TOKENS = 24_000;
+const MAX_REPORTED_ESTIMATE_RATIO = 6;
+const MAX_REPORTED_ESTIMATE_DELTA = 48_000;
 
 export type AgentContextUsage = {
   usedTokens: number;
@@ -162,9 +164,28 @@ function normalizeReportedTokens(
     Number.isFinite(reportedPromptTokens) &&
     reportedPromptTokens > 0
   ) {
+    if (!isReportedPromptTokensPlausible(reportedPromptTokens, estimatedTokens)) {
+      return estimatedTokens;
+    }
     return Math.max(Math.floor(reportedPromptTokens), estimatedTokens);
   }
   return estimatedTokens;
+}
+
+function isReportedPromptTokensPlausible(
+  reportedPromptTokens: number,
+  estimatedTokens: number
+): boolean {
+  if (estimatedTokens <= 0) {
+    return true;
+  }
+
+  const maxReasonableTokens = Math.max(
+    Math.floor(estimatedTokens * MAX_REPORTED_ESTIMATE_RATIO),
+    estimatedTokens + MAX_REPORTED_ESTIMATE_DELTA
+  );
+
+  return reportedPromptTokens <= maxReasonableTokens;
 }
 
 function normalizeThreshold(value: number | undefined, fallback: number): number {

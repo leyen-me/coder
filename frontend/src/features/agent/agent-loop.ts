@@ -34,6 +34,9 @@ import { isLongTaskSession } from "./session-policy";
 import type { DecisionResponse } from "@/lib/decision";
 import { randomUUID } from "@/lib/random-id";
 
+const COMPACTED_TOOL_RESULT_KEEP_COUNT = 4;
+const COMPACTED_TOOL_RESULT_MAX_CHARS = 4_000;
+
 type ToolExecutionContextInput = {
   workspaceDir: string | null;
   sessionId: string;
@@ -94,11 +97,16 @@ export async function runAgentWithTools(
   while (true) {
     throwIfAborted(context.signal, input.taskId);
 
+    const compactedMessages = compactToolResultMessages(messages);
+    const promptTokensForHandoffCheck =
+      compactedMessages === messages ? latestPromptTokens : undefined;
+    messages = compactedMessages;
+
     const handoffUsage = shouldTriggerContextHandoff({
       messages,
       maxTokens: input.maxContextTokens,
       triggerThreshold: input.handoffTriggerThreshold,
-      reportedPromptTokens: latestPromptTokens,
+      reportedPromptTokens: promptTokensForHandoffCheck,
     });
     if (handoffUsage) {
       onEvent({
@@ -232,6 +240,169 @@ export async function runAgentWithTools(
 
     messages = await appendToolResults(messages, turn, toolContext, onEvent, explicitlyAllowedToolNames);
   }
+}
+
+function compactToolResultMessages(
+  messages: AgentChatMessage[]
+): AgentChatMessage[] {
+  let remainingFullResults = COMPACTED_TOOL_RESULT_KEEP_COUNT;
+  let changed = false;
+  const nextMessages = [...messages];
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role !== "tool" || typeof message.content !== "string") {
+      continue;
+    }
+
+    if (remainingFullResults > 0) {
+      remainingFullResults -= 1;
+      continue;
+    }
+
+    if (message.content.length <= COMPACTED_TOOL_RESULT_MAX_CHARS) {
+      continue;
+    }
+
+    const compactedContent = summarizeToolResultContent(
+      message.name,
+      message.content
+    );
+    if (compactedContent === message.content) {
+      continue;
+    }
+
+    nextMessages[index] = {
+      ...message,
+      content: compactedContent,
+    };
+    changed = true;
+  }
+
+  return changed ? nextMessages : messages;
+}
+
+function summarizeToolResultContent(
+  toolName: string | undefined,
+  content: string
+): string {
+  const fallback = JSON.stringify({
+    ok: true,
+    tool: toolName ?? "tool",
+    data: {
+      compacted: true,
+      summary: `Older ${toolName ?? "tool"} output was compacted to reduce prompt size.`,
+      originalLength: content.length,
+    },
+  });
+
+  try {
+    const parsed = JSON.parse(content) as {
+      ok?: boolean;
+      tool?: string;
+      data?: Record<string, unknown>;
+      error?: Record<string, unknown>;
+    };
+    const data =
+      parsed && typeof parsed.data === "object" && parsed.data !== null
+        ? parsed.data
+        : null;
+    const summary = data ? buildToolDataSummary(toolName, data, content.length) : null;
+
+    return JSON.stringify({
+      ok: parsed?.ok ?? true,
+      tool: parsed?.tool ?? toolName ?? "tool",
+      data: summary ?? {
+        compacted: true,
+        summary: `Older ${toolName ?? "tool"} output was compacted to reduce prompt size.`,
+        originalLength: content.length,
+      },
+    });
+  } catch {
+    return fallback;
+  }
+}
+
+function buildToolDataSummary(
+  toolName: string | undefined,
+  data: Record<string, unknown>,
+  originalLength: number
+): Record<string, unknown> {
+  const summary: Record<string, unknown> = {
+    compacted: true,
+    tool: toolName ?? null,
+    originalLength,
+  };
+
+  copySummaryField(summary, "path", data.path);
+  copySummaryField(summary, "targetDirectory", data.targetDirectory);
+  copySummaryField(summary, "pattern", data.pattern);
+  copySummaryField(summary, "command", data.command);
+  copySummaryField(summary, "query", data.query);
+  copySummaryField(summary, "status", data.status);
+  copySummaryField(summary, "mimeType", data.mimeType);
+  copySummaryField(summary, "truncated", data.truncated);
+  copySummaryField(summary, "totalLines", data.totalLines);
+  copySummaryField(summary, "startLine", data.startLine);
+  copySummaryField(summary, "endLine", data.endLine);
+  copySummaryField(summary, "totalMatches", data.totalMatches);
+  copySummaryField(summary, "total", data.total);
+  copySummaryField(summary, "exitCode", data.exitCode);
+
+  const contentPreview = extractStringPreview(data.content);
+  if (contentPreview) {
+    summary.contentPreview = contentPreview;
+  }
+
+  const treePreview = extractStringPreview(data.treeText);
+  if (treePreview) {
+    summary.treePreview = treePreview;
+  }
+
+  const stdoutPreview = extractStringPreview(data.stdout);
+  if (stdoutPreview) {
+    summary.stdoutPreview = stdoutPreview;
+  }
+
+  const stderrPreview = extractStringPreview(data.stderr);
+  if (stderrPreview) {
+    summary.stderrPreview = stderrPreview;
+  }
+
+  if (!("summary" in summary)) {
+    summary.summary = `Older ${toolName ?? "tool"} output was compacted to reduce prompt size.`;
+  }
+
+  return summary;
+}
+
+function copySummaryField(
+  target: Record<string, unknown>,
+  key: string,
+  value: unknown
+): void {
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    target[key] = value;
+  }
+}
+
+function extractStringPreview(value: unknown, maxLength = 240): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  return normalized.length > maxLength
+    ? `${normalized.slice(0, maxLength)}...`
+    : normalized;
 }
 
 type AgentTurnResult = {

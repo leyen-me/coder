@@ -397,11 +397,19 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           if (!task) {
             return;
           }
+          const snapshot = {
+            ...event.contextUsage,
+            source: "handoff" as const,
+            updatedAt: Date.now(),
+          };
           tasksRef.current.set(event.taskId, {
             ...task,
             handoff: {
               contextUsage: event.contextUsage,
             },
+          });
+          await updateSession(task.sessionId, {
+            contextUsageSnapshot: snapshot,
           });
           emit();
           return;
@@ -1271,6 +1279,12 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
       writeLastSelectedModel(input.model);
 
+      void updateSession(input.sessionId, {
+        contextUsageSnapshot: null,
+      }).catch(() => {
+        // best-effort
+      });
+
       for (const task of tasksRef.current.values()) {
         if (
           task.sessionId === input.sessionId &&
@@ -1425,6 +1439,12 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       agentMode?: AgentMode;
     }) => {
       writeLastSelectedModel(input.model);
+
+      void updateSession(input.sessionId, {
+        contextUsageSnapshot: null,
+      }).catch(() => {
+        // best-effort
+      });
 
       for (const task of tasksRef.current.values()) {
         if (

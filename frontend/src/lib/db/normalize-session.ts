@@ -18,6 +18,7 @@ type LegacySessionRecord = {
   handoffMessageId?: string | null;
   planFileName?: string | null;
   planBuiltAt?: number | null;
+  contextUsageSnapshot?: SessionRecord["contextUsageSnapshot"];
   pinnedAt?: number | null;
   createdAt: number;
   updatedAt: number;
@@ -56,10 +57,60 @@ export function normalizeSessionRecord(
     handoffMessageId: session.handoffMessageId?.trim() || null,
     planFileName: session.planFileName?.trim() || null,
     planBuiltAt: session.planBuiltAt ?? null,
+    contextUsageSnapshot: normalizeContextUsageSnapshot(
+      session.contextUsageSnapshot
+    ),
     pinnedAt: session.pinnedAt ?? null,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   };
+}
+
+function normalizeContextUsageSnapshot(
+  snapshot: LegacySessionRecord["contextUsageSnapshot"]
+): SessionRecord["contextUsageSnapshot"] {
+  if (!snapshot) {
+    return null;
+  }
+
+  const usedTokens = toNonNegativeInteger(snapshot.usedTokens);
+  const maxTokens = toNonNegativeInteger(snapshot.maxTokens);
+  const remainingTokens = toNonNegativeInteger(snapshot.remainingTokens);
+  const reservedTokens = toNonNegativeInteger(snapshot.reservedTokens);
+  const triggerThreshold =
+    typeof snapshot.triggerThreshold === "number" &&
+    Number.isFinite(snapshot.triggerThreshold)
+      ? snapshot.triggerThreshold
+      : null;
+  const updatedAt = toNonNegativeInteger(snapshot.updatedAt);
+
+  if (
+    usedTokens === null ||
+    maxTokens === null ||
+    remainingTokens === null ||
+    reservedTokens === null ||
+    triggerThreshold === null ||
+    updatedAt === null
+  ) {
+    return null;
+  }
+
+  return {
+    usedTokens,
+    maxTokens,
+    remainingTokens,
+    reservedTokens,
+    triggerThreshold,
+    source: "handoff",
+    updatedAt,
+  };
+}
+
+function toNonNegativeInteger(value: number | null | undefined): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return null;
+  }
+  return Math.floor(value);
 }
 
 /**

@@ -203,6 +203,77 @@ describe("runAgentWithTools", () => {
     );
   });
 
+  it("compacts older tool outputs before starting the next turn", async () => {
+    executeToolCallMock.mockImplementation(async (_name: string, rawArgs: string) => {
+      const parsed = JSON.parse(rawArgs) as { path: string };
+      return {
+        ok: true,
+        tool: "read_file",
+        data: {
+          path: parsed.path,
+          content: "x".repeat(6_000),
+          truncated: false,
+        },
+      };
+    });
+
+    let turn = 0;
+    startAgentMock.mockImplementation(async (input, onEvent) => {
+      turn += 1;
+
+      if (turn <= 5) {
+        onEvent({
+          type: "turn_complete",
+          taskId: "task-1",
+          toolCalls: [
+            {
+              id: `call_${turn}`,
+              name: "read_file",
+              arguments: JSON.stringify({ path: `src/file-${turn}.ts` }),
+            },
+          ],
+        });
+        onEvent({ type: "status", taskId: "task-1", status: "completed" });
+        return;
+      }
+
+      const toolMessages = input.messages.filter((message) => message.role === "tool");
+      expect(toolMessages).toHaveLength(5);
+      expect(toolMessages[0]).toMatchObject({
+        role: "tool",
+        name: "read_file",
+      });
+      expect(typeof toolMessages[0]?.content).toBe("string");
+      expect(String(toolMessages[0]?.content)).toContain('"compacted":true');
+      expect(String(toolMessages[0]?.content)).toContain('src/file-1.ts');
+      expect(String(toolMessages[4]?.content)).not.toContain('"compacted":true');
+
+      onEvent({
+        type: "content_delta",
+        taskId: "task-1",
+        delta: "已经完成检查。",
+      });
+      onEvent({ type: "status", taskId: "task-1", status: "completed" });
+    });
+
+    await runAgentWithTools(
+      {
+        taskId: "task-1",
+        baseUrl: "https://api.example.com",
+        apiKey: "test-key",
+        apiKeySource: "manual",
+        apiKeyEnvVar: "TEST_API_KEY",
+        model: "deepseek-v4-pro",
+        messages: [{ role: "user", content: "检查多个文件" }],
+      },
+      { workspaceDir: null, sessionId: "session-1", taskId: "task-1" },
+      () => {}
+    );
+
+    expect(startAgentMock).toHaveBeenCalledTimes(6);
+    expect(executeToolCallMock).toHaveBeenCalledTimes(5);
+  });
+
   it("stops after a cancelled tool call and does not start another turn", async () => {
     const events: Parameters<AgentEventHandler>[0][] = [];
 
