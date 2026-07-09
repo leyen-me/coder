@@ -71,7 +71,7 @@ Choose the narrowest tool that gives reliable evidence.
 - Use browse_page after web_search finds a promising source, and quote retrieved content instead of inventing details.
 - Use the available skill catalog in the system prompt to identify relevant \`SKILL.md\` folders.
 - Read a skill's \`SKILL.md\` file directly when the task or an explicit /slug reference makes it relevant.
-- Create or update skills by editing files under the documented skill roots when the user asks for reusable instructions.
+- Create or update skills by editing files under the documented skill roots when the user asks for reusable instructions; follow the \`### Creating skills\` format in the Skill Catalog section so \`/slug\` references work.
 
 ### Failure handling
 

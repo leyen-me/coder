@@ -47,8 +47,26 @@ describe("buildSystemPrompt", () => {
 
     expect(prompt).toContain("## Tools Rules");
     expect(prompt).toContain("## Skill Catalog");
+    expect(prompt).toContain("### Creating skills");
+    expect(prompt).toContain("name: your-skill-slug");
     expect(prompt).toContain("Use glob to find files by name pattern.");
     expect(prompt).not.toContain("## Git");
+  });
+
+  it("omits skill creation guidance in ask mode", () => {
+    const prompt = buildSystemPrompt(
+      normalizeEnvironment({
+        workspaceDir: "/tmp/project",
+        os: "macos aarch64 (15.5)",
+        shell: "/bin/zsh",
+        isGitRepository: false,
+        today: "2026-06-02, Monday",
+      }),
+      "ask"
+    );
+
+    expect(prompt).toContain("## Skill Catalog");
+    expect(prompt).not.toContain("### Creating skills");
   });
 
   it("includes project instructions when agentsMd is present", () => {

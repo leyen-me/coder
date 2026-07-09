@@ -225,6 +225,34 @@ function stripLeadingMarkdownH1(content: string): string {
   return content.replace(/^#\s+[^\n]+\n+/, "").trim();
 }
 
+function buildSkillCreationGuidanceLines(): string[] {
+  return [
+    "",
+    "### Creating skills",
+    "",
+    "Each skill is a directory with a `SKILL.md` file: `{skills-root}/{slug}/SKILL.md`.",
+    "Skills without valid frontmatter are silently ignored and cannot be used via `/slug`.",
+    "",
+    "```markdown",
+    "---",
+    "name: your-skill-slug",
+    "description: Brief description of what this skill does and when to use it",
+    "---",
+    "",
+    "# Your Skill Title",
+    "",
+    "Instructions body...",
+    "```",
+    "",
+    "- `name` must exactly match the `{slug}` directory name.",
+    "- `name` must be lowercase kebab-case (letters, digits, and hyphens only).",
+    "- `description` is required and must be non-empty.",
+    "- Prefer the workspace skills root for project-specific rules; use the user skills root for personal reusable skills.",
+    "- Prefer modifying an existing skill directory instead of creating a duplicate with a similar slug.",
+    "- After creation, the skill appears under Available skills and the user can reference it with `/slug`.",
+  ];
+}
+
 export function buildSkillCatalogSection(
   environment: AgentEnvironment,
   agentMode?: AgentMode
@@ -241,7 +269,7 @@ export function buildSkillCatalogSection(
     ...(canWriteSkills
       ? [
           "- Create or update reusable skills by editing files under the user skills root or workspace skills root.",
-          "- Prefer modifying an existing skill directory instead of creating a duplicate with a similar slug.",
+          ...buildSkillCreationGuidanceLines(),
         ]
       : []),
   ];
