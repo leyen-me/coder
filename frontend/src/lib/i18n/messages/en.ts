@@ -612,8 +612,6 @@ export const enMessages = {
   },
   skills: {
     userSectionTitle: "My skills",
-    userSectionDescription:
-      "Imported user skills stored in ~/.coder/skills. Workspace-local skills stay out of this page and are only discovered inside the current workspace.",
     badgeUser: "User",
     badgeWorkspace: "Workspace",
     estimatedTokens: "~{count} tokens",

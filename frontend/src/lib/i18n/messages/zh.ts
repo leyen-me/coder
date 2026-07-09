@@ -598,8 +598,6 @@ export const zhMessages = {
   },
   skills: {
     userSectionTitle: "我的技能",
-    userSectionDescription:
-      "这里展示导入到 ~/.coder/skills 的用户级技能。工作区内的技能不会出现在这个页面，只会在当前工作区会话中被发现。",
     badgeUser: "用户",
     badgeWorkspace: "工作区",
     estimatedTokens: "约 {count} tokens",

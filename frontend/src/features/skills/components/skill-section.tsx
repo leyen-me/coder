@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 type SkillSectionProps = {
   title: string;
-  description?: string;
+  description?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
 };
@@ -19,7 +19,7 @@ export function SkillSection({
         <div className="space-y-1">
           <h2 className="text-base font-medium tracking-tight">{title}</h2>
           {description ? (
-            <p className="text-sm text-muted-foreground">{description}</p>
+            <div className="text-sm text-muted-foreground">{description}</div>
           ) : null}
         </div>
         {action}

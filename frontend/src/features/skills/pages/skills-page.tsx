@@ -1,4 +1,4 @@
-import { FolderOpenIcon, UploadIcon } from "lucide-react";
+import { UploadIcon } from "lucide-react";
 import { useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 
@@ -121,27 +121,22 @@ export function SkillsPage() {
                       <UploadIcon className="size-4" />
                       {importing ? t("skills.importing") : t("skills.importSkill")}
                     </Button>
-                    <Button
-                      disabled={!userSkillsRootPath}
-                      onClick={() => void handleOpenRootFolder()}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      <FolderOpenIcon className="size-4" />
-                      {t("skills.openRootFolder")}
-                    </Button>
                   </div>
                 }
-                description={t("skills.userSectionDescription")}
+                description={
+                  userSkillsRootPath ? (
+                    <button
+                      aria-label={t("skills.openRootFolder")}
+                      className="break-all text-left font-mono text-xs text-muted-foreground underline decoration-muted-foreground/50 underline-offset-4 transition-colors hover:text-foreground hover:decoration-foreground/60"
+                      onClick={() => void handleOpenRootFolder()}
+                      type="button"
+                    >
+                      {userSkillsRootPath}
+                    </button>
+                  ) : undefined
+                }
                 title={t("skills.userSectionTitle")}
               >
-                {userSkillsRootPath ? (
-                  <div className="rounded-2xl border bg-muted/20 px-4 py-3 font-mono text-xs text-muted-foreground">
-                    {userSkillsRootPath}
-                  </div>
-                ) : null}
-
                 {userSkills.length === 0 ? (
                   <div className="flex flex-col items-center justify-center gap-3 rounded-4xl border border-dashed py-16 text-center">
                     <p className="text-sm text-muted-foreground">

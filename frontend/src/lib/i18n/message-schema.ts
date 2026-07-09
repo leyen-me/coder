@@ -543,7 +543,6 @@ export type Messages = {
   };
   skills: {
     userSectionTitle: string;
-    userSectionDescription: string;
     badgeUser: string;
     badgeWorkspace: string;
     estimatedTokens: string;
