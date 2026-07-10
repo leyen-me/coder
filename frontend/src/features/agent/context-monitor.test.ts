@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   agentContextMonitorConfig,
+  buildAgentContextDiagnostics,
   estimateAgentContextUsage,
   shouldTriggerContextHandoff,
 } from "./context-monitor";
@@ -124,6 +125,36 @@ describe("context-monitor", () => {
 
     expect(usage.usedTokens).toBe(usage.estimatedTokens);
     expect(usage.usedTokens).toBeLessThan(1_476_174);
+  });
+
+  it("builds a diagnostic summary with top messages", () => {
+    const diagnostics = buildAgentContextDiagnostics({
+      maxTokens: 10_000,
+      reportedPromptTokens: 2_000,
+      messages: [
+        { role: "system", content: "System prompt" },
+        {
+          role: "assistant",
+          content: "最终答复",
+          reasoning_content: "这是很长的推理".repeat(20),
+        },
+        {
+          role: "tool",
+          tool_call_id: "call_1",
+          name: "read_file",
+          content: "文件内容".repeat(500),
+        },
+      ],
+    });
+
+    expect(diagnostics.messageCount).toBe(3);
+    expect(diagnostics.roleCounts.tool).toBe(1);
+    expect(diagnostics.reportedPromptTokens).toBe(2_000);
+    expect(diagnostics.reportedPromptTokensAccepted).toBe(true);
+    expect(diagnostics.topMessages[0]?.role).toBe("tool");
+    expect(diagnostics.topMessages[0]?.tokens).toBeGreaterThan(
+      diagnostics.topMessages[1]?.tokens ?? 0
+    );
   });
 });
 

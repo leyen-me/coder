@@ -66,6 +66,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             post(routes_tool::handle_browse_directories),
         )
         .route(
+            "/api/agent_diagnostic_log",
+            post(routes_tool::handle_agent_diagnostic_log),
+        )
+        .route(
             "/api/open_in_explorer",
             post(routes_tool::handle_open_in_explorer),
         )

@@ -24,6 +24,25 @@ export type AgentContextUsage = {
   triggerThreshold: number;
 };
 
+export type AgentContextMessageDiagnostic = {
+  index: number;
+  role: AgentChatMessage["role"];
+  name: string | null;
+  tokens: number;
+  contentChars: number;
+  reasoningChars: number;
+  toolCallCount: number;
+  preview: string | null;
+};
+
+export type AgentContextDiagnostics = AgentContextUsage & {
+  reportedPromptTokens: number | null;
+  reportedPromptTokensAccepted: boolean;
+  messageCount: number;
+  roleCounts: Record<AgentChatMessage["role"], number>;
+  topMessages: AgentContextMessageDiagnostic[];
+};
+
 export function estimateAgentContextUsage(input: {
   messages: readonly AgentChatMessage[];
   maxTokens?: number;
@@ -87,6 +106,62 @@ export function shouldTriggerContextHandoff(input: {
   }
 
   return usage;
+}
+
+export function buildAgentContextDiagnostics(input: {
+  messages: readonly AgentChatMessage[];
+  maxTokens?: number;
+  triggerThreshold?: number;
+  reportedPromptTokens?: number | null;
+  topMessageLimit?: number;
+}): AgentContextDiagnostics {
+  const usage = estimateAgentContextUsage(input);
+  const roleCounts: Record<AgentChatMessage["role"], number> = {
+    system: 0,
+    user: 0,
+    assistant: 0,
+    tool: 0,
+  };
+  const topMessageLimit = Math.max(1, input.topMessageLimit ?? 8);
+  const topMessages = input.messages
+    .map((message, index) => {
+      roleCounts[message.role] += 1;
+      const contentChars = measureMessageContentChars(message);
+      const reasoningChars = message.reasoning_content?.length ?? 0;
+      return {
+        index,
+        role: message.role,
+        name: message.name?.trim() || null,
+        tokens: estimateAgentMessageTokens(message),
+        contentChars,
+        reasoningChars,
+        toolCallCount: message.tool_calls?.length ?? 0,
+        preview: previewMessage(message),
+      } satisfies AgentContextMessageDiagnostic;
+    })
+    .sort((a, b) => b.tokens - a.tokens)
+    .slice(0, topMessageLimit);
+
+  const reportedPromptTokens =
+    typeof input.reportedPromptTokens === "number" &&
+    Number.isFinite(input.reportedPromptTokens) &&
+    input.reportedPromptTokens > 0
+      ? Math.floor(input.reportedPromptTokens)
+      : null;
+
+  return {
+    ...usage,
+    reportedPromptTokens,
+    reportedPromptTokensAccepted:
+      reportedPromptTokens !== null &&
+      isReportedPromptTokensPlausible(
+        reportedPromptTokens,
+        usage.estimatedTokens
+      ),
+    messageCount: input.messages.length,
+    roleCounts,
+    topMessages,
+  };
 }
 
 function estimateAgentMessageTokens(message: AgentChatMessage): number {
@@ -186,6 +261,50 @@ function isReportedPromptTokensPlausible(
   );
 
   return reportedPromptTokens <= maxReasonableTokens;
+}
+
+function measureMessageContentChars(message: AgentChatMessage): number {
+  if (typeof message.content === "string") {
+    return message.content.length;
+  }
+
+  if (!Array.isArray(message.content)) {
+    return 0;
+  }
+
+  return message.content.reduce((total, part) => {
+    if (part.type === "text") {
+      return total + part.text.length;
+    }
+    return total;
+  }, 0);
+}
+
+function previewMessage(message: AgentChatMessage, maxChars = 160): string | null {
+  const segments: string[] = [];
+
+  if (typeof message.content === "string" && message.content.trim()) {
+    segments.push(message.content.trim());
+  } else if (Array.isArray(message.content)) {
+    for (const part of message.content) {
+      if (part.type === "text" && part.text.trim()) {
+        segments.push(part.text.trim());
+      }
+    }
+  }
+
+  if (message.reasoning_content?.trim()) {
+    segments.push(message.reasoning_content.trim());
+  }
+
+  if (segments.length === 0) {
+    return null;
+  }
+
+  const combined = segments.join(" | ");
+  return combined.length > maxChars
+    ? `${combined.slice(0, maxChars)}...`
+    : combined;
 }
 
 function normalizeThreshold(value: number | undefined, fallback: number): number {

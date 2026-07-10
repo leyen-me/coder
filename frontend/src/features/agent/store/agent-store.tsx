@@ -106,6 +106,8 @@ import {
   type PreparedReplayArtifacts,
 } from "../handoff-workspace";
 import { resolveAgentSessionPolicy } from "../session-policy";
+import { writeAgentDiagnosticLog } from "../diagnostic-log";
+import { buildAgentContextDiagnostics } from "../context-monitor";
 
 export type StreamingMessageOverlay = {
   content: string;
@@ -753,6 +755,31 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const tools = input.extraTools
         ? [...getAgentToolDefinitions(input.agentMode), ...input.extraTools]
         : undefined;
+      const maxContextTokens = resolveContextWindowForModel(
+        input.resolvedConfig,
+        input.model
+      );
+      const handoffTriggerThreshold = readAgentHandoffThreshold();
+
+      void writeAgentDiagnosticLog({
+        category: "agent_context_preflight",
+        sessionId: input.sessionId,
+        taskId,
+        payload: {
+          model: input.model,
+          workspaceDir: input.workspaceDir,
+          sessionKind: input.sessionKind,
+          autonomyMode: input.autonomyMode,
+          agentMode: input.agentMode ?? "agent",
+          diagnostics: buildAgentContextDiagnostics({
+            messages: input.history,
+            maxTokens: maxContextTokens,
+            triggerThreshold: handoffTriggerThreshold,
+          }),
+        },
+      }).catch(() => {
+        // best-effort
+      });
 
       void runAgentWithTools(
         {
@@ -770,8 +797,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             modelId: input.model,
             thinkingEnabled: input.thinkingEnabled,
           }),
-          maxContextTokens: resolveContextWindowForModel(input.resolvedConfig, input.model),
-          handoffTriggerThreshold: readAgentHandoffThreshold(),
+          maxContextTokens,
+          handoffTriggerThreshold,
           agentMode: input.agentMode,
           sessionKind: input.sessionKind,
           autonomyMode: input.autonomyMode,

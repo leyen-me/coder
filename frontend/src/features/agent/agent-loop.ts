@@ -26,6 +26,7 @@ import {
   agentToolCallStallError,
 } from "./tool-call-stall";
 import { shouldTriggerContextHandoff } from "./context-monitor";
+import { buildAgentContextDiagnostics } from "./context-monitor";
 import {
   buildFinalAnswerDecisionRequest,
 } from "./decision/policy";
@@ -33,6 +34,7 @@ import { requestProxyDecision } from "./decision/runner";
 import { isLongTaskSession } from "./session-policy";
 import type { DecisionResponse } from "@/lib/decision";
 import { randomUUID } from "@/lib/random-id";
+import { writeAgentDiagnosticLog } from "./diagnostic-log";
 
 const COMPACTED_TOOL_RESULT_KEEP_COUNT = 4;
 const COMPACTED_TOOL_RESULT_MAX_CHARS = 4_000;
@@ -109,6 +111,24 @@ export async function runAgentWithTools(
       reportedPromptTokens: promptTokensForHandoffCheck,
     });
     if (handoffUsage) {
+      void writeAgentDiagnosticLog({
+        category: "agent_context_handoff_trigger",
+        sessionId: context.sessionId,
+        taskId: input.taskId,
+        payload: {
+          model: input.model,
+          maxContextTokens: input.maxContextTokens ?? null,
+          handoffTriggerThreshold: input.handoffTriggerThreshold ?? null,
+          diagnostics: buildAgentContextDiagnostics({
+            messages,
+            maxTokens: input.maxContextTokens,
+            triggerThreshold: input.handoffTriggerThreshold,
+            reportedPromptTokens: promptTokensForHandoffCheck,
+          }),
+        },
+      }).catch(() => {
+        // best-effort
+      });
       onEvent({
         type: "handoff_required",
         taskId: input.taskId,

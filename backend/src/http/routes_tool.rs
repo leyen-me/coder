@@ -1,4 +1,5 @@
 use axum::{extract::State, http::StatusCode, Json};
+use chrono::Utc;
 use serde::Deserialize;
 use serde_json::Value;
 use std::sync::Arc;
@@ -825,6 +826,15 @@ pub struct BrowseDirectoriesParams {
     pub path: Option<String>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentDiagnosticLogParams {
+    pub category: String,
+    pub session_id: Option<String>,
+    pub task_id: Option<String>,
+    pub payload: Value,
+}
+
 /// POST /api/browse_directories
 pub async fn handle_browse_directories(
     State(_state): State<Arc<AppState>>,
@@ -835,6 +845,37 @@ pub async fn handle_browse_directories(
     Ok(Json(serde_json::to_value(result).map_err(|e| {
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
     })?))
+}
+
+/// POST /api/agent_diagnostic_log
+pub async fn handle_agent_diagnostic_log(
+    State(_state): State<Arc<AppState>>,
+    Json(params): Json<AgentDiagnosticLogParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let category = params.category.trim();
+    if category.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "category is required".to_string(),
+        ));
+    }
+
+    let entry = serde_json::json!({
+        "ts": Utc::now().to_rfc3339(),
+        "category": category,
+        "sessionId": params.session_id.and_then(|value| {
+            let trimmed = value.trim().to_string();
+            (!trimmed.is_empty()).then_some(trimmed)
+        }),
+        "taskId": params.task_id.and_then(|value| {
+            let trimmed = value.trim().to_string();
+            (!trimmed.is_empty()).then_some(trimmed)
+        }),
+        "payload": params.payload,
+    });
+
+    agent::agent_diagnostic_file_log(entry.to_string());
+    Ok(Json(serde_json::json!({ "ok": true })))
 }
 
 /// POST /api/send_email

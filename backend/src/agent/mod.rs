@@ -11,6 +11,7 @@ pub use types::{
     ApiToolCall, ApiToolCallFunction, ChatMessage, GenerateSessionTitleParams,
     RefineContextMessage, RefinePromptParams, ToolCall,
 };
+pub use stream_log::agent_diagnostic_file_log;
 
 pub struct AgentState(pub Arc<Mutex<AgentRegistry>>);
 

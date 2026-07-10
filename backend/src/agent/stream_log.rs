@@ -7,13 +7,8 @@ use std::sync::{Mutex, OnceLock};
 static STREAM_LOG_FILE: OnceLock<Mutex<std::fs::File>> = OnceLock::new();
 static DIAGNOSTIC_LOG_FILE: OnceLock<Mutex<std::fs::File>> = OnceLock::new();
 
-fn project_root() -> PathBuf {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    manifest_dir.parent().unwrap_or(&manifest_dir).to_path_buf()
-}
-
 fn log_file_path(name: &str) -> PathBuf {
-    project_root().join(".logs").join(name)
+    crate::get_coder_logs_dir().join(name)
 }
 
 fn open_log_file(path: &Path) -> std::fs::File {
@@ -64,9 +59,9 @@ fn write_diagnostic_log(message: &str) {
     );
 }
 
-/// Agent stream file logging is opt-in. Set to `true` when debugging stream events.
+/// Agent stream file logging is opt-in. Written to `~/.coder/logs/agent-stream-rs.log`.
 const AGENT_STREAM_LOG_ENABLED: bool = false;
-/// Diagnostic stream lifecycle logging is opt-in. Written to `.logs/agent-diagnostic.log`.
+/// Diagnostic stream lifecycle logging is opt-in. Written to `~/.coder/logs/agent-diagnostic.log`.
 const AGENT_DIAGNOSTIC_LOG_ENABLED: bool = false;
 
 pub fn agent_stream_log(message: impl AsRef<str>) {
@@ -79,6 +74,10 @@ pub fn agent_diagnostic_log(message: impl AsRef<str>) {
     if AGENT_DIAGNOSTIC_LOG_ENABLED {
         write_diagnostic_log(message.as_ref());
     }
+}
+
+pub fn agent_diagnostic_file_log(message: impl AsRef<str>) {
+    write_diagnostic_log(message.as_ref());
 }
 
 pub fn format_error_chain(error: &(dyn Error + 'static)) -> String {
@@ -123,5 +122,12 @@ mod tests {
         let sanitized = sanitize_url_for_log(&url);
         assert!(sanitized.contains("(len="));
         assert!(sanitized.chars().count() < url.chars().count());
+    }
+
+    #[test]
+    fn log_file_path_uses_coder_logs_dir() {
+        let path = log_file_path("agent-diagnostic.log");
+        let path_text = path.to_string_lossy();
+        assert!(path_text.ends_with(".coder/logs/agent-diagnostic.log"));
     }
 }
