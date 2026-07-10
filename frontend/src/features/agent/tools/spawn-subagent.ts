@@ -11,6 +11,7 @@ import type {
 } from "./types";
 import { cancelAgent } from "../runner";
 import type { AgentChatMessage, AgentEvent } from "../types";
+import { writeAgentDiagnosticLog } from "../diagnostic-log";
 
 const MAX_DEPTH = 3;
 
@@ -20,6 +21,17 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
   const args = parseSubAgentArgs(rawArgs);
 
   if (!args.ok) {
+    void writeAgentDiagnosticLog({
+      category: "subagent_validation_failed",
+      sessionId: context.sessionId,
+      taskId: context.taskId,
+      payload: {
+        reason: "invalid_arguments",
+        message: args.message,
+      },
+    }).catch(() => {
+      // best-effort
+    });
     return toolFailure(
       SPAWN_SUBAGENT_TOOL_NAME,
       "invalid_arguments",
@@ -28,6 +40,16 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
   }
 
   if (!args.value.task.trim()) {
+    void writeAgentDiagnosticLog({
+      category: "subagent_validation_failed",
+      sessionId: context.sessionId,
+      taskId: context.taskId,
+      payload: {
+        reason: "empty_task",
+      },
+    }).catch(() => {
+      // best-effort
+    });
     return toolFailure(
       SPAWN_SUBAGENT_TOOL_NAME,
       "empty_task",
@@ -38,6 +60,16 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
   // Validate provider config is available
   const providerConfig = context.spawnSubAgentConfig;
   if (!providerConfig) {
+    void writeAgentDiagnosticLog({
+      category: "subagent_validation_failed",
+      sessionId: context.sessionId,
+      taskId: context.taskId,
+      payload: {
+        reason: "missing_provider_config",
+      },
+    }).catch(() => {
+      // best-effort
+    });
     return toolFailure(
       SPAWN_SUBAGENT_TOOL_NAME,
       "missing_provider_config",
@@ -48,6 +80,18 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
   // Check nesting depth
   const currentDepth = contextDepth(context);
   if (currentDepth >= MAX_DEPTH) {
+    void writeAgentDiagnosticLog({
+      category: "subagent_validation_failed",
+      sessionId: context.sessionId,
+      taskId: context.taskId,
+      payload: {
+        reason: "max_depth_exceeded",
+        currentDepth,
+        maxDepth: MAX_DEPTH,
+      },
+    }).catch(() => {
+      // best-effort
+    });
     return toolFailure(
       SPAWN_SUBAGENT_TOOL_NAME,
       "max_depth_exceeded",
@@ -83,6 +127,32 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
   const tools = args.value.tools
     ? allTools.filter((t) => args.value.tools!.includes(t.function.name))
     : allTools;
+  void writeAgentDiagnosticLog({
+    category: "subagent_spawn_start",
+    sessionId: context.sessionId,
+    taskId: context.taskId,
+    payload: {
+      subTaskId,
+      parentTaskId: context.taskId ?? null,
+      currentDepth,
+      maxDepth: MAX_DEPTH,
+      model: providerConfig.model,
+      workspaceDir: context.workspaceDir,
+      requestedTools: args.value.tools ?? null,
+      resolvedToolCount: tools.length,
+      taskPreview:
+        args.value.task.length > 240
+          ? `${args.value.task.slice(0, 240)}...`
+          : args.value.task,
+      contextPreview: args.value.context
+        ? args.value.context.length > 240
+          ? `${args.value.context.slice(0, 240)}...`
+          : args.value.context
+        : null,
+    },
+  }).catch(() => {
+    // best-effort
+  });
 
   // Create a child abort controller linked to parent signal
   const abortController = new AbortController();
@@ -177,6 +247,29 @@ export const spawnSubAgentHandler: ToolHandler = async (rawArgs, context) => {
     error: finalError,
     content: finalContent.trim() || undefined,
   };
+
+  void writeAgentDiagnosticLog({
+    category: finalError
+      ? abortController.signal.aborted
+        ? "subagent_spawn_cancelled"
+        : "subagent_spawn_failed"
+      : "subagent_spawn_completed",
+    sessionId: context.sessionId,
+    taskId: context.taskId,
+    payload: {
+      subTaskId,
+      currentDepth,
+      rounds,
+      toolCalls,
+      stepCount: steps.length,
+      finalContentLength: finalContent.trim().length,
+      error: finalError ?? null,
+      summary,
+      toolStates: summarizeSubAgentToolStates(steps),
+    },
+  }).catch(() => {
+    // best-effort
+  });
 
   if (finalError) {
     return toolFailure(
@@ -342,4 +435,17 @@ function buildSummary(
   ];
 
   return `Completed task using ${toolSteps.length} tool call${toolSteps.length !== 1 ? "s" : ""} across ${reasoningSteps.length || 1} round${(reasoningSteps.length || 1) !== 1 ? "s" : ""}. Tools used: ${toolNames.join(", ") || "none"}.`;
+}
+
+function summarizeSubAgentToolStates(
+  steps: readonly SubAgentStep[]
+): Record<string, number> {
+  return steps.reduce<Record<string, number>>((summary, step) => {
+    if (step.kind !== "tool") {
+      return summary;
+    }
+    const key = step.state ?? "unknown";
+    summary[key] = (summary[key] ?? 0) + 1;
+    return summary;
+  }, {});
 }

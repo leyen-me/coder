@@ -207,6 +207,32 @@ type GeneratedHandoffDocument = {
   openRisks: string[];
 };
 
+function summarizeStoredMessages(messages: readonly MessageRecord[]): {
+  messageCount: number;
+  roleCounts: Record<"user" | "assistant", number>;
+  toolInvocationCount: number;
+  thinkingChars: number;
+  contentChars: number;
+} {
+  return messages.reduce(
+    (summary, message) => {
+      summary.messageCount += 1;
+      summary.roleCounts[message.role] += 1;
+      summary.toolInvocationCount += message.toolInvocations?.length ?? 0;
+      summary.thinkingChars += message.thinking.length;
+      summary.contentChars += message.content.length;
+      return summary;
+    },
+    {
+      messageCount: 0,
+      roleCounts: { user: 0, assistant: 0 },
+      toolInvocationCount: 0,
+      thinkingChars: 0,
+      contentChars: 0,
+    }
+  );
+}
+
 function navigateToSession(sessionId: string): void {
   if (typeof window === "undefined") {
     return;
@@ -883,6 +909,23 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         collectGitSnapshot(workspaceDir).catch(() => null),
         collectBackgroundJobSnapshot(input.taskId).catch(() => []),
       ]);
+      void writeAgentDiagnosticLog({
+        category: "handoff_prepare_start",
+        sessionId: input.sessionId,
+        taskId: input.taskId,
+        payload: {
+          model: input.model,
+          workspaceDir,
+          sessionTitle: session.title,
+          sessionKind: input.sessionKind,
+          autonomyMode: input.autonomyMode,
+          decisionPolicyVersion: input.decisionPolicyVersion,
+          sourceSummary: summarizeStoredMessages(sourceMessages),
+          contextUsage: input.contextUsage,
+        },
+      }).catch(() => {
+        // best-effort
+      });
       const replay = await prepareReplayRecords({
         workspaceDir,
         sessionId: input.sessionId,
@@ -915,6 +958,35 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         backgroundJobs,
       });
       const referencedSkills = extractReferencedSkillSlugs(sourceMessages);
+      void writeAgentDiagnosticLog({
+        category: "handoff_replay_prepared",
+        sessionId: input.sessionId,
+        taskId: input.taskId,
+        payload: {
+          replayMessageCount: replay.messages.length,
+          replayHistoryFilePath: replay.artifacts.historyFilePath,
+          replayToolArchiveIndexPath: replay.artifacts.toolArchiveIndexPath,
+          replaySummary: buildAgentContextDiagnostics({
+            messages: history,
+            maxTokens: resolveContextWindowForModel(
+              resolveProviderForModel(input.model) ?? resolvedRef.current,
+              input.model
+            ),
+          }),
+          workingSetCount: workingSet.length,
+          workingSetNeedsVerification: workingSet.filter((entry) => entry.needsVerification)
+            .length,
+          verificationChecklistCount: verificationChecklist.length,
+          backgroundJobCount: backgroundJobs.length,
+          referencedSkillCount: referencedSkills.length,
+          gitSnapshotPresent: Boolean(gitSnapshot),
+          verificationSnapshotPresent: Boolean(
+            verification.lastTestCommand || verification.lastBuildCommand
+          ),
+        },
+      }).catch(() => {
+        // best-effort
+      });
 
       const handoffResolved = resolveProviderForModel(input.model) ?? resolvedRef.current;
 
@@ -943,6 +1015,22 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         let handoffContent = "";
         let handoffError: string | null = null;
         let generationFailed = false;
+        void writeAgentDiagnosticLog({
+          category: "handoff_generation_attempt",
+          sessionId: input.sessionId,
+          taskId: input.taskId,
+          payload: {
+            attempt: attempt + 1,
+            handoffTaskId,
+            handoffMessageCount: handoffMessages.length,
+            handoffPromptSummary: buildAgentContextDiagnostics({
+              messages: handoffMessages,
+              maxTokens: resolveContextWindowForModel(handoffResolved, input.model),
+            }),
+          },
+        }).catch(() => {
+          // best-effort
+        });
 
         try {
           await new Promise<void>((resolve, reject) => {
@@ -1029,6 +1117,23 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           workingSet,
           verification,
         });
+        void writeAgentDiagnosticLog({
+          category: quality.ok
+            ? "handoff_generation_succeeded"
+            : "handoff_quality_failed",
+          sessionId: input.sessionId,
+          taskId: input.taskId,
+          payload: {
+            attempt: attempt + 1,
+            generationFailed,
+            handoffBodyLength: finalBody.length,
+            augmentedBodyLength: qualityBody.length,
+            qualityFailures: quality.failures,
+            usedFallbackBody: generationFailed || !handoffContent.trim(),
+          },
+        }).catch(() => {
+          // best-effort
+        });
         if (quality.ok) {
           return {
             handoffBody: finalBody,
@@ -1065,6 +1170,19 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
       try {
         setSessionHandoffState(input.sessionId, "generating_handoff");
+        void writeAgentDiagnosticLog({
+          category: "handoff_continue_start",
+          sessionId: input.sessionId,
+          taskId: input.taskId,
+          payload: {
+            model: input.model,
+            sessionKind: input.sessionKind,
+            autonomyMode: input.autonomyMode,
+            contextUsage: input.contextUsage,
+          },
+        }).catch(() => {
+          // best-effort
+        });
         const sourceSession = await getSession(input.sessionId);
         if (!sourceSession) {
           throw new Error(`Session not found: ${input.sessionId}`);
@@ -1100,6 +1218,21 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           planBuiltAt: sourceSession.planBuiltAt ?? null,
         });
         continuedSessionId = nextSession.id;
+        void writeAgentDiagnosticLog({
+          category: "handoff_session_created",
+          sessionId: input.sessionId,
+          taskId: input.taskId,
+          payload: {
+            sourceSessionId: sourceSession.id,
+            continuedSessionId: nextSession.id,
+            sourceTitle: sourceSession.title,
+            continuedTitle: nextSession.title,
+            inheritedPlanFileName: nextSession.planFileName ?? null,
+            inheritedPlanBuiltAt: nextSession.planBuiltAt ?? null,
+          },
+        }).catch(() => {
+          // best-effort
+        });
 
         await copyAgentTodosForSession(sourceSession.id, nextSession.id);
 
@@ -1210,6 +1343,28 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           nextSession.id,
           sessionPolicy
         );
+        void writeAgentDiagnosticLog({
+          category: "handoff_continuation_ready",
+          sessionId: nextSession.id,
+          taskId: input.taskId,
+          payload: {
+            sourceSessionId: sourceSession.id,
+            continuationPromptLength: continuationPrompt.length,
+            handoffArtifactLength: handoffArtifact.length,
+            historySummary: buildAgentContextDiagnostics({
+              messages: history,
+              maxTokens: resolveContextWindowForModel(
+                resolveProviderForModel(input.model) ?? resolvedRef.current,
+                input.model
+              ),
+            }),
+            chainManifestPath,
+            toolArchiveIndexPath: generated.replayArtifacts.toolArchiveIndexPath,
+            historyFilePath: generated.replayArtifacts.historyFilePath,
+          },
+        }).catch(() => {
+          // best-effort
+        });
 
         setSessionHandoffState(input.sessionId, "starting_new_session");
         const handoffResolved = resolveProviderForModel(input.model) ?? resolvedRef.current;
@@ -1238,6 +1393,17 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         }
         clearSessionHandoffState(input.sessionId);
         const message = error instanceof Error ? error.message : String(error);
+        void writeAgentDiagnosticLog({
+          category: "handoff_continue_failed",
+          sessionId: input.sessionId,
+          taskId: input.taskId,
+          payload: {
+            continuedSessionId,
+            error: message,
+          },
+        }).catch(() => {
+          // best-effort
+        });
         await createMessage({
           id: randomUUID(),
           sessionId: input.sessionId,

@@ -126,6 +126,7 @@ pub fn initialize_app_state(workspace_dir: &PathBuf, http_base_url: String) -> A
     let coder_dir = get_coder_data_dir();
     std::fs::create_dir_all(&coder_dir).expect("Failed to create ~/.coder/");
     std::fs::create_dir_all(get_coder_logs_dir()).expect("Failed to create ~/.coder/logs/");
+    let _ = agent::cleanup_agent_log_dirs();
     ensure_skill_roots(None).expect("Failed to create user skill directory");
 
     // Preload shell environment

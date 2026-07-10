@@ -1,14 +1,28 @@
+use chrono::{Local, NaiveDate};
 use std::error::Error;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
-static STREAM_LOG_FILE: OnceLock<Mutex<std::fs::File>> = OnceLock::new();
-static DIAGNOSTIC_LOG_FILE: OnceLock<Mutex<std::fs::File>> = OnceLock::new();
+static STREAM_LOG_FILE: OnceLock<Mutex<CachedLogFile>> = OnceLock::new();
+static DIAGNOSTIC_LOG_FILE: OnceLock<Mutex<CachedLogFile>> = OnceLock::new();
+
+const LOG_RETENTION_DAYS: i64 = 14;
+
+struct CachedLogFile {
+    path: PathBuf,
+    file: std::fs::File,
+}
 
 fn log_file_path(name: &str) -> PathBuf {
-    crate::get_coder_logs_dir().join(name)
+    crate::get_coder_logs_dir()
+        .join(current_log_date_dir_name())
+        .join(name)
+}
+
+fn current_log_date_dir_name() -> String {
+    Local::now().format("%Y-%m-%d").to_string()
 }
 
 fn open_log_file(path: &Path) -> std::fs::File {
@@ -27,24 +41,36 @@ fn open_log_file(path: &Path) -> std::fs::File {
         })
 }
 
+impl CachedLogFile {
+    fn open(path: &Path) -> Self {
+        Self {
+            path: path.to_path_buf(),
+            file: open_log_file(path),
+        }
+    }
+}
+
 fn write_to_log(
-    file_slot: &OnceLock<Mutex<std::fs::File>>,
-    path: &Path,
+    file_slot: &OnceLock<Mutex<CachedLogFile>>,
+    path: PathBuf,
     prefix: &str,
     message: &str,
 ) {
-    let file = file_slot.get_or_init(|| Mutex::new(open_log_file(path)));
+    let file = file_slot.get_or_init(|| Mutex::new(CachedLogFile::open(&path)));
 
     if let Ok(mut writer) = file.lock() {
-        let _ = writeln!(writer, "{prefix} {message}");
-        let _ = writer.flush();
+        if writer.path != path {
+            *writer = CachedLogFile::open(&path);
+        }
+        let _ = writeln!(writer.file, "{prefix} {message}");
+        let _ = writer.file.flush();
     }
 }
 
 fn write_stream_log(message: &str) {
     write_to_log(
         &STREAM_LOG_FILE,
-        &log_file_path("agent-stream-rs.log"),
+        log_file_path("agent-stream-rs.log"),
         "[agent-stream-rs]",
         message,
     );
@@ -53,7 +79,7 @@ fn write_stream_log(message: &str) {
 fn write_diagnostic_log(message: &str) {
     write_to_log(
         &DIAGNOSTIC_LOG_FILE,
-        &log_file_path("agent-diagnostic.log"),
+        log_file_path("agent-diagnostic.log"),
         "[agent-diagnostic]",
         message,
     );
@@ -78,6 +104,40 @@ pub fn agent_diagnostic_log(message: impl AsRef<str>) {
 
 pub fn agent_diagnostic_file_log(message: impl AsRef<str>) {
     write_diagnostic_log(message.as_ref());
+}
+
+pub fn cleanup_agent_log_dirs() -> Result<(), String> {
+    let logs_dir = crate::get_coder_logs_dir();
+    if !logs_dir.exists() {
+        return Ok(());
+    }
+
+    let today = Local::now().date_naive();
+    let entries = fs::read_dir(&logs_dir)
+        .map_err(|error| format!("failed to read logs dir {}: {error}", logs_dir.display()))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|error| format!("failed to read logs dir entry: {error}"))?;
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+
+        let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
+            continue;
+        };
+        let Ok(date) = NaiveDate::parse_from_str(name, "%Y-%m-%d") else {
+            continue;
+        };
+
+        if (today - date).num_days() > LOG_RETENTION_DAYS {
+            fs::remove_dir_all(&path).map_err(|error| {
+                format!("failed to remove old logs dir {}: {error}", path.display())
+            })?;
+        }
+    }
+
+    Ok(())
 }
 
 pub fn format_error_chain(error: &(dyn Error + 'static)) -> String {
@@ -128,6 +188,14 @@ mod tests {
     fn log_file_path_uses_coder_logs_dir() {
         let path = log_file_path("agent-diagnostic.log");
         let path_text = path.to_string_lossy();
-        assert!(path_text.ends_with(".coder/logs/agent-diagnostic.log"));
+        assert!(path_text.contains(".coder/logs/"));
+        assert!(path_text.ends_with("/agent-diagnostic.log"));
+    }
+
+    #[test]
+    fn current_log_date_dir_name_uses_yyyy_mm_dd() {
+        let value = current_log_date_dir_name();
+        assert_eq!(value.len(), 10);
+        assert!(NaiveDate::parse_from_str(&value, "%Y-%m-%d").is_ok());
     }
 }
