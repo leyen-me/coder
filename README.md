@@ -250,7 +250,7 @@ The CLI downloads the platform-specific binary and starts the local server, open
 │   └── src-tauri/                     # Starts coder_lib HTTP server and loads WebView
 ├── npm/                               # CLI wrapper for npm distribution
 │   └── cli.mjs
-├── .github/workflows/                 # CI/CD (release.yml + release-desktop.yml)
+├── .github/workflows/                 # CI/CD (release.yml)
 ├── package.json
 └── tsconfig.json
 ```
@@ -317,21 +317,13 @@ pnpm preview           # Serve the built frontend locally
 
 ### Automatic release pipeline
 
-Pushing to `main` triggers two release workflows:
+Pushing to `main` triggers [`release.yml`](.github/workflows/release.yml), which publishes **one** versioned GitHub Release (`v0.1.<run_number>`) containing:
 
-**npm CLI** ([`release.yml`](.github/workflows/release.yml)):
-
-1. **Versioning** — Generates a `0.1.<run_number>` version from GitHub run count.
-2. **Frontend build** — Compiles the React frontend for embedding into the Rust binary via `rust-embed`.
-3. **Cross-platform compilation** — Matrix builds native binaries (macOS / Linux / Windows).
-4. **npm publish** — Publishes platform-specific packages (`@leyen/coder-*`) and the main CLI package (`@leyen/coder`).
-5. **GitHub Release** — Creates a release with installation instructions.
-
-**Desktop installers** ([`release-desktop.yml`](.github/workflows/release-desktop.yml)):
-
-1. Builds macOS `.dmg` and Windows NSIS `.exe`.
-2. Publishes to GitHub Releases under `desktop-v0.1.<run_number>`.
-
+1. **Versioning** — `0.1.<run_number>` shared by npm and desktop installers.
+2. **CLI binaries** — Cross-platform Rust builds published as `@leyen/coder-*` optional deps.
+3. **npm publish** — Main package `@leyen/coder`.
+4. **Desktop installers** — macOS `.dmg` and Windows NSIS `.exe` attached to the same Release Assets.
+5. **Release notes** — Install instructions for both CLI and desktop, plus changelog.
 ---
 
 ## Contributing

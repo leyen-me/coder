@@ -194,7 +194,7 @@ coder
 
 CLI 会自动下载对应平台的二进制文件，启动本地服务器并打开浏览器。
 
-桌面安装包（macOS `.dmg` / Windows `.exe`）由 GitHub Releases 发布，见 [`release-desktop.yml`](.github/workflows/release-desktop.yml)。
+桌面安装包（macOS `.dmg` / Windows `.exe`）与 npm 版本发布在**同一个** GitHub Release（`v0.1.x`）的 Assets 里。
 
 ---
 
@@ -251,7 +251,7 @@ CLI 会自动下载对应平台的二进制文件，启动本地服务器并打�
 │   └── src-tauri/                     # 启动 coder_lib HTTP 服务并加载 WebView
 ├── npm/                               # npm 分发的 CLI 包装器
 │   └── cli.mjs
-├── .github/workflows/                 # CI/CD（release.yml + release-desktop.yml）
+├── .github/workflows/                 # CI/CD（release.yml）
 ├── package.json
 └── tsconfig.json
 ```
@@ -306,20 +306,13 @@ pnpm preview           # 本地服务构建后的前端
 
 ### 自动发布流水线
 
-推送到 `main` 分支会触发两条发布工作流：
+推送到 `main` 会触发 [`release.yml`](.github/workflows/release.yml)，产出**同一个**版本的 GitHub Release（`v0.1.<run_number>`），包含：
 
-**npm CLI**（[`release.yml`](.github/workflows/release.yml)）：
-
-1. **版本生成** — 基于 GitHub run 计数生成 `0.1.<run_number>` 版本号。
-2. **前端构建** — 编译 React 前端，通过 `rust-embed` 嵌入 Rust 二进制。
-3. **跨平台编译** — 矩阵策略构建原生二进制（macOS / Linux / Windows）。
-4. **npm 发布** — 发布平台特定包（`@leyen/coder-*`）和主 CLI 包（`@leyen/coder`）。
-5. **GitHub Release** — 创建包含安装说明的 Release。
-
-**桌面安装包**（[`release-desktop.yml`](.github/workflows/release-desktop.yml)）：
-
-1. 构建 macOS `.dmg` 与 Windows NSIS `.exe`。
-2. 以 `desktop-v0.1.<run_number>` 标签发布到 GitHub Releases。
+1. **版本生成** — npm 与桌面安装包共用 `0.1.<run_number>`。
+2. **CLI 二进制** — 跨平台 Rust 构建，发布为 `@leyen/coder-*` optional 包。
+3. **npm 发布** — 主包 `@leyen/coder`。
+4. **桌面安装包** — macOS `.dmg` 与 Windows NSIS `.exe`，挂到同一 Release 的 Assets。
+5. **Release 说明** — CLI / 桌面安装方式 + changelog。
 
 ---
 

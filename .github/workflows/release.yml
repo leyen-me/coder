@@ -1,10 +1,11 @@
-# 推送 main 后自动构建全平台二进制并发布到 npm。
-# 发布策略：主包 @leyen/coder + 各平台 optional 包。
+# 推送 main 后发布统一版本：
+#   1) npm：@leyen/coder + 各平台 optional 二进制包
+#   2) GitHub Release：同一 tag 挂上 macOS .dmg / Windows .exe
 #
-# 首次使用前需要在仓库设置中添加 Secrets:
+# Secrets:
 #   NPM_TOKEN — npm automation token（publish 权限）
 #
-name: Release to npm
+name: Release
 
 on:
   push:
@@ -23,20 +24,45 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.version.outputs.VERSION }}
+      version: ${{ steps.meta.outputs.VERSION }}
+      tag_name: ${{ steps.meta.outputs.TAG }}
+      changelog: ${{ steps.changelog.outputs.CHANGELOG }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: 提取版本号
-        id: version
+      - name: 生成版本与标签
+        id: meta
         run: |
           VERSION="0.1.${{ github.run_number }}"
+          TAG="v${VERSION}"
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "本次发布版本: $VERSION"
+          echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
+          echo "本次发布: $TAG"
 
-  build:
+      - name: 生成变更日志
+        id: changelog
+        run: |
+          LAST_TAG=$(git tag --list 'v0.1.*' --sort=-creatordate | head -1 || true)
+          if [ -z "$LAST_TAG" ]; then
+            RANGE="HEAD"
+            echo "首个发布，无历史 tag"
+          else
+            RANGE="$LAST_TAG..HEAD"
+            echo "对比范围: $RANGE"
+          fi
+
+          CHANGELOG=$(git log --oneline --no-decorate $RANGE 2>/dev/null || echo "（尚无提交记录）")
+
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          {
+            echo "CHANGELOG<<$EOF"
+            echo "$CHANGELOG"
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  build-cli:
     needs:
       - prepare
     strategy:
@@ -77,7 +103,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ---- Frontend build (needed for rust-embed) ----
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -96,7 +121,6 @@ jobs:
       - name: Build frontend
         run: pnpm build:frontend
 
-      # ---- Rust build ----
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -123,7 +147,7 @@ jobs:
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Build release binary (zigbuild)
-        if: ${{ matrix.use_zigbuild }}
+        if: matrix.use_zigbuild
         working-directory: backend
         shell: bash
         run: cargo zigbuild --release --target ${{ matrix.build_target }}
@@ -152,14 +176,12 @@ jobs:
             exit 1
           fi
 
-      # ---- Generate platform-specific package.json ----
       - name: Generate platform npm package
         shell: bash
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           PLATFORM="${{ matrix.npm_platform }}"
 
-          # Determine binary name: .exe on Windows, no extension on Unix
           case "$PLATFORM" in
             win32-*) BIN_NAME="coder.exe" ;;
             *)       BIN_NAME="coder" ;;
@@ -198,10 +220,84 @@ jobs:
           npm config set "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}"
           npm publish --access public
 
-  publish-main:
+  build-desktop:
     needs:
       - prepare
-      - build
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            bundle: dmg
+            artifact_glob: desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          - platform: windows-latest
+            bundle: nsis
+            artifact_glob: desktop/src-tauri/target/release/bundle/nsis/*.exe
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install desktop CLI dependencies
+        run: pnpm --dir desktop install --frozen-lockfile
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            backend
+            desktop/src-tauri
+
+      - name: Write version to desktop manifests
+        shell: bash
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          echo "Setting app version to $VERSION"
+
+          jq ".version = \"$VERSION\"" desktop/src-tauri/tauri.conf.json > tmp.json \
+            && mv tmp.json desktop/src-tauri/tauri.conf.json
+
+          jq ".version = \"$VERSION\"" desktop/package.json > tmp.json \
+            && mv tmp.json desktop/package.json
+
+          sed -i.bak "s/^version = \".*\"/version = \"$VERSION\"/" backend/Cargo.toml \
+            && rm -f backend/Cargo.toml.bak
+
+      - name: Build desktop installer
+        shell: bash
+        run: pnpm --dir desktop tauri build --bundles ${{ matrix.bundle }}
+
+      - name: Upload desktop installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.bundle }}
+          path: ${{ matrix.artifact_glob }}
+          if-no-files-found: error
+
+  publish:
+    needs:
+      - prepare
+      - build-cli
+      - build-desktop
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -251,17 +347,39 @@ jobs:
           npm config set "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}"
           npm publish --access public
 
-      - name: 创建 GitHub Release（记录版本）
+      - name: Download desktop installers
+        uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: desktop-dist
+          merge-multiple: true
+
+      - name: List release assets
+        run: ls -la desktop-dist
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.prepare.outputs.version }}
-          name: v${{ needs.prepare.outputs.version }}
+          tag_name: ${{ needs.prepare.outputs.tag_name }}
+          name: ${{ needs.prepare.outputs.tag_name }}
           body: |
-            v${{ needs.prepare.outputs.version }} 发布到 npm
+            ## Install
 
-            ```
+            **CLI (npm)**
+            ```bash
             npm i -g @leyen/coder
             coder --help
             ```
+
+            **Desktop**
+            - macOS: download the `.dmg` below
+            - Windows: download the `.exe` installer below
+
+            ## Changelog
+
+            ${{ needs.prepare.outputs.changelog }}
+          files: |
+            desktop-dist/*
           draft: false
           prerelease: false
+          fail_on_unmatched_files: true
