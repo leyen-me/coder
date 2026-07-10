@@ -7,6 +7,9 @@ export const FLOATING_SHELL_NAV_WIDTH_PX = 74;
 /** Width when only the sidebar toggle is shown (pl-2 + icon-sm). */
 export const FLOATING_SHELL_NAV_SINGLE_BUTTON_WIDTH_PX = 40;
 
+/** Width when sidebar toggle + back are shown (settings desktop). */
+export const FLOATING_SHELL_NAV_WITH_BACK_WIDTH_PX = 74;
+
 export const TITLE_BAR_HEIGHT_CLASS = "h-11";
 
 export const TITLE_BAR_CLASS = `${TITLE_BAR_HEIGHT_CLASS} shrink-0 select-none`;

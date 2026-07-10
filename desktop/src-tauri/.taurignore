@@ -1,0 +1,9 @@
+# macOS 系统文件
+.DS_Store
+
+# 图标目录 — Spotlight 索引会频繁更新其扩展属性，导致误触发重建
+# 如果你修改了图标文件，重启 dev 即可生效
+icons/
+
+# Rust 编译输出（Tauri 默认已忽略，再次声明保险）
+target/

@@ -3,6 +3,7 @@ mod shell_env;
 pub mod tools;
 pub mod http;
 pub mod db;
+pub mod server;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};

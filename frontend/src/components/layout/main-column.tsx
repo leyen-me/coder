@@ -7,6 +7,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import {
   FLOATING_SHELL_NAV_SINGLE_BUTTON_WIDTH_PX,
   FLOATING_SHELL_NAV_WIDTH_PX,
+  FLOATING_SHELL_NAV_WITH_BACK_WIDTH_PX,
 } from "./constants";
 import { ContentTitleBar } from "./content-title-bar";
 
@@ -22,12 +23,14 @@ export function MainColumn({
   titleBarLeading,
   titleBarTrailing,
 }: MainColumnProps) {
-  const { sidebarOpen, showFloatingSearch } =
+  const { sidebarOpen, showFloatingSearch, showFloatingBack } =
     useOutletContext<ShellOutletContext>();
   const isMobile = useIsMobile();
   const floatingNavReserveWidth = showFloatingSearch
     ? FLOATING_SHELL_NAV_WIDTH_PX
-    : FLOATING_SHELL_NAV_SINGLE_BUTTON_WIDTH_PX;
+    : showFloatingBack
+      ? FLOATING_SHELL_NAV_WITH_BACK_WIDTH_PX
+      : FLOATING_SHELL_NAV_SINGLE_BUTTON_WIDTH_PX;
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

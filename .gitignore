@@ -4,6 +4,8 @@ node_modules
 
 # Rust
 backend/target/
+desktop/src-tauri/target/
+desktop/node_modules/
 
 # Frontend
 frontend/node_modules/

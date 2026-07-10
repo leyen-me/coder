@@ -144,7 +144,7 @@
 | **状态与路由** | React Router 7，自定义 stores（无外部状态库） |
 | **存储** | 服务端 SQLite（`~/.coder/`），客户端 IndexedDB（通过 HTTP 代理） |
 | **测试** | Vitest 4 支持 TypeScript |
-| **CI/CD** | GitHub Actions → 多平台 Rust 二进制 → npm 发布 |
+| **CI/CD** | GitHub Actions → npm 包 + macOS/Windows 桌面安装包 |
 
 ---
 
@@ -167,6 +167,10 @@ pnpm dev
 
 # 另开一个终端，启动 Rust 后端（端口 1421）
 pnpm dev:server
+
+# 或启动桌面壳（内嵌 HTTP 后端 + Vite HMR；勿与 dev:server 并行）
+pnpm --dir desktop install   # 首次
+pnpm dev:desktop
 ```
 
 Vite 开发服务器会将 `/api`、`/agent`、`/sse`、`/ws` 和 `/db` 请求代理到 Rust 后端。在浏览器中打开 `http://localhost:1420`。
@@ -189,6 +193,8 @@ coder
 ```
 
 CLI 会自动下载对应平台的二进制文件，启动本地服务器并打开浏览器。
+
+桌面安装包（macOS `.dmg` / Windows `.exe`）由 GitHub Releases 发布，见 [`release-desktop.yml`](.github/workflows/release-desktop.yml)。
 
 ---
 
@@ -241,9 +247,11 @@ CLI 会自动下载对应平台的二进制文件，启动本地服务器并打�
 │   │   ├── db/                        # SQLite 持久化层
 │   │   └── shell_env.rs               # Shell 环境预加载
 │   └── Cargo.toml
+├── desktop/                           # 薄 Tauri 壳（窗口 chrome + 安装包）
+│   └── src-tauri/                     # 启动 coder_lib HTTP 服务并加载 WebView
 ├── npm/                               # npm 分发的 CLI 包装器
 │   └── cli.mjs
-├── .github/workflows/                 # CI/CD（release.yml）
+├── .github/workflows/                 # CI/CD（release.yml + release-desktop.yml）
 ├── package.json
 └── tsconfig.json
 ```
@@ -287,6 +295,7 @@ CLI 会自动下载对应平台的二进制文件，启动本地服务器并打�
 ```bash
 pnpm build:frontend    # 构建前端（TypeScript + Vite → dist/）
 pnpm build:backend     # 构建 Rust 后端（release 模式）
+pnpm build:desktop     # 构建桌面安装包（dmg / nsis）
 ```
 
 ### 预览生产构建
@@ -297,17 +306,20 @@ pnpm preview           # 本地服务构建后的前端
 
 ### 自动发布流水线
 
-推送到 `main` 分支会触发[发布工作流](.github/workflows/release.yml)：
+推送到 `main` 分支会触发两条发布工作流：
+
+**npm CLI**（[`release.yml`](.github/workflows/release.yml)）：
 
 1. **版本生成** — 基于 GitHub run 计数生成 `0.1.<run_number>` 版本号。
 2. **前端构建** — 编译 React 前端，通过 `rust-embed` 嵌入 Rust 二进制。
-3. **跨平台编译** — 矩阵策略构建原生二进制：
-   - `aarch64-apple-darwin`（macOS Apple Silicon）
-   - `x86_64-apple-darwin`（macOS Intel）
-   - `x86_64-unknown-linux-gnu`（Linux x64）
-   - `x86_64-pc-windows-msvc`（Windows x64）
+3. **跨平台编译** — 矩阵策略构建原生二进制（macOS / Linux / Windows）。
 4. **npm 发布** — 发布平台特定包（`@leyen/coder-*`）和主 CLI 包（`@leyen/coder`）。
 5. **GitHub Release** — 创建包含安装说明的 Release。
+
+**桌面安装包**（[`release-desktop.yml`](.github/workflows/release-desktop.yml)）：
+
+1. 构建 macOS `.dmg` 与 Windows NSIS `.exe`。
+2. 以 `desktop-v0.1.<run_number>` 标签发布到 GitHub Releases。
 
 ---
 

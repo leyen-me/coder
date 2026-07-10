@@ -145,7 +145,7 @@ Beyond interactive chat, Coder supports **context-aware session handoff** for lo
 | **State & Routing** | React Router 7, custom stores (no external state library) |
 | **Storage** | Server-side SQLite (`~/.coder/`), client-side IndexedDB via HTTP proxy |
 | **Testing** | Vitest 4 with TypeScript support |
-| **CI/CD** | GitHub Actions → multi-platform Rust binaries → npm publish |
+| **CI/CD** | GitHub Actions → npm package + macOS/Windows desktop installers |
 
 ---
 
@@ -168,6 +168,10 @@ pnpm dev
 
 # In a separate terminal, start the Rust backend (port 1421)
 pnpm dev:server
+
+# Or start the desktop shell (embedded HTTP backend + Vite HMR; do not run with dev:server)
+pnpm --dir desktop install   # first time
+pnpm dev:desktop
 ```
 
 The Vite dev server proxies `/api`, `/agent`, `/sse`, `/ws`, and `/db` requests to the Rust backend. Open `http://localhost:1420` in your browser.
@@ -242,9 +246,11 @@ The CLI downloads the platform-specific binary and starts the local server, open
 │   │   ├── db/                        # SQLite persistence layer
 │   │   └── shell_env.rs               # Shell environment preloading
 │   └── Cargo.toml
+├── desktop/                           # Thin Tauri shell (window chrome + installers)
+│   └── src-tauri/                     # Starts coder_lib HTTP server and loads WebView
 ├── npm/                               # CLI wrapper for npm distribution
 │   └── cli.mjs
-├── .github/workflows/                 # CI/CD (release.yml)
+├── .github/workflows/                 # CI/CD (release.yml + release-desktop.yml)
 ├── package.json
 └── tsconfig.json
 ```
@@ -300,6 +306,7 @@ Create cron-based AI tasks that run autonomously with:
 ```bash
 pnpm build:frontend    # Build frontend (TypeScript + Vite → dist/)
 pnpm build:backend     # Build Rust backend (release mode)
+pnpm build:desktop     # Build desktop installers (dmg / nsis)
 ```
 
 ### Preview production build
@@ -310,17 +317,20 @@ pnpm preview           # Serve the built frontend locally
 
 ### Automatic release pipeline
 
-Pushing to `main` triggers the [release workflow](.github/workflows/release.yml):
+Pushing to `main` triggers two release workflows:
+
+**npm CLI** ([`release.yml`](.github/workflows/release.yml)):
 
 1. **Versioning** — Generates a `0.1.<run_number>` version from GitHub run count.
 2. **Frontend build** — Compiles the React frontend for embedding into the Rust binary via `rust-embed`.
-3. **Cross-platform compilation** — Matrix strategy builds native binaries for:
-   - `aarch64-apple-darwin` (macOS Apple Silicon)
-   - `x86_64-apple-darwin` (macOS Intel)
-   - `x86_64-unknown-linux-gnu` (Linux x64)
-   - `x86_64-pc-windows-msvc` (Windows x64)
+3. **Cross-platform compilation** — Matrix builds native binaries (macOS / Linux / Windows).
 4. **npm publish** — Publishes platform-specific packages (`@leyen/coder-*`) and the main CLI package (`@leyen/coder`).
 5. **GitHub Release** — Creates a release with installation instructions.
+
+**Desktop installers** ([`release-desktop.yml`](.github/workflows/release-desktop.yml)):
+
+1. Builds macOS `.dmg` and Windows NSIS `.exe`.
+2. Publishes to GitHub Releases under `desktop-v0.1.<run_number>`.
 
 ---
 

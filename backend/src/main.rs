@@ -1,8 +1,9 @@
 use std::io::{IsTerminal, stdout};
-use std::net::{IpAddr, SocketAddr};
-use std::path::PathBuf;
+use std::net::IpAddr;
 
 use clap::Parser;
+
+use coder_lib::server::{start_server, ServerOptions};
 
 #[derive(Parser)]
 #[command(name = "coder", about = "Coder — AI-powered coding assistant")]
@@ -92,73 +93,38 @@ fn print_startup_banner(port: u16) {
 
 #[tokio::main]
 async fn main() {
-    // Initialize logging
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let cli = Cli::parse();
 
-    const WORKSPACE_SETTING_KEY: &str = "coder:workspace-dir";
+    let server = start_server(ServerOptions {
+        port: cli.port,
+        loopback_only: false,
+        workspace_dir: None,
+    })
+    .await
+    .expect("Failed to start server");
 
-    // Backend fallback only — real workspace comes from user selection in the UI.
-    let workspace_dir = coder_lib::http::routes_settings::get_setting(WORKSPACE_SETTING_KEY)
-        .map(PathBuf::from)
-        .unwrap_or_else(coder_lib::get_coder_data_dir);
+    let state_for_cleanup = server.state.clone();
+    let (ctrlc_tx, ctrlc_rx) = tokio::sync::oneshot::channel::<()>();
+    let ctrlc_tx = std::sync::Mutex::new(Some(ctrlc_tx));
 
-    // Determine port (default: 1421 for dev, 0 = random for release)
-    #[cfg(debug_assertions)]
-    let default_port = 1421;
-    #[cfg(not(debug_assertions))]
-    let default_port = 0;
-    let port = cli.port.unwrap_or(default_port);
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
-
-    let listener = tokio::net::TcpListener::bind(addr)
-        .await
-        .expect("Failed to bind address");
-
-    let actual_port = listener.local_addr().unwrap().port();
-
-    let state = coder_lib::initialize_app_state(
-        &workspace_dir,
-        format!("http://127.0.0.1:{actual_port}"),
-    );
-
-    if let Err(error) =
-        coder_lib::db::purge_automation_sessions::purge_automation_sessions(&state.db)
-    {
-        log::error!("Failed to purge automation sessions: {error}");
-    }
-
-    // Build the axum Router
-    let app = coder_lib::http::build_router(state.clone());
-
-    // Setup graceful shutdown
-    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-    let shutdown_tx = std::sync::Mutex::new(Some(shutdown_tx));
-
-    let state_for_cleanup = state.clone();
     ctrlc::set_handler(move || {
         log::info!("Received Ctrl+C, shutting down...");
         coder_lib::cleanup_background_shells(&state_for_cleanup);
-        if let Some(tx) = shutdown_tx.lock().unwrap().take() {
+        if let Some(tx) = ctrlc_tx.lock().unwrap().take() {
             let _ = tx.send(());
         }
     })
     .expect("Failed to set Ctrl+C handler");
 
-    // Print URL and optionally open browser
-    print_startup_banner(actual_port);
+    print_startup_banner(server.port);
 
     if !cli.no_open {
-        let url = format!("http://localhost:{actual_port}/");
+        let url = format!("http://localhost:{}/", server.port);
         let _ = open::that(&url);
     }
 
-    // Serve
-    axum::serve(listener, app)
-        .with_graceful_shutdown(async {
-            shutdown_rx.await.ok();
-        })
-        .await
-        .unwrap();
+    let _ = ctrlc_rx.await;
+    server.shutdown().await;
 }

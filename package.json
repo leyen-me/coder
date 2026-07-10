@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "cd frontend && vite",
     "dev:server": "cd backend && cargo run -- --no-open",
+    "dev:desktop": "pnpm --dir desktop tauri dev",
     "build:frontend": "cd frontend && vite build",
     "build:backend": "cd backend && cargo build --release",
+    "build:desktop": "pnpm --dir desktop tauri build",
     "test": "cd frontend && vitest run",
     "test:watch": "cd frontend && vitest",
     "preview": "cd frontend && vite preview"
@@ -19,6 +21,7 @@
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-use-controllable-state": "^1.2.2",
     "@tanstack/react-virtual": "^3.14.3",
+    "@tauri-apps/api": "^2",
     "@tiptap/core": "^3.26.0",
     "@tiptap/extension-placeholder": "^3.26.0",
     "@tiptap/pm": "^3.26.0",
@@ -61,6 +64,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.0",
+    "@tauri-apps/cli": "^2",
     "@types/node": "^25.9.1",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",

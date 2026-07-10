@@ -1,0 +1,132 @@
+# push 到 main 后自动构建桌面端并发布到 GitHub Release（macOS .dmg / Windows .exe）。
+# npm CLI 发布仍由 release.yml 负责；本工作流只产出桌面安装包。
+name: Build and release desktop
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.tag.outputs.TAG }}
+      version: ${{ steps.tag.outputs.VERSION }}
+      changelog: ${{ steps.changelog.outputs.CHANGELOG }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 生成 desktop release 标签
+        id: tag
+        run: |
+          VERSION="0.1.${{ github.run_number }}"
+          TAG="desktop-v${VERSION}"
+          echo "TAG=$TAG" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "本次发布: $TAG"
+
+      - name: 生成上次桌面发布以来的变更日志
+        id: changelog
+        run: |
+          LAST_TAG=$(git tag --list 'desktop-v*' 'v0.0.*' --sort=-creatordate | head -1 || true)
+          if [ -z "$LAST_TAG" ]; then
+            RANGE="HEAD"
+            echo "首个桌面发布，无历史 tag"
+          else
+            RANGE="$LAST_TAG..HEAD"
+            echo "对比范围: $RANGE"
+          fi
+
+          CHANGELOG=$(git log --oneline --no-decorate $RANGE 2>/dev/null || echo "（尚无提交记录）")
+
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          {
+            echo "CHANGELOG<<$EOF"
+            echo "$CHANGELOG"
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs:
+      - prepare-tag
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --bundles dmg
+          - platform: windows-latest
+            args: --bundles nsis
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install desktop CLI dependencies
+        run: pnpm --dir desktop install --frozen-lockfile || pnpm --dir desktop install
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            backend
+            desktop/src-tauri
+
+      - name: Write version to tauri.conf.json and package.json
+        shell: bash
+        run: |
+          VERSION="${{ needs.prepare-tag.outputs.version }}"
+          echo "Setting app version to $VERSION"
+
+          jq ".version = \"$VERSION\"" desktop/src-tauri/tauri.conf.json > tmp.json \
+            && mv tmp.json desktop/src-tauri/tauri.conf.json
+
+          jq ".version = \"$VERSION\"" desktop/package.json > tmp.json \
+            && mv tmp.json desktop/package.json
+
+          # Keep backend crate version aligned for rust-embed / banners.
+          sed -i.bak "s/^version = \".*\"/version = \"$VERSION\"/" backend/Cargo.toml \
+            && rm -f backend/Cargo.toml.bak
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop/src-tauri
+          tagName: ${{ needs.prepare-tag.outputs.tag_name }}
+          releaseName: ${{ needs.prepare-tag.outputs.tag_name }}
+          releaseBody: |
+            ${{ needs.prepare-tag.outputs.changelog }}
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
