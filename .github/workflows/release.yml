@@ -282,9 +282,15 @@ jobs:
           sed -i.bak "s/^version = \".*\"/version = \"$VERSION\"/" backend/Cargo.toml \
             && rm -f backend/Cargo.toml.bak
 
+      # Use tauri-action for the build (same path that produced desktop-v0.1.1).
+      # Omit tagName so it only builds; the unified Release is created later.
       - name: Build desktop installer
-        shell: bash
-        run: pnpm --dir desktop tauri build --bundles ${{ matrix.bundle }}
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop/src-tauri
+          args: --bundles ${{ matrix.bundle }}
 
       - name: Upload desktop installer artifact
         uses: actions/upload-artifact@v4
