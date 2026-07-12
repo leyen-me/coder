@@ -990,8 +990,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
       const handoffResolved = resolveProviderForModel(input.model) ?? resolvedRef.current;
 
-      let lastQualityFailures: string[] = [];
-
       for (let attempt = 0; attempt < 3; attempt += 1) {
         const handoffTaskId = createTaskId();
         const handoffMessages: AgentChatMessage[] = [
@@ -1006,8 +1004,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               autonomyMode: input.autonomyMode,
               decisionPolicyVersion: input.decisionPolicyVersion,
               decisionModel: input.decisionModel,
-              qualityFailures:
-                lastQualityFailures.length > 0 ? lastQualityFailures : undefined,
             }),
           },
         ];
@@ -1120,7 +1116,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         void writeAgentDiagnosticLog({
           category: quality.ok
             ? "handoff_generation_succeeded"
-            : "handoff_quality_failed",
+            : "handoff_quality_advisory",
           sessionId: input.sessionId,
           taskId: input.taskId,
           payload: {
@@ -1134,32 +1130,44 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         }).catch(() => {
           // best-effort
         });
-        if (quality.ok) {
-          return {
-            handoffBody: finalBody,
-            sourceMessages,
-            replayArtifacts: {
-              ...replay.artifacts,
-            },
-            workingSet,
-            verification,
-            gitSnapshot,
-            backgroundJobs,
-            referencedSkills,
-            verificationChecklist,
-            assumptions: extractAssumptionsFromBody(finalBody),
-            knownErrors,
-            invariants: extractInvariantsFromBody(finalBody),
-            openRisks: extractOpenRisksFromBody(finalBody),
-          };
-        }
 
-        lastQualityFailures = quality.failures;
+        return {
+          handoffBody: finalBody,
+          sourceMessages,
+          replayArtifacts: {
+            ...replay.artifacts,
+          },
+          workingSet,
+          verification,
+          gitSnapshot,
+          backgroundJobs,
+          referencedSkills,
+          verificationChecklist,
+          assumptions: extractAssumptionsFromBody(finalBody),
+          knownErrors,
+          invariants: extractInvariantsFromBody(finalBody),
+          openRisks: extractOpenRisksFromBody(finalBody),
+        };
       }
 
-      throw new Error(
-        "Handoff quality gate failed after 3 attempts. Automatic continuation was paused."
-      );
+      return {
+        handoffBody: buildFallbackHandoffBody({
+          userContent: input.userContent,
+          sourceSessionTitle: session.title,
+        }),
+        sourceMessages,
+        replayArtifacts: replay.artifacts,
+        workingSet,
+        verification,
+        gitSnapshot,
+        backgroundJobs,
+        referencedSkills,
+        verificationChecklist,
+        assumptions,
+        knownErrors,
+        invariants: [],
+        openRisks: [],
+      };
     },
     [resolveProviderForModel]
   );

@@ -469,6 +469,7 @@ export function evaluateHandoffQuality(input: {
   workingSet: HandoffWorkingSetEntry[];
   verification?: HandoffVerificationSnapshot | null;
 }): HandoffQualityReport {
+  // Advisory only — handoff continuation does not block on these checks.
   const failures: string[] = [];
   const concretePathCount = countConcreteHandoffPaths(
     input.handoffBody,
