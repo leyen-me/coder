@@ -500,7 +500,6 @@ export type Messages = {
       title: string;
       description: string;
       addButton: string;
-      addLongbridgeCn: string;
       emptyState: string;
       edit: string;
       delete: string;

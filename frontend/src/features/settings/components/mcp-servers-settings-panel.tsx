@@ -38,7 +38,6 @@ import {
   testMcpConnection,
 } from "@/features/mcp/api";
 import {
-  createLongbridgePreset,
   formatHeadersLines,
   isRemoteMcpServer,
   normalizeMcpServerConfig,
@@ -168,12 +167,6 @@ export function McpServersSettingsPanel() {
     setShowDialog(true);
   }
 
-  function handleAddLongbridge(region: "cn" | "global") {
-    setEditing(configToForm(createLongbridgePreset(region)));
-    setOriginalId(null);
-    setShowDialog(true);
-  }
-
   async function handleEdit(id: string) {
     const server = await getMcpServer(id);
     if (!server) {
@@ -291,19 +284,10 @@ export function McpServersSettingsPanel() {
             {t("settings.mcpServers.description")}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={() => handleAddLongbridge("cn")}
-            type="button"
-            variant="outline"
-          >
-            {t("settings.mcpServers.addLongbridgeCn")}
-          </Button>
-          <Button onClick={handleAdd} type="button" variant="outline">
-            <Plus className="size-4" />
-            {t("settings.mcpServers.addButton")}
-          </Button>
-        </div>
+        <Button onClick={handleAdd} type="button" variant="outline">
+          <Plus className="size-4" />
+          {t("settings.mcpServers.addButton")}
+        </Button>
       </div>
 
       {servers.length === 0 ? (
