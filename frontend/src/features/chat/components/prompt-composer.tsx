@@ -268,8 +268,8 @@ function ComposerContextBar({
       </Button>
 
       {gitBranch ? (
-        <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-xs text-muted-foreground">
-          <GitBranchIcon className="size-3.5 shrink-0" />
+        <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-sm text-muted-foreground">
+          <GitBranchIcon className="size-4 shrink-0" />
           <span className="truncate">{gitBranch}</span>
         </span>
       ) : null}
