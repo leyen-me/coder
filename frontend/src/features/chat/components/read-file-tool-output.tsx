@@ -35,6 +35,9 @@ export function ReadFileToolOutput({
 
   const filePath = formatted?.path ?? resolveFilePathFromInput(input);
   const content = formatted?.content ?? "";
+  // Strip line-number prefixes (e.g. "1 | code", " 42 | code") so
+  // Shiki syntax highlighting works on the raw code, not garbled text.
+  const cleanContent = useMemo(() => stripLineNumbers(content), [content]);
   const totalLines = formatted?.totalLines ?? 0;
   const startLine = formatted?.startLine ?? 1;
   const endLine = formatted?.endLine ?? 0;
@@ -83,7 +86,7 @@ export function ReadFileToolOutput({
       {content ? (
         <div className="max-h-96 overflow-y-auto">
           <CodeBlock
-            code={content}
+            code={cleanContent}
             language={language as unknown as import("shiki").BundledLanguage}
             showLineNumbers
           />
@@ -139,4 +142,12 @@ function inferLanguage(filePath: string): string {
     lock: "json",
   };
   return langMap[ext] ?? "";
+}
+
+/**
+ * Remove `"N | "` line-number prefixes added by the backend's
+ * `format_numbered_content` so Shiki highlights the raw code correctly.
+ */
+function stripLineNumbers(content: string): string {
+  return content.replace(/^[ \t]*\d+ \| /gm, "");
 }
