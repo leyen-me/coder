@@ -20,6 +20,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -153,7 +154,7 @@ export function SessionTitleActions({
             <MoreHorizontalIcon className="size-4" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-40">
+        <DropdownMenuContent align="start" className="min-w-40">
           {chatId ? (
             <>
               <DropdownMenuItem onSelect={() => setRenameOpen(true)}>
@@ -168,7 +169,7 @@ export function SessionTitleActions({
                 {isPinned ? <PinOffIcon /> : <PinIcon />}
                 {isPinned ? t("sidebar.unpinChat") : t("sidebar.pinChat")}
               </DropdownMenuItem>
-              {hasWorkspace ? <div className="h-px bg-border/50" role="separator" /> : null}
+              {hasWorkspace ? <DropdownMenuSeparator /> : null}
             </>
           ) : null}
           {hasWorkspace ? (
