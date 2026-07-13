@@ -516,6 +516,8 @@ export const enMessages = {
       sending: "Sending…",
       testSubject: "Test email from Coder",
       testBody: "This is a test email. Your email configuration is working correctly.",
+      testSuccess: "Test email sent successfully",
+      testFailed: "Test email failed",
     },
     remoteTargets: {
       title: "Remote Connections",

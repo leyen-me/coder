@@ -503,6 +503,8 @@ export const zhMessages = {
       sending: "发送中…",
       testSubject: "来自 Coder 的测试邮件",
       testBody: "这是一封测试邮件，您的邮件配置工作正常。",
+      testSuccess: "测试邮件发送成功",
+      testFailed: "测试邮件发送失败",
     },
     remoteTargets: {
       title: "远程连接",

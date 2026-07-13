@@ -455,6 +455,8 @@ export type Messages = {
       sending: string;
       testSubject: string;
       testBody: string;
+      testSuccess: string;
+      testFailed: string;
     };
     remoteTargets: {
       title: string;

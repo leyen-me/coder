@@ -1,5 +1,6 @@
-import { AlertCircleIcon, CheckCircleIcon, LoaderIcon, MailIcon } from "lucide-react";
+import { LoaderIcon, MailIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,8 +111,7 @@ export function EmailSettingsPanel() {
   const { t } = useTranslation();
   const [currentProvider, setCurrentProvider] = useState<string>("qq");
   const [profiles, setProfiles] = useState<Record<string, EmailSettings>>({});
-  const [testStatus, setTestStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
-  const [testMessage, setTestMessage] = useState("");
+  const [testStatus, setTestStatus] = useState<"idle" | "sending">("idle");
 
   // Initialise from store
   useEffect(() => {
@@ -171,14 +171,12 @@ export function EmailSettingsPanel() {
       setCurrentProvider(nextProvider);
       // Reset test status when switching provider
       setTestStatus("idle");
-      setTestMessage("");
     },
     [persistStore],
   );
 
   const handleTestSend = useCallback(async () => {
     setTestStatus("sending");
-    setTestMessage("");
 
     try {
       const message = await sendTestEmail(
@@ -186,11 +184,15 @@ export function EmailSettingsPanel() {
         t("settings.email.testSubject"),
         t("settings.email.testBody"),
       );
-      setTestStatus("success");
-      setTestMessage(message);
+      toast.success(t("settings.email.testSuccess"), {
+        description: message,
+      });
     } catch (error) {
-      setTestStatus("error");
-      setTestMessage(error instanceof Error ? error.message : String(error));
+      toast.error(t("settings.email.testFailed"), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setTestStatus("idle");
     }
   }, [settings, t]);
 
@@ -320,17 +322,6 @@ export function EmailSettingsPanel() {
               </>
             )}
           </Button>
-          {testStatus === "success" ? (
-            <div className="flex items-center gap-1.5 text-xs text-green-600">
-              <CheckCircleIcon className="size-3.5" />
-              {testMessage}
-            </div>
-          ) : testStatus === "error" ? (
-            <div className="flex max-w-[280px] items-start gap-1.5 break-words text-xs text-destructive">
-              <AlertCircleIcon className="mt-0.5 size-3.5 shrink-0" />
-              <span>{testMessage}</span>
-            </div>
-          ) : null}
         </div>
       </div>
     </section>
