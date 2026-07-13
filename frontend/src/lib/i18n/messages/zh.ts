@@ -449,10 +449,6 @@ export const zhMessages = {
         "web_search 使用 SearXNG 时的实例地址，需支持 JSON 搜索（format=json）",
       searxngBaseUrlPlaceholder: "https://searxng.example.com",
       searxngBaseUrlAriaLabel: "SearXNG 实例 URL",
-      allowPrivateNetworkAccessLabel: "允许访问内网地址",
-      allowPrivateNetworkAccessDescription:
-        "允许 browse_page 和 SearXNG 访问 localhost 和私有网络地址（如内网 Swagger）。云元数据等高危地址仍会被拦截。",
-      allowPrivateNetworkAccessAriaLabel: "允许访问内网地址",
     },
     data: {
       clearChatHistoryLabel: "清除聊天记录",

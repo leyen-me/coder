@@ -462,10 +462,6 @@ export const enMessages = {
         "Base URL for SearXNG when web_search uses it. JSON search (format=json) must be enabled.",
       searxngBaseUrlPlaceholder: "https://searxng.example.com",
       searxngBaseUrlAriaLabel: "SearXNG instance URL",
-      allowPrivateNetworkAccessLabel: "Allow private network access",
-      allowPrivateNetworkAccessDescription:
-        "Let browse_page and SearXNG access localhost and private networks (e.g. internal Swagger). Cloud metadata endpoints remain blocked.",
-      allowPrivateNetworkAccessAriaLabel: "Allow private network access",
     },
     data: {
       clearChatHistoryLabel: "Clear chat history",

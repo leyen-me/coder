@@ -406,9 +406,6 @@ export type Messages = {
       searxngBaseUrlDescription: string;
       searxngBaseUrlPlaceholder: string;
       searxngBaseUrlAriaLabel: string;
-      allowPrivateNetworkAccessLabel: string;
-      allowPrivateNetworkAccessDescription: string;
-      allowPrivateNetworkAccessAriaLabel: string;
     };
     data: {
       clearChatHistoryLabel: string;

@@ -1,5 +1,4 @@
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { DEFAULT_TAVILY_API_KEY_ENV_VAR } from "@/lib/web-tools/constants";
 import { useWebTools } from "@/lib/web-tools/web-tools-provider";
 import { useLocale } from "@/lib/i18n/locale-provider";
@@ -116,19 +115,6 @@ export function WebToolsSettingsPanel() {
         </SettingField>
       )}
 
-      <SettingRow
-        label={t("settings.webTools.allowPrivateNetworkAccessLabel")}
-        description={t("settings.webTools.allowPrivateNetworkAccessDescription")}
-        control={
-          <Switch
-            checked={settings.allowPrivateNetworkAccess}
-            onCheckedChange={(checked) =>
-              updateSettings({ allowPrivateNetworkAccess: checked })
-            }
-            aria-label={t("settings.webTools.allowPrivateNetworkAccessAriaLabel")}
-          />
-        }
-      />
     </section>
   );
 }
