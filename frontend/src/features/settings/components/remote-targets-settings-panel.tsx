@@ -201,8 +201,8 @@ export function RemoteTargetsSettingsPanel() {
             {t("settings.remoteTargets.description")}
           </p>
         </div>
-        <Button onClick={handleAdd} size="sm">
-          <Plus className="mr-1 h-4 w-4" />
+        <Button onClick={handleAdd} type="button" variant="outline">
+          <Plus className="size-4" />
           {t("settings.remoteTargets.addButton")}
         </Button>
       </div>

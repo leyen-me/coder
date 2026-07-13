@@ -115,8 +115,8 @@ export function SkillsPage() {
                     <Button
                       disabled={importing}
                       onClick={handleImportClick}
-                      size="sm"
                       type="button"
+                      variant="outline"
                     >
                       <UploadIcon className="size-4" />
                       {importing ? t("skills.importing") : t("skills.importSkill")}
