@@ -418,6 +418,14 @@ export type Messages = {
       confirmDescription: string;
       confirmCancel: string;
       confirmAction: string;
+      batchDeleteLabel: string;
+      batchDeleteDescription: string;
+      batchDeleteButton: string;
+      batchDeleteSuccess: string;
+      selectAll: string;
+      deselectAll: string;
+      selectedCount: string;
+      noSessions: string;
     };
     lab: {
       longTaskLabel: string;
