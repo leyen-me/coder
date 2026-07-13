@@ -3,6 +3,7 @@ pub mod routes_db;
 pub mod routes_skills;
 pub mod routes_settings;
 pub mod routes_sse;
+pub mod routes_mcp;
 pub mod static_files;
 
 use axum::{
@@ -55,6 +56,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/skills/import", post(routes_skills::handle_import_skill))
         .route("/api/skills/delete", post(routes_skills::handle_delete_skill))
         .route("/api/test_remote_connection", post(routes_tool::handle_test_remote_connection))
+        .route("/api/mcp/list_tools", post(routes_mcp::handle_mcp_list_tools))
+        .route("/api/mcp/call_tool", post(routes_mcp::handle_mcp_call_tool))
+        .route("/api/mcp/test_connection", post(routes_mcp::handle_mcp_test_connection))
+        .route("/api/mcp/disconnect", post(routes_mcp::handle_mcp_disconnect))
         .route("/api/git_current_branch", post(routes_tool::handle_git_current_branch))
         .route("/api/handoff_git_snapshot", post(routes_tool::handle_handoff_git_snapshot))
         .route(

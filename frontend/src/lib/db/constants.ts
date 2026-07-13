@@ -7,3 +7,4 @@ export const USER_SKILLS_STORE = "userSkills";
 export const SYSTEM_SKILL_PREFERENCES_STORE = "systemSkillPreferences";
 export const AGENT_TODOS_STORE = "agentTodos";
 export const REMOTE_TARGETS_STORE = "remoteTargets";
+export const MCP_SERVERS_STORE = "mcpServers";

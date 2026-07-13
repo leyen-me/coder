@@ -37,6 +37,7 @@ import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 import { appEventBus } from "@/lib/event-bus";
 import { randomUUID } from "@/lib/random-id";
 import { runAgentWithTools } from "../agent-loop";
+import { resolveMcpAgentTools } from "@/features/mcp/lib/resolve-mcp-tools";
 import { buildAgentMessages } from "../build-agent-messages";
 import { isAgentCancellationError } from "../cancellation";
 import { SkillReferenceValidationError } from "@/features/skills/lib/skill-errors";
@@ -778,9 +779,12 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       taskAbortControllersRef.current.set(taskId, abortController);
       emit();
 
-      const tools = input.extraTools
-        ? [...getAgentToolDefinitions(input.agentMode), ...input.extraTools]
-        : undefined;
+      const mcpTools = await resolveMcpAgentTools().catch(() => []);
+      const extraTools = [...mcpTools, ...(input.extraTools ?? [])];
+      const tools =
+        extraTools.length > 0
+          ? [...getAgentToolDefinitions(input.agentMode), ...extraTools]
+          : undefined;
       const maxContextTokens = resolveContextWindowForModel(
         input.resolvedConfig,
         input.model

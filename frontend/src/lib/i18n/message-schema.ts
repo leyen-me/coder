@@ -259,6 +259,7 @@ export type Messages = {
       lab: string;
       email: string;
       remoteTargets: string;
+      mcpServers: string;
     };
     general: {
       languageLabel: string;
@@ -491,6 +492,33 @@ export type Messages = {
       keyPathPlaceholder: string;
       keyContentLabel: string;
       keyContentPlaceholder: string;
+      deleteConfirmTitle: string;
+      deleteConfirmDescription: string;
+      toggleEnabledAria: string;
+    };
+    mcpServers: {
+      title: string;
+      description: string;
+      addButton: string;
+      emptyState: string;
+      edit: string;
+      delete: string;
+      save: string;
+      cancel: string;
+      test: string;
+      addDialogTitle: string;
+      editDialogTitle: string;
+      dialogDescription: string;
+      idLabel: string;
+      idPlaceholder: string;
+      nameLabel: string;
+      namePlaceholder: string;
+      commandLabel: string;
+      commandPlaceholder: string;
+      argsLabel: string;
+      argsPlaceholder: string;
+      envLabel: string;
+      envPlaceholder: string;
       deleteConfirmTitle: string;
       deleteConfirmDescription: string;
       toggleEnabledAria: string;

@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 
 use agent::registry::AgentRegistry;
 use db::Database;
-use tools::{ensure_skill_roots, PageCache, RemoteConnectionPool, ShellRegistry};
+use tools::{ensure_skill_roots, McpRegistry, PageCache, RemoteConnectionPool, ShellRegistry};
 
 /// Global shared state for all HTTP handlers.
 pub struct AppState {
@@ -19,6 +19,7 @@ pub struct AppState {
     pub db: Arc<Mutex<Database>>,
     pub agent_registry: Arc<Mutex<AgentRegistry>>,
     pub shell_registry: Arc<Mutex<ShellRegistry>>,
+    pub mcp_registry: Arc<McpRegistry>,
     pub page_cache: Arc<PageCache>,
     pub remote_pool: RemoteConnectionPool,
     pub sse_broadcaster: Arc<SseBroadcaster>,
@@ -144,6 +145,7 @@ pub fn initialize_app_state(workspace_dir: &PathBuf, http_base_url: String) -> A
             AgentRegistry::new().expect("Failed to init agent registry"),
         )),
         shell_registry: Arc::new(Mutex::new(ShellRegistry::new())),
+        mcp_registry: Arc::new(McpRegistry::new()),
         page_cache: Arc::new(PageCache::new()),
         remote_pool,
         sse_broadcaster: Arc::new(SseBroadcaster::new()),

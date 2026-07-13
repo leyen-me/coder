@@ -62,6 +62,7 @@ export class HttpStoreBackend implements StoreBackend {
     // Different stores use different key fields; resolve the id accordingly.
     const KEY_FIELDS: Record<string, string> = {
       remoteTargets: "alias",
+      mcpServers: "id",
       systemSkillPreferences: "skillId",
     };
     const keyField = KEY_FIELDS[storeName] ?? "id";

@@ -61,6 +61,8 @@ import { todoWriteHandler } from "./todo-write";
 import { webSearchHandler } from "./web-search";
 import { writeFileHandler } from "./write-file";
 import { spawnSubAgentHandler } from "./spawn-subagent";
+import { executeMcpToolCall } from "./mcp";
+import { isMcpToolName } from "@/features/mcp/lib/tool-naming";
 import { ASK_MODE_TOOL_NAMES } from "./ask-tools";
 import { PLAN_MODE_TOOL_NAMES } from "./plan-tools";
 import type {
@@ -170,6 +172,24 @@ export async function executeToolCall(
   rawArguments: string,
   context: ToolExecutionContext
 ): Promise<ToolResultEnvelope> {
+  if (isMcpToolName(name)) {
+    let parsedArgs: unknown;
+    try {
+      parsedArgs = rawArguments.trim() ? JSON.parse(rawArguments) : {};
+    } catch {
+      return {
+        ok: false,
+        tool: name,
+        error: {
+          code: "invalid_arguments",
+          message: "Tool arguments must be valid JSON",
+        },
+      };
+    }
+
+    return executeMcpToolCall(name, parsedArgs, context);
+  }
+
   const handler = getToolHandler(name);
   if (!handler) {
     return {

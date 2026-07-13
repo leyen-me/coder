@@ -7,4 +7,5 @@ export type SettingsCategoryId =
   | "data"
   | "lab"
   | "email"
-  | "remoteTargets";
+  | "remoteTargets"
+  | "mcpServers";

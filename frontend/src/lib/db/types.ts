@@ -182,6 +182,15 @@ export type RemoteTargetConfig = {
   enabled: boolean;
 };
 
+export type McpServerConfig = {
+  id: string;
+  name: string;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  enabled: boolean;
+};
+
 export type AgentTodoStatus =
   | "pending"
   | "in_progress"

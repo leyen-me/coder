@@ -17,6 +17,7 @@ import { ModelProviderSettingsPanel } from "../components/model-provider-setting
 import { LabSettingsPanel } from "../components/lab-settings-panel";
 import { WebToolsSettingsPanel } from "../components/web-tools-settings-panel";
 import { RemoteTargetsSettingsPanel } from "../components/remote-targets-settings-panel";
+import { McpServersSettingsPanel } from "../components/mcp-servers-settings-panel";
 import { SettingsSidebar } from "../components/settings-sidebar";
 import type { SettingsCategoryId } from "../types";
 
@@ -30,6 +31,7 @@ const SETTINGS_PANELS: Record<SettingsCategoryId, ComponentType> = {
   lab: LabSettingsPanel,
   email: EmailSettingsPanel,
   remoteTargets: RemoteTargetsSettingsPanel,
+  mcpServers: McpServersSettingsPanel,
 };
 
 export function SettingsPage() {
