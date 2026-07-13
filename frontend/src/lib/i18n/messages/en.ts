@@ -46,6 +46,7 @@ export const enMessages = {
     deleteChatConfirmDescription:
       "This will permanently delete this chat and all its messages. This cannot be undone.",
     exportChatSuccess: "Chat exported successfully",
+    exportChatFailed: "Failed to export chat",
     deleteChatSuccess: "Chat deleted",
     pinChat: "Pin to top",
     unpinChat: "Unpin",
@@ -59,8 +60,9 @@ export const enMessages = {
     shareLink: "Share link",
     splitLayout: "Split layout",
     workbench: "Workbench",
-    openWorkspaceInExplorer: "Open workspace in file explorer",
+    openWorkspaceInExplorer: "Open folder",
     openWorkspaceInExplorerFailed: "Could not open workspace directory",
+    sessionActions: "Session actions",
   },
   chat: {
     headline: "What do you want to build in {project}?",

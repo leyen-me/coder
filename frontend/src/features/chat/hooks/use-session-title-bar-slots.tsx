@@ -7,7 +7,7 @@ import { useWorkspace } from "@/features/workspace/workspace-provider";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import { SessionTitleLabel } from "../components/session-title-label";
-import { SessionToolbar } from "../components/session-toolbar";
+import { SessionTitleActions, SessionToolbar } from "../components/session-toolbar";
 import { requestMessageListScrollToBottom } from "../components/message-list-scroll";
 import { useSessionMessages } from "./use-session-messages";
 
@@ -46,18 +46,25 @@ export function useSessionTitleBarSlots(pathname: string) {
 
   return {
     leading: (
-      <SessionTitleLabel
-        title={title}
-        sessionKind={session?.sessionKind ?? "standard"}
-        isGenerating={isGeneratingTitle}
-        variant="header"
-        onDoubleClick={handleDoubleClick}
-      />
+      <span className="flex min-w-0 items-center gap-1">
+        <SessionTitleLabel
+          title={title}
+          sessionKind={session?.sessionKind ?? "standard"}
+          isGenerating={isGeneratingTitle}
+          variant="header"
+          onDoubleClick={handleDoubleClick}
+        />
+        <SessionTitleActions
+          chatId={chatId}
+          title={session?.title}
+          isPinned={session?.pinnedAt != null}
+          workspaceDir={workspaceDir}
+        />
+      </span>
     ),
     trailing: (
       <SessionToolbar
         sessionProvider={session?.provider ?? null}
-        workspaceDir={workspaceDir}
       />
     ),
   };

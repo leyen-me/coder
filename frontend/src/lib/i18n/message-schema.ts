@@ -43,6 +43,7 @@ export type Messages = {
     deleteChatConfirmTitle: string;
     deleteChatConfirmDescription: string;
     exportChatSuccess: string;
+    exportChatFailed: string;
     deleteChatSuccess: string;
     pinChat: string;
     unpinChat: string;
@@ -58,6 +59,7 @@ export type Messages = {
     workbench: string;
     openWorkspaceInExplorer: string;
     openWorkspaceInExplorerFailed: string;
+    sessionActions: string;
   };
   chat: {
     headline: string;

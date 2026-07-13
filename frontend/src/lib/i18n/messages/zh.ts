@@ -46,6 +46,7 @@ export const zhMessages = {
     deleteChatConfirmDescription:
       "此操作将永久删除该聊天及其所有消息，且无法恢复。",
     exportChatSuccess: "聊天已导出成功",
+    exportChatFailed: "导出聊天失败",
     deleteChatSuccess: "聊天已删除",
     pinChat: "置顶",
     unpinChat: "取消置顶",
@@ -59,8 +60,9 @@ export const zhMessages = {
     shareLink: "分享链接",
     splitLayout: "分屏布局",
     workbench: "工作台",
-    openWorkspaceInExplorer: "在资源管理器中打开工作目录",
+    openWorkspaceInExplorer: "打开目录",
     openWorkspaceInExplorerFailed: "无法打开工作目录",
+    sessionActions: "会话操作",
   },
   chat: {
     headline: "想在 {project} 里构建什么？",
