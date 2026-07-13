@@ -423,6 +423,9 @@ export type Messages = {
       batchDeleteOpen: string;
       batchDeleteButton: string;
       batchDeleteSuccess: string;
+      batchDeleteConfirmTitle: string;
+      batchDeleteConfirmDescription: string;
+      batchDeleteConfirmAction: string;
       selectAll: string;
       deselectAll: string;
       selectedCount: string;

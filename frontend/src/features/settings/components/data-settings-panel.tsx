@@ -41,6 +41,7 @@ export function DataSettingsPanel() {
   } | null>(null);
   const [clearAllOpen, setClearAllOpen] = useState(false);
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
+  const [confirmBatchDeleteOpen, setConfirmBatchDeleteOpen] = useState(false);
   const [sessions, setSessions] = useState<Awaited<ReturnType<typeof listSessions>>>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -90,6 +91,7 @@ export function DataSettingsPanel() {
     await Promise.all(ids.map((id) => deleteSession(id)));
     toast.success(t("settings.data.batchDeleteSuccess", { count: ids.length }));
     setSelectedIds(new Set());
+    setConfirmBatchDeleteOpen(false);
     setBatchDeleteOpen(false);
     await loadData();
   }, [selectedIds, t, loadData]);
@@ -207,12 +209,44 @@ export function DataSettingsPanel() {
             </Button>
             <Button
               disabled={selectedIds.size === 0}
-              onClick={handleBatchDelete}
+              onClick={() => {
+                setConfirmBatchDeleteOpen(true);
+              }}
               size="sm"
               type="button"
               variant="destructive"
             >
               {t("settings.data.batchDeleteButton", { count: selectedIds.size })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ---- Batch delete confirmation dialog ---- */}
+      <Dialog onOpenChange={setConfirmBatchDeleteOpen} open={confirmBatchDeleteOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("settings.data.batchDeleteConfirmTitle")}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {t("settings.data.batchDeleteConfirmDescription", { count: selectedIds.size })}
+          </p>
+          <DialogFooter>
+            <Button
+              onClick={() => setConfirmBatchDeleteOpen(false)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {t("settings.data.confirmCancel")}
+            </Button>
+            <Button
+              onClick={handleBatchDelete}
+              size="sm"
+              type="button"
+              variant="destructive"
+            >
+              {t("settings.data.batchDeleteConfirmAction")}
             </Button>
           </DialogFooter>
         </DialogContent>

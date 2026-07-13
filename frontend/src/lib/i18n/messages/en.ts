@@ -482,6 +482,10 @@ export const enMessages = {
       batchDeleteOpen: "Batch delete",
       batchDeleteButton: "Delete {count} selected",
       batchDeleteSuccess: "Deleted {count} session(s)",
+      batchDeleteConfirmTitle: "Delete selected sessions?",
+      batchDeleteConfirmDescription:
+        "This will permanently delete {count} selected session(s). This cannot be undone.",
+      batchDeleteConfirmAction: "Delete",
       selectAll: "Select all ({count})",
       deselectAll: "Deselect all",
       selectedCount: "{count} selected",
