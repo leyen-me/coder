@@ -420,6 +420,7 @@ export type Messages = {
       confirmAction: string;
       batchDeleteLabel: string;
       batchDeleteDescription: string;
+      batchDeleteOpen: string;
       batchDeleteButton: string;
       batchDeleteSuccess: string;
       selectAll: string;

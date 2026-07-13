@@ -466,6 +466,7 @@ export const zhMessages = {
       confirmAction: "确认清除",
       batchDeleteLabel: "批量删除会话",
       batchDeleteDescription: "勾选需要删除的会话。",
+      batchDeleteOpen: "批量删除",
       batchDeleteButton: "删除已选 {count} 个",
       batchDeleteSuccess: "已删除 {count} 个会话",
       selectAll: "全选（{count}）",

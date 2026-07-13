@@ -479,6 +479,7 @@ export const enMessages = {
       confirmAction: "Clear all",
       batchDeleteLabel: "Batch delete sessions",
       batchDeleteDescription: "Select sessions to delete in bulk.",
+      batchDeleteOpen: "Batch delete",
       batchDeleteButton: "Delete {count} selected",
       batchDeleteSuccess: "Deleted {count} session(s)",
       selectAll: "Select all ({count})",

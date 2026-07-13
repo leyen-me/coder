@@ -40,6 +40,7 @@ export function DataSettingsPanel() {
     storageSize: number;
   } | null>(null);
   const [clearAllOpen, setClearAllOpen] = useState(false);
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [sessions, setSessions] = useState<Awaited<ReturnType<typeof listSessions>>>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -89,6 +90,7 @@ export function DataSettingsPanel() {
     await Promise.all(ids.map((id) => deleteSession(id)));
     toast.success(t("settings.data.batchDeleteSuccess", { count: ids.length }));
     setSelectedIds(new Set());
+    setBatchDeleteOpen(false);
     await loadData();
   }, [selectedIds, t, loadData]);
 
@@ -129,31 +131,31 @@ export function DataSettingsPanel() {
         }
       />
 
-      {/* ---- Batch delete ---- */}
-      <div className="space-y-3 py-4">
-        <SettingRow
-          label={t("settings.data.batchDeleteLabel")}
-          description={t("settings.data.batchDeleteDescription")}
-          control={
-            <Button
-              disabled={selectedIds.size === 0}
-              onClick={handleBatchDelete}
-              size="sm"
-              type="button"
-              variant="destructive"
-            >
-              {t("settings.data.batchDeleteButton", { count: selectedIds.size })}
-            </Button>
-          }
-        />
+      {/* ---- Batch delete trigger ---- */}
+      <SettingRow
+        label={t("settings.data.batchDeleteLabel")}
+        description={t("settings.data.batchDeleteDescription")}
+        control={
+          <Button
+            disabled={sessions.length === 0}
+            onClick={() => setBatchDeleteOpen(true)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {t("settings.data.batchDeleteOpen")}
+          </Button>
+        }
+      />
 
-        {sessions.length === 0 ? (
-          <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-            {t("settings.data.noSessions")}
-          </div>
-        ) : (
-          <>
-            {/* Select-all row */}
+      {/* ---- Batch delete dialog ---- */}
+      <Dialog onOpenChange={setBatchDeleteOpen} open={batchDeleteOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t("settings.data.batchDeleteLabel")}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
             <div className="flex items-center gap-2 rounded-md bg-muted/40 px-3 py-2">
               <Checkbox checked={allSelected} id="select-all" onCheckedChange={toggleAll} />
               <label className="flex-1 cursor-pointer text-sm font-medium" htmlFor="select-all">
@@ -168,8 +170,7 @@ export function DataSettingsPanel() {
               )}
             </div>
 
-            {/* Session list with scroll */}
-            <ScrollArea className="max-h-72">
+            <ScrollArea className="h-72">
               <div className="space-y-0.5 pr-2">
                 {sessions.map((session) => (
                   <label
@@ -193,9 +194,29 @@ export function DataSettingsPanel() {
                 ))}
               </div>
             </ScrollArea>
-          </>
-        )}
-      </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              onClick={() => setBatchDeleteOpen(false)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {t("settings.data.confirmCancel")}
+            </Button>
+            <Button
+              disabled={selectedIds.size === 0}
+              onClick={handleBatchDelete}
+              size="sm"
+              type="button"
+              variant="destructive"
+            >
+              {t("settings.data.batchDeleteButton", { count: selectedIds.size })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ---- Clear all confirmation dialog ---- */}
       <Dialog onOpenChange={setClearAllOpen} open={clearAllOpen}>
