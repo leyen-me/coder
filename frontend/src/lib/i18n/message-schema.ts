@@ -494,6 +494,7 @@ export type Messages = {
       deleteConfirmTitle: string;
       deleteConfirmDescription: string;
       toggleEnabledAria: string;
+      moreActionsAria: string;
       testSuccess: string;
       testFailed: string;
     };

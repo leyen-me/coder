@@ -1,4 +1,4 @@
-import { Loader2, Play, PencilIcon, Trash2Icon } from "lucide-react";
+import { Loader2, MoreHorizontalIcon, PencilIcon, Play, Trash2Icon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
@@ -53,20 +59,15 @@ export function RemoteTargetCard({
   return (
     <Card
       className={cn(
-        "relative h-full transition-opacity",
-        !target.enabled && "opacity-60"
+        "h-full transition-opacity",
+        !target.enabled && "opacity-60",
       )}
       size="sm"
     >
-      <CardHeader className="pb-2">
-        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
-          <CardTitle className="truncate text-sm font-medium leading-tight">
-            {target.alias}
-          </CardTitle>
-          <Badge variant="secondary" className="shrink-0 text-xs">
-            {authTypeLabel(t as (key: string) => string, target.auth.type)}
-          </Badge>
-        </div>
+      <CardHeader className="gap-2 pb-0">
+        <CardTitle className="truncate text-sm font-medium leading-tight">
+          {target.alias}
+        </CardTitle>
         <CardAction>
           <Switch
             checked={target.enabled}
@@ -76,19 +77,23 @@ export function RemoteTargetCard({
             })}
           />
         </CardAction>
+        <Badge variant="secondary" className="w-fit text-xs">
+          {authTypeLabel(t as (key: string) => string, target.auth.type)}
+        </Badge>
       </CardHeader>
 
-      <CardContent className="pb-3">
-        <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-xs text-muted-foreground">
+      <CardContent className="pt-2 pb-0">
+        <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-xs leading-relaxed text-muted-foreground break-all">
           {target.user}@{target.host}:{target.port}
         </div>
       </CardContent>
 
-      <CardFooter className="justify-between">
+      <CardFooter className="mt-auto justify-between gap-2 border-t border-border/50 pt-3">
         <Button
-          className="h-8 px-2 text-muted-foreground"
+          className="h-8 gap-1.5 px-2.5 text-muted-foreground"
           disabled={isTesting || !target.enabled}
           onClick={onTest}
+          size="sm"
           type="button"
           variant="ghost"
         >
@@ -100,25 +105,29 @@ export function RemoteTargetCard({
           {t("settings.remoteTargets.test")}
         </Button>
 
-        <Button
-          className="h-8 px-2 text-muted-foreground"
-          onClick={onEdit}
-          type="button"
-          variant="ghost"
-        >
-          <PencilIcon className="size-3.5" />
-          {t("settings.remoteTargets.edit")}
-        </Button>
-
-        <Button
-          className="h-8 px-2 text-muted-foreground hover:text-destructive"
-          onClick={onDelete}
-          type="button"
-          variant="ghost"
-        >
-          <Trash2Icon className="size-3.5" />
-          {t("settings.remoteTargets.delete")}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={t("settings.mcpServers.moreActionsAria")}
+              className="shrink-0 text-muted-foreground"
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
+              <MoreHorizontalIcon className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-36">
+            <DropdownMenuItem onSelect={onEdit}>
+              <PencilIcon />
+              {t("settings.remoteTargets.edit")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={onDelete} variant="destructive">
+              <Trash2Icon />
+              {t("settings.remoteTargets.delete")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </CardFooter>
     </Card>
   );
