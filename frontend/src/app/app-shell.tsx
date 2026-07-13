@@ -68,20 +68,23 @@ export function AppShell() {
   const appWindow = useAppWindow();
   const isMaximized = useWindowMaximized(appWindow);
   const useRoundedShell = appWindow !== null && !isMaximized;
-  const isDesktopShell = appWindow !== null;
   const isSettingsRoute = location.pathname === paths.settings || location.pathname.startsWith(paths.settings + "/");
   const showFloatingSearch = !isSettingsRoute;
-  // Desktop has no browser chrome; settings needs an explicit back control.
-  const showFloatingBack = isDesktopShell && isSettingsRoute;
+  // Settings needs an explicit back control; always go to /chat/new.
+  const showFloatingBack = isSettingsRoute;
   const [canGoBack, setCanGoBack] = useState(() => getHistoryIdx() > 0);
 
   const handleBack = useCallback(() => {
+    if (isSettingsRoute) {
+      navigate(paths.chatNew);
+      return;
+    }
     if (getHistoryIdx() > 0) {
       navigate(-1);
       return;
     }
     navigate(paths.home);
-  }, [navigate]);
+  }, [navigate, isSettingsRoute]);
 
   useEffect(() => {
     setCanGoBack(getHistoryIdx() > 0);
