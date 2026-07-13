@@ -551,6 +551,7 @@ export const zhMessages = {
       emptyState: "暂未配置 MCP 服务",
       edit: "编辑",
       delete: "删除",
+      moreActionsAria: "更多操作",
       save: "保存",
       cancel: "取消",
       test: "测试",

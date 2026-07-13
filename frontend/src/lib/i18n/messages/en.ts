@@ -565,6 +565,7 @@ export const enMessages = {
       emptyState: "No MCP servers configured yet",
       edit: "Edit",
       delete: "Delete",
+      moreActionsAria: "More actions",
       save: "Save",
       cancel: "Cancel",
       test: "Test",

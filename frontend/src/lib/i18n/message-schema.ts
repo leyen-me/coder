@@ -503,6 +503,7 @@ export type Messages = {
       emptyState: string;
       edit: string;
       delete: string;
+      moreActionsAria: string;
       save: string;
       cancel: string;
       test: string;
