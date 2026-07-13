@@ -5,6 +5,7 @@ export const paths = {
   chat: (chatId: string) => `/chat/${chatId}` as const,
   skills: "/skills",
   settings: "/settings",
+  settingsCategory: (category: string) => `/settings/${category}` as const,
 } as const;
 
 export function isChatRoute(pathname: string): boolean {

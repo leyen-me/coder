@@ -1,4 +1,5 @@
-import { useState, type ComponentType } from "react";
+import { useEffect, type ComponentType } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useOutletContext } from "react-router-dom";
 
 import type { ShellOutletContext } from "@/app/shell-outlet-context";
@@ -13,12 +14,12 @@ import { DataSettingsPanel } from "../components/data-settings-panel";
 import { EmailSettingsPanel } from "../components/email-settings-panel";
 import { GeneralSettingsPanel } from "../components/general-settings-panel";
 import { KeyboardShortcutsSettingsPanel } from "../components/keyboard-shortcuts-settings-panel";
-import { ModelProviderSettingsPanel } from "../components/model-provider-settings-panel";
 import { LabSettingsPanel } from "../components/lab-settings-panel";
-import { WebToolsSettingsPanel } from "../components/web-tools-settings-panel";
-import { RemoteTargetsSettingsPanel } from "../components/remote-targets-settings-panel";
 import { McpServersSettingsPanel } from "../components/mcp-servers-settings-panel";
+import { ModelProviderSettingsPanel } from "../components/model-provider-settings-panel";
+import { RemoteTargetsSettingsPanel } from "../components/remote-targets-settings-panel";
 import { SettingsSidebar } from "../components/settings-sidebar";
+import { WebToolsSettingsPanel } from "../components/web-tools-settings-panel";
 import type { SettingsCategoryId } from "../types";
 
 const SETTINGS_PANELS: Record<SettingsCategoryId, ComponentType> = {
@@ -34,15 +35,30 @@ const SETTINGS_PANELS: Record<SettingsCategoryId, ComponentType> = {
   mcpServers: McpServersSettingsPanel,
 };
 
+const ALL_CATEGORIES = new Set(Object.keys(SETTINGS_PANELS));
+
 export function SettingsPage() {
   const { sidebarOpen, setSidebarOpen } = useOutletContext<ShellOutletContext>();
   const isMobile = useIsMobile();
   const { t } = useTranslation();
-  const [selectedCategory, setSelectedCategory] =
-    useState<SettingsCategoryId>(DEFAULT_SETTINGS_CATEGORY);
+  const navigate = useNavigate();
+  const { category } = useParams<{ category?: string }>();
 
-  const handleSelectCategory = (category: SettingsCategoryId) => {
-    setSelectedCategory(category);
+  // Validate category from URL, redirect to default if invalid
+  const selectedCategory: SettingsCategoryId =
+    category && ALL_CATEGORIES.has(category)
+      ? (category as SettingsCategoryId)
+      : DEFAULT_SETTINGS_CATEGORY;
+
+  // Redirect bare /settings to /settings/general
+  useEffect(() => {
+    if (!category || !ALL_CATEGORIES.has(category)) {
+      navigate(`/settings/${selectedCategory}`, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSelectCategory = (cat: SettingsCategoryId) => {
+    navigate(`/settings/${cat}`);
     if (isMobile) {
       setSidebarOpen(false);
     }

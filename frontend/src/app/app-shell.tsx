@@ -69,7 +69,7 @@ export function AppShell() {
   const isMaximized = useWindowMaximized(appWindow);
   const useRoundedShell = appWindow !== null && !isMaximized;
   const isDesktopShell = appWindow !== null;
-  const isSettingsRoute = location.pathname === paths.settings;
+  const isSettingsRoute = location.pathname === paths.settings || location.pathname.startsWith(paths.settings + "/");
   const showFloatingSearch = !isSettingsRoute;
   // Desktop has no browser chrome; settings needs an explicit back control.
   const showFloatingBack = isDesktopShell && isSettingsRoute;

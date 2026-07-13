@@ -26,7 +26,7 @@ export const router = createBrowserRouter([
           { path: "*", element: <NotFoundPage /> },
         ],
       },
-      { path: "settings", element: <SettingsPage /> },
+      { path: "settings/:category?", element: <SettingsPage /> },
     ],
   },
 ]);
