@@ -16,13 +16,17 @@ import { sendTestEmail } from "../lib/send-test-email";
 // ---------------------------------------------------------------------------
 
 type EmailSettings = {
-  provider: string;
   smtpHost: string;
   smtpPort: number;
   username: string;
   password: string;
   fromAddress: string;
   useTls: boolean;
+};
+
+type EmailSettingsStore = {
+  currentProvider: string;
+  profiles: Record<string, EmailSettings>;
 };
 
 const STORAGE_KEY = "coder:email-settings";
@@ -37,29 +41,65 @@ const PROVIDER_PRESETS: Record<
   "163": { smtpHost: "smtp.163.com", smtpPort: 465, useTls: true },
 };
 
-const DEFAULT_SETTINGS: EmailSettings = {
-  provider: "qq",
-  ...PROVIDER_PRESETS["qq"],
-  username: "",
-  password: "",
-  fromAddress: "",
-};
+const providerOptions = [
+  { value: "qq", label: "QQ Mail" },
+  { value: "outlook", label: "Outlook" },
+  { value: "gmail", label: "Gmail" },
+  { value: "163", label: "163 Mail" },
+];
 
-function readSettings(): EmailSettings {
+function getDefaultProfile(provider: string): EmailSettings {
+  const preset = PROVIDER_PRESETS[provider];
+  return {
+    smtpHost: preset?.smtpHost ?? "",
+    smtpPort: preset?.smtpPort ?? 465,
+    username: "",
+    password: "",
+    fromAddress: "",
+    useTls: preset?.useTls ?? true,
+  };
+}
+
+function readStore(): EmailSettingsStore {
   try {
     const raw = getKVStore().getItem(STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as Partial<EmailSettings>;
-      return { ...DEFAULT_SETTINGS, ...parsed };
+      const parsed = JSON.parse(raw);
+      // New format: { currentProvider, profiles }
+      if (parsed.profiles && parsed.currentProvider) {
+        return parsed as EmailSettingsStore;
+      }
+      // Legacy flat format: migrate to per-provider profiles
+      const legacy = parsed as Record<string, unknown>;
+      const provider = (legacy.provider as string) || "qq";
+      const preset = PROVIDER_PRESETS[provider];
+      const migrated: EmailSettingsStore = {
+        currentProvider: provider,
+        profiles: {
+          [provider]: {
+            smtpHost: (legacy.smtpHost as string) ?? preset?.smtpHost ?? "",
+            smtpPort: (legacy.smtpPort as number) ?? preset?.smtpPort ?? 465,
+            username: (legacy.username as string) ?? "",
+            password: (legacy.password as string) ?? "",
+            fromAddress: (legacy.fromAddress as string) ?? "",
+            useTls: (legacy.useTls as boolean) ?? preset?.useTls ?? true,
+          },
+        },
+      };
+      return migrated;
     }
   } catch {
     // ignore
   }
-  return DEFAULT_SETTINGS;
+  // Fresh start
+  return {
+    currentProvider: "qq",
+    profiles: { qq: getDefaultProfile("qq") },
+  };
 }
 
-function writeSettings(settings: EmailSettings): void {
-  getKVStore().setItem(STORAGE_KEY, JSON.stringify(settings));
+function writeStore(store: EmailSettingsStore): void {
+  getKVStore().setItem(STORAGE_KEY, JSON.stringify(store));
 }
 
 // ---------------------------------------------------------------------------
@@ -68,49 +108,73 @@ function writeSettings(settings: EmailSettings): void {
 
 export function EmailSettingsPanel() {
   const { t } = useTranslation();
-  const [settings, setSettings] = useState<EmailSettings>(readSettings);
+  const [currentProvider, setCurrentProvider] = useState<string>("qq");
+  const [profiles, setProfiles] = useState<Record<string, EmailSettings>>({});
   const [testStatus, setTestStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
   const [testMessage, setTestMessage] = useState("");
 
+  // Initialise from store
+  useEffect(() => {
+    const store = readStore();
+    setCurrentProvider(store.currentProvider);
+    setProfiles(store.profiles);
+  }, []);
+
+  // Re-read on storage-ready event (used by Tauri native menu etc.)
   useEffect(() => {
     const handleStorageReady = () => {
-      setSettings(readSettings());
+      const store = readStore();
+      setCurrentProvider(store.currentProvider);
+      setProfiles(store.profiles);
     };
     window.addEventListener("coder:storage-ready", handleStorageReady);
     return () => window.removeEventListener("coder:storage-ready", handleStorageReady);
   }, []);
 
-  const persistSettings = useCallback((next: EmailSettings) => {
-    writeSettings(next);
-  }, []);
+  // Derive current settings from current provider + profiles
+  const settings: EmailSettings =
+    profiles[currentProvider] ?? getDefaultProfile(currentProvider);
+
+  const persistStore = useCallback(
+    (nextProvider: string, nextProfiles: Record<string, EmailSettings>) => {
+      writeStore({ currentProvider: nextProvider, profiles: nextProfiles });
+    },
+    [],
+  );
 
   const updateField = useCallback(
     <K extends keyof EmailSettings>(key: K, value: EmailSettings[K]) => {
-      setSettings((prev) => {
-        const next = { ...prev, [key]: value };
-        persistSettings(next);
-        return next;
+      setProfiles((prev) => {
+        const current = prev[currentProvider] ?? getDefaultProfile(currentProvider);
+        const updated = {
+          ...prev,
+          [currentProvider]: { ...current, [key]: value },
+        };
+        persistStore(currentProvider, updated);
+        return updated;
       });
     },
-    [persistSettings],
+    [currentProvider, persistStore],
   );
 
-  const handleProviderChange = useCallback((provider: string) => {
-    const preset = PROVIDER_PRESETS[provider];
-    if (preset) {
-      setSettings((prev) => {
-        const next = {
-          ...prev,
-          provider,
-          smtpHost: preset.smtpHost,
-          smtpPort: preset.smtpPort,
-          useTls: preset.useTls,
-        };
-        persistSettings(next);
-        return next;
+  const handleProviderChange = useCallback(
+    (nextProvider: string) => {
+      setProfiles((prev) => {
+        // Ensure the new provider has a profile; create a default one if first visit
+        const nextProfiles = { ...prev };
+        if (!nextProfiles[nextProvider]) {
+          nextProfiles[nextProvider] = getDefaultProfile(nextProvider);
+        }
+        persistStore(nextProvider, nextProfiles);
+        return nextProfiles;
       });
-    }
-  }, [persistSettings]);
+      setCurrentProvider(nextProvider);
+      // Reset test status when switching provider
+      setTestStatus("idle");
+      setTestMessage("");
+    },
+    [persistStore],
+  );
 
   const handleTestSend = useCallback(async () => {
     setTestStatus("sending");
@@ -136,13 +200,6 @@ export function EmailSettingsPanel() {
     settings.password.trim() !== "" &&
     settings.fromAddress.trim() !== "";
 
-  const providerOptions = [
-    { value: "qq", label: "QQ Mail" },
-    { value: "outlook", label: "Outlook" },
-    { value: "gmail", label: "Gmail" },
-    { value: "163", label: "163 Mail" },
-  ];
-
   return (
     <section className="divide-y">
       {/* Provider preset */}
@@ -151,7 +208,7 @@ export function EmailSettingsPanel() {
         description={t("settings.email.providerDescription")}
         control={
           <SettingSelect
-            value={settings.provider}
+            value={currentProvider}
             options={providerOptions}
             onValueChange={handleProviderChange}
             aria-label={t("settings.email.providerAriaLabel")}
@@ -159,7 +216,7 @@ export function EmailSettingsPanel() {
         }
       />
 
-      {/* SMTP host (readonly when preset selected) */}
+      {/* SMTP host */}
       <SettingRow
         label={t("settings.email.smtpHostLabel")}
         description={t("settings.email.smtpHostDescription")}
