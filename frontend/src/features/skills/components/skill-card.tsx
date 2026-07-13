@@ -1,12 +1,11 @@
-import { FolderOpenIcon, MoreHorizontalIcon, Trash2Icon } from "lucide-react";
+import { EyeIcon, FolderOpenIcon, MoreHorizontalIcon, Trash2Icon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
-  CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -17,7 +16,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTranslation } from "@/lib/i18n/locale-provider";
-import { cn } from "@/lib/utils";
 
 import type { UserSkillCardViewModel } from "../types";
 
@@ -38,31 +36,10 @@ export function SkillCard({
   const hasMenu = Boolean(onOpenFolder || onDelete);
 
   return (
-    <Card
-      className="h-full gap-2.5 transition-[box-shadow,transform] duration-200 hover:-translate-y-px hover:shadow-lg"
-      size="sm"
-    >
-      <CardHeader
-        className={cn(
-          "gap-2 pb-0 outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
-          onView && "cursor-pointer"
-        )}
-        onClick={onView}
-        onKeyDown={
-          onView
-            ? (event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onView();
-                }
-              }
-            : undefined
-        }
-        role={onView ? "button" : undefined}
-        tabIndex={onView ? 0 : undefined}
-      >
+    <Card className="h-full" size="sm">
+      <CardHeader className="gap-2 pb-0">
         <div className="flex min-w-0 items-center gap-2 overflow-hidden pr-1">
-          <CardTitle className="truncate text-base font-semibold leading-tight">
+          <CardTitle className="truncate text-sm font-medium leading-tight">
             {skill.name}
           </CardTitle>
           <Badge className="shrink-0 text-[10px]" variant="secondary">
@@ -71,49 +48,63 @@ export function SkillCard({
               : t("skills.badgeUser")}
           </Badge>
         </div>
-
-        <CardDescription className="line-clamp-3 py-1.5 text-xs leading-relaxed">
-          {skill.description}
-        </CardDescription>
-
-        {hasMenu ? (
-          <CardAction onClick={(event) => event.stopPropagation()}>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  aria-label={t("skills.cardActions")}
-                  className="text-muted-foreground"
-                  size="icon-xs"
-                  type="button"
-                  variant="ghost"
-                >
-                  <MoreHorizontalIcon className="size-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-40">
-                {onOpenFolder ? (
-                  <DropdownMenuItem onSelect={onOpenFolder}>
-                    <FolderOpenIcon />
-                    {t("skills.openFolder")}
-                  </DropdownMenuItem>
-                ) : null}
-                {onDelete ? (
-                  <DropdownMenuItem onSelect={onDelete} variant="destructive">
-                    <Trash2Icon />
-                    {t("skills.delete")}
-                  </DropdownMenuItem>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </CardAction>
-        ) : null}
       </CardHeader>
 
-      <CardContent className="pt-0 text-right">
-        <p className="text-[11px] tabular-nums text-muted-foreground">
+      <CardContent className="pt-3 pb-0">
+        <p className="line-clamp-3 text-xs leading-relaxed text-muted-foreground">
+          {skill.description}
+        </p>
+        <p className="mt-1.5 text-[11px] tabular-nums text-muted-foreground/60">
           {t("skills.estimatedTokens", { count: skill.estimatedTokens })}
         </p>
       </CardContent>
+
+      <CardFooter className="mt-auto justify-between gap-2 border-t border-border/50 pt-3">
+        {onView ? (
+          <Button
+            className="h-8 gap-1.5 px-2.5 text-muted-foreground"
+            onClick={onView}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <EyeIcon className="size-3.5" />
+            {t("skills.viewDetails")}
+          </Button>
+        ) : (
+          <div />
+        )}
+
+        {hasMenu ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                aria-label={t("skills.cardActions")}
+                className="shrink-0 text-muted-foreground"
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <MoreHorizontalIcon className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-36">
+              {onOpenFolder ? (
+                <DropdownMenuItem onSelect={onOpenFolder}>
+                  <FolderOpenIcon />
+                  {t("skills.openFolder")}
+                </DropdownMenuItem>
+              ) : null}
+              {onDelete ? (
+                <DropdownMenuItem onSelect={onDelete} variant="destructive">
+                  <Trash2Icon />
+                  {t("skills.delete")}
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </CardFooter>
     </Card>
   );
 }
