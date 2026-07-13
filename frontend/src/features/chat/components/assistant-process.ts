@@ -109,8 +109,9 @@ export function getAssistantProcessInteriorSteps(input: {
     return input.steps;
   }
 
-  const lastAnswerIndex = input.steps.findLastIndex(
-    (step) => step.kind === "answer"
+  const lastAnswerIndex = input.steps.reduceRight(
+    (found, step, index) => (found !== -1 ? found : step.kind === "answer" ? index : -1),
+    -1
   );
   if (lastAnswerIndex === -1) {
     return input.steps;

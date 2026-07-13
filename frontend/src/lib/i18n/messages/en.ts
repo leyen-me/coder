@@ -703,6 +703,21 @@ export const enMessages = {
       'Delete "{name}" from ~/.coder/skills? This cannot be undone.',
     loadFailedHint:
       "Try refreshing the page. If the problem persists, clear app data in Settings.",
+    formValidationRequired: "All fields are required",
+    formValidationSlug: "Slug must use lowercase letters, numbers, and hyphens (e.g. my-skill)",
+    updated: "Skill updated",
+    created: "Skill created",
+    createdHint:
+      "Skill was created disabled. Enable it on the Skills page before using /slug or read_skill.",
+    saveFailed: "Failed to save skill",
+    editSkill: "Edit skill",
+    createSkill: "Create skill",
+    fieldSlug: "Slug",
+    fieldName: "Name",
+    fieldDescription: "Description",
+    fieldContent: "Content",
+    save: "Save",
+    create: "Create",
   },
   mockChats: [
     {

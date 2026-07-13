@@ -16,6 +16,7 @@ import {
   readWorkspaceTextFile,
 } from "../handoff-workspace";
 import { readPriorToolOutputHandler } from "./read-prior-tool-output";
+import type { PriorToolOutputData } from "./types";
 
 describe("readPriorToolOutputHandler", () => {
   beforeEach(() => {
@@ -67,8 +68,9 @@ describe("readPriorToolOutputHandler", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.data.archivePath).toBe(".agent/archive.json");
-      expect(result.data.content).toContain('"ok":true');
+      const data = result.data as PriorToolOutputData;
+      expect(data.archivePath).toBe(".agent/archive.json");
+      expect(data.content).toContain('"ok":true');
     }
   });
 
@@ -119,8 +121,9 @@ describe("readPriorToolOutputHandler", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.data.content).toContain('"matches": 3');
-      expect(result.data.content).not.toContain('"summary"');
+      const data = result.data as PriorToolOutputData;
+      expect(data.content).toContain('"matches": 3');
+      expect(data.content).not.toContain('"summary"');
     }
   });
 

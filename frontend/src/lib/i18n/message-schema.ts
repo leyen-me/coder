@@ -631,6 +631,20 @@ export type Messages = {
     deleteConfirmTitle: string;
     deleteConfirmDescription: string;
     loadFailedHint: string;
+    formValidationRequired: string;
+    formValidationSlug: string;
+    updated: string;
+    created: string;
+    createdHint: string;
+    saveFailed: string;
+    editSkill: string;
+    createSkill: string;
+    fieldSlug: string;
+    fieldName: string;
+    fieldDescription: string;
+    fieldContent: string;
+    save: string;
+    create: string;
   };
 };
 

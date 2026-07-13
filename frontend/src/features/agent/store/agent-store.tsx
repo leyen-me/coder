@@ -92,6 +92,7 @@ import {
   extractPendingNextActions,
   extractReferencedSkillSlugs,
   extractWorkingSet,
+  type HandoffWorkingSetEntry,
 } from "../handoff";
 import { readAgentHandoffThreshold } from "../handoff-settings";
 import {
@@ -943,10 +944,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         sessionPolicy
       );
 
-      const workingSet = await markWorkingSetVerificationStatus(
+      const workingSet = (await markWorkingSetVerificationStatus(
         workspaceDir,
         extractWorkingSet(sourceMessages)
-      );
+      )) as HandoffWorkingSetEntry[];
       const verification = collectVerificationSnapshot(sourceMessages);
       const decisionSummaries = extractDecisionSummaries(sourceMessages);
       const assumptions = extractAssumptionsFromBody(
