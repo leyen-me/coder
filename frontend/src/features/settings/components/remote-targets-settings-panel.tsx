@@ -1,5 +1,6 @@
 import { Plus } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,11 +102,6 @@ export function RemoteTargetsSettingsPanel() {
   const [showDialog, setShowDialog] = useState(false);
   const [deleteAlias, setDeleteAlias] = useState<string | null>(null);
   const [testingAlias, setTestingAlias] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<{
-    alias: string;
-    ok: boolean;
-    message: string;
-  } | null>(null);
 
   const loadTargets = useCallback(async () => {
     const list = await listRemoteTargets();
@@ -155,16 +151,13 @@ export function RemoteTargetsSettingsPanel() {
 
   async function handleTestConnection(alias: string) {
     setTestingAlias(alias);
-    setTestResult(null);
 
     const target =
       targets.find((item) => item.alias === alias) ??
       (await getRemoteTarget(alias));
     if (!target) {
-      setTestResult({
-        alias,
-        ok: false,
-        message: "Target not found",
+      toast.error(t("settings.remoteTargets.testFailed"), {
+        description: "Target not found",
       });
       setTestingAlias(null);
       return;
@@ -172,16 +165,18 @@ export function RemoteTargetsSettingsPanel() {
 
     try {
       const result = await testRemoteConnection(target);
-      setTestResult({
-        alias,
-        ok: result.ok,
-        message: result.message,
-      });
+      if (result.ok) {
+        toast.success(t("settings.remoteTargets.testSuccess"), {
+          description: result.message,
+        });
+      } else {
+        toast.error(t("settings.remoteTargets.testFailed"), {
+          description: result.message,
+        });
+      }
     } catch (error) {
-      setTestResult({
-        alias,
-        ok: false,
-        message: error instanceof Error ? error.message : String(error),
+      toast.error(t("settings.remoteTargets.testFailed"), {
+        description: error instanceof Error ? error.message : String(error),
       });
     } finally {
       setTestingAlias(null);
@@ -232,19 +227,7 @@ export function RemoteTargetsSettingsPanel() {
                 onToggleEnabled={() => handleToggleEnabled(target)}
               />
             ))}
-          </div>
-
-          {testResult && (
-            <div
-              className={`rounded-md p-3 text-sm ${
-                testResult.ok
-                  ? "bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200"
-                  : "bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200"
-              }`}
-            >
-              <strong>{testResult.alias}:</strong> {testResult.message}
-            </div>
-          )}
+        </div>
         </>
       )}
 

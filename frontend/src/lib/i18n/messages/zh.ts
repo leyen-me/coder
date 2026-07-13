@@ -541,6 +541,8 @@ export const zhMessages = {
       deleteConfirmTitle: "删除远程目标？",
       deleteConfirmDescription: "这将从配置中删除远程机器 \"{alias}\"。",
       toggleEnabledAria: "开关远程机器 \"{alias}\"",
+      testSuccess: "连接成功",
+      testFailed: "连接测试失败",
     },
     mcpServers: {
       title: "MCP 服务",

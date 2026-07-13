@@ -494,6 +494,8 @@ export type Messages = {
       deleteConfirmTitle: string;
       deleteConfirmDescription: string;
       toggleEnabledAria: string;
+      testSuccess: string;
+      testFailed: string;
     };
     mcpServers: {
       title: string;

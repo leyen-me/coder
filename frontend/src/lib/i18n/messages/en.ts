@@ -555,6 +555,8 @@ export const enMessages = {
       deleteConfirmDescription:
         'This will remove the remote machine "{alias}" from your configuration.',
       toggleEnabledAria: 'Toggle remote machine "{alias}"',
+      testSuccess: "Connection successful",
+      testFailed: "Connection test failed",
     },
     mcpServers: {
       title: "MCP Servers",
