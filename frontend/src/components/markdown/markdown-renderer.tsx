@@ -9,6 +9,7 @@ import {
   Children,
   isValidElement,
   memo,
+  useCallback,
   useEffect,
   useId,
   useMemo,
@@ -80,15 +81,25 @@ function MarkdownLink({
   children,
   ...props
 }: ComponentProps<"a">) {
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (!href) return;
+      e.preventDefault();
+      window.open(href, "_blank");
+    },
+    [href],
+  );
+
   return (
     <a
       className={cn(
         "font-medium text-primary underline underline-offset-4 break-all",
-        className
+        className,
       )}
       href={href}
       rel="noreferrer noopener"
       target="_blank"
+      onClick={handleClick}
       {...props}
     >
       {children}
