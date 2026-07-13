@@ -31,9 +31,22 @@ import {
   deleteMcpServer,
 } from "@/lib/db/mcp-servers";
 import type { McpServerConfig } from "@/lib/db/types";
-import { testMcpConnection } from "@/features/mcp/api";
+import {
+  getMcpOAuthStatus,
+  revokeMcpOAuth,
+  startMcpOAuth,
+  testMcpConnection,
+} from "@/features/mcp/api";
+import {
+  createLongbridgePreset,
+  formatHeadersLines,
+  isRemoteMcpServer,
+  normalizeMcpServerConfig,
+  parseHeadersLines,
+} from "@/features/mcp/lib/server-config";
 
 import { McpServerCard } from "./mcp-server-card";
+import { SettingSelect } from "./setting-select";
 import {
   formatEnvLines,
   formatMultilineList,
@@ -41,22 +54,32 @@ import {
   parseMultilineList,
 } from "../lib/parse-mcp-form";
 
+type McpTransport = McpServerConfig["transport"];
+
 type McpServerFormState = {
   id: string;
   name: string;
+  transport: McpTransport;
   command: string;
+  url: string;
   argsText: string;
   envText: string;
+  headersText: string;
   enabled: boolean;
 };
+
+const TRANSPORT_OPTIONS: McpTransport[] = ["stdio", "http"];
 
 function createDefaultConfig(): McpServerFormState {
   return {
     id: "",
     name: "",
+    transport: "stdio",
     command: "",
+    url: "",
     argsText: "",
     envText: "",
+    headersText: "",
     enabled: true,
   };
 }
@@ -65,49 +88,88 @@ function formToConfig(form: McpServerFormState): McpServerConfig {
   return {
     id: form.id.trim(),
     name: form.name.trim(),
+    transport: form.transport,
     command: form.command.trim(),
+    url: form.url.trim(),
     args: parseMultilineList(form.argsText),
     env: parseEnvLines(form.envText),
+    headers: parseHeadersLines(form.headersText),
     enabled: form.enabled,
   };
 }
 
 function configToForm(config: McpServerConfig): McpServerFormState {
+  const normalized = normalizeMcpServerConfig(config);
+
   return {
-    id: config.id,
-    name: config.name,
-    command: config.command,
-    argsText: formatMultilineList(config.args),
-    envText: formatEnvLines(config.env),
-    enabled: config.enabled,
+    id: normalized.id,
+    name: normalized.name,
+    transport: normalized.transport,
+    command: normalized.command,
+    url: normalized.url,
+    argsText: formatMultilineList(normalized.args),
+    envText: formatEnvLines(normalized.env),
+    headersText: formatHeadersLines(normalized.headers),
+    enabled: normalized.enabled,
   };
 }
 
 export function McpServersSettingsPanel() {
   const { t } = useTranslation();
   const [servers, setServers] = useState<McpServerConfig[]>([]);
+  const [authStatus, setAuthStatus] = useState<
+    Record<string, { authenticated: boolean; message?: string }>
+  >({});
   const [editing, setEditing] = useState<McpServerFormState | null>(null);
   const [originalId, setOriginalId] = useState<string | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [authorizingId, setAuthorizingId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{
     id: string;
     ok: boolean;
     message: string;
+    authRequired?: boolean;
   } | null>(null);
 
   const loadServers = useCallback(async () => {
     const list = await listMcpServers();
     setServers(list);
+
+    const statuses = await Promise.all(
+      list
+        .filter((server) => isRemoteMcpServer(server))
+        .map(async (server) => {
+          try {
+            const status = await getMcpOAuthStatus(server.id);
+            return [
+              server.id,
+              {
+                authenticated: status.authenticated,
+                message: status.message,
+              },
+            ] as const;
+          } catch {
+            return [server.id, { authenticated: false }] as const;
+          }
+        })
+    );
+    setAuthStatus(Object.fromEntries(statuses));
   }, []);
 
   useEffect(() => {
-    loadServers();
+    void loadServers();
   }, [loadServers]);
 
   function handleAdd() {
     setEditing(createDefaultConfig());
+    setOriginalId(null);
+    setShowDialog(true);
+  }
+
+  function handleAddLongbridge(region: "cn" | "global") {
+    setEditing(configToForm(createLongbridgePreset(region)));
     setOriginalId(null);
     setShowDialog(true);
   }
@@ -128,7 +190,13 @@ export function McpServersSettingsPanel() {
     }
 
     const config = formToConfig(editing);
-    if (!config.id || !config.name || !config.command) {
+    if (!config.id || !config.name) {
+      return;
+    }
+    if (config.transport === "stdio" && !config.command) {
+      return;
+    }
+    if (config.transport === "http" && !config.url) {
       return;
     }
 
@@ -147,6 +215,7 @@ export function McpServersSettingsPanel() {
     if (!deleteId) {
       return;
     }
+    await revokeMcpOAuth(deleteId).catch(() => undefined);
     await deleteMcpServer(deleteId);
     setDeleteId(null);
     await loadServers();
@@ -166,6 +235,7 @@ export function McpServersSettingsPanel() {
         id: server.id,
         ok: result.ok,
         message: result.message,
+        authRequired: result.authRequired,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -179,15 +249,40 @@ export function McpServersSettingsPanel() {
     }
   }
 
+  async function handleAuthorize(server: McpServerConfig) {
+    setAuthorizingId(server.id);
+    try {
+      await startMcpOAuth(server);
+      window.setTimeout(() => {
+        void loadServers();
+      }, 2000);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setTestResult({
+        id: server.id,
+        ok: false,
+        message,
+      });
+    } finally {
+      setAuthorizingId(null);
+    }
+  }
+
+  async function handleRevokeAuth(server: McpServerConfig) {
+    await revokeMcpOAuth(server.id);
+    await loadServers();
+  }
+
   const canSave =
     editing &&
     editing.id.trim().length > 0 &&
     editing.name.trim().length > 0 &&
-    editing.command.trim().length > 0;
+    ((editing.transport === "stdio" && editing.command.trim().length > 0) ||
+      (editing.transport === "http" && editing.url.trim().length > 0));
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <h2 className="text-base font-medium">
             {t("settings.mcpServers.title")}
@@ -196,10 +291,19 @@ export function McpServersSettingsPanel() {
             {t("settings.mcpServers.description")}
           </p>
         </div>
-        <Button onClick={handleAdd} type="button" variant="outline">
-          <Plus className="size-4" />
-          {t("settings.mcpServers.addButton")}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => handleAddLongbridge("cn")}
+            type="button"
+            variant="outline"
+          >
+            {t("settings.mcpServers.addLongbridgeCn")}
+          </Button>
+          <Button onClick={handleAdd} type="button" variant="outline">
+            <Plus className="size-4" />
+            {t("settings.mcpServers.addButton")}
+          </Button>
+        </div>
       </div>
 
       {servers.length === 0 ? (
@@ -212,22 +316,38 @@ export function McpServersSettingsPanel() {
             <div key={server.id} className="space-y-2">
               <McpServerCard
                 server={server}
+                authenticated={authStatus[server.id]?.authenticated ?? false}
                 onEdit={() => void handleEdit(server.id)}
                 onDelete={() => setDeleteId(server.id)}
                 onTest={() => void handleTest(server)}
+                onAuthorize={() => void handleAuthorize(server)}
+                onRevokeAuth={() => void handleRevokeAuth(server)}
                 onToggleEnabled={() => void handleToggleEnabled(server)}
                 isTesting={testingId === server.id}
+                isAuthorizing={authorizingId === server.id}
               />
               {testResult?.id === server.id ? (
-                <p
-                  className={
-                    testResult.ok
-                      ? "text-xs text-emerald-600 dark:text-emerald-400"
-                      : "text-xs text-destructive"
-                  }
-                >
-                  {testResult.message}
-                </p>
+                <div className="space-y-1">
+                  <p
+                    className={
+                      testResult.ok
+                        ? "text-xs text-emerald-600 dark:text-emerald-400"
+                        : "text-xs text-destructive"
+                    }
+                  >
+                    {testResult.message}
+                  </p>
+                  {testResult.authRequired ? (
+                    <Button
+                      className="h-7 px-2 text-xs"
+                      onClick={() => void handleAuthorize(server)}
+                      type="button"
+                      variant="outline"
+                    >
+                      {t("settings.mcpServers.authorize")}
+                    </Button>
+                  ) : null}
+                </div>
               ) : null}
             </div>
           ))}
@@ -276,33 +396,89 @@ export function McpServersSettingsPanel() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="mcp-command">
-                  {t("settings.mcpServers.commandLabel")}
-                </Label>
-                <Input
-                  id="mcp-command"
-                  value={editing.command}
-                  onChange={(event) =>
-                    setEditing({ ...editing, command: event.target.value })
+                <Label>{t("settings.mcpServers.transportLabel")}</Label>
+                <SettingSelect
+                  aria-label={t("settings.mcpServers.transportLabel")}
+                  value={editing.transport}
+                  onValueChange={(value) =>
+                    setEditing({
+                      ...editing,
+                      transport: value as McpTransport,
+                    })
                   }
-                  placeholder={t("settings.mcpServers.commandPlaceholder")}
+                  options={TRANSPORT_OPTIONS.map((transport) => ({
+                    value: transport,
+                    label: t(`settings.mcpServers.transports.${transport}`),
+                  }))}
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="mcp-args">
-                  {t("settings.mcpServers.argsLabel")}
-                </Label>
-                <Textarea
-                  id="mcp-args"
-                  value={editing.argsText}
-                  onChange={(event) =>
-                    setEditing({ ...editing, argsText: event.target.value })
-                  }
-                  placeholder={t("settings.mcpServers.argsPlaceholder")}
-                  rows={3}
-                />
-              </div>
+              {editing.transport === "http" ? (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="mcp-url">
+                      {t("settings.mcpServers.urlLabel")}
+                    </Label>
+                    <Input
+                      id="mcp-url"
+                      value={editing.url}
+                      onChange={(event) =>
+                        setEditing({ ...editing, url: event.target.value })
+                      }
+                      placeholder={t("settings.mcpServers.urlPlaceholder")}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="mcp-headers">
+                      {t("settings.mcpServers.headersLabel")}
+                    </Label>
+                    <Textarea
+                      id="mcp-headers"
+                      value={editing.headersText}
+                      onChange={(event) =>
+                        setEditing({
+                          ...editing,
+                          headersText: event.target.value,
+                        })
+                      }
+                      placeholder={t("settings.mcpServers.headersPlaceholder")}
+                      rows={2}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="mcp-command">
+                      {t("settings.mcpServers.commandLabel")}
+                    </Label>
+                    <Input
+                      id="mcp-command"
+                      value={editing.command}
+                      onChange={(event) =>
+                        setEditing({ ...editing, command: event.target.value })
+                      }
+                      placeholder={t("settings.mcpServers.commandPlaceholder")}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="mcp-args">
+                      {t("settings.mcpServers.argsLabel")}
+                    </Label>
+                    <Textarea
+                      id="mcp-args"
+                      value={editing.argsText}
+                      onChange={(event) =>
+                        setEditing({ ...editing, argsText: event.target.value })
+                      }
+                      placeholder={t("settings.mcpServers.argsPlaceholder")}
+                      rows={3}
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="mcp-env">

@@ -1,26 +1,31 @@
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use serde_json::Value;
 
-use super::client::{config_hash, McpClient};
+use super::oauth::McpOAuthStore;
+use super::session::McpSession;
+use super::stdio_client::config_hash;
 use super::types::{
-    McpCallToolResult, McpListToolsResult, McpServerConfig, McpTestConnectionResult,
+    McpCallToolResult, McpListToolsResult, McpOAuthStartResult, McpOAuthStatusResult,
+    McpServerConfig, McpTestConnectionResult,
 };
 
 struct CachedSession {
     config_hash: u64,
-    client: McpClient,
+    client: McpSession,
 }
 
 pub struct McpRegistry {
     sessions: Mutex<HashMap<String, CachedSession>>,
+    pub oauth_store: Arc<McpOAuthStore>,
 }
 
 impl McpRegistry {
     pub fn new() -> Self {
         Self {
             sessions: Mutex::new(HashMap::new()),
+            oauth_store: Arc::new(McpOAuthStore::new()),
         }
     }
 
@@ -58,7 +63,9 @@ impl McpRegistry {
         &self,
         config: McpServerConfig,
     ) -> Result<McpTestConnectionResult, String> {
-        match McpClient::connect(&config).await {
+        let auth_required = config.is_remote() && !self.oauth_store.status(&config.id).authenticated;
+
+        match McpSession::connect(&config, self.oauth_store.clone()).await {
             Ok(mut client) => match client.list_tools().await {
                 Ok(tools) => {
                     let count = tools.len();
@@ -66,20 +73,73 @@ impl McpRegistry {
                         ok: true,
                         message: format!("Connected successfully. Found {count} tool(s)."),
                         tool_count: count,
+                        auth_required: Some(false),
                     })
                 }
-                Err(error) => Ok(McpTestConnectionResult {
+                Err(error) => {
+                    let needs_auth = error.contains("authentication required")
+                        || error.contains("401");
+                    Ok(McpTestConnectionResult {
+                        ok: false,
+                        message: error,
+                        tool_count: 0,
+                        auth_required: Some(needs_auth || auth_required),
+                    })
+                }
+            },
+            Err(error) => {
+                let needs_auth = error.contains("authentication required")
+                    || error.contains("401");
+                Ok(McpTestConnectionResult {
                     ok: false,
                     message: error,
                     tool_count: 0,
-                }),
-            },
-            Err(error) => Ok(McpTestConnectionResult {
-                ok: false,
-                message: error,
-                tool_count: 0,
-            }),
+                    auth_required: Some(needs_auth || auth_required),
+                })
+            }
         }
+    }
+
+    pub async fn start_oauth(
+        &self,
+        config: McpServerConfig,
+        redirect_uri: String,
+    ) -> Result<McpOAuthStartResult, String> {
+        let (authorize_url, state) = self
+            .oauth_store
+            .start_authorization(config, &redirect_uri)
+            .await?;
+
+        Ok(McpOAuthStartResult {
+            authorize_url,
+            state,
+            status: "pending".to_string(),
+        })
+    }
+
+    pub async fn complete_oauth(
+        &self,
+        state: &str,
+        code: &str,
+        redirect_uri: &str,
+    ) -> Result<String, String> {
+        self.oauth_store
+            .complete_authorization(state, code, redirect_uri)
+            .await
+    }
+
+    pub fn oauth_status(&self, server_id: &str) -> McpOAuthStatusResult {
+        let status = self.oauth_store.status(server_id);
+        McpOAuthStatusResult {
+            authenticated: status.authenticated,
+            expires_at: status.expires_at,
+            message: status.message,
+        }
+    }
+
+    pub fn revoke_oauth(&self, server_id: &str) {
+        self.oauth_store.revoke(server_id);
+        self.disconnect(server_id);
     }
 
     pub fn disconnect(&self, server_id: &str) {
@@ -88,7 +148,7 @@ impl McpRegistry {
         }
     }
 
-    async fn get_or_connect(&self, config: &McpServerConfig) -> Result<McpClient, String> {
+    async fn get_or_connect(&self, config: &McpServerConfig) -> Result<McpSession, String> {
         let hash = config_hash(config);
 
         if let Ok(mut sessions) = self.sessions.lock() {
@@ -99,10 +159,10 @@ impl McpRegistry {
             }
         }
 
-        McpClient::connect(config).await
+        McpSession::connect(config, self.oauth_store.clone()).await
     }
 
-    fn store_session(&self, config: &McpServerConfig, client: McpClient) {
+    fn store_session(&self, config: &McpServerConfig, client: McpSession) {
         if let Ok(mut sessions) = self.sessions.lock() {
             sessions.insert(
                 config.id.clone(),

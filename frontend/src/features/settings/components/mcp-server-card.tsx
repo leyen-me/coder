@@ -1,4 +1,4 @@
-import { Loader2, Play, PencilIcon, Trash2Icon } from "lucide-react";
+import { KeyRound, Loader2, Play, PencilIcon, Trash2Icon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,26 +14,38 @@ import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 import type { McpServerConfig } from "@/lib/db/types";
+import { isRemoteMcpServer } from "@/features/mcp/lib/server-config";
 
 type McpServerCardProps = {
   server: McpServerConfig;
+  authenticated: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onTest: () => void;
+  onAuthorize: () => void;
+  onRevokeAuth: () => void;
   onToggleEnabled: () => void;
   isTesting: boolean;
+  isAuthorizing: boolean;
 };
 
 export function McpServerCard({
   server,
+  authenticated,
   onEdit,
   onDelete,
   onTest,
+  onAuthorize,
+  onRevokeAuth,
   onToggleEnabled,
   isTesting,
+  isAuthorizing,
 }: McpServerCardProps) {
   const { t } = useTranslation();
-  const commandPreview = [server.command, ...server.args].join(" ");
+  const remote = isRemoteMcpServer(server);
+  const preview = remote
+    ? server.url
+    : [server.command, ...server.args].filter(Boolean).join(" ");
 
   return (
     <Card
@@ -49,8 +61,20 @@ export function McpServerCard({
             {server.name}
           </CardTitle>
           <Badge variant="secondary" className="shrink-0 text-xs">
-            {server.id}
+            {remote
+              ? t("settings.mcpServers.transports.http")
+              : t("settings.mcpServers.transports.stdio")}
           </Badge>
+          {remote ? (
+            <Badge
+              variant={authenticated ? "default" : "outline"}
+              className="shrink-0 text-xs"
+            >
+              {authenticated
+                ? t("settings.mcpServers.authenticated")
+                : t("settings.mcpServers.unauthenticated")}
+            </Badge>
+          ) : null}
         </div>
         <CardAction>
           <Switch
@@ -65,7 +89,7 @@ export function McpServerCard({
 
       <CardContent className="pb-3">
         <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-1.5 font-mono text-xs text-muted-foreground">
-          {commandPreview}
+          {preview}
         </div>
       </CardContent>
 
@@ -84,6 +108,25 @@ export function McpServerCard({
           )}
           {t("settings.mcpServers.test")}
         </Button>
+
+        {remote ? (
+          <Button
+            className="h-8 px-2 text-muted-foreground"
+            disabled={isAuthorizing || !server.enabled}
+            onClick={authenticated ? onRevokeAuth : onAuthorize}
+            type="button"
+            variant="ghost"
+          >
+            {isAuthorizing ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <KeyRound className="size-3.5" />
+            )}
+            {authenticated
+              ? t("settings.mcpServers.revokeAuth")
+              : t("settings.mcpServers.authorize")}
+          </Button>
+        ) : null}
 
         <Button
           className="h-8 px-2 text-muted-foreground"

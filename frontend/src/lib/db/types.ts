@@ -185,9 +185,12 @@ export type RemoteTargetConfig = {
 export type McpServerConfig = {
   id: string;
   name: string;
+  transport: "stdio" | "http";
   command: string;
   args: string[];
   env: Record<string, string>;
+  url: string;
+  headers: Record<string, string>;
   enabled: boolean;
 };
 

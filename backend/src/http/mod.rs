@@ -60,6 +60,13 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/mcp/call_tool", post(routes_mcp::handle_mcp_call_tool))
         .route("/api/mcp/test_connection", post(routes_mcp::handle_mcp_test_connection))
         .route("/api/mcp/disconnect", post(routes_mcp::handle_mcp_disconnect))
+        .route("/api/mcp/oauth/start", post(routes_mcp::handle_mcp_oauth_start))
+        .route("/api/mcp/oauth/status", post(routes_mcp::handle_mcp_oauth_status))
+        .route("/api/mcp/oauth/revoke", post(routes_mcp::handle_mcp_oauth_revoke))
+        .route(
+            "/api/mcp/oauth/callback",
+            get(routes_mcp::handle_mcp_oauth_callback),
+        )
         .route("/api/git_current_branch", post(routes_tool::handle_git_current_branch))
         .route("/api/handoff_git_snapshot", post(routes_tool::handle_handoff_git_snapshot))
         .route(

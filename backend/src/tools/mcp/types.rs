@@ -8,17 +8,34 @@ use std::collections::HashMap;
 pub struct McpServerConfig {
     pub id: String,
     pub name: String,
+    #[serde(default = "default_transport")]
+    pub transport: String,
+    #[serde(default)]
     pub command: String,
     #[serde(default)]
     pub args: Vec<String>,
     #[serde(default)]
     pub env: HashMap<String, String>,
+    #[serde(default)]
+    pub url: String,
+    #[serde(default)]
+    pub headers: HashMap<String, String>,
     #[serde(default = "default_enabled")]
     pub enabled: bool,
 }
 
+fn default_transport() -> String {
+    "stdio".to_string()
+}
+
 fn default_enabled() -> bool {
     true
+}
+
+impl McpServerConfig {
+    pub fn is_remote(&self) -> bool {
+        self.transport == "http" || !self.url.trim().is_empty()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,4 +87,24 @@ pub struct McpTestConnectionResult {
     pub ok: bool,
     pub message: String,
     pub tool_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_required: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpOAuthStartResult {
+    pub authorize_url: String,
+    pub state: String,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpOAuthStatusResult {
+    pub authenticated: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 }

@@ -2,16 +2,20 @@ import { MCP_SERVERS_STORE } from "./constants";
 import { getDb } from "./client";
 import { notifyDbChange } from "./subscriptions";
 import type { McpServerConfig } from "./types";
+import { normalizeMcpServerConfig } from "@/features/mcp/lib/server-config";
 
 export async function listMcpServers(): Promise<McpServerConfig[]> {
   const db = await getDb();
   const servers = await db.getAll<McpServerConfig>(MCP_SERVERS_STORE);
-  return servers.sort((a, b) => a.name.localeCompare(b.name));
+  return servers
+    .map((server) => normalizeMcpServerConfig(server))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function getMcpServer(id: string): Promise<McpServerConfig | null> {
   const db = await getDb();
-  return (await db.get<McpServerConfig>(MCP_SERVERS_STORE, id)) ?? null;
+  const server = await db.get<McpServerConfig>(MCP_SERVERS_STORE, id);
+  return server ? normalizeMcpServerConfig(server) : null;
 }
 
 export async function saveMcpServer(config: McpServerConfig): Promise<void> {

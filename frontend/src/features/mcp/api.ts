@@ -34,6 +34,19 @@ export type McpTestConnectionResult = {
   ok: boolean;
   message: string;
   toolCount: number;
+  authRequired?: boolean;
+};
+
+export type McpOAuthStartResult = {
+  authorizeUrl: string;
+  state: string;
+  status: string;
+};
+
+export type McpOAuthStatusResult = {
+  authenticated: boolean;
+  expiresAt?: number;
+  message?: string;
 };
 
 export async function listMcpTools(
@@ -64,4 +77,20 @@ export async function testMcpConnection(
 
 export async function disconnectMcpServer(serverId: string): Promise<void> {
   await apiPost("/api/mcp/disconnect", { serverId });
+}
+
+export async function startMcpOAuth(
+  config: McpServerConfig
+): Promise<McpOAuthStartResult> {
+  return apiPost<McpOAuthStartResult>("/api/mcp/oauth/start", { config });
+}
+
+export async function getMcpOAuthStatus(
+  serverId: string
+): Promise<McpOAuthStatusResult> {
+  return apiPost<McpOAuthStatusResult>("/api/mcp/oauth/status", { serverId });
+}
+
+export async function revokeMcpOAuth(serverId: string): Promise<void> {
+  await apiPost("/api/mcp/oauth/revoke", { serverId });
 }

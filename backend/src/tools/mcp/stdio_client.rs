@@ -1,26 +1,27 @@
 use std::time::Duration;
 
-use serde_json::{json, Value};
+use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, Command};
 use tokio::time::timeout;
 
+use super::protocol::{
+    build_jsonrpc_notification, build_jsonrpc_request, format_mcp_error, initialize_params,
+    parse_content_blocks,
+};
 use super::types::{McpContentBlock, McpServerConfig, McpToolDefinition};
 
-const MCP_PROTOCOL_VERSION: &str = "2024-11-05";
-const CLIENT_NAME: &str = "coder";
-const CLIENT_VERSION: &str = "0.1.0";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(120);
 const INIT_TIMEOUT: Duration = Duration::from_secs(30);
 
-pub struct McpClient {
+pub struct StdioMcpClient {
     child: Child,
     stdin: ChildStdin,
     stdout: BufReader<tokio::process::ChildStdout>,
     next_id: u64,
 }
 
-impl McpClient {
+impl StdioMcpClient {
     pub async fn connect(config: &McpServerConfig) -> Result<Self, String> {
         if config.command.trim().is_empty() {
             return Err("MCP server command is required".to_string());
@@ -63,16 +64,7 @@ impl McpClient {
     }
 
     async fn initialize(&mut self) -> Result<(), String> {
-        let params = json!({
-            "protocolVersion": MCP_PROTOCOL_VERSION,
-            "capabilities": {},
-            "clientInfo": {
-                "name": CLIENT_NAME,
-                "version": CLIENT_VERSION,
-            }
-        });
-
-        let response = timeout(INIT_TIMEOUT, self.request("initialize", Some(params)))
+        let response = timeout(INIT_TIMEOUT, self.request("initialize", Some(initialize_params())))
             .await
             .map_err(|_| "MCP initialize timed out".to_string())??;
 
@@ -90,8 +82,8 @@ impl McpClient {
 
         loop {
             let params = match &cursor {
-                Some(c) => json!({ "cursor": c }),
-                None => json!({}),
+                Some(c) => serde_json::json!({ "cursor": c }),
+                None => serde_json::json!({}),
             };
 
             let response = timeout(REQUEST_TIMEOUT, self.request("tools/list", Some(params)))
@@ -99,7 +91,7 @@ impl McpClient {
                 .map_err(|_| "MCP tools/list timed out".to_string())??;
 
             if let Some(error) = response.get("error") {
-                return Err(format_json_error("tools/list", error));
+                return Err(super::protocol::format_json_error("tools/list", error));
             }
 
             let result = response
@@ -132,7 +124,7 @@ impl McpClient {
         name: &str,
         arguments: Value,
     ) -> Result<(Vec<McpContentBlock>, bool), String> {
-        let params = json!({
+        let params = serde_json::json!({
             "name": name,
             "arguments": arguments,
         });
@@ -142,7 +134,7 @@ impl McpClient {
             .map_err(|_| format!("MCP tools/call timed out for tool '{name}'"))??;
 
         if let Some(error) = response.get("error") {
-            return Err(format_json_error("tools/call", error));
+            return Err(super::protocol::format_json_error("tools/call", error));
         }
 
         let result = response
@@ -161,28 +153,13 @@ impl McpClient {
     async fn request(&mut self, method: &str, params: Option<Value>) -> Result<Value, String> {
         self.next_id += 1;
         let id = self.next_id;
-
-        let mut payload = json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "method": method,
-        });
-        if let Some(params) = params {
-            payload["params"] = params;
-        }
-
+        let payload = build_jsonrpc_request(id, method, params);
         self.write_message(&payload).await?;
         self.read_response_for_id(id).await
     }
 
     async fn notify(&mut self, method: &str, params: Option<Value>) -> Result<(), String> {
-        let mut payload = json!({
-            "jsonrpc": "2.0",
-            "method": method,
-        });
-        if let Some(params) = params {
-            payload["params"] = params;
-        }
+        let payload = build_jsonrpc_notification(method, params);
         self.write_message(&payload).await
     }
 
@@ -232,7 +209,6 @@ impl McpClient {
                 .map_err(|e| format!("Invalid JSON from MCP server: {e} (line: {trimmed})"))?;
 
             if message.get("method").is_some() && message.get("id").is_none() {
-                // Server notification — ignore for now.
                 continue;
             }
 
@@ -243,43 +219,9 @@ impl McpClient {
     }
 }
 
-impl Drop for McpClient {
+impl Drop for StdioMcpClient {
     fn drop(&mut self) {
         let _ = self.child.start_kill();
-    }
-}
-
-fn parse_content_blocks(value: Option<&Value>) -> Result<Vec<McpContentBlock>, String> {
-    let Some(array) = value.and_then(|v| v.as_array()) else {
-        return Ok(Vec::new());
-    };
-
-    let mut blocks = Vec::with_capacity(array.len());
-    for item in array {
-        let block: McpContentBlock = serde_json::from_value(item.clone())
-            .map_err(|e| format!("Invalid MCP content block: {e}"))?;
-        blocks.push(block);
-    }
-    Ok(blocks)
-}
-
-fn format_mcp_error(method: &str, response: &Value) -> String {
-    response
-        .get("error")
-        .map(|error| format_json_error(method, error))
-        .unwrap_or_else(|| format!("MCP {method} failed"))
-}
-
-fn format_json_error(method: &str, error: &Value) -> String {
-    let message = error
-        .get("message")
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown error");
-    let code = error.get("code").map(|v| v.to_string()).unwrap_or_default();
-    if code.is_empty() {
-        format!("MCP {method} failed: {message}")
-    } else {
-        format!("MCP {method} failed [{code}]: {message}")
     }
 }
 
@@ -288,13 +230,24 @@ pub fn config_hash(config: &McpServerConfig) -> u64 {
     use std::hash::{Hash, Hasher};
 
     let mut hasher = DefaultHasher::new();
+    config.transport.hash(&mut hasher);
     config.command.hash(&mut hasher);
+    config.url.hash(&mut hasher);
     config.args.hash(&mut hasher);
+
     let mut env_pairs: Vec<_> = config.env.iter().collect();
     env_pairs.sort_by(|a, b| a.0.cmp(b.0));
     for (key, value) in env_pairs {
         key.hash(&mut hasher);
         value.hash(&mut hasher);
     }
+
+    let mut header_pairs: Vec<_> = config.headers.iter().collect();
+    header_pairs.sort_by(|a, b| a.0.cmp(b.0));
+    for (key, value) in header_pairs {
+        key.hash(&mut hasher);
+        value.hash(&mut hasher);
+    }
+
     hasher.finish()
 }
