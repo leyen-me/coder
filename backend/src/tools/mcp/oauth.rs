@@ -58,6 +58,7 @@ struct ProtectedResourceMetadata {
 #[derive(Debug, Clone, Deserialize)]
 struct AuthorizationServerMetadata {
     #[serde(default)]
+    #[allow(dead_code)]
     issuer: Option<String>,
     authorization_endpoint: String,
     token_endpoint: String,
