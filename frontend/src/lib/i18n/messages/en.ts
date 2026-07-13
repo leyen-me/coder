@@ -599,6 +599,14 @@ export const enMessages = {
       deleteConfirmDescription:
         'This will remove the MCP server "{name}" from your configuration.',
       toggleEnabledAria: 'Toggle MCP server "{name}"',
+      toast: {
+        testSuccess: "{name}: connected, found {count} tool(s)",
+        authRequired: "{name} requires authorization before use",
+        authorizeAction: "Authorize",
+        testFailed: "{name} connection test failed",
+        oauthStarted: "Opened the authorization page for {name} in your browser",
+        oauthFailed: "Failed to start authorization for {name}",
+      },
     },
   },
   theme: {

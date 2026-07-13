@@ -43,6 +43,12 @@ import {
   normalizeMcpServerConfig,
   parseHeadersLines,
 } from "@/features/mcp/lib/server-config";
+import {
+  isMcpAuthRequiredMessage,
+  notifyMcpOAuthFailed,
+  notifyMcpOAuthStarted,
+  notifyMcpTestResult,
+} from "@/features/mcp/lib/notify-mcp-connection";
 
 import { McpServerCard } from "./mcp-server-card";
 import { SettingSelect } from "./setting-select";
@@ -125,12 +131,6 @@ export function McpServersSettingsPanel() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [authorizingId, setAuthorizingId] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<{
-    id: string;
-    ok: boolean;
-    message: string;
-    authRequired?: boolean;
-  } | null>(null);
 
   const loadServers = useCallback(async () => {
     const list = await listMcpServers();
@@ -221,21 +221,26 @@ export function McpServersSettingsPanel() {
 
   async function handleTest(server: McpServerConfig) {
     setTestingId(server.id);
-    setTestResult(null);
     try {
       const result = await testMcpConnection(server);
-      setTestResult({
-        id: server.id,
-        ok: result.ok,
-        message: result.message,
-        authRequired: result.authRequired,
+      notifyMcpTestResult({
+        serverName: server.name,
+        result,
+        onAuthorize: () => void handleAuthorize(server),
+        t,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setTestResult({
-        id: server.id,
-        ok: false,
-        message,
+      notifyMcpTestResult({
+        serverName: server.name,
+        result: {
+          ok: false,
+          message,
+          toolCount: 0,
+          authRequired: isMcpAuthRequiredMessage(message),
+        },
+        onAuthorize: () => void handleAuthorize(server),
+        t,
       });
     } finally {
       setTestingId(null);
@@ -246,15 +251,16 @@ export function McpServersSettingsPanel() {
     setAuthorizingId(server.id);
     try {
       await startMcpOAuth(server);
+      notifyMcpOAuthStarted(server.name, t);
       window.setTimeout(() => {
         void loadServers();
       }, 2000);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      setTestResult({
-        id: server.id,
-        ok: false,
+      notifyMcpOAuthFailed({
+        serverName: server.name,
         message,
+        t,
       });
     } finally {
       setAuthorizingId(null);
@@ -297,43 +303,19 @@ export function McpServersSettingsPanel() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {servers.map((server) => (
-            <div key={server.id} className="space-y-2">
-              <McpServerCard
-                server={server}
-                authenticated={authStatus[server.id]?.authenticated ?? false}
-                onEdit={() => void handleEdit(server.id)}
-                onDelete={() => setDeleteId(server.id)}
-                onTest={() => void handleTest(server)}
-                onAuthorize={() => void handleAuthorize(server)}
-                onRevokeAuth={() => void handleRevokeAuth(server)}
-                onToggleEnabled={() => void handleToggleEnabled(server)}
-                isTesting={testingId === server.id}
-                isAuthorizing={authorizingId === server.id}
-              />
-              {testResult?.id === server.id ? (
-                <div className="space-y-1">
-                  <p
-                    className={
-                      testResult.ok
-                        ? "text-xs text-emerald-600 dark:text-emerald-400"
-                        : "text-xs text-destructive"
-                    }
-                  >
-                    {testResult.message}
-                  </p>
-                  {testResult.authRequired ? (
-                    <Button
-                      className="h-7 px-2 text-xs"
-                      onClick={() => void handleAuthorize(server)}
-                      type="button"
-                      variant="outline"
-                    >
-                      {t("settings.mcpServers.authorize")}
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+            <McpServerCard
+              key={server.id}
+              server={server}
+              authenticated={authStatus[server.id]?.authenticated ?? false}
+              onEdit={() => void handleEdit(server.id)}
+              onDelete={() => setDeleteId(server.id)}
+              onTest={() => void handleTest(server)}
+              onAuthorize={() => void handleAuthorize(server)}
+              onRevokeAuth={() => void handleRevokeAuth(server)}
+              onToggleEnabled={() => void handleToggleEnabled(server)}
+              isTesting={testingId === server.id}
+              isAuthorizing={authorizingId === server.id}
+            />
           ))}
         </div>
       )}

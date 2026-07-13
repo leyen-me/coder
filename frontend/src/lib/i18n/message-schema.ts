@@ -536,6 +536,14 @@ export type Messages = {
       deleteConfirmTitle: string;
       deleteConfirmDescription: string;
       toggleEnabledAria: string;
+      toast: {
+        testSuccess: string;
+        authRequired: string;
+        authorizeAction: string;
+        testFailed: string;
+        oauthStarted: string;
+        oauthFailed: string;
+      };
     };
   };
   theme: {

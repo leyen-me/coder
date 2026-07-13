@@ -584,6 +584,14 @@ export const zhMessages = {
       deleteConfirmTitle: "删除 MCP 服务？",
       deleteConfirmDescription: "这将从配置中删除 MCP 服务 \"{name}\"。",
       toggleEnabledAria: "开关 MCP 服务 \"{name}\"",
+      toast: {
+        testSuccess: "{name}：连接成功，发现 {count} 个工具",
+        authRequired: "{name} 需要授权登录后才能使用",
+        authorizeAction: "去授权",
+        testFailed: "{name} 连接测试失败",
+        oauthStarted: "已在浏览器中打开 {name} 的授权页面",
+        oauthFailed: "{name} 授权启动失败",
+      },
     },
   },
   theme: {
