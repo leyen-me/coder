@@ -101,6 +101,7 @@ export function buildModeGuidanceSection(
       "- You may read files, search code, and browse.",
       "- Do not modify files, run shell commands, or perform write operations.",
       "- Use ask_question when key requirements or trade-offs are unclear; prefer one batched call over many small rounds.",
+      "- When using ask_question, set recommended: true on the option you think best fits the user's need, to help them make a quicker decision.",
       '- If the task needs write access, say so clearly and tell the user to switch to Agent mode instead of silently refusing.',
     ];
   }
@@ -200,6 +201,7 @@ export function buildPlanModeGuidance(workspaceDir: string | null): string[] {
     "",
     "- Read, search, and browse to inform the plan.",
     "- Use ask_question when key requirements or trade-offs are unclear; prefer one batched call over many small rounds.",
+    "- When using ask_question, set recommended: true on the option you think best fits the user's need, to help them make a quicker decision.",
     "- Use todo_write only for short-lived planning progress. It does not replace the plan file.",
     "- Do NOT modify project files, run shell commands, or implement changes.",
     "",

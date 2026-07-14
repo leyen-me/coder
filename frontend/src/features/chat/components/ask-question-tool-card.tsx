@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -195,7 +196,14 @@ export function AskQuestionToolCard({
                             toggleMultiOption(question.id, option.id, value === true);
                           }}
                         />
-                        <span>{option.label}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span>{option.label}</span>
+                          {option.recommended ? (
+                            <Badge className="text-[10px] leading-none" variant="secondary">
+                              推荐
+                            </Badge>
+                          ) : null}
+                        </div>
                       </label>
                     );
                   })}
@@ -235,7 +243,14 @@ export function AskQuestionToolCard({
                       key={option.id}
                     >
                       <RadioGroupItem value={option.id} />
-                      <span>{option.label}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span>{option.label}</span>
+                        {option.recommended ? (
+                          <Badge className="text-[10px] leading-none" variant="secondary">
+                            推荐
+                          </Badge>
+                        ) : null}
+                      </div>
                     </label>
                   ))}
                   <label className="flex items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm">

@@ -853,6 +853,11 @@ export const ASK_QUESTION_TOOL: AgentToolDefinition = {
                       type: "string",
                       description: "Option label shown to the user.",
                     },
+                    recommended: {
+                      type: "boolean",
+                      description:
+                        "Optional. Set to true on the option you recommend the user to pick, to help them decide. Only set it on one option per question.",
+                    },
                   },
                   required: ["id", "label"],
                   additionalProperties: false,

@@ -3,6 +3,7 @@ export const ASK_QUESTION_OTHER_OPTION_ID = "__other__";
 export type AskQuestionOption = {
   id: string;
   label: string;
+  recommended?: boolean;
 };
 
 export type AskQuestionItem = {
@@ -136,9 +137,19 @@ export function parseAskQuestionRequest(
         };
       }
 
+      const recommended = option.recommended;
+
+      if (recommended !== undefined && typeof recommended !== "boolean") {
+        return {
+          ok: false,
+          message: `questions[${index}].options[${optionIndex}].recommended must be a boolean`,
+        };
+      }
+
       normalizedOptions.push({
         id: normalizedOptionId,
         label: label.trim(),
+        recommended: recommended ?? undefined,
       });
     }
 
