@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  POLL_TOOL_NAMES,
   ToolCallStallDetector,
   toolCallsSignature,
 } from "./tool-call-stall";
+
+describe("POLL_TOOL_NAMES", () => {
+  it("includes await and read_shell_logs", () => {
+    expect(POLL_TOOL_NAMES.has("await")).toBe(true);
+    expect(POLL_TOOL_NAMES.has("read_shell_logs")).toBe(true);
+  });
+});
 
 describe("toolCallsSignature", () => {
   it("is order-independent for parallel tool calls", () => {
@@ -21,8 +29,10 @@ describe("toolCallsSignature", () => {
 });
 
 describe("ToolCallStallDetector", () => {
+  const NO_POLL = new Set<string>();
+
   it("does not flag diverse tool rounds", () => {
-    const detector = new ToolCallStallDetector();
+    const detector = new ToolCallStallDetector(3, NO_POLL);
 
     expect(
       detector.record([
@@ -40,7 +50,7 @@ describe("ToolCallStallDetector", () => {
   });
 
   it("flags repeated identical tool batches", () => {
-    const detector = new ToolCallStallDetector();
+    const detector = new ToolCallStallDetector(3, NO_POLL);
     const toolCalls = [
       { id: "1", name: "read_file", arguments: '{"path":"a.ts"}' },
     ];
@@ -48,5 +58,35 @@ describe("ToolCallStallDetector", () => {
     expect(detector.record(toolCalls)).toBe(false);
     expect(detector.record(toolCalls)).toBe(false);
     expect(detector.record(toolCalls)).toBe(true);
+  });
+
+  it("does not flag repeated poll-only tool calls", () => {
+    const detector = new ToolCallStallDetector(3, new Set(["await"]));
+    const toolCalls = [
+      { id: "1", name: "await", arguments: '{"shell_id":"s1"}' },
+    ];
+
+    // Even after many identical calls, poll tools should never trigger stall
+    expect(detector.record(toolCalls)).toBe(false);
+    expect(detector.record(toolCalls)).toBe(false);
+    expect(detector.record(toolCalls)).toBe(false);
+    expect(detector.record(toolCalls)).toBe(false);
+  });
+
+  it("still detects stall on non-poll tools mixed with poll tools", () => {
+    const detector = new ToolCallStallDetector(3, new Set(["await"]));
+
+    // Same non-poll call repeated with different poll calls
+    const nonPollCall = [
+      { id: "1", name: "read_file", arguments: '{"path":"a.ts"}' },
+      { id: "2", name: "await", arguments: '{"shell_id":"s1"}' },
+    ];
+
+    // Round 1
+    expect(detector.record(nonPollCall)).toBe(false);
+    // Round 2
+    expect(detector.record(nonPollCall)).toBe(false);
+    // Round 3 — still stuck on read_file
+    expect(detector.record(nonPollCall)).toBe(true);
   });
 });
