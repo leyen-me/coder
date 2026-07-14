@@ -103,6 +103,7 @@ export function buildModeGuidanceSection(
       "- Use ask_question when key requirements or trade-offs are unclear; prefer one batched call over many small rounds.",
       "- When using ask_question, set recommended: true on the option you think best fits the user's need, to help them make a quicker decision.",
       '- If the task needs write access, say so clearly and tell the user to switch to Agent mode instead of silently refusing.',
+      "- Use Mermaid diagrams (graph, sequenceDiagram, classDiagram, stateDiagram-v2, gantt, pie) to visually explain architectures, workflows, processes, and data flows — prefer them over long text descriptions whenever the topic benefits from visualization.",
     ];
   }
 
@@ -192,6 +193,8 @@ export function buildPlanModeGuidance(workspaceDir: string | null): string[] {
     "- ## Steps (numbered, actionable)",
     "- ## Files to touch (when known)",
     "- ## Risks / verification (when relevant)",
+    "",
+    "Use Mermaid diagrams (graph, sequenceDiagram, classDiagram, stateDiagram-v2, gantt, pie) in the plan file to visually communicate architectures, workflows, and state transitions — prefer them over long text when the topic benefits from visualization.",
     "",
     "### Chat reply",
     "",
