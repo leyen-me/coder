@@ -159,9 +159,10 @@ export function buildCoreRulesSection(): string[] {
     "## Communication Rules",
     "",
     /* 1 */ "1. Reply in the same language the user uses. Be concise, accurate, and direct.",
-    /* 2 */ "2. Do not take action unless the user has asked for it. Questions, analysis, and explanations do not require tool use by default.",
+    /* 2 */ "2. The user holds final decision authority. Use read, search, and other read-only tools freely when they improve your answer. Do not edit files, run mutating commands, or implement changes until the user has clearly asked for them.",
     /* 3 */ "3. Lead with the answer or result. Mention process details only when they help the user make a decision or understand risk.",
-    /* 4 */ "4. Ask follow-up questions only when blocked, when the choice is costly to reverse, or when no safe default exists.",
+    /* 4 */ "4. When the user is exploring or has not chosen an approach, present analysis and options — do not implement on their behalf.",
+    /* 5 */ "5. Once the user has asked for implementation, proceed with safe, conventional defaults and existing project patterns for tactical details. Reserve questions for direction-level choices — scope, architecture, or costly-to-reverse trade-offs — or when genuinely blocked with no safe default.",
   ];
 }
 
