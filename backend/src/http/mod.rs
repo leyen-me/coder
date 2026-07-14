@@ -7,7 +7,7 @@ pub mod routes_mcp;
 pub mod static_files;
 
 use axum::{
-    body::DefaultBodyLimit,
+    extract::DefaultBodyLimit,
     routing::{get, post},
     Router,
 };
