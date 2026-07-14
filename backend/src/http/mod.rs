@@ -7,6 +7,7 @@ pub mod routes_mcp;
 pub mod static_files;
 
 use axum::{
+    body::DefaultBodyLimit,
     routing::{get, post},
     Router,
 };
@@ -137,6 +138,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/settings/delete", post(routes_settings::handle_settings_delete))
         // Static files (React SPA) — fallback
         .fallback(static_files::handle_static_files)
+        .layer(DefaultBodyLimit::disable())
         .layer(cors)
         .with_state(state)
 }
