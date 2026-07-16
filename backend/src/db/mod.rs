@@ -1,4 +1,6 @@
 pub mod purge_automation_sessions;
+pub mod records;
+pub mod session_store;
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{de::DeserializeOwned, Serialize};

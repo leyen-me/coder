@@ -16,6 +16,10 @@ use super::types::{
     AgentEvent, AgentStartParams, AgentStatus, AgentStatusResponse, ChatMessage,
     GenerateSessionTitleParams, RefinePromptParams,
 };
+use crate::db::{
+    records::current_timestamp_ms,
+    session_store::{find_assistant_message_by_task_id, update_message},
+};
 
 fn debug_emit_log(event: &AgentEvent) {
     if !cfg!(debug_assertions) {
@@ -96,6 +100,42 @@ fn debug_emit_log(event: &AgentEvent) {
         }
         AgentEvent::HandoffRequired { task_id, .. } => {
             agent_stream_log(format!("emit task_id={task_id} type=handoff_required"));
+        }
+        AgentEvent::HandoffProgress {
+            task_id,
+            session_id,
+            phase,
+        } => {
+            agent_stream_log(format!(
+                "emit task_id={task_id} type=handoff_progress session_id={session_id} phase={phase}"
+            ));
+        }
+        AgentEvent::HandoffComplete {
+            task_id,
+            source_session_id,
+            continued_session_id,
+        } => {
+            agent_stream_log(format!(
+                "emit task_id={task_id} type=handoff_complete source_session_id={source_session_id} continued_session_id={continued_session_id}"
+            ));
+        }
+        AgentEvent::DecisionRequested {
+            task_id,
+            decision_id,
+            ..
+        } => {
+            agent_stream_log(format!(
+                "emit task_id={task_id} type=decision_requested decision_id={decision_id}"
+            ));
+        }
+        AgentEvent::DecisionResolved {
+            task_id,
+            decision_id,
+            ..
+        } => {
+            agent_stream_log(format!(
+                "emit task_id={task_id} type=decision_resolved decision_id={decision_id}"
+            ));
         }
         AgentEvent::ChatRetry {
             task_id,
@@ -417,7 +457,9 @@ impl AgentRegistry {
                 registry_guard.update_status(&task_id, final_status.clone());
             }
 
-            if let Err(message) = result {
+            let failure_message = result.as_ref().err().map(|error| error.to_string());
+
+            if let Err(message) = &result {
                 agent_diagnostic_log(format!(
                     "task_failed task_id={task_id} model={model} message={message:?}"
                 ));
@@ -460,6 +502,45 @@ impl AgentRegistry {
 
             if let Ok(mut registry) = registry.lock() {
                 registry.remove_run(&task_id);
+            }
+
+            if let Ok(db) = app_state.db.lock() {
+                let _ = find_assistant_message_by_task_id(
+                    &db,
+                    session_id.as_deref(),
+                    &task_id,
+                )
+                .and_then(|message| {
+                    if let Some(message) = message {
+                        update_message(&db, &message.id, false, |record| {
+                            record.status = match final_status {
+                                AgentStatus::Pending => "pending",
+                                AgentStatus::Running => "streaming",
+                                AgentStatus::Cancelling => "cancelling",
+                                AgentStatus::Cancelled => "cancelled",
+                                AgentStatus::Completed => "completed",
+                                AgentStatus::Failed => "failed",
+                            }
+                            .to_string();
+                            if matches!(final_status, AgentStatus::Failed) {
+                                record.error = Some(
+                                    failure_message
+                                        .clone()
+                                        .unwrap_or_else(|| "Agent task failed".to_string()),
+                                );
+                            }
+                            if matches!(final_status, AgentStatus::Cancelled) {
+                                record.error = Some("Cancelled".to_string());
+                            }
+                            record.duration_ms = Some(
+                                current_timestamp_ms().saturating_sub(record.created_at),
+                            );
+                        })
+                        .map(|_| ())
+                    } else {
+                        Ok(())
+                    }
+                });
             }
         });
 

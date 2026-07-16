@@ -44,7 +44,7 @@ pub use file_ops::{
 };
 pub use glob::tool_glob;
 pub use grep::tool_grep;
-pub use handoff::tool_collect_git_snapshot;
+pub use handoff::{tool_collect_git_snapshot, GitSnapshotResult};
 pub use list_dir::tool_list_dir;
 pub use mcp::{McpRegistry, McpServerConfig};
 pub use open_in_explorer::open_in_explorer;

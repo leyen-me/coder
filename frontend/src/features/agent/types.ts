@@ -41,6 +41,18 @@ export type AgentEvent =
       contextUsage: AgentContextUsageSnapshot;
     }
   | {
+      type: "handoff_progress";
+      taskId: string;
+      sessionId: string;
+      phase: SessionHandoffPhase;
+    }
+  | {
+      type: "handoff_complete";
+      taskId: string;
+      sourceSessionId: string;
+      continuedSessionId: string;
+    }
+  | {
       type: "tool_call_pending";
       taskId: string;
       toolCallId: string;

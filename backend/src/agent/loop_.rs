@@ -1,18 +1,27 @@
 use std::sync::{Arc, Mutex};
 
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
+use super::context::{compact_tool_result_messages, should_trigger_handoff};
+use super::decision::{
+    build_final_answer_decision_request, build_proxy_continuation_message, request_proxy_decision,
+    DecisionResponse,
+};
+use super::handoff::continue_after_handoff;
 use super::openai::stream_chat_completion;
 use super::tool_dispatch::{
     execute_tool_call, serialize_tool_result, ToolExecutionContext,
 };
-use super::types::{
-    AgentContextUsageSnapshot, AgentEvent, AgentStartParams, ChatMessage, TokenUsage,
-    ToolCall,
+use super::types::{AgentEvent, AgentStartParams, ChatMessage, TokenUsage, ToolCall};
+use crate::db::{
+    records::{
+        current_timestamp_ms, DecisionOptionRecord, DecisionResponseRecord, MessageProcessStep,
+        MessageToolInvocation,
+    },
+    session_store::{find_assistant_message_by_task_id, get_session},
+    Database,
 };
-use crate::db::{Database, IndexEntry};
 
 const MAX_RETRY_ATTEMPTS: u32 = 3;
 const TOOL_STALL_THRESHOLD: u32 = 3;
@@ -48,57 +57,14 @@ struct AgentTurnResult {
     usage: Option<TokenUsage>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct MessageToolInvocation {
-    id: String,
-    name: String,
-    input: Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    output: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error_text: Option<String>,
-    state: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
-enum MessageProcessStep {
-    Reasoning { id: String, text: String },
-    Answer { id: String, text: String },
-    Tool { id: String, tool_call_id: String },
-}
-
 #[derive(Debug, Clone)]
 struct PersistedMessageState {
-    session_id: String,
     message_id: String,
     created_at: u64,
     content: String,
     thinking: String,
     process_steps: Vec<MessageProcessStep>,
     tool_invocations: Vec<MessageToolInvocation>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SessionRecord {
-    workspace_dir: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct MessageRecord {
-    id: String,
-    session_id: String,
-    role: String,
-    content: String,
-    thinking: String,
-    #[serde(default)]
-    process_steps: Vec<MessageProcessStep>,
-    tool_invocations: Vec<MessageToolInvocation>,
-    task_id: Option<String>,
-    created_at: u64,
 }
 
 pub async fn run_agent_loop(
@@ -115,6 +81,7 @@ pub async fn run_agent_loop(
     let mut persisted_state =
         find_persisted_message_state(&app_state.db, params.session_id.as_deref(), &params.task_id);
     let mut cumulative_usage: Option<TokenUsage> = None;
+    let mut latest_prompt_tokens: Option<u32> = None;
     let mut last_tool_signature: Option<String> = None;
     let mut repeated_tool_signature_count = 0_u32;
     let mut turn_index = 0_u32;
@@ -137,11 +104,26 @@ pub async fn run_agent_loop(
             return Err(AgentLoopError::Cancelled);
         }
 
-        if let Some(snapshot) = should_trigger_handoff(&messages, &params) {
+        messages = compact_tool_result_messages(&messages);
+        if let Some(snapshot) = should_trigger_handoff(
+            &messages,
+            params.max_context_tokens,
+            params.handoff_trigger_threshold,
+            latest_prompt_tokens,
+        ) {
             emit_event(&registry, &broadcaster, &params.task_id, AgentEvent::HandoffRequired {
                 task_id: params.task_id.clone(),
-                context_usage: snapshot,
+                context_usage: snapshot.clone(),
             })?;
+            continue_after_handoff(
+                &params,
+                &messages,
+                &snapshot,
+                &broadcaster,
+                &registry,
+                app_state.clone(),
+            )
+            .await?;
             emit_event(
                 &registry,
                 &broadcaster,
@@ -151,6 +133,18 @@ pub async fn run_agent_loop(
                     usage: cumulative_usage.clone(),
                 },
             )?;
+            if let Some(state) = persisted_state.as_mut() {
+                persist_message_snapshot(
+                    &app_state.db,
+                    state,
+                    MessageStatusPatch {
+                        status: Some("completed"),
+                        error: None,
+                        usage: cumulative_usage.clone(),
+                        duration_ms: Some(current_timestamp_ms().saturating_sub(state.created_at)),
+                    },
+                )?;
+            }
             return Ok(());
         }
 
@@ -169,6 +163,7 @@ pub async fn run_agent_loop(
         turn_index += 1;
 
         if let Some(usage) = &turn.usage {
+            latest_prompt_tokens = Some(usage.prompt_tokens);
             cumulative_usage = Some(match cumulative_usage.as_ref() {
                 Some(acc) => merge_usage(acc, usage),
                 None => usage.clone(),
@@ -176,6 +171,143 @@ pub async fn run_agent_loop(
         }
 
         if turn.tool_calls.is_empty() {
+            let session_kind = params.session_kind.as_deref().unwrap_or("standard");
+            let autonomy_mode = params.autonomy_mode.as_deref().unwrap_or("interactive");
+            if session_kind == "long_task" || autonomy_mode == "unattended" {
+                let decision_request = build_final_answer_decision_request(
+                    params.session_id.as_deref().unwrap_or_default(),
+                    &params.task_id,
+                    &turn.content,
+                    session_kind,
+                    autonomy_mode,
+                    params
+                        .decision_policy_version
+                        .as_deref()
+                        .unwrap_or("mvp-v1"),
+                );
+                let decision_id = format!("decision:{}", turn_index);
+                emit_event(
+                    &registry,
+                    &broadcaster,
+                    &params.task_id,
+                    AgentEvent::DecisionRequested {
+                        task_id: params.task_id.clone(),
+                        decision_id: decision_id.clone(),
+                        trigger: decision_request.trigger.clone(),
+                        summary: decision_request.summary.clone(),
+                        question: decision_request.question.clone(),
+                        options: decision_request.options.clone(),
+                        risk_level: "medium".to_string(),
+                        requires_user_confirmation: false,
+                    },
+                )?;
+                if let Some(state) = persisted_state.as_mut() {
+                    state.process_steps.push(MessageProcessStep::Decision {
+                        id: decision_id.clone(),
+                        trigger: decision_request.trigger.clone(),
+                        summary: decision_request.summary.clone(),
+                        question: decision_request.question.clone(),
+                        options: decision_request
+                            .options
+                            .iter()
+                            .map(|option| DecisionOptionRecord {
+                                id: option.id.clone(),
+                                label: option.label.clone(),
+                            })
+                            .collect(),
+                        risk_level: "medium".to_string(),
+                        status: "requested".to_string(),
+                        requires_user_confirmation: false,
+                        response: None,
+                    });
+                    persist_message_snapshot(
+                        &app_state.db,
+                        state,
+                        MessageStatusPatch {
+                            status: Some("streaming"),
+                            error: None,
+                            usage: None,
+                            duration_ms: None,
+                        },
+                    )?;
+                }
+
+                let decision_response = request_proxy_decision(
+                    &http_client,
+                    &params.base_url,
+                    params.api_key.as_deref().unwrap_or_default(),
+                    params
+                        .decision_model
+                        .as_deref()
+                        .filter(|value| !value.trim().is_empty())
+                        .unwrap_or(&params.model),
+                    &decision_request,
+                    &messages,
+                )
+                .await
+                .unwrap_or_else(|error| DecisionResponse {
+                    outcome: "complete".to_string(),
+                    selected_option_id: Some("complete".to_string()),
+                    reason: format!(
+                        "Proxy decision failed, so the task was finalized with the current assistant answer: {error}"
+                    ),
+                    risk_level: "medium".to_string(),
+                    record_as_assumption: false,
+                    requires_user_confirmation: false,
+                    assumption: None,
+                    suggested_continuation: None,
+                });
+
+                emit_event(
+                    &registry,
+                    &broadcaster,
+                    &params.task_id,
+                    AgentEvent::DecisionResolved {
+                        task_id: params.task_id.clone(),
+                        decision_id: decision_id.clone(),
+                        trigger: decision_request.trigger.clone(),
+                        summary: decision_request.summary.clone(),
+                        question: decision_request.question.clone(),
+                        options: decision_request.options.clone(),
+                        response: decision_response.clone(),
+                    },
+                )?;
+                if let Some(state) = persisted_state.as_mut() {
+                    if let Some(MessageProcessStep::Decision { response, status, .. }) =
+                        state.process_steps.iter_mut().find(|step| {
+                            matches!(step, MessageProcessStep::Decision { id, .. } if id == &decision_id)
+                        })
+                    {
+                        *status = "resolved".to_string();
+                        *response = Some(DecisionResponseRecord {
+                            outcome: decision_response.outcome.clone(),
+                            selected_option_id: decision_response.selected_option_id.clone(),
+                            reason: decision_response.reason.clone(),
+                            risk_level: decision_response.risk_level.clone(),
+                            record_as_assumption: decision_response.record_as_assumption,
+                            requires_user_confirmation: decision_response.requires_user_confirmation,
+                            assumption: decision_response.assumption.clone(),
+                            suggested_continuation: decision_response.suggested_continuation.clone(),
+                        });
+                    }
+                    persist_message_snapshot(
+                        &app_state.db,
+                        state,
+                        MessageStatusPatch {
+                            status: Some("streaming"),
+                            error: None,
+                            usage: None,
+                            duration_ms: None,
+                        },
+                    )?;
+                }
+                if decision_response.outcome == "continue" {
+                    messages.push(build_assistant_message(&turn));
+                    messages.push(build_proxy_continuation_message(&decision_response));
+                    continue;
+                }
+            }
+
             let final_usage = cumulative_usage.clone().or(turn.usage.clone());
             log::info!(
                 "agent_task_completed task_id={} turns={} content_chars={} reasoning_chars={} total_tokens={}",
@@ -568,8 +700,8 @@ fn resolve_workspace_dir(
         return None;
     }
     let db = db.lock().ok()?;
-    let session = db.get::<SessionRecord>("sessions", session_id).ok()??;
-    session.workspace_dir.filter(|value| !value.trim().is_empty())
+    let session = get_session(&db, session_id).ok()??;
+    session.workspace_dir
 }
 
 fn find_persisted_message_state(
@@ -582,19 +714,13 @@ fn find_persisted_message_state(
         return None;
     }
     let db = db.lock().ok()?;
-    let messages = db
-        .get_all_from_index::<MessageRecord>("messages", "by-sessionId", Some(session_id))
-        .ok()?;
-    let message = messages.into_iter().find(|message| {
-        message.role == "assistant" && message.task_id.as_deref() == Some(task_id)
-    })?;
+    let message = find_assistant_message_by_task_id(&db, Some(session_id), task_id).ok()??;
     Some(PersistedMessageState {
-        session_id: message.session_id,
         message_id: message.id,
         created_at: message.created_at,
         content: message.content,
         thinking: message.thinking,
-        process_steps: message.process_steps,
+        process_steps: message.process_steps.unwrap_or_default(),
         tool_invocations: message.tool_invocations,
     })
 }
@@ -615,55 +741,26 @@ fn persist_message_snapshot(
     let db = db
         .lock()
         .map_err(|_| AgentLoopError::Other("Database lock poisoned".to_string()))?;
-    let Some(mut message) = db
-        .get::<Value>("messages", &state.message_id)
+    let Some(mut message) = crate::db::session_store::get_message(&db, &state.message_id)
         .map_err(AgentLoopError::Other)?
     else {
         return Ok(());
     };
-    let Some(object) = message.as_object_mut() else {
-        return Ok(());
-    };
-    object.insert("content".to_string(), Value::String(state.content.clone()));
-    object.insert("thinking".to_string(), Value::String(state.thinking.clone()));
-    object.insert(
-        "processSteps".to_string(),
-        serde_json::to_value(&state.process_steps)
-            .map_err(|error| AgentLoopError::Other(error.to_string()))?,
-    );
-    object.insert(
-        "toolInvocations".to_string(),
-        serde_json::to_value(&state.tool_invocations)
-            .map_err(|error| AgentLoopError::Other(error.to_string()))?,
-    );
+    message.content = state.content.clone();
+    message.thinking = state.thinking.clone();
+    message.process_steps = Some(state.process_steps.clone());
+    message.tool_invocations = state.tool_invocations.clone();
     if let Some(status) = patch.status {
-        object.insert("status".to_string(), Value::String(status.to_string()));
+        message.status = status.to_string();
     }
-    object.insert(
-        "error".to_string(),
-        patch.error.map(Value::String).unwrap_or(Value::Null),
-    );
+    message.error = patch.error;
     if let Some(usage) = patch.usage {
-        object.insert(
-            "usage".to_string(),
-            serde_json::to_value(usage).map_err(|error| AgentLoopError::Other(error.to_string()))?,
-        );
+        message.usage = Some(usage);
     }
     if let Some(duration_ms) = patch.duration_ms {
-        object.insert("durationMs".to_string(), Value::from(duration_ms));
+        message.duration_ms = Some(duration_ms);
     }
-    let indexes = vec![
-        IndexEntry {
-            name: "by-sessionId".to_string(),
-            value: state.session_id.clone(),
-        },
-        IndexEntry {
-            name: "by-sessionId-createdAt".to_string(),
-            value: state.session_id.clone(),
-        },
-    ];
-    db.put("messages", &state.message_id, &message, &indexes)
-        .map_err(AgentLoopError::Other)
+    crate::db::session_store::put_message(&db, &message, false).map_err(AgentLoopError::Other)
 }
 
 fn emit_event(
@@ -696,49 +793,6 @@ pub fn inject_seq_into_event_json(event_json: &str, seq: u64) -> String {
 
 fn parse_tool_input(arguments: &str) -> Value {
     serde_json::from_str(arguments).unwrap_or_else(|_| json!({}))
-}
-
-fn should_trigger_handoff(
-    messages: &[ChatMessage],
-    params: &AgentStartParams,
-) -> Option<AgentContextUsageSnapshot> {
-    let max_tokens = params.max_context_tokens?;
-    let trigger_threshold = params.handoff_trigger_threshold.unwrap_or(0.85);
-    let used_tokens = messages
-        .iter()
-        .map(|message| {
-            estimate_text_tokens(
-                message
-                    .content
-                    .as_ref()
-                    .and_then(Value::as_str)
-                    .unwrap_or_default(),
-            ) + estimate_text_tokens(message.reasoning_content.as_deref().unwrap_or_default())
-        })
-        .sum::<u32>();
-    let threshold_tokens = (max_tokens as f64 * trigger_threshold).ceil() as u32;
-    if used_tokens < threshold_tokens {
-        return None;
-    }
-    Some(AgentContextUsageSnapshot {
-        used_tokens,
-        max_tokens,
-        remaining_tokens: max_tokens.saturating_sub(used_tokens),
-        reserved_tokens: max_tokens.saturating_sub(threshold_tokens),
-        trigger_threshold,
-    })
-}
-
-fn estimate_text_tokens(text: &str) -> u32 {
-    let mut count = 0_f64;
-    for ch in text.chars() {
-        if ch.is_ascii() {
-            count += 0.25;
-        } else {
-            count += 1.0;
-        }
-    }
-    count.ceil() as u32
 }
 
 fn is_stalled(
@@ -819,9 +873,3 @@ fn ensure_tool_process_step(steps: &mut Vec<MessageProcessStep>, tool_call_id: &
     });
 }
 
-fn current_timestamp_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
-}

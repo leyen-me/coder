@@ -121,6 +121,27 @@ pub enum AgentEvent {
         #[serde(skip_serializing_if = "Option::is_none")]
         error_text: Option<String>,
     },
+    #[serde(rename = "decision_requested")]
+    DecisionRequested {
+        task_id: String,
+        decision_id: String,
+        trigger: String,
+        summary: String,
+        question: String,
+        options: Vec<super::decision::DecisionOption>,
+        risk_level: String,
+        requires_user_confirmation: bool,
+    },
+    #[serde(rename = "decision_resolved")]
+    DecisionResolved {
+        task_id: String,
+        decision_id: String,
+        trigger: String,
+        summary: String,
+        question: String,
+        options: Vec<super::decision::DecisionOption>,
+        response: super::decision::DecisionResponse,
+    },
     #[serde(rename = "turn_complete")]
     TurnComplete {
         task_id: String,
@@ -136,6 +157,18 @@ pub enum AgentEvent {
     HandoffRequired {
         task_id: String,
         context_usage: AgentContextUsageSnapshot,
+    },
+    #[serde(rename = "handoff_progress")]
+    HandoffProgress {
+        task_id: String,
+        session_id: String,
+        phase: String,
+    },
+    #[serde(rename = "handoff_complete")]
+    HandoffComplete {
+        task_id: String,
+        source_session_id: String,
+        continued_session_id: String,
     },
     #[serde(rename = "chat_retry")]
     ChatRetry {

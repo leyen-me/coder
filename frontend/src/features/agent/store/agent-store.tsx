@@ -9,27 +9,20 @@ import {
 } from "react";
 
 import {
-  addMessageToolInvocation,
-  completeMessageToolInvocation,
-  copyAgentTodosForSession,
-  mergeToolInvocations,
   createMessage,
-  createSession,
   createTaskId,
   DEFAULT_SESSION_AUTONOMY_MODE,
   deleteMessagesAfter,
-  deleteSession,
   deriveSessionTitle,
-  getMessage,
   getMessagesBySession,
   getSession,
   inferProviderFromModel,
-  setMessageStatus,
   updateMessage,
   updateSession,
   updateSessionTitle,
   type MessageRecord,
 } from "@/lib/db";
+import { notifyDbChange } from "@/lib/db/subscriptions";
 import { paths } from "@/app/paths";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
@@ -42,7 +35,6 @@ import { isAgentCancellationError } from "../cancellation";
 import { SkillReferenceValidationError } from "@/features/skills/lib/skill-errors";
 import { resolveWorkspaceAwareSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
 import { extractSkillSlugsFromText } from "@/features/skills/lib/parse-skill-references";
-import { mergeProcessSteps } from "../process-steps";
 import { createStreamingBufferManager } from "../streaming-buffer";
 import { fileUIPartsToStoredImages } from "../message-content";
 import { messageRecordToAgentMessages } from "../message-history";
@@ -78,39 +70,7 @@ import type {
   SessionHandoffPhase,
   SessionHandoffState,
 } from "../types";
-import {
-  AGENT_HANDOFF_SYSTEM_PROMPT,
-  buildAugmentedHandoffBody,
-  buildAgentHandoffUserPrompt,
-  buildVerificationChecklist,
-  buildContinuationPrompt,
-  buildFallbackHandoffBody,
-  buildStoredHandoffArtifact,
-  deriveContinuationSessionTitle,
-  evaluateHandoffQuality,
-  extractAssumptionsFromBody,
-  extractDecisionSummaries,
-  extractInvariantsFromBody,
-  extractKnownErrorFingerprints,
-  extractOpenRisksFromBody,
-  extractPendingNextActions,
-  extractReferencedSkillSlugs,
-  extractWorkingSet,
-  type HandoffWorkingSetEntry,
-} from "../handoff";
 import { readAgentHandoffThreshold } from "../handoff-settings";
-import {
-  collectBackgroundJobSnapshot,
-  collectGitSnapshot,
-  collectVerificationSnapshot,
-} from "../handoff-snapshot";
-import {
-  markWorkingSetVerificationStatus,
-  prepareReplayRecords,
-  resolveHandoffRootSessionId,
-  upsertSessionChainManifest,
-  type PreparedReplayArtifacts,
-} from "../handoff-workspace";
 import { resolveAgentSessionPolicy } from "../session-policy";
 import { writeAgentDiagnosticLog } from "../diagnostic-log";
 import { buildAgentContextDiagnostics } from "../context-monitor";
@@ -184,62 +144,6 @@ function resolveThinkingEnabledForRequest(
   return thinkingEnabled ?? resolveDefaultThinkingEnabled(model);
 }
 
-type PendingSessionHandoff = {
-  taskId: string;
-  sessionId: string;
-  model: string;
-  userContent: string;
-  thinkingEnabled: boolean;
-  contextUsage: AgentContextUsageSnapshot;
-  sessionKind: ActiveTaskState["sessionKind"];
-  autonomyMode: ActiveTaskState["autonomyMode"];
-  decisionPolicyVersion: ActiveTaskState["decisionPolicyVersion"];
-  decisionModel: ActiveTaskState["decisionModel"];
-  agentMode: AgentMode;
-};
-
-type GeneratedHandoffDocument = {
-  handoffBody: string;
-  sourceMessages: MessageRecord[];
-  replayArtifacts: PreparedReplayArtifacts;
-  workingSet: ReturnType<typeof extractWorkingSet>;
-  verification: ReturnType<typeof collectVerificationSnapshot>;
-  gitSnapshot: Awaited<ReturnType<typeof collectGitSnapshot>>;
-  backgroundJobs: Awaited<ReturnType<typeof collectBackgroundJobSnapshot>>;
-  referencedSkills: string[];
-  verificationChecklist: string[];
-  assumptions: string[];
-  knownErrors: string[];
-  invariants: string[];
-  openRisks: string[];
-};
-
-function summarizeStoredMessages(messages: readonly MessageRecord[]): {
-  messageCount: number;
-  roleCounts: Record<"user" | "assistant", number>;
-  toolInvocationCount: number;
-  thinkingChars: number;
-  contentChars: number;
-} {
-  return messages.reduce(
-    (summary, message) => {
-      summary.messageCount += 1;
-      summary.roleCounts[message.role] += 1;
-      summary.toolInvocationCount += message.toolInvocations?.length ?? 0;
-      summary.thinkingChars += message.thinking.length;
-      summary.contentChars += message.content.length;
-      return summary;
-    },
-    {
-      messageCount: 0,
-      roleCounts: { user: 0, assistant: 0 },
-      toolInvocationCount: 0,
-      thinkingChars: 0,
-      contentChars: 0,
-    }
-  );
-}
-
 function navigateToSession(sessionId: string): void {
   if (typeof window === "undefined") {
     return;
@@ -272,9 +176,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const terminalOverlayTimersRef = useRef(
     new Map<string, ReturnType<typeof setTimeout>>()
   );
-  const continueTaskFromHandoffRef = useRef(
-    async (_input: PendingSessionHandoff) => {}
-  );
 
   const emitStreaming = useCallback(() => {
     streamingSnapshotRef.current = streamingBufferRef.current.getSnapshot();
@@ -285,28 +186,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
   const streamingBufferRef = useRef(
     createStreamingBufferManager({
-      onFlush: async (messageId, fields) => {
-        const existing = await getMessage(messageId);
-        // Streaming flushes persist as a reload/crash backup only; the in-memory
-        // overlay drives the live UI. Persist silently (no global re-fetch) and
-        // without re-ordering the session on every token. Each event that needs a
-        // UI sync (tool start/finish, status changes) issues its own non-silent
-        // write right after the flush it depends on.
-        await updateMessage(
-          messageId,
-          {
-            ...fields,
-            processSteps: mergeProcessSteps(
-              existing?.processSteps,
-              fields.processSteps
-            ),
-            toolInvocations: mergeToolInvocations(
-              existing?.toolInvocations,
-              fields.toolInvocations
-            ),
-          },
-          { silent: true, touch: false }
-        );
+      onFlush: async (_messageId, _fields) => {
+        // Backend agent runs are now the source of truth for persisted assistant
+        // message state. The overlay remains in-memory for live rendering only.
       },
       onChange: () => {
         emitStreaming();
@@ -444,6 +326,15 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           emit();
           return;
         }
+        case "handoff_progress":
+          setSessionHandoffState(event.sessionId, event.phase);
+          notifyDbChange();
+          return;
+        case "handoff_complete":
+          clearSessionHandoffState(event.sourceSessionId);
+          notifyDbChange();
+          navigateToSession(event.continuedSessionId);
+          return;
         case "decision_requested":
           streamingBufferRef.current.upsertProcessStep(assistantMessageId, {
             id: `decision:${event.decisionId}`,
@@ -458,7 +349,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             response: null,
           });
           await streamingBufferRef.current.flush(assistantMessageId);
-          await setMessageStatus(assistantMessageId, "streaming");
+          notifyDbChange();
           return;
         case "decision_resolved":
           streamingBufferRef.current.upsertProcessStep(assistantMessageId, {
@@ -502,37 +393,28 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             assistantMessageId,
             event.toolCallId
           );
-          const toolInvocations = await addMessageToolInvocation(
-            assistantMessageId,
-            invocation
-          );
-          if (toolInvocations) {
-            streamingBufferRef.current.setToolInvocations(
-              assistantMessageId,
-              toolInvocations
-            );
-          }
           await streamingBufferRef.current.flush(assistantMessageId);
-          await setMessageStatus(assistantMessageId, "streaming");
+          notifyDbChange();
           return;
         }
         case "tool_call_finished": {
-          const toolInvocations = await completeMessageToolInvocation(
+          const existingInvocations =
+            streamingBufferRef.current.get(assistantMessageId)?.toolInvocations ?? [];
+          streamingBufferRef.current.setToolInvocations(
             assistantMessageId,
-            event.toolCallId,
-            {
-              state: event.errorText ? "output-error" : "output-available",
-              output: event.output,
-              errorText: event.errorText,
-            }
+            existingInvocations.map((invocation) =>
+              invocation.id === event.toolCallId
+                ? {
+                    ...invocation,
+                    state: event.errorText ? "output-error" : "output-available",
+                    output: event.output,
+                    errorText: event.errorText,
+                  }
+                : invocation
+            )
           );
-          if (toolInvocations) {
-            streamingBufferRef.current.setToolInvocations(
-              assistantMessageId,
-              toolInvocations
-            );
-          }
           await streamingBufferRef.current.flush(assistantMessageId);
+          notifyDbChange();
           return;
         }
         case "error": {
@@ -563,11 +445,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               terminalOverlayTimersRef.current.delete(assistantMessageId);
               void (async () => {
                 await streamingBufferRef.current.flush(assistantMessageId);
-                await setMessageStatus(
-                  assistantMessageId,
-                  resolvedStatus === "cancelled" ? "cancelled" : "failed",
-                  event.message
-                );
+                notifyDbChange();
                 const latestTask = tasksRef.current.get(event.taskId);
                 if (latestTask && latestTask.status === resolvedStatus) {
                   taskAbortControllersRef.current.delete(event.taskId);
@@ -584,16 +462,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           return;
         }
         case "done": {
-          const task = tasksRef.current.get(event.taskId);
-          // Persist the actual token usage reported by the provider.
-          if (task && event.usage) {
-            await updateMessage(task.assistantMessageId, {
-              usage: {
-                promptTokens: event.usage.promptTokens,
-                completionTokens: event.usage.completionTokens,
-                totalTokens: event.usage.totalTokens,
-              },
-            });
+          if (event.usage) {
+            notifyDbChange();
           }
           return;
         }
@@ -620,26 +490,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           });
 
           if (effectiveStatus === "running") {
-            await setMessageStatus(assistantMessageId, "streaming");
+            notifyDbChange();
           }
 
           if (isTerminalStatus(effectiveStatus)) {
-            const pendingHandoff =
-              effectiveStatus === "completed" && task.handoff
-                ? {
-                    taskId: event.taskId,
-                    sessionId: task.sessionId,
-                    model: task.model,
-                    userContent: task.userContent,
-                    thinkingEnabled: task.thinkingEnabled,
-                    contextUsage: task.handoff.contextUsage,
-                    sessionKind: task.sessionKind,
-                    autonomyMode: task.autonomyMode,
-                    decisionPolicyVersion: task.decisionPolicyVersion,
-                    decisionModel: task.decisionModel,
-                    agentMode: task.agentMode,
-                  }
-                : null;
             const terminalOverlayTimer = terminalOverlayTimersRef.current.get(
               assistantMessageId
             );
@@ -660,17 +514,14 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
                       : effectiveStatus === "cancelled"
                         ? "cancelled"
                         : "failed";
-                  await setMessageStatus(
-                    assistantMessageId,
-                    messageStatus,
-                    task.error
-                  );
+                  void messageStatus;
+                  notifyDbChange();
 
                   taskAbortControllersRef.current.delete(event.taskId);
                   tasksRef.current.delete(event.taskId);
-                  if (pendingHandoff) {
+                  if (effectiveStatus === "completed" && task.handoff) {
                     setSessionHandoffState(
-                      pendingHandoff.sessionId,
+                      task.sessionId,
                       "generating_handoff"
                     );
                   }
@@ -679,10 +530,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
                   setTimeout(() => {
                     streamingBufferRef.current.clear(assistantMessageId);
                   }, TERMINAL_OVERLAY_CLEAR_DELAY_MS);
-
-                  if (pendingHandoff) {
-                    void continueTaskFromHandoffRef.current(pendingHandoff);
-                  }
                 })();
               }, TERMINAL_STATUS_SETTLE_DELAY_MS)
             );
@@ -697,7 +544,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         }
       }
     },
-    [clearTaskChatRetry, emit, setSessionHandoffState]
+    [clearSessionHandoffState, clearTaskChatRetry, emit, setSessionHandoffState]
   );
 
   const dispatchAgentEvent = useCallback(
@@ -981,559 +828,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     },
     [dispatchAgentEvent, emit],
   );
-
-  const generateHandoffDocument = useCallback(
-    async (input: {
-      sessionId: string;
-      taskId: string;
-      model: string;
-      userContent: string;
-      contextUsage: AgentContextUsageSnapshot;
-      sessionKind: ActiveTaskState["sessionKind"];
-      autonomyMode: ActiveTaskState["autonomyMode"];
-      decisionPolicyVersion: ActiveTaskState["decisionPolicyVersion"];
-      decisionModel: ActiveTaskState["decisionModel"];
-    }): Promise<GeneratedHandoffDocument> => {
-      const session = await getSession(input.sessionId);
-      if (!session) {
-        throw new Error(`Session not found: ${input.sessionId}`);
-      }
-
-      const workspaceDir = session.workspaceDir?.trim() || null;
-      const sessionPolicy = resolveAgentSessionPolicy(session);
-      const [sourceMessages, environment, gitSnapshot, backgroundJobs] = await Promise.all([
-        getMessagesBySession(input.sessionId),
-        resolveAgentEnvironment(workspaceDir),
-        collectGitSnapshot(workspaceDir).catch(() => null),
-        collectBackgroundJobSnapshot(input.taskId).catch(() => []),
-      ]);
-      void writeAgentDiagnosticLog({
-        category: "handoff_prepare_start",
-        sessionId: input.sessionId,
-        taskId: input.taskId,
-        payload: {
-          model: input.model,
-          workspaceDir,
-          sessionTitle: session.title,
-          sessionKind: input.sessionKind,
-          autonomyMode: input.autonomyMode,
-          decisionPolicyVersion: input.decisionPolicyVersion,
-          sourceSummary: summarizeStoredMessages(sourceMessages),
-          contextUsage: input.contextUsage,
-        },
-      }).catch(() => {
-        // best-effort
-      });
-      const replay = await prepareReplayRecords({
-        workspaceDir,
-        sessionId: input.sessionId,
-        messages: sourceMessages,
-      });
-      const history = await buildAgentMessages(
-        replay.messages.flatMap(messageRecordToAgentMessages),
-        environment,
-        undefined,
-        input.sessionId,
-        sessionPolicy
-      );
-
-      const workingSet = (await markWorkingSetVerificationStatus(
-        workspaceDir,
-        extractWorkingSet(sourceMessages)
-      )) as HandoffWorkingSetEntry[];
-      const verification = collectVerificationSnapshot(sourceMessages);
-      const decisionSummaries = extractDecisionSummaries(sourceMessages);
-      const assumptions = extractAssumptionsFromBody(
-        buildFallbackHandoffBody({
-          userContent: input.userContent,
-          sourceSessionTitle: session.title,
-        })
-      );
-      const knownErrors = extractKnownErrorFingerprints(sourceMessages);
-      const verificationChecklist = buildVerificationChecklist({
-        verification,
-        workingSet,
-        backgroundJobs,
-      });
-      const referencedSkills = extractReferencedSkillSlugs(sourceMessages);
-      void writeAgentDiagnosticLog({
-        category: "handoff_replay_prepared",
-        sessionId: input.sessionId,
-        taskId: input.taskId,
-        payload: {
-          replayMessageCount: replay.messages.length,
-          replayHistoryFilePath: replay.artifacts.historyFilePath,
-          replayToolArchiveIndexPath: replay.artifacts.toolArchiveIndexPath,
-          replaySummary: buildAgentContextDiagnostics({
-            messages: history,
-            maxTokens: resolveContextWindowForModel(
-              resolveProviderForModel(input.model) ?? resolvedRef.current,
-              input.model
-            ),
-          }),
-          workingSetCount: workingSet.length,
-          workingSetNeedsVerification: workingSet.filter((entry) => entry.needsVerification)
-            .length,
-          verificationChecklistCount: verificationChecklist.length,
-          backgroundJobCount: backgroundJobs.length,
-          referencedSkillCount: referencedSkills.length,
-          gitSnapshotPresent: Boolean(gitSnapshot),
-          verificationSnapshotPresent: Boolean(
-            verification.lastTestCommand || verification.lastBuildCommand
-          ),
-        },
-      }).catch(() => {
-        // best-effort
-      });
-
-      const handoffResolved = resolveProviderForModel(input.model) ?? resolvedRef.current;
-
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        const handoffTaskId = createTaskId();
-        const handoffMessages: AgentChatMessage[] = [
-          ...history,
-          { role: "system", content: AGENT_HANDOFF_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: buildAgentHandoffUserPrompt({
-              sessionTitle: session.title,
-              contextUsage: input.contextUsage,
-              sessionKind: input.sessionKind,
-              autonomyMode: input.autonomyMode,
-              decisionPolicyVersion: input.decisionPolicyVersion,
-              decisionModel: input.decisionModel,
-            }),
-          },
-        ];
-
-        let handoffContent = "";
-        let handoffError: string | null = null;
-        let generationFailed = false;
-        void writeAgentDiagnosticLog({
-          category: "handoff_generation_attempt",
-          sessionId: input.sessionId,
-          taskId: input.taskId,
-          payload: {
-            attempt: attempt + 1,
-            handoffTaskId,
-            handoffMessageCount: handoffMessages.length,
-            handoffPromptSummary: buildAgentContextDiagnostics({
-              messages: handoffMessages,
-              maxTokens: resolveContextWindowForModel(handoffResolved, input.model),
-            }),
-          },
-        }).catch(() => {
-          // best-effort
-        });
-
-        try {
-          await new Promise<void>((resolve, reject) => {
-            void startAgent(
-              {
-                taskId: handoffTaskId,
-                baseUrl: handoffResolved.baseUrl,
-                apiKey: resolveApiKey(handoffResolved),
-                apiKeySource: handoffResolved.apiKeySource,
-                apiKeyEnvVar: resolveApiKeyEnvVar(handoffResolved),
-                model: input.model,
-                messages: handoffMessages,
-                requestExtensions: buildThinkingRequestExtensions({
-                  models: handoffResolved.models,
-                  modelId: input.model,
-                  thinkingEnabled: false,
-                }),
-                maxContextTokens: resolveContextWindowForModel(
-                  handoffResolved,
-                  input.model
-                ),
-              },
-              (event) => {
-                if (event.type === "content_delta") {
-                  handoffContent += event.delta;
-                  return;
-                }
-
-                if (event.type === "error") {
-                  handoffError = event.message;
-                  reject(new Error(event.message));
-                  return;
-                }
-
-                if (event.type === "status") {
-                  if (event.status === "completed") {
-                    resolve();
-                    return;
-                  }
-
-                  if (event.status === "failed" || event.status === "cancelled") {
-                    reject(
-                      new Error(
-                        handoffError ??
-                          `Automatic handoff ended with status: ${event.status}`
-                      )
-                    );
-                  }
-                }
-              }
-            ).catch(reject);
-          });
-        } catch {
-          generationFailed = true;
-          if (attempt < 2) {
-            continue;
-          }
-        }
-
-        const finalBody = generationFailed
-          ? buildFallbackHandoffBody({
-              userContent: input.userContent,
-              sourceSessionTitle: session.title,
-            })
-          : handoffContent.trim() ||
-            buildFallbackHandoffBody({
-              userContent: input.userContent,
-              sourceSessionTitle: session.title,
-            });
-        const qualityBody = buildAugmentedHandoffBody(finalBody, {
-          workingSet,
-          verification,
-          gitSnapshot,
-          backgroundJobs,
-          assumptions,
-          knownErrors,
-          decisionSummaries,
-          historyFilePath: replay.artifacts.historyFilePath,
-          toolArchiveIndexPath: replay.artifacts.toolArchiveIndexPath,
-          chainManifestPath: null,
-        });
-        const quality = evaluateHandoffQuality({
-          handoffBody: qualityBody,
-          workingSet,
-          verification,
-        });
-        void writeAgentDiagnosticLog({
-          category: quality.ok
-            ? "handoff_generation_succeeded"
-            : "handoff_quality_advisory",
-          sessionId: input.sessionId,
-          taskId: input.taskId,
-          payload: {
-            attempt: attempt + 1,
-            generationFailed,
-            handoffBodyLength: finalBody.length,
-            augmentedBodyLength: qualityBody.length,
-            qualityFailures: quality.failures,
-            usedFallbackBody: generationFailed || !handoffContent.trim(),
-          },
-        }).catch(() => {
-          // best-effort
-        });
-
-        return {
-          handoffBody: finalBody,
-          sourceMessages,
-          replayArtifacts: {
-            ...replay.artifacts,
-          },
-          workingSet,
-          verification,
-          gitSnapshot,
-          backgroundJobs,
-          referencedSkills,
-          verificationChecklist,
-          assumptions: extractAssumptionsFromBody(finalBody),
-          knownErrors,
-          invariants: extractInvariantsFromBody(finalBody),
-          openRisks: extractOpenRisksFromBody(finalBody),
-        };
-      }
-
-      return {
-        handoffBody: buildFallbackHandoffBody({
-          userContent: input.userContent,
-          sourceSessionTitle: session.title,
-        }),
-        sourceMessages,
-        replayArtifacts: replay.artifacts,
-        workingSet,
-        verification,
-        gitSnapshot,
-        backgroundJobs,
-        referencedSkills,
-        verificationChecklist,
-        assumptions,
-        knownErrors,
-        invariants: [],
-        openRisks: [],
-      };
-    },
-    [resolveProviderForModel]
-  );
-
-  const continueTaskFromHandoff = useCallback(
-    async (input: PendingSessionHandoff) => {
-      let continuedSessionId: string | null = null;
-
-      try {
-        setSessionHandoffState(input.sessionId, "generating_handoff");
-        void writeAgentDiagnosticLog({
-          category: "handoff_continue_start",
-          sessionId: input.sessionId,
-          taskId: input.taskId,
-          payload: {
-            model: input.model,
-            sessionKind: input.sessionKind,
-            autonomyMode: input.autonomyMode,
-            contextUsage: input.contextUsage,
-          },
-        }).catch(() => {
-          // best-effort
-        });
-        const sourceSession = await getSession(input.sessionId);
-        if (!sourceSession) {
-          throw new Error(`Session not found: ${input.sessionId}`);
-        }
-
-        const generated = await generateHandoffDocument({
-          sessionId: input.sessionId,
-          taskId: input.taskId,
-          model: input.model,
-          userContent: input.userContent,
-          contextUsage: input.contextUsage,
-          sessionKind: input.sessionKind,
-          autonomyMode: input.autonomyMode,
-          decisionPolicyVersion: input.decisionPolicyVersion,
-          decisionModel: input.decisionModel,
-        });
-
-        setSessionHandoffState(input.sessionId, "creating_session");
-        const nextSession = await createSession({
-          title: deriveSessionTitle(
-            deriveContinuationSessionTitle(sourceSession.title)
-          ),
-          model: input.model,
-          provider: inferProviderFromModel(null, input.model),
-          workspaceDir: sourceSession.workspaceDir,
-          sessionKind: input.sessionKind,
-          autonomyMode: input.autonomyMode,
-          decisionPolicyVersion: input.decisionPolicyVersion,
-          decisionModel: input.decisionModel,
-          parentSessionId: sourceSession.id,
-          handoffFromSessionId: sourceSession.id,
-          planFileName: sourceSession.planFileName ?? null,
-          planBuiltAt: sourceSession.planBuiltAt ?? null,
-        });
-        continuedSessionId = nextSession.id;
-        void writeAgentDiagnosticLog({
-          category: "handoff_session_created",
-          sessionId: input.sessionId,
-          taskId: input.taskId,
-          payload: {
-            sourceSessionId: sourceSession.id,
-            continuedSessionId: nextSession.id,
-            sourceTitle: sourceSession.title,
-            continuedTitle: nextSession.title,
-            inheritedPlanFileName: nextSession.planFileName ?? null,
-            inheritedPlanBuiltAt: nextSession.planBuiltAt ?? null,
-          },
-        }).catch(() => {
-          // best-effort
-        });
-
-        await copyAgentTodosForSession(sourceSession.id, nextSession.id);
-
-        const rootSessionId = await resolveHandoffRootSessionId(
-          sourceSession,
-          getSession
-        );
-        const chainManifestPath = await upsertSessionChainManifest({
-          workspaceDir: sourceSession.workspaceDir,
-          rootSessionId,
-          sourceSessionId: sourceSession.id,
-          continuedSessionId: nextSession.id,
-          generatedAt: new Date().toISOString(),
-          summary:
-            extractPendingNextActions(generated.handoffBody)[0] ??
-            generated.handoffBody.slice(0, 160),
-          workingSet: generated.workingSet.map((entry) => entry.path),
-          invariants: generated.invariants,
-          assumptions: generated.assumptions,
-          openRisks: generated.openRisks,
-        });
-
-        const handoffArtifact = buildStoredHandoffArtifact({
-          sourceSessionId: sourceSession.id,
-          continuedSessionId: nextSession.id,
-          sourceSessionTitle: sourceSession.title,
-          generatedAt: new Date().toISOString(),
-          model: input.model,
-          contextUsage: input.contextUsage,
-          sessionKind: input.sessionKind,
-          autonomyMode: input.autonomyMode,
-          decisionPolicyVersion: input.decisionPolicyVersion,
-          decisionModel: input.decisionModel,
-          handoffBody: generated.handoffBody,
-          supplementalContext: {
-            workingSet: generated.workingSet,
-            verification: generated.verification,
-            gitSnapshot: generated.gitSnapshot,
-            backgroundJobs: generated.backgroundJobs,
-            assumptions: generated.assumptions,
-            knownErrors: generated.knownErrors,
-            decisionSummaries: extractDecisionSummaries(generated.sourceMessages),
-            historyFilePath: generated.replayArtifacts.historyFilePath,
-            toolArchiveIndexPath: generated.replayArtifacts.toolArchiveIndexPath,
-            chainManifestPath,
-          },
-        });
-
-        const handoffMessage = await createMessage({
-          id: randomUUID(),
-          sessionId: sourceSession.id,
-          role: "assistant",
-          messageKind: "handoff",
-          content: handoffArtifact,
-          thinking: "",
-          processSteps: [],
-          toolInvocations: [],
-          status: "completed",
-          taskId: null,
-          error: null,
-        });
-
-        await updateSession(nextSession.id, {
-          handoffMessageId: handoffMessage.id,
-        });
-
-        const continuationPrompt = buildContinuationPrompt({
-          handoffArtifact,
-          sourceSessionTitle: sourceSession.title,
-          sessionKind: input.sessionKind,
-          autonomyMode: input.autonomyMode,
-          decisionPolicyVersion: input.decisionPolicyVersion,
-          workingSet: generated.workingSet,
-          verificationChecklist: generated.verificationChecklist,
-          historyFilePath: generated.replayArtifacts.historyFilePath,
-          toolArchiveIndexPath: generated.replayArtifacts.toolArchiveIndexPath,
-          chainManifestPath,
-        });
-
-        const userMessage = await createMessage({
-          id: randomUUID(),
-          sessionId: nextSession.id,
-          role: "user",
-          messageKind: "handoff_continuation",
-          content: continuationPrompt,
-          thinking: "",
-          processSteps: [],
-          toolInvocations: [],
-          status: "completed",
-          taskId: null,
-          error: null,
-          referencedSkills:
-            generated.referencedSkills.length > 0
-              ? generated.referencedSkills
-              : undefined,
-        });
-
-        const workspaceDir = nextSession.workspaceDir?.trim() || null;
-        const sessionPolicy = resolveAgentSessionPolicy(nextSession);
-        const [historyMessages, environment] = await Promise.all([
-          getMessagesBySession(nextSession.id),
-          resolveAgentEnvironment(workspaceDir),
-        ]);
-        const history = await buildAgentMessages(
-          historyMessages.flatMap(messageRecordToAgentMessages),
-          environment,
-          input.agentMode,
-          nextSession.id,
-          sessionPolicy
-        );
-        void writeAgentDiagnosticLog({
-          category: "handoff_continuation_ready",
-          sessionId: nextSession.id,
-          taskId: input.taskId,
-          payload: {
-            sourceSessionId: sourceSession.id,
-            continuationPromptLength: continuationPrompt.length,
-            handoffArtifactLength: handoffArtifact.length,
-            historySummary: buildAgentContextDiagnostics({
-              messages: history,
-              maxTokens: resolveContextWindowForModel(
-                resolveProviderForModel(input.model) ?? resolvedRef.current,
-                input.model
-              ),
-            }),
-            chainManifestPath,
-            toolArchiveIndexPath: generated.replayArtifacts.toolArchiveIndexPath,
-            historyFilePath: generated.replayArtifacts.historyFilePath,
-          },
-        }).catch(() => {
-          // best-effort
-        });
-
-        setSessionHandoffState(input.sessionId, "starting_new_session");
-        const handoffResolved = resolveProviderForModel(input.model) ?? resolvedRef.current;
-        await startAgentTask({
-          sessionId: nextSession.id,
-          model: input.model,
-          history,
-          workspaceDir,
-          userContent:
-            sourceSession.title.trim() || userMessage.content.trim() || "Continue",
-          isFirstTurn: true,
-          thinkingEnabled: input.thinkingEnabled,
-          agentMode: input.agentMode,
-          sessionKind: input.sessionKind,
-          autonomyMode: input.autonomyMode,
-          decisionPolicyVersion: input.decisionPolicyVersion,
-          decisionModel: input.decisionModel,
-          resolvedConfig: handoffResolved as ResolvedProviderConfig,
-        });
-
-        clearSessionHandoffState(input.sessionId);
-        navigateToSession(nextSession.id);
-      } catch (error) {
-        if (continuedSessionId) {
-          await deleteSession(continuedSessionId).catch(() => undefined);
-        }
-        clearSessionHandoffState(input.sessionId);
-        const message = error instanceof Error ? error.message : String(error);
-        void writeAgentDiagnosticLog({
-          category: "handoff_continue_failed",
-          sessionId: input.sessionId,
-          taskId: input.taskId,
-          payload: {
-            continuedSessionId,
-            error: message,
-          },
-        }).catch(() => {
-          // best-effort
-        });
-        await createMessage({
-          id: randomUUID(),
-          sessionId: input.sessionId,
-          role: "assistant",
-          content: `Automatic handoff failed.\n\nError: ${message}`,
-          thinking: "",
-          processSteps: [],
-          toolInvocations: [],
-          status: "failed",
-          taskId: null,
-          error: message,
-        });
-      }
-    },
-    [
-      clearSessionHandoffState,
-      generateHandoffDocument,
-      resolveProviderForModel,
-      setSessionHandoffState,
-      startAgentTask,
-    ]
-  );
-
-  continueTaskFromHandoffRef.current = continueTaskFromHandoff;
 
   const sendMessage = useCallback(
     async (input: {

@@ -1,5 +1,8 @@
 pub mod ask_question;
+pub mod context;
+pub mod decision;
 pub mod event_log;
+pub mod handoff;
 pub mod loop_;
 pub mod openai;
 pub mod registry;
@@ -14,6 +17,7 @@ pub use types::{
     AgentContextUsageSnapshot, AgentEvent, AgentStartParams, AgentStatus, AgentStatusResponse, AgentToolDefinition,
     ApiToolCall, ApiToolCallFunction, ChatMessage, GenerateSessionTitleParams,
     RefineContextMessage, RefinePromptParams, ToolCall,
+    TokenUsage,
 };
 pub use stream_log::{agent_diagnostic_file_log, cleanup_agent_log_dirs};
 
