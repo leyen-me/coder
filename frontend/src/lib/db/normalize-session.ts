@@ -16,6 +16,7 @@ type LegacySessionRecord = {
   parentSessionId?: string | null;
   handoffFromSessionId?: string | null;
   handoffMessageId?: string | null;
+  handoffPhase?: SessionRecord["handoffPhase"];
   planFileName?: string | null;
   planBuiltAt?: number | null;
   contextUsageSnapshot?: SessionRecord["contextUsageSnapshot"];
@@ -55,6 +56,7 @@ export function normalizeSessionRecord(
     parentSessionId: session.parentSessionId?.trim() || null,
     handoffFromSessionId: session.handoffFromSessionId?.trim() || null,
     handoffMessageId: session.handoffMessageId?.trim() || null,
+    handoffPhase: normalizeHandoffPhase(session.handoffPhase),
     planFileName: session.planFileName?.trim() || null,
     planBuiltAt: session.planBuiltAt ?? null,
     contextUsageSnapshot: normalizeContextUsageSnapshot(
@@ -64,6 +66,19 @@ export function normalizeSessionRecord(
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   };
+}
+
+function normalizeHandoffPhase(
+  phase: LegacySessionRecord["handoffPhase"]
+): SessionRecord["handoffPhase"] {
+  switch (phase) {
+    case "generating_handoff":
+    case "creating_session":
+    case "starting_new_session":
+      return phase;
+    default:
+      return null;
+  }
 }
 
 function normalizeContextUsageSnapshot(

@@ -13,6 +13,10 @@ export type MessageKind = "plan" | "handoff" | "handoff_continuation";
 
 export type SessionKind = "standard" | "long_task";
 export type SessionAutonomyMode = "interactive" | "unattended";
+export type SessionHandoffPhase =
+  | "generating_handoff"
+  | "creating_session"
+  | "starting_new_session";
 
 export const DEFAULT_SESSION_KIND: SessionKind = "standard";
 export const DEFAULT_SESSION_AUTONOMY_MODE: SessionAutonomyMode = "interactive";
@@ -50,6 +54,7 @@ export type SessionRecord = {
   parentSessionId?: string | null;
   handoffFromSessionId?: string | null;
   handoffMessageId?: string | null;
+  handoffPhase?: SessionHandoffPhase | null;
   /** Name of the .plan/ file bound to this session, if any. */
   planFileName?: string | null;
   /** Timestamp (ms) when the plan was built/executed. null/undefined means not yet built. */

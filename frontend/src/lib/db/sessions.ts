@@ -36,6 +36,7 @@ export type CreateSessionInput = {
   parentSessionId?: string | null;
   handoffFromSessionId?: string | null;
   handoffMessageId?: string | null;
+  handoffPhase?: SessionRecord["handoffPhase"];
   planFileName?: string | null;
   planBuiltAt?: number | null;
 };
@@ -55,6 +56,7 @@ export async function createSession(input: CreateSessionInput): Promise<SessionR
     parentSessionId: input.parentSessionId ?? null,
     handoffFromSessionId: input.handoffFromSessionId ?? null,
     handoffMessageId: input.handoffMessageId ?? null,
+    handoffPhase: input.handoffPhase ?? null,
     planFileName: input.planFileName ?? null,
     planBuiltAt: input.planBuiltAt ?? null,
     createdAt: now,
@@ -87,6 +89,7 @@ export type SessionPatch = Partial<
     | "parentSessionId"
     | "handoffFromSessionId"
     | "handoffMessageId"
+    | "handoffPhase"
     | "planFileName"
     | "planBuiltAt"
     | "contextUsageSnapshot"

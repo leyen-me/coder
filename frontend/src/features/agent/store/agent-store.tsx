@@ -781,6 +781,11 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         decisionPolicyVersion: session?.decisionPolicyVersion ?? "v1",
         decisionModel: session?.decisionModel ?? null,
       };
+      if (session?.handoffPhase) {
+        setSessionHandoffState(sessionId, session.handoffPhase);
+      } else {
+        clearSessionHandoffState(sessionId);
+      }
       streamingBufferRef.current.hydrate(assistantMessage.id, {
         content: assistantMessage.content,
         thinking: assistantMessage.thinking,
@@ -826,7 +831,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         });
       });
     },
-    [dispatchAgentEvent, emit],
+    [clearSessionHandoffState, dispatchAgentEvent, emit, setSessionHandoffState],
   );
 
   const sendMessage = useCallback(

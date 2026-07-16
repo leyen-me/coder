@@ -77,6 +77,8 @@ pub async fn continue_after_handoff(
         ));
     };
 
+    set_session_handoff_phase(&app_state, session_id, Some("generating_handoff"))?;
+
     emit_event(
         registry,
         broadcaster,
@@ -110,6 +112,7 @@ pub async fn continue_after_handoff(
             )
         });
 
+    set_session_handoff_phase(&app_state, session_id, Some("creating_session"))?;
     emit_event(
         registry,
         broadcaster,
@@ -226,6 +229,7 @@ pub async fn continue_after_handoff(
         assistant_message.id
     };
 
+    set_session_handoff_phase(&app_state, session_id, Some("starting_new_session"))?;
     emit_event(
         registry,
         broadcaster,
@@ -251,6 +255,8 @@ pub async fn continue_after_handoff(
     )
     .map_err(AgentLoopError::Other)?;
 
+    set_session_handoff_phase(&app_state, session_id, None)?;
+
     emit_event(
         registry,
         broadcaster,
@@ -266,6 +272,22 @@ pub async fn continue_after_handoff(
         continued_session_id: continued_session.id,
         continued_task_id,
     })
+}
+
+fn set_session_handoff_phase(
+    app_state: &AppState,
+    session_id: &str,
+    phase: Option<&str>,
+) -> Result<(), AgentLoopError> {
+    let db = app_state
+        .db
+        .lock()
+        .map_err(|_| AgentLoopError::Other("Database lock poisoned".to_string()))?;
+    let _ = update_session(&db, session_id, |session| {
+        session.handoff_phase = phase.map(str::to_string);
+    })
+    .map_err(AgentLoopError::Other)?;
+    Ok(())
 }
 
 async fn generate_handoff_body(
@@ -329,6 +351,7 @@ fn create_continuation_session(
         parent_session_id: Some(source_session.id.clone()),
         handoff_from_session_id: Some(source_session.id.clone()),
         handoff_message_id: None,
+        handoff_phase: None,
         plan_file_name: source_session.plan_file_name.clone(),
         plan_built_at: source_session.plan_built_at,
         context_usage_snapshot: None,
