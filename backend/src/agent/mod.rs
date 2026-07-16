@@ -1,3 +1,4 @@
+pub mod ask_question;
 pub mod event_log;
 pub mod loop_;
 pub mod openai;

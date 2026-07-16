@@ -1,5 +1,6 @@
 "use client";
 
+import { apiPost } from "@/lib/api/client";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -138,7 +139,7 @@ export function AskQuestionToolCard({
     return { ok: true, answers };
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setSubmitError(null);
     const built = buildAnswers();
     if (!built.ok) {
@@ -149,7 +150,16 @@ export function AskQuestionToolCard({
     setErrors({});
     setIsSubmitting(true);
     const submitted = submitAskQuestionResponse(taskId, built.answers);
-    if (!submitted) {
+    if (submitted) {
+      return;
+    }
+
+    try {
+      await apiPost("/api/agent/ask_question/respond", {
+        taskId,
+        answers: built.answers,
+      });
+    } catch {
       setIsSubmitting(false);
       setSubmitError(t("chat.askQuestionSubmitError"));
     }

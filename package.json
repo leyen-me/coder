@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "cd frontend && vite",
-    "dev:server": "cd backend && cargo run -- --no-open",
+    "dev:server": "cd backend && CARGO_INCREMENTAL=0 cargo run -- --no-open",
     "dev:desktop": "pnpm --dir desktop tauri dev",
     "build:frontend": "cd frontend && vite build",
-    "build:backend": "cd backend && cargo build --release",
+    "build:backend": "cd backend && CARGO_INCREMENTAL=0 cargo build --release",
     "build:desktop": "pnpm --dir desktop tauri build",
     "test": "cd frontend && vitest run",
     "test:watch": "cd frontend && vitest",

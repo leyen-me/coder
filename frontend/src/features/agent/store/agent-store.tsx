@@ -36,6 +36,7 @@ import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
 import { appEventBus } from "@/lib/event-bus";
 import { randomUUID } from "@/lib/random-id";
+import { resolveMcpAgentTools } from "@/features/mcp/lib/resolve-mcp-tools";
 import { buildAgentMessages } from "../build-agent-messages";
 import { isAgentCancellationError } from "../cancellation";
 import { SkillReferenceValidationError } from "@/features/skills/lib/skill-errors";
@@ -780,11 +781,12 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       emit();
 
       const baseTools = getAgentToolDefinitions(input.agentMode);
+      const mcpTools = await resolveMcpAgentTools().catch(() => []);
       const extraTools = input.extraTools ?? [];
-      const tools =
-        extraTools.length > 0
-          ? [...baseTools, ...extraTools]
-          : baseTools;
+      const tools = [...baseTools, ...mcpTools, ...extraTools].filter(
+        (tool, index, all) =>
+          all.findIndex((candidate) => candidate.function.name === tool.function.name) === index
+      );
       const maxContextTokens = resolveContextWindowForModel(
         input.resolvedConfig,
         input.model

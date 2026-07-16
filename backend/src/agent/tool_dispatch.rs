@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use tokio_util::sync::CancellationToken;
 
 use super::types::AgentToolDefinition;
 use crate::db::Database;
@@ -20,12 +21,18 @@ pub struct ToolExecutionContext<'a> {
     pub session_id: Option<String>,
     pub task_id: Option<String>,
     pub agent_mode: Option<String>,
+    pub available_tools: Vec<AgentToolDefinition>,
+    pub parent_start_params: super::types::AgentStartParams,
     pub allow_private_network_access: bool,
+    pub app_state: Arc<crate::AppState>,
     pub db: Arc<Mutex<Database>>,
+    pub ask_question_registry: Arc<crate::agent::ask_question::AskQuestionRegistry>,
     pub shell_registry: Arc<Mutex<ShellRegistry>>,
+    pub mcp_registry: Arc<crate::tools::McpRegistry>,
     pub remote_pool: &'a RemoteConnectionPool,
     pub page_cache: &'a PageCache,
     pub broadcaster: Option<Arc<crate::SseBroadcaster>>,
+    pub cancel_token: CancellationToken,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +70,9 @@ pub async fn execute_tool_call(
     ctx: &ToolExecutionContext<'_>,
 ) -> Result<ToolResultEnvelope, String> {
     let args = parse_args(arguments)?;
+    if let Some((server_id, tool_name)) = parse_mcp_tool_name(name) {
+        return execute_mcp_tool_call(name, &server_id, &tool_name, args, ctx).await;
+    }
     match name {
         "read_file" => execute_read_file(args, ctx),
         "write_file" => execute_write_file(args, ctx),
@@ -89,21 +99,9 @@ pub async fn execute_tool_call(
         "plan_list" => execute_plan_list_args(args, ctx),
         "todo_read" => execute_todo_read(ctx),
         "todo_write" => execute_todo_write(args, ctx),
-        "ask_question" => Ok(tool_failure(
-            name,
-            "interactive_not_supported",
-            "ask_question is not yet supported by the backend agent runtime.",
-        )),
-        "spawn_subagent" => Ok(tool_failure(
-            name,
-            "not_supported",
-            "spawn_subagent is not yet supported by the backend agent runtime.",
-        )),
-        "read_prior_tool_output" => Ok(tool_failure(
-            name,
-            "not_supported",
-            "read_prior_tool_output is not yet supported by the backend agent runtime.",
-        )),
+        "ask_question" => execute_ask_question(args, ctx).await,
+        "spawn_subagent" => execute_spawn_subagent(args, ctx).await,
+        "read_prior_tool_output" => execute_read_prior_tool_output(args, ctx),
         "send_email" => execute_send_email(args).await,
         _ => Ok(tool_failure(
             name,
@@ -111,6 +109,20 @@ pub async fn execute_tool_call(
             format!("Unknown tool: {name}"),
         )),
     }
+}
+
+fn parse_mcp_tool_name(name: &str) -> Option<(String, String)> {
+    let rest = name.strip_prefix("mcp__")?;
+    let separator_index = rest.find("__")?;
+    if separator_index == 0 {
+        return None;
+    }
+    let server_id = rest[..separator_index].trim();
+    let tool_name = rest[separator_index + 2..].trim();
+    if server_id.is_empty() || tool_name.is_empty() {
+        return None;
+    }
+    Some((server_id.to_string(), tool_name.to_string()))
 }
 
 pub fn all_tool_names() -> Vec<String> {
@@ -179,6 +191,20 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "respect_gitignore": bool_schema("Whether to refuse reading paths ignored by .gitignore.", Some(true))
                 },
                 "required": ["path"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "read_prior_tool_output",
+            "Read archived tool output from a previous session handoff instead of re-running the original tool.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "session_id": string_schema("Source session id that owns the tool archive."),
+                    "tool_name": string_schema("Optional tool name filter, such as read_file or shell."),
+                    "path_pattern": string_schema("Optional substring filter matched against the archived target path or query pattern.")
+                },
+                "required": ["session_id"],
                 "additionalProperties": false
             }),
         ),
@@ -695,6 +721,39 @@ struct ReadFileArgs {
     respect_gitignore: Option<bool>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PriorToolOutputSessionRecord {
+    workspace_dir: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ReadPriorToolOutputArgs {
+    session_id: String,
+    tool_name: Option<String>,
+    path_pattern: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ToolArchiveIndex {
+    entries: Vec<ToolArchiveIndexEntry>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ToolArchiveIndexEntry {
+    session_id: String,
+    message_id: String,
+    invocation_id: String,
+    tool_name: String,
+    created_at: u64,
+    archive_path: String,
+    output_path: Option<String>,
+    relative_target_path: Option<String>,
+    query_pattern: Option<String>,
+}
+
 fn execute_read_file(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
     let args: ReadFileArgs = match parse_from_value("read_file", args) {
         Ok(value) => value,
@@ -715,6 +774,286 @@ fn execute_read_file(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<Tool
         Ok(result) => tool_success("read_file", result),
         Err(error) => tool_failure("read_file", "execution_failed", error.to_string()),
     })
+}
+
+fn execute_read_prior_tool_output(
+    args: Value,
+    ctx: &ToolExecutionContext<'_>,
+) -> Result<ToolResultEnvelope, String> {
+    let args: ReadPriorToolOutputArgs = match parse_from_value("read_prior_tool_output", args) {
+        Ok(value) => value,
+        Err(error) => return Ok(error),
+    };
+    let session_id = args.session_id.trim();
+    if session_id.is_empty() {
+        return Ok(tool_failure(
+            "read_prior_tool_output",
+            "invalid_arguments",
+            "session_id is required.",
+        ));
+    }
+
+    let workspace_dir = match read_session_workspace_dir(&ctx.db, session_id) {
+        Ok(Some(value)) => value,
+        Ok(None) => {
+            return Ok(tool_failure(
+                "read_prior_tool_output",
+                "workspace_required",
+                "The source session does not have a workspace directory.",
+            ))
+        }
+        Err(error) => {
+            return Ok(tool_failure(
+                "read_prior_tool_output",
+                "execution_failed",
+                error,
+            ))
+        }
+    };
+
+    let index_path = build_tool_archive_index_path(session_id);
+    let index_content = match read_workspace_text_file(&workspace_dir, &index_path) {
+        Ok(Some(result)) => result.content,
+        Ok(None) => {
+            return Ok(tool_failure(
+                "read_prior_tool_output",
+                "not_found",
+                "No archived tool output was found for that session.",
+            ))
+        }
+        Err(error) => {
+            return Ok(tool_failure(
+                "read_prior_tool_output",
+                "execution_failed",
+                error,
+            ))
+        }
+    };
+
+    let index: ToolArchiveIndex = match serde_json::from_str(&index_content) {
+        Ok(value) => value,
+        Err(error) => {
+            return Ok(tool_failure(
+                "read_prior_tool_output",
+                "execution_failed",
+                format!("Invalid tool archive index: {error}"),
+            ))
+        }
+    };
+    if index.entries.is_empty() {
+        return Ok(tool_failure(
+            "read_prior_tool_output",
+            "not_found",
+            "No archived tool output was found for that session.",
+        ));
+    }
+
+    let tool_name_filter = args
+        .tool_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let path_pattern_filter = args
+        .path_pattern
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.to_lowercase());
+
+    let mut entries = index.entries;
+    entries.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    let candidate = entries.into_iter().find(|entry| {
+        if let Some(tool_name) = tool_name_filter {
+            if entry.tool_name != tool_name {
+                return false;
+            }
+        }
+        if let Some(pattern) = path_pattern_filter.as_deref() {
+            let haystacks = [
+                entry.relative_target_path.as_deref(),
+                entry.query_pattern.as_deref(),
+                Some(entry.archive_path.as_str()),
+            ];
+            return haystacks.into_iter().flatten().any(|value| {
+                let normalized = value.trim().to_lowercase();
+                !normalized.is_empty() && normalized.contains(pattern)
+            });
+        }
+        true
+    });
+
+    let Some(candidate) = candidate else {
+        return Ok(tool_failure(
+            "read_prior_tool_output",
+            "not_found",
+            "No archived tool output matched the requested filters.",
+        ));
+    };
+
+    let content = if let Some(output_path) = candidate
+        .output_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        match read_workspace_text_file(&workspace_dir, output_path) {
+            Ok(Some(result)) => result.content,
+            Ok(None) => {
+                return Ok(tool_failure(
+                    "read_prior_tool_output",
+                    "not_found",
+                    "The archived tool output file could not be read.",
+                ))
+            }
+            Err(error) => {
+                return Ok(tool_failure(
+                    "read_prior_tool_output",
+                    "execution_failed",
+                    error,
+                ))
+            }
+        }
+    } else {
+        let archive_path = build_tool_archive_file_path(
+            session_id,
+            &candidate.message_id,
+            &candidate.tool_name,
+            &candidate.invocation_id,
+        );
+        let archive_content = match read_workspace_text_file(&workspace_dir, &archive_path) {
+            Ok(Some(result)) => result.content,
+            Ok(None) => {
+                return Ok(tool_failure(
+                    "read_prior_tool_output",
+                    "not_found",
+                    "The archived tool output file could not be read.",
+                ))
+            }
+            Err(error) => {
+                return Ok(tool_failure(
+                    "read_prior_tool_output",
+                    "execution_failed",
+                    error,
+                ))
+            }
+        };
+        extract_prior_tool_output_content(&archive_content)
+    };
+
+    Ok(tool_success(
+        "read_prior_tool_output",
+        json!({
+            "sessionId": session_id,
+            "toolName": candidate.tool_name,
+            "archivePath": candidate.archive_path,
+            "outputPath": candidate.output_path,
+            "content": content,
+        }),
+    ))
+}
+
+fn read_session_workspace_dir(
+    db: &Arc<Mutex<Database>>,
+    session_id: &str,
+) -> Result<Option<String>, String> {
+    let db = db.lock().map_err(|_| "Database lock poisoned.".to_string())?;
+    let session = db.get::<PriorToolOutputSessionRecord>("sessions", session_id)?;
+    Ok(session.and_then(|record| {
+        record
+            .workspace_dir
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+    }))
+}
+
+#[derive(Debug, Clone)]
+struct WorkspaceTextFile {
+    content: String,
+}
+
+fn read_workspace_text_file(
+    workspace_dir: &str,
+    path: &str,
+) -> Result<Option<WorkspaceTextFile>, String> {
+    let mut start_line = 1_u32;
+    let mut content = String::new();
+
+    loop {
+        match tool_read_file(
+            workspace_dir.to_string(),
+            path.to_string(),
+            Some(start_line),
+            Some(1000),
+            Some(false),
+            Some(false),
+        ) {
+            Ok(result) => {
+                content.push_str(&result.content);
+                if !result.truncated || result.end_line >= result.total_lines {
+                    return Ok(Some(WorkspaceTextFile { content }));
+                }
+                content.push('\n');
+                start_line = result.end_line.saturating_add(1);
+            }
+            Err(error) if error.code == "path_not_found" => return Ok(None),
+            Err(error) => return Err(error.to_string()),
+        }
+    }
+}
+
+fn build_tool_archive_index_path(session_id: &str) -> String {
+    format!(".agent/sessions/{session_id}/tool-archive/index.json")
+}
+
+fn build_tool_archive_file_path(
+    session_id: &str,
+    message_id: &str,
+    tool_name: &str,
+    invocation_id: &str,
+) -> String {
+    format!(
+        ".agent/sessions/{session_id}/tool-archive/{}__{}__{}.json",
+        sanitize_path_segment(tool_name),
+        sanitize_path_segment(message_id),
+        sanitize_path_segment(invocation_id)
+    )
+}
+
+fn sanitize_path_segment(value: &str) -> String {
+    let sanitized: String = value
+        .trim()
+        .chars()
+        .map(|ch| match ch {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '.' | '_' | '-' => ch,
+            _ => '_',
+        })
+        .collect();
+    if sanitized.is_empty() {
+        "unknown".to_string()
+    } else {
+        sanitized
+    }
+}
+
+fn extract_prior_tool_output_content(raw_content: &str) -> String {
+    if let Ok(parsed) = serde_json::from_str::<Value>(raw_content) {
+        if let Some(output) = parsed.get("output") {
+            if output.is_string() {
+                return output.as_str().unwrap_or_default().to_string();
+            }
+            if !output.is_null() {
+                return serde_json::to_string_pretty(output)
+                    .unwrap_or_else(|_| output.to_string());
+            }
+        }
+        if let Some(summary) = parsed.get("summary").and_then(Value::as_str) {
+            let trimmed = summary.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
+        }
+    }
+    raw_content.to_string()
 }
 
 #[derive(Deserialize)]
@@ -1118,16 +1457,34 @@ struct WebSearchArgs {
     max_results: Option<u8>,
 }
 
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct StoredWebToolsSettings {
+    web_search_provider: Option<String>,
+    tavily_api_key_source: Option<String>,
+    tavily_api_key: Option<String>,
+    tavily_api_key_env_var: Option<String>,
+    searxng_base_url: Option<String>,
+}
+
 async fn execute_web_search(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
     let args: WebSearchArgs = match parse_from_value("web_search", args) {
         Ok(value) => value,
         Err(error) => return Ok(error),
     };
-    let provider = get_setting("webSearchProvider");
-    let tavily_api_key_source = get_setting("tavilyApiKeySource").or_else(|| Some("manual".to_string()));
-    let tavily_api_key = get_setting("tavilyApiKey");
-    let tavily_api_key_env_var = get_setting("tavilyApiKeyEnvVar").or_else(|| Some("TAVILY_API_KEY".to_string()));
-    let searxng_base_url = get_setting("searxngBaseUrl");
+    let stored = read_web_tools_settings();
+    let provider = get_setting("webSearchProvider")
+        .or_else(|| stored.web_search_provider.clone());
+    let tavily_api_key_source = get_setting("tavilyApiKeySource")
+        .or_else(|| stored.tavily_api_key_source.clone())
+        .or_else(|| Some("manual".to_string()));
+    let tavily_api_key = get_setting("tavilyApiKey")
+        .or_else(|| stored.tavily_api_key.clone());
+    let tavily_api_key_env_var = get_setting("tavilyApiKeyEnvVar")
+        .or_else(|| stored.tavily_api_key_env_var.clone())
+        .or_else(|| Some("TAVILY_API_KEY".to_string()));
+    let searxng_base_url = get_setting("searxngBaseUrl")
+        .or_else(|| stored.searxng_base_url.clone());
 
     Ok(match tool_web_search(
         args.search_term,
@@ -1353,6 +1710,37 @@ struct TodoWriteArgs {
     remove_ids: Option<Vec<String>>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+struct AskQuestionArgs {
+    title: Option<String>,
+    questions: Vec<AskQuestionItem>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct AskQuestionItem {
+    id: String,
+    prompt: String,
+    options: Vec<AskQuestionOption>,
+    #[serde(default)]
+    allow_multiple: bool,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct AskQuestionOption {
+    id: String,
+    label: String,
+    recommended: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct SpawnSubAgentArgs {
+    task: String,
+    context: Option<String>,
+    tools: Option<Vec<String>>,
+}
+
+const MAX_SUBAGENT_DEPTH: usize = 3;
+
 fn execute_todo_write(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
     let args: TodoWriteArgs = match parse_from_value("todo_write", args) {
         Ok(value) => value,
@@ -1463,6 +1851,607 @@ fn execute_todo_write(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<Too
     ))
 }
 
+async fn execute_ask_question(
+    args: Value,
+    ctx: &ToolExecutionContext<'_>,
+) -> Result<ToolResultEnvelope, String> {
+    let args: AskQuestionArgs = match parse_from_value("ask_question", args) {
+        Ok(value) => value,
+        Err(error) => return Ok(error),
+    };
+    let task_id = match ctx.task_id.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+        Some(value) => value.to_string(),
+        None => {
+            return Ok(tool_failure(
+                "ask_question",
+                "missing_task",
+                "ask_question requires an active task.",
+            ))
+        }
+    };
+    if let Err(error) = validate_ask_question_args(&args) {
+        return Ok(error);
+    }
+
+    let receiver = match ctx.ask_question_registry.register(&task_id) {
+        Ok(receiver) => receiver,
+        Err(error) => {
+            return Ok(tool_failure(
+                "ask_question",
+                "already_pending",
+                error,
+            ))
+        }
+    };
+
+    let result = tokio::select! {
+        _ = ctx.cancel_token.cancelled() => {
+            let _ = ctx.ask_question_registry.cancel(&task_id, "Cancelled");
+            return Ok(tool_failure("ask_question", "cancelled", "ask_question was cancelled."));
+        }
+        response = receiver => response
+    };
+
+    match result {
+        Ok(Ok(answers)) => Ok(tool_success(
+            "ask_question",
+            json!({
+                "title": args.title.as_deref().map(str::trim).filter(|value| !value.is_empty()),
+                "questionCount": args.questions.len(),
+                "answers": answers,
+            }),
+        )),
+        Ok(Err(message)) => Ok(tool_failure("ask_question", "cancelled", message)),
+        Err(_) => Ok(tool_failure(
+            "ask_question",
+            "cancelled",
+            "ask_question request was dropped before the user responded.",
+        )),
+    }
+}
+
+fn validate_ask_question_args(args: &AskQuestionArgs) -> Result<(), ToolResultEnvelope> {
+    if args.questions.is_empty() {
+        return Err(tool_failure(
+            "ask_question",
+            "invalid_arguments",
+            "questions must be a non-empty array.",
+        ));
+    }
+
+    let mut question_ids = std::collections::HashSet::new();
+    for (index, question) in args.questions.iter().enumerate() {
+        let question_id = question.id.trim();
+        if question_id.is_empty() {
+            return Err(tool_failure(
+                "ask_question",
+                "invalid_arguments",
+                format!("questions[{index}].id is required."),
+            ));
+        }
+        if !question_ids.insert(question_id.to_string()) {
+            return Err(tool_failure(
+                "ask_question",
+                "invalid_arguments",
+                format!("Duplicate question id: {question_id}"),
+            ));
+        }
+        if question.prompt.trim().is_empty() {
+            return Err(tool_failure(
+                "ask_question",
+                "invalid_arguments",
+                format!("questions[{index}].prompt is required."),
+            ));
+        }
+        if question.options.len() < 2 {
+            return Err(tool_failure(
+                "ask_question",
+                "invalid_arguments",
+                format!("questions[{index}].options must include at least 2 choices."),
+            ));
+        }
+
+        let mut option_ids = std::collections::HashSet::new();
+        for (option_index, option) in question.options.iter().enumerate() {
+            let option_id = option.id.trim();
+            if option_id.is_empty() {
+                return Err(tool_failure(
+                    "ask_question",
+                    "invalid_arguments",
+                    format!("questions[{index}].options[{option_index}].id is required."),
+                ));
+            }
+            if option.label.trim().is_empty() {
+                return Err(tool_failure(
+                    "ask_question",
+                    "invalid_arguments",
+                    format!("questions[{index}].options[{option_index}].label is required."),
+                ));
+            }
+            if !option_ids.insert(option_id.to_string()) {
+                return Err(tool_failure(
+                    "ask_question",
+                    "invalid_arguments",
+                    format!("Duplicate option id: {option_id}"),
+                ));
+            }
+            let _ = option.recommended;
+        }
+    }
+
+    Ok(())
+}
+
+async fn execute_spawn_subagent(
+    args: Value,
+    ctx: &ToolExecutionContext<'_>,
+) -> Result<ToolResultEnvelope, String> {
+    let args: SpawnSubAgentArgs = match parse_from_value("spawn_subagent", args) {
+        Ok(value) => value,
+        Err(error) => return Ok(error),
+    };
+    let task = args.task.trim();
+    if task.is_empty() {
+        return Ok(tool_failure(
+            "spawn_subagent",
+            "empty_task",
+            "Task description must not be empty.",
+        ));
+    }
+
+    let current_depth = subagent_context_depth(ctx.task_id.as_deref());
+    if current_depth >= MAX_SUBAGENT_DEPTH {
+        return Ok(tool_failure(
+            "spawn_subagent",
+            "max_depth_exceeded",
+            format!(
+                "Maximum nesting depth ({MAX_SUBAGENT_DEPTH}) exceeded. Cannot spawn sub-agent at depth {}.",
+                current_depth + 1
+            ),
+        ));
+    }
+
+    let sub_task_id = format!(
+        "{}/sub-{}",
+        ctx.task_id.as_deref().unwrap_or("root"),
+        current_timestamp_ms()
+    );
+    let allowed_tools: Vec<AgentToolDefinition> = ctx
+        .available_tools
+        .iter()
+        .filter(|tool| tool.function.name != "spawn_subagent")
+        .filter(|tool| {
+            args.tools.as_ref().map(|requested| {
+                requested.iter().any(|name| name == &tool.function.name)
+            }).unwrap_or(true)
+        })
+        .cloned()
+        .collect();
+
+    let system_prompt = build_subagent_system_prompt(
+        task,
+        args.context.as_deref(),
+        args.tools.as_deref(),
+        current_depth,
+        MAX_SUBAGENT_DEPTH,
+    );
+    let messages = vec![
+        super::types::ChatMessage {
+            role: "system".to_string(),
+            content: Some(Value::String(system_prompt)),
+            reasoning_content: None,
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        },
+        super::types::ChatMessage {
+            role: "user".to_string(),
+            content: Some(Value::String(task.to_string())),
+            reasoning_content: None,
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        },
+    ];
+
+    let mut child_params = ctx.parent_start_params.clone();
+    child_params.task_id = sub_task_id.clone();
+    child_params.messages = messages;
+    child_params.tools = Some(allowed_tools);
+    child_params.agent_mode = Some("agent".to_string());
+    child_params.emit_assistant_output = Some(true);
+
+    let child_registry = Arc::new(Mutex::new(super::registry::AgentRegistry::new()?));
+    let child_client = child_registry
+        .lock()
+        .map_err(|_| "Agent registry lock poisoned".to_string())?
+        .http_client();
+    let mut receiver = ctx.app_state.sse_broadcaster.subscribe(&sub_task_id);
+    let child_broadcaster = ctx.app_state.sse_broadcaster.clone();
+    let child_cancel = ctx.cancel_token.child_token();
+    let child_app_state = ctx.app_state.clone();
+    let mut child_future = std::pin::Pin::from(Box::new(async move {
+        super::loop_::run_agent_loop(
+            child_params,
+            child_client,
+            child_broadcaster,
+            child_cancel,
+            child_registry,
+            child_app_state,
+        )
+        .await
+    }));
+
+    let mut steps: Vec<Value> = Vec::new();
+    let mut final_content = String::new();
+    let mut tokens_used: Option<u32> = None;
+
+    let child_result = loop {
+        tokio::select! {
+            result = &mut child_future => {
+                break result;
+            }
+            received = receiver.recv() => {
+                match received {
+                    Ok(payload) => {
+                        process_subagent_event(&payload, &mut steps, &mut final_content, &mut tokens_used);
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {}
+                }
+            }
+        }
+    };
+
+    loop {
+        match receiver.try_recv() {
+            Ok(payload) => process_subagent_event(&payload, &mut steps, &mut final_content, &mut tokens_used),
+            Err(tokio::sync::broadcast::error::TryRecvError::Empty) => break,
+            Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => continue,
+            Err(tokio::sync::broadcast::error::TryRecvError::Closed) => break,
+        }
+    }
+
+    let final_error = match child_result {
+        Ok(()) => None,
+        Err(super::loop_::AgentLoopError::Cancelled) => Some("Sub-agent was cancelled.".to_string()),
+        Err(error) => Some(error.to_string()),
+    };
+    let rounds = steps
+        .iter()
+        .filter(|step| step.get("kind").and_then(Value::as_str) == Some("reasoning"))
+        .count();
+    let tool_calls = steps
+        .iter()
+        .filter(|step| step.get("kind").and_then(Value::as_str) == Some("tool"))
+        .count();
+    let summary = build_subagent_summary(&steps, task, final_error.as_deref());
+
+    if let Some(error) = final_error {
+        return Ok(tool_failure("spawn_subagent", "subagent_failed", error));
+    }
+
+    Ok(tool_success(
+        "spawn_subagent",
+        json!({
+            "task": task,
+            "steps": steps,
+            "summary": summary,
+            "rounds": rounds,
+            "toolCalls": tool_calls,
+            "tokensUsed": tokens_used,
+            "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
+        }),
+    ))
+}
+
+fn process_subagent_event(
+    payload: &str,
+    steps: &mut Vec<Value>,
+    final_content: &mut String,
+    tokens_used: &mut Option<u32>,
+) {
+    let Ok(event) = serde_json::from_str::<super::types::AgentEvent>(payload) else {
+        return;
+    };
+    match event {
+        super::types::AgentEvent::ThinkingDelta { delta, .. } => {
+            if delta.trim().is_empty() {
+                return;
+            }
+            if let Some(last) = steps.last_mut() {
+                if last.get("kind").and_then(Value::as_str) == Some("reasoning") {
+                    if let Some(text) = last.get_mut("text") {
+                        let existing = text.as_str().unwrap_or_default().to_string() + &delta;
+                        *text = Value::String(existing);
+                        return;
+                    }
+                }
+            }
+            steps.push(json!({
+                "kind": "reasoning",
+                "text": delta,
+            }));
+        }
+        super::types::AgentEvent::ContentDelta { delta, .. } => {
+            final_content.push_str(&delta);
+        }
+        super::types::AgentEvent::ToolCallStarted { name, input, .. } => {
+            let label = input
+                .as_object()
+                .map(|record| extract_subagent_tool_label(&name, record))
+                .unwrap_or_default();
+            steps.push(json!({
+                "kind": "tool",
+                "text": name,
+                "toolName": name,
+                "toolLabel": if label.is_empty() { None::<String> } else { Some(label) },
+                "state": "running",
+            }));
+        }
+        super::types::AgentEvent::ToolCallFinished { error_text, .. } => {
+            for step in steps.iter_mut().rev() {
+                if step.get("kind").and_then(Value::as_str) == Some("tool")
+                    && step.get("state").and_then(Value::as_str) == Some("running")
+                {
+                    if let Some(state) = step.get_mut("state") {
+                        *state = Value::String(if error_text.is_some() {
+                            "error".to_string()
+                        } else {
+                            "completed".to_string()
+                        });
+                    }
+                    break;
+                }
+            }
+        }
+        super::types::AgentEvent::Done { usage, .. } => {
+            *tokens_used = usage.map(|item| item.total_tokens);
+        }
+        _ => {}
+    }
+}
+
+fn build_subagent_system_prompt(
+    task: &str,
+    context: Option<&str>,
+    tools: Option<&[String]>,
+    depth: usize,
+    max_depth: usize,
+) -> String {
+    let mut sections = vec![
+        format!(
+            "You are Coder, a focused sub-agent operating at nesting depth {} (maximum: {}).",
+            depth + 1,
+            max_depth
+        ),
+        "Your job is to complete a delegated sub-task efficiently and report evidence-backed findings to the parent agent.".to_string(),
+        "Constraints:".to_string(),
+        "- You have access to the same workspace as the parent agent.".to_string(),
+        "- Do not spawn further sub-agents.".to_string(),
+        "- Keep your work narrowly focused on the delegated task.".to_string(),
+        "- When finished, provide a concise summary of what was accomplished, what evidence you gathered, and any uncertainty.".to_string(),
+        String::new(),
+        "Delegated Task:".to_string(),
+        task.to_string(),
+    ];
+    if let Some(context) = context.map(str::trim).filter(|value| !value.is_empty()) {
+        sections.push(String::new());
+        sections.push("Additional Context:".to_string());
+        sections.push(context.to_string());
+    }
+    if let Some(tools) = tools.filter(|value| !value.is_empty()) {
+        sections.push(String::new());
+        sections.push("Allowed Tools:".to_string());
+        sections.push(format!("You may only use the following tools: {}.", tools.join(", ")));
+    }
+    sections.join("\n")
+}
+
+fn subagent_context_depth(task_id: Option<&str>) -> usize {
+    task_id
+        .unwrap_or_default()
+        .matches("/sub-")
+        .count()
+}
+
+fn extract_subagent_tool_label(
+    tool_name: &str,
+    input: &serde_json::Map<String, Value>,
+) -> String {
+    let read_str = |key: &str| input.get(key).and_then(Value::as_str).unwrap_or("").trim();
+    match tool_name {
+        "shell" | "await" => {
+            let label = if !read_str("description").is_empty() {
+                read_str("description")
+            } else {
+                read_str("command")
+            };
+            truncate_label(label, 40)
+        }
+        "grep" => truncate_label(read_str("pattern"), 36),
+        "glob" => truncate_label(read_str("glob_pattern"), 36),
+        "read_file" | "list_dir" => truncate_label(read_str("path"), 40),
+        "web_search" => truncate_label(read_str("search_term"), 36),
+        _ => String::new(),
+    }
+}
+
+fn truncate_label(value: &str, max_chars: usize) -> String {
+    let char_count = value.chars().count();
+    if char_count <= max_chars {
+        return value.to_string();
+    }
+    value.chars().take(max_chars).collect::<String>() + "…"
+}
+
+fn build_subagent_summary(steps: &[Value], task: &str, error: Option<&str>) -> String {
+    let task_preview = if task.chars().count() > 60 {
+        task.chars().take(60).collect::<String>() + "…"
+    } else {
+        task.to_string()
+    };
+    if let Some(error) = error {
+        return format!("Task \"{task_preview}\" encountered an error: {error}");
+    }
+    let tool_steps: Vec<&Value> = steps
+        .iter()
+        .filter(|step| step.get("kind").and_then(Value::as_str) == Some("tool"))
+        .collect();
+    let reasoning_steps = steps
+        .iter()
+        .filter(|step| step.get("kind").and_then(Value::as_str) == Some("reasoning"))
+        .count();
+    if tool_steps.is_empty() && reasoning_steps == 0 {
+        return format!("Task \"{task_preview}\" completed directly.");
+    }
+    let mut tool_names = Vec::<String>::new();
+    for step in tool_steps.iter() {
+        if let Some(name) = step.get("toolName").and_then(Value::as_str) {
+            if !tool_names.iter().any(|existing| existing == name) {
+                tool_names.push(name.to_string());
+            }
+        }
+    }
+    let rounds = if reasoning_steps == 0 { 1 } else { reasoning_steps };
+    format!(
+        "Completed task using {} tool call{} across {} round{}. Tools used: {}.",
+        tool_steps.len(),
+        if tool_steps.len() == 1 { "" } else { "s" },
+        rounds,
+        if rounds == 1 { "" } else { "s" },
+        if tool_names.is_empty() {
+            "none".to_string()
+        } else {
+            tool_names.join(", ")
+        }
+    )
+}
+
+async fn execute_mcp_tool_call(
+    tool_name: &str,
+    server_id: &str,
+    server_tool_name: &str,
+    args: Value,
+    ctx: &ToolExecutionContext<'_>,
+) -> Result<ToolResultEnvelope, String> {
+    let server = match load_mcp_server(ctx, server_id) {
+        Ok(Some(server)) => server,
+        Ok(None) => {
+            return Ok(tool_failure(
+                tool_name,
+                "mcp_server_not_found",
+                format!("MCP server not found: {server_id}"),
+            ))
+        }
+        Err(error) => return Ok(tool_failure(tool_name, "execution_failed", error)),
+    };
+
+    if !server.enabled {
+        return Ok(tool_failure(
+            tool_name,
+            "mcp_server_disabled",
+            format!("MCP server is disabled: {}", server.name),
+        ));
+    }
+
+    let result = ctx
+        .mcp_registry
+        .call_tool(server.clone(), server_tool_name.to_string(), args)
+        .await;
+    match result {
+        Ok(result) => {
+            let content_json: Vec<Value> = result
+                .content
+                .iter()
+                .map(mcp_content_block_to_json)
+                .collect();
+            Ok(tool_success(
+                tool_name,
+                json!({
+                    "serverId": result.server_id,
+                    "serverName": server.name,
+                    "toolName": server_tool_name,
+                    "text": mcp_content_blocks_to_text(&result.content),
+                    "content": content_json,
+                    "isError": result.is_error,
+                }),
+            ))
+        }
+        Err(error) => Ok(tool_failure(tool_name, "mcp_call_failed", error)),
+    }
+}
+
+fn load_mcp_server(
+    ctx: &ToolExecutionContext<'_>,
+    server_id: &str,
+) -> Result<Option<crate::tools::McpServerConfig>, String> {
+    let db = ctx.db.lock().map_err(|e| e.to_string())?;
+    db.get("mcpServers", server_id)
+}
+
+fn mcp_content_blocks_to_text(content: &[crate::tools::mcp::McpContentBlock]) -> String {
+    let mut parts = Vec::new();
+    for block in content {
+        match block {
+            crate::tools::mcp::McpContentBlock::Text { text } => parts.push(text.clone()),
+            crate::tools::mcp::McpContentBlock::Image { data, mime_type } => {
+                parts.push(format!("[image {}: {} bytes]", mime_type, data.len()))
+            }
+            crate::tools::mcp::McpContentBlock::Resource { uri, text, .. } => {
+                if let Some(text) = text {
+                    parts.push(format!("[resource {uri}]\n{text}"));
+                } else {
+                    parts.push(format!("[resource {uri}]"));
+                }
+            }
+        }
+    }
+    parts.join("\n\n")
+}
+
+fn mcp_content_block_to_json(block: &crate::tools::mcp::McpContentBlock) -> Value {
+    match block {
+        crate::tools::mcp::McpContentBlock::Text { text } => json!({
+            "type": "text",
+            "text": text,
+        }),
+        crate::tools::mcp::McpContentBlock::Image { data, mime_type } => json!({
+            "type": "image",
+            "data": data,
+            "mimeType": mime_type,
+        }),
+        crate::tools::mcp::McpContentBlock::Resource {
+            uri,
+            mime_type,
+            text,
+        } => json!({
+            "type": "resource",
+            "uri": uri,
+            "mimeType": mime_type,
+            "text": text,
+        }),
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct StoredEmailSettings {
+    smtp_host: String,
+    smtp_port: u16,
+    username: String,
+    password: String,
+    from_address: String,
+    use_tls: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct StoredEmailSettingsStore {
+    current_provider: Option<String>,
+    profiles: Option<std::collections::HashMap<String, StoredEmailSettings>>,
+}
+
 async fn execute_send_email(args: Value) -> Result<ToolResultEnvelope, String> {
     #[derive(Deserialize)]
     struct SendEmailArgs {
@@ -1474,23 +2463,13 @@ async fn execute_send_email(args: Value) -> Result<ToolResultEnvelope, String> {
         Ok(value) => value,
         Err(error) => return Ok(error),
     };
-    let settings_json = match get_setting("emailSettings") {
+    let settings = match read_email_settings() {
         Some(value) => value,
         None => {
             return Ok(tool_failure(
                 "send_email",
                 "missing_settings",
                 "Email settings are not configured.",
-            ))
-        }
-    };
-    let settings: crate::tools::mail::EmailSettings = match serde_json::from_str(&settings_json) {
-        Ok(value) => value,
-        Err(error) => {
-            return Ok(tool_failure(
-                "send_email",
-                "invalid_settings",
-                format!("Invalid email settings: {error}"),
             ))
         }
     };
@@ -1505,6 +2484,43 @@ async fn execute_send_email(args: Value) -> Result<ToolResultEnvelope, String> {
         Ok(message) => Ok(tool_success("send_email", json!({ "message": message }))),
         Err(error) => Ok(tool_failure("send_email", "execution_failed", error)),
     }
+}
+
+fn read_web_tools_settings() -> StoredWebToolsSettings {
+    let Some(raw) = get_setting("coder:web-tools-settings") else {
+        return StoredWebToolsSettings::default();
+    };
+    serde_json::from_str::<StoredWebToolsSettings>(&raw).unwrap_or_default()
+}
+
+fn read_email_settings() -> Option<crate::tools::mail::EmailSettings> {
+    if let Some(raw) = get_setting("emailSettings") {
+        if let Ok(value) = serde_json::from_str::<crate::tools::mail::EmailSettings>(&raw) {
+            return Some(value);
+        }
+    }
+
+    let raw = get_setting("coder:email-settings")?;
+    if let Ok(value) = serde_json::from_str::<crate::tools::mail::EmailSettings>(&raw) {
+        return Some(value);
+    }
+
+    let store = serde_json::from_str::<StoredEmailSettingsStore>(&raw).ok()?;
+    let provider = store.current_provider?;
+    let profile = store.profiles?.get(&provider)?.clone();
+    let username = profile.username.clone();
+    Some(crate::tools::mail::EmailSettings {
+        smtp_host: profile.smtp_host,
+        smtp_port: profile.smtp_port,
+        username,
+        password: profile.password,
+        from_address: if profile.from_address.trim().is_empty() {
+            profile.username
+        } else {
+            profile.from_address
+        },
+        use_tls: profile.use_tls,
+    })
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -1556,4 +2572,56 @@ fn current_timestamp_ms() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        build_tool_archive_file_path, extract_prior_tool_output_content, sanitize_path_segment,
+    };
+
+    #[test]
+    fn archive_file_path_matches_frontend_naming_scheme() {
+        let path = build_tool_archive_file_path(
+            "session-1",
+            "message 1",
+            "read_file",
+            "call/1",
+        );
+        assert_eq!(
+            path,
+            ".agent/sessions/session-1/tool-archive/read_file__message_1__call_1.json"
+        );
+    }
+
+    #[test]
+    fn extracts_output_payload_from_archived_json() {
+        let content = extract_prior_tool_output_content(
+            r#"{
+              "output": {
+                "ok": true,
+                "tool": "glob",
+                "data": { "matches": ["a.ts"] }
+              },
+              "summary": "glob a.ts"
+            }"#,
+        );
+        assert!(content.contains("\"matches\""));
+        assert!(content.contains("a.ts"));
+    }
+
+    #[test]
+    fn falls_back_to_summary_when_archive_has_no_output() {
+        let content = extract_prior_tool_output_content(
+            r#"{
+              "summary": "shell npm test"
+            }"#,
+        );
+        assert_eq!(content, "shell npm test");
+    }
+
+    #[test]
+    fn sanitize_path_segment_replaces_unsupported_characters() {
+        assert_eq!(sanitize_path_segment("call/1 test"), "call_1_test");
+    }
 }

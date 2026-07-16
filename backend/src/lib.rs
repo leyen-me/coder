@@ -18,6 +18,7 @@ pub struct AppState {
     pub http_base_url: String,
     pub db: Arc<Mutex<Database>>,
     pub agent_registry: Arc<Mutex<AgentRegistry>>,
+    pub ask_question_registry: Arc<agent::ask_question::AskQuestionRegistry>,
     pub shell_registry: Arc<Mutex<ShellRegistry>>,
     pub mcp_registry: Arc<McpRegistry>,
     pub page_cache: Arc<PageCache>,
@@ -144,6 +145,7 @@ pub fn initialize_app_state(workspace_dir: &PathBuf, http_base_url: String) -> A
         agent_registry: Arc::new(Mutex::new(
             AgentRegistry::new().expect("Failed to init agent registry"),
         )),
+        ask_question_registry: Arc::new(agent::ask_question::AskQuestionRegistry::new()),
         shell_registry: Arc::new(Mutex::new(ShellRegistry::new())),
         mcp_registry: Arc::new(McpRegistry::new()),
         page_cache: Arc::new(PageCache::new()),

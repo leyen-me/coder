@@ -120,6 +120,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/agent/cancel", post(routes_tool::handle_agent_cancel))
         .route("/agent/status", post(routes_tool::handle_agent_status))
         .route(
+            "/api/agent/ask_question/respond",
+            post(routes_tool::handle_agent_ask_question_response),
+        )
+        .route(
             "/api/agent/session/{session_id}/status",
             get(routes_tool::handle_agent_session_status),
         )

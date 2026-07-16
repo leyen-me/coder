@@ -306,6 +306,23 @@ pub struct AgentStatusParams {
 }
 
 #[derive(Deserialize)]
+pub struct AgentAskQuestionResponseAnswer {
+    pub question_id: String,
+    pub prompt: String,
+    pub allow_multiple: bool,
+    pub selected_option_ids: Vec<String>,
+    pub selected_option_labels: Vec<String>,
+    pub other_text: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentAskQuestionResponseParams {
+    pub task_id: String,
+    pub answers: Vec<AgentAskQuestionResponseAnswer>,
+}
+
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerateSessionTitleParams {
     pub base_url: String,
@@ -977,12 +994,45 @@ pub async fn handle_agent_cancel(
     State(state): State<Arc<AppState>>,
     Json(params): Json<AgentCancelParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
+    let _ = state.ask_question_registry.cancel(&params.task_id, "Cancelled");
     agent::agent_cancel(&state.agent_registry, params.task_id.clone())
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     let _ = shell_kill_by_task(&state.shell_registry, params.task_id);
     Ok(Json(serde_json::to_value(serde_json::json!({"ok": true})).map_err(
         |e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
     )?))
+}
+
+/// POST /api/agent/ask_question/respond
+pub async fn handle_agent_ask_question_response(
+    State(state): State<Arc<AppState>>,
+    Json(params): Json<AgentAskQuestionResponseParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let answers = params
+        .answers
+        .into_iter()
+        .map(|answer| crate::agent::ask_question::AskQuestionAnswer {
+            question_id: answer.question_id,
+            prompt: answer.prompt,
+            allow_multiple: answer.allow_multiple,
+            selected_option_ids: answer.selected_option_ids,
+            selected_option_labels: answer.selected_option_labels,
+            other_text: answer.other_text,
+        })
+        .collect::<Vec<_>>();
+
+    let submitted = state
+        .ask_question_registry
+        .submit(&params.task_id, answers)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    if !submitted {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "No pending ask_question request for that task.".to_string(),
+        ));
+    }
+
+    Ok(Json(serde_json::json!({ "ok": true })))
 }
 
 /// POST /agent/status
