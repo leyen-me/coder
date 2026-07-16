@@ -219,6 +219,7 @@ pub async fn run_agent_loop(
                 workspace_dir: workspace_dir.clone(),
                 session_id: params.session_id.clone(),
                 task_id: Some(params.task_id.clone()),
+                current_tool_call_id: None,
                 agent_mode: params.agent_mode.clone(),
                 available_tools: tools.clone(),
                 parent_start_params: params.clone(),
@@ -457,7 +458,11 @@ async fn execute_and_append_tool_results(
             }
         }
 
-        let tool_result = execute_tool_call(&call.name, &call.arguments, &ctx)
+        let call_ctx = ToolExecutionContext {
+            current_tool_call_id: Some(call.id.clone()),
+            ..ctx.clone()
+        };
+        let tool_result = execute_tool_call(&call.name, &call.arguments, &call_ctx)
             .await
             .map_err(AgentLoopError::Tool)?;
         let output = tool_result.data.clone();

@@ -16,10 +16,12 @@ use crate::tools::{
     RemoteConnectionPool, ShellRegistry,
 };
 
+#[derive(Clone)]
 pub struct ToolExecutionContext<'a> {
     pub workspace_dir: Option<String>,
     pub session_id: Option<String>,
     pub task_id: Option<String>,
+    pub current_tool_call_id: Option<String>,
     pub agent_mode: Option<String>,
     pub available_tools: Vec<AgentToolDefinition>,
     pub parent_start_params: super::types::AgentStartParams,
@@ -2094,7 +2096,7 @@ async fn execute_spawn_subagent(
             received = receiver.recv() => {
                 match received {
                     Ok(payload) => {
-                        process_subagent_event(&payload, &mut steps, &mut final_content, &mut tokens_used);
+                        process_subagent_event(&payload, ctx, task, &mut steps, &mut final_content, &mut tokens_used);
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => {}
@@ -2105,7 +2107,7 @@ async fn execute_spawn_subagent(
 
     loop {
         match receiver.try_recv() {
-            Ok(payload) => process_subagent_event(&payload, &mut steps, &mut final_content, &mut tokens_used),
+            Ok(payload) => process_subagent_event(&payload, ctx, task, &mut steps, &mut final_content, &mut tokens_used),
             Err(tokio::sync::broadcast::error::TryRecvError::Empty) => break,
             Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => continue,
             Err(tokio::sync::broadcast::error::TryRecvError::Closed) => break,
@@ -2147,6 +2149,8 @@ async fn execute_spawn_subagent(
 
 fn process_subagent_event(
     payload: &str,
+    ctx: &ToolExecutionContext<'_>,
+    task: &str,
     steps: &mut Vec<Value>,
     final_content: &mut String,
     tokens_used: &mut Option<u32>,
@@ -2188,6 +2192,7 @@ fn process_subagent_event(
                 "toolLabel": if label.is_empty() { None::<String> } else { Some(label) },
                 "state": "running",
             }));
+            emit_spawn_subagent_progress(ctx, task, steps, final_content, *tokens_used);
         }
         super::types::AgentEvent::ToolCallFinished { error_text, .. } => {
             for step in steps.iter_mut().rev() {
@@ -2204,6 +2209,7 @@ fn process_subagent_event(
                     break;
                 }
             }
+            emit_spawn_subagent_progress(ctx, task, steps, final_content, *tokens_used);
         }
         super::types::AgentEvent::Done { usage, .. } => {
             *tokens_used = usage.map(|item| item.total_tokens);
@@ -2326,6 +2332,59 @@ fn build_subagent_summary(steps: &[Value], task: &str, error: Option<&str>) -> S
             tool_names.join(", ")
         }
     )
+}
+
+fn emit_spawn_subagent_progress(
+    ctx: &ToolExecutionContext<'_>,
+    task: &str,
+    steps: &[Value],
+    final_content: &str,
+    tokens_used: Option<u32>,
+) {
+    let Some(task_id) = ctx.task_id.as_deref().filter(|value| !value.is_empty()) else {
+        return;
+    };
+    let Some(tool_call_id) = ctx
+        .current_tool_call_id
+        .as_deref()
+        .filter(|value| !value.is_empty())
+    else {
+        return;
+    };
+
+    let rounds = steps
+        .iter()
+        .filter(|step| step.get("kind").and_then(Value::as_str) == Some("reasoning"))
+        .count();
+    let tool_calls = steps
+        .iter()
+        .filter(|step| step.get("kind").and_then(Value::as_str) == Some("tool"))
+        .count();
+    let payload = json!({
+        "task": task,
+        "steps": steps,
+        "summary": "",
+        "rounds": rounds,
+        "toolCalls": tool_calls,
+        "tokensUsed": tokens_used,
+        "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
+    });
+    let event = super::types::AgentEvent::ToolCallFinished {
+        task_id: task_id.to_string(),
+        tool_call_id: tool_call_id.to_string(),
+        output: Some(payload),
+        error_text: None,
+    };
+    if let Ok(json) = serde_json::to_string(&event) {
+        let seq = if let Ok(mut registry) = ctx.app_state.agent_registry.lock() {
+            registry.record_event(task_id, &json)
+        } else {
+            0
+        };
+        ctx.app_state
+            .sse_broadcaster
+            .emit(task_id, &super::loop_::inject_seq_into_event_json(&json, seq));
+    }
 }
 
 async fn execute_mcp_tool_call(
