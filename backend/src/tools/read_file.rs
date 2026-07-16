@@ -106,7 +106,9 @@ pub fn tool_read_file(
     if let Some(mime_type) = detect_binary(&sample) {
         return Err(ReadFileToolError {
             code: "binary_file".to_string(),
-            message: format!("Binary file detected ({mime_type})"),
+            message: format!(
+                "Binary file detected ({mime_type}). read_file only supports text files; do not use it for images or other binary files."
+            ),
             mime_type: Some(mime_type),
             size: Some(file_size),
             file_snippet_hex: None,

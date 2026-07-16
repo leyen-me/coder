@@ -493,16 +493,6 @@ async fn execute_and_append_tool_results(
             }
         }
 
-        if !tool_result.ok {
-            return Err(AgentLoopError::Tool(
-                tool_result
-                    .error
-                    .as_ref()
-                    .map(|error| error.message.clone())
-                    .unwrap_or_else(|| format!("Tool {} failed", call.name)),
-            ));
-        }
-
         next_messages.push(ChatMessage {
             role: "tool".to_string(),
             content: Some(Value::String(serialize_tool_result(&tool_result))),
