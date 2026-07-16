@@ -57,9 +57,9 @@ describe("grepHandler", () => {
       outputMode: "content",
       matches: [
         {
-          path: "src/features/agent/agent-loop.ts",
-          lineNumber: 181,
-          line: "    const result = await executeToolCall(call.name, call.arguments, {",
+          path: "src/features/agent/store/agent-store.tsx",
+          lineNumber: 653,
+          line: "          diagnostics: buildAgentContextDiagnostics({",
         },
       ],
       totalMatches: 1,
@@ -83,9 +83,9 @@ describe("grepHandler", () => {
         outputMode: "content",
         matches: [
           {
-            path: "src/features/agent/agent-loop.ts",
-            lineNumber: 181,
-            line: "    const result = await executeToolCall(call.name, call.arguments, {",
+            path: "src/features/agent/store/agent-store.tsx",
+            lineNumber: 653,
+            line: "          diagnostics: buildAgentContextDiagnostics({",
           },
         ],
         totalMatches: 1,

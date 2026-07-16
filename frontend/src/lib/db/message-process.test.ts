@@ -59,7 +59,7 @@ describe("normalizeMessageProcessSteps", () => {
         requires_user_confirmation: false,
         response: null,
       },
-    ] as MessageProcessStep[];
+    ] as unknown as MessageProcessStep[];
 
     expect(normalizeMessageProcessSteps(steps)).toEqual([
       {

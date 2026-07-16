@@ -54,6 +54,10 @@ export type ParsedHandoffArtifact = {
 
 export const AGENT_HANDOFF_SYSTEM_PROMPT = buildHandoffSystemPrompt();
 
+// These builders are retained as parity oracles for frontend/backend
+// differential tests and handoff preview UI. Runtime handoff orchestration
+// now lives in the backend.
+
 export function buildAgentHandoffUserPrompt(input: {
   sessionTitle: string;
   contextUsage: AgentContextUsageSnapshot;

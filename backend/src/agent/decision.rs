@@ -28,6 +28,9 @@ JSON schema:
   "suggestedContinuation": string | null
 }"#;
 
+const DEFAULT_PROXY_CONTINUATION: &str =
+    "继续，任务还没有完成。请基于当前上下文自行推进，直到真正完成为止。";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DecisionOption {
@@ -105,6 +108,23 @@ pub fn build_final_answer_decision_request(
     }
 }
 
+pub fn should_request_proxy_decision(session_kind: &str, autonomy_mode: &str) -> bool {
+    session_kind == "long_task" || autonomy_mode == "unattended"
+}
+
+pub fn proxy_decision_system_prompt() -> &'static str {
+    PROXY_DECISION_SYSTEM_PROMPT
+}
+
+pub fn build_proxy_decision_user_prompt(request: &DecisionRequest) -> Result<String, String> {
+    serde_json::to_string_pretty(&serde_json::json!({
+        "task": "ProxyDecision",
+        "instruction": "Based on the full conversation above, decide whether the unattended long-task session is complete, or provide the next user-style continuation input for the main agent.",
+        "request": request,
+    }))
+    .map_err(|error| format!("Failed to encode proxy decision prompt: {error}"))
+}
+
 pub async fn request_proxy_decision(
     client: &reqwest::Client,
     base_url: &str,
@@ -113,12 +133,7 @@ pub async fn request_proxy_decision(
     request: &DecisionRequest,
     conversation_messages: &[ChatMessage],
 ) -> Result<DecisionResponse, String> {
-    let user_prompt = serde_json::to_string_pretty(&serde_json::json!({
-        "task": "ProxyDecision",
-        "instruction": "Based on the full conversation above, decide whether the unattended long-task session is complete, or provide the next user-style continuation input for the main agent.",
-        "request": request,
-    }))
-    .map_err(|error| format!("Failed to encode proxy decision prompt: {error}"))?;
+    let user_prompt = build_proxy_decision_user_prompt(request)?;
 
     let mut messages = Vec::with_capacity(conversation_messages.len() + 2);
     messages.push(ChatMessage {
@@ -161,9 +176,7 @@ pub fn build_proxy_continuation_message(response: &DecisionResponse) -> ChatMess
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .unwrap_or(
-            "Continue autonomously using the safest reasonable default. Record assumptions and finish the remaining work.",
-        );
+        .unwrap_or(DEFAULT_PROXY_CONTINUATION);
     ChatMessage {
         role: "user".to_string(),
         content: Some(Value::String(suggested.to_string())),
@@ -266,4 +279,147 @@ fn normalize_decision_response(raw: &Value) -> Result<DecisionResponse, String> 
             .filter(|value| !value.is_empty())
             .map(str::to_string),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{fs, path::PathBuf};
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Fixture {
+        name: String,
+        input: FixtureInput,
+        expected: FixtureExpected,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct FixtureInput {
+        session_id: String,
+        task_id: String,
+        assistant_response: String,
+        session_kind: String,
+        autonomy_mode: String,
+        decision_policy_version: String,
+        decision_response_content: String,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct FixtureExpected {
+        should_request_proxy_decision: Option<bool>,
+        final_answer_decision_request: Option<Value>,
+        proxy_decision_system_prompt: Option<String>,
+        proxy_decision_user_prompt_object: Option<Value>,
+        normalized_decision_response: Option<Value>,
+        proxy_continuation_user_message: Option<Value>,
+    }
+
+    fn load_fixtures() -> Vec<Fixture> {
+        let fixture_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../testdata/unattended-decision");
+        let mut paths = fs::read_dir(&fixture_dir)
+            .unwrap_or_else(|error| panic!("failed to read fixture dir {fixture_dir:?}: {error}"))
+            .map(|entry| entry.expect("fixture entry").path())
+            .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("json"))
+            .collect::<Vec<_>>();
+        paths.sort();
+        paths.into_iter()
+            .map(|path| {
+                serde_json::from_str::<Fixture>(
+                    &fs::read_to_string(&path)
+                        .unwrap_or_else(|error| panic!("failed to read {path:?}: {error}")),
+                )
+                .unwrap_or_else(|error| panic!("failed to parse {path:?}: {error}"))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn shared_unattended_decision_fixtures_match_backend_helpers() {
+        for fixture in load_fixtures() {
+            let input = &fixture.input;
+            let expected = &fixture.expected;
+
+            if let Some(expected_value) = expected.should_request_proxy_decision {
+                assert_eq!(
+                    should_request_proxy_decision(&input.session_kind, &input.autonomy_mode),
+                    expected_value,
+                    "shouldRequestProxyDecision fixture {}",
+                    fixture.name
+                );
+            }
+
+            let request = build_final_answer_decision_request(
+                &input.session_id,
+                &input.task_id,
+                &input.assistant_response,
+                &input.session_kind,
+                &input.autonomy_mode,
+                &input.decision_policy_version,
+            );
+
+            if let Some(expected_request) = &expected.final_answer_decision_request {
+                assert_eq!(
+                    serde_json::to_value(&request).expect("serialize request"),
+                    *expected_request,
+                    "finalAnswerDecisionRequest fixture {}",
+                    fixture.name
+                );
+            }
+
+            if let Some(expected_prompt) = &expected.proxy_decision_system_prompt {
+                assert_eq!(
+                    proxy_decision_system_prompt(),
+                    expected_prompt,
+                    "proxyDecisionSystemPrompt fixture {}",
+                    fixture.name
+                );
+            }
+
+            if let Some(expected_prompt_object) = &expected.proxy_decision_user_prompt_object {
+                assert_eq!(
+                    serde_json::from_str::<Value>(
+                        &build_proxy_decision_user_prompt(&request)
+                            .expect("build proxy decision user prompt"),
+                    )
+                    .expect("parse proxy decision user prompt"),
+                    *expected_prompt_object,
+                    "proxyDecisionUserPromptObject fixture {}",
+                    fixture.name
+                );
+            }
+
+            let normalized_response = normalize_decision_response(
+                &serde_json::from_str::<Value>(&extract_json_object(&input.decision_response_content).expect("extract decision json"))
+                    .expect("parse extracted decision json"),
+            )
+            .expect("normalize decision response");
+
+            if let Some(expected_response) = &expected.normalized_decision_response {
+                assert_eq!(
+                    serde_json::to_value(&normalized_response)
+                        .expect("serialize normalized decision response"),
+                    *expected_response,
+                    "normalizedDecisionResponse fixture {}",
+                    fixture.name
+                );
+            }
+
+            if let Some(expected_message) = &expected.proxy_continuation_user_message {
+                let message = build_proxy_continuation_message(&normalized_response);
+                assert_eq!(
+                    serde_json::json!({
+                        "role": message.role,
+                        "content": message.content.and_then(|value| value.as_str().map(str::to_string)),
+                    }),
+                    *expected_message,
+                    "proxyContinuationUserMessage fixture {}",
+                    fixture.name
+                );
+            }
+        }
+    }
 }

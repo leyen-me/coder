@@ -85,29 +85,6 @@ export function estimateAgentContextUsage(input: {
   };
 }
 
-export function shouldTriggerContextHandoff(input: {
-  messages: readonly AgentChatMessage[];
-  maxTokens?: number;
-  triggerThreshold?: number;
-  reportedPromptTokens?: number | null;
-}): AgentContextUsage | null {
-  if (!hasReplayableWork(input.messages)) {
-    return null;
-  }
-
-  const usage = estimateAgentContextUsage(input);
-  const thresholdTokens = Math.floor(usage.maxTokens * usage.triggerThreshold);
-
-  if (
-    usage.usedTokens < thresholdTokens &&
-    usage.remainingTokens > usage.reservedTokens
-  ) {
-    return null;
-  }
-
-  return usage;
-}
-
 export function buildAgentContextDiagnostics(input: {
   messages: readonly AgentChatMessage[];
   maxTokens?: number;
@@ -199,28 +176,6 @@ function estimateAgentMessageTokens(message: AgentChatMessage): number {
   }
 
   return total;
-}
-
-function hasReplayableWork(messages: readonly AgentChatMessage[]): boolean {
-  return messages.some((message) => {
-    if (message.role === "tool") {
-      return true;
-    }
-
-    if (message.role !== "assistant") {
-      return false;
-    }
-
-    if (message.tool_calls?.length) {
-      return true;
-    }
-
-    if (typeof message.content === "string" && message.content.trim()) {
-      return true;
-    }
-
-    return Boolean(message.reasoning_content?.trim());
-  });
 }
 
 function normalizePositiveInteger(value: number | undefined, fallback: number): number {

@@ -1,0 +1,54 @@
+{
+  "name": "complete-defaults",
+  "input": {
+    "sessionId": "session-2",
+    "taskId": "task-2",
+    "assistantResponse": "任务已经全部完成。",
+    "sessionKind": "standard",
+    "autonomyMode": "interactive",
+    "decisionPolicyVersion": "mvp-v1",
+    "decisionResponseContent": "{\n  \"outcome\": \"complete\",\n  \"riskLevel\": \"low\",\n  \"reason\": \"   \",\n  \"recordAsAssumption\": false,\n  \"requiresUserConfirmation\": false,\n  \"assumption\": null,\n  \"suggestedContinuation\": null\n}"
+  },
+  "expected": {
+    "shouldRequestProxyDecision": false,
+    "finalAnswerDecisionRequest": {
+      "sessionId": "session-2",
+      "taskId": "task-2",
+      "trigger": "final_answer",
+      "summary": "The main agent has produced a candidate final answer in an unattended long-task session.",
+      "question": "任务已经全部完成。",
+      "options": [
+        {
+          "id": "complete",
+          "label": "The task is complete and the assistant answer can stand as final"
+        },
+        {
+          "id": "continue",
+          "label": "The task is not complete; provide the next user-style continuation input"
+        }
+      ],
+      "riskHints": [
+        "Return complete only if the task is genuinely finished.",
+        "If more work is needed, return continue and provide the next user-style continuation input."
+      ],
+      "sessionKind": "standard",
+      "autonomyMode": "interactive",
+      "decisionPolicyVersion": "mvp-v1",
+      "assistantResponse": "任务已经全部完成。"
+    },
+    "normalizedDecisionResponse": {
+      "outcome": "complete",
+      "selectedOptionId": null,
+      "reason": "No reason provided.",
+      "riskLevel": "low",
+      "recordAsAssumption": false,
+      "requiresUserConfirmation": false,
+      "assumption": null,
+      "suggestedContinuation": null
+    },
+    "proxyContinuationUserMessage": {
+      "role": "user",
+      "content": "继续，任务还没有完成。请基于当前上下文自行推进，直到真正完成为止。"
+    }
+  }
+}

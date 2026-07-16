@@ -1,0 +1,28 @@
+{
+  "name": "fallback-basic",
+  "input": {
+    "sourceSessionId": "session-a",
+    "continuedSessionId": "session-b",
+    "sourceSessionTitle": "跨 session",
+    "generatedAt": "2026-06-10T20:00:00.000Z",
+    "model": "test-model",
+    "sessionKind": "standard",
+    "autonomyMode": "interactive",
+    "decisionPolicyVersion": "mvp-v1",
+    "decisionModel": null,
+    "contextUsage": {
+      "usedTokens": 1200,
+      "maxTokens": 8000,
+      "remainingTokens": 6800,
+      "reservedTokens": 500,
+      "triggerThreshold": 0.8
+    },
+    "handoffBody": "## Original User Intent\n继续修复跨 session 续跑",
+    "fallbackUserContent": "继续修复跨 session 续跑"
+  },
+  "expected": {
+    "handoffUserPrompt": "Create a handoff document for a fresh session that has no memory of the previous conversation.\nThe next session should trust the working set and archived tool outputs, continuing immediately with minimal verification.\n\nHandoff requirements:\n- Preserve intent, constraints, decisions, evidence, and next steps.\n- Call out any risky or destructive next actions explicitly.\n- Mention unfinished tools, background jobs, watchers, or commands only if they are actually known from the conversation.\n- Prefer autonomous continuation. If the original task would normally require clarification, recommend the safest reasonable default and record that assumption explicitly.\n- Only describe the task as blocked if there is truly no reasonable action the next session can take.\n- Include at least one concrete file path in Pending Next Actions when files were touched.\n- If no tests were run, write Unknown under Artifacts And Evidence.\n\nCurrent rollover context:\n- sourceSessionTitle: 跨 session\n- sessionKind: standard\n- autonomyMode: interactive\n- decisionPolicyVersion: mvp-v1\n- decisionModel: default\n- usedTokens: 1200\n- maxTokens: 8000\n- remainingTokens: 6800\n- reservedTokens: 500\n- triggerThreshold: 0.8",
+    "continuationTitle": "Continue · 跨 session",
+    "fallbackHandoffBody": "## Original User Intent\n继续修复跨 session 续跑\n\n## Current Objective\nContinue the task from session \"跨 session\".\n\n## Constraints\n- Preserve the user's original intent and avoid repeating completed work.\n\n## Completed\n- Unknown. Review the previous session history before continuing.\n\n## In Progress\n- Automatic handoff generation failed; verify the latest assistant message and tool outputs.\n\n## Pending Next Actions\n1. Review the previous session's latest assistant/tool outputs.\n2. Reconstruct the exact current state before making more changes.\n\n## Key Decisions\n- Unknown\n\n## Rejected Or Superseded Approaches\n- Unknown\n\n## Artifacts And Evidence\n- Previous session chat history\n\n## Background Jobs And Follow-ups\n- Unknown\n\n## Open Questions\n- Unknown. If needed, proceed with conservative assumptions and record them.\n\n## Resume Instructions\nTrust the latest persisted evidence first, then perform only the minimum verification needed to continue safely.\nContinue autonomously using the safest reasonable defaults; only stop if progress is impossible without new external information."
+  }
+}

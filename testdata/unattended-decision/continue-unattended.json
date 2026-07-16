@@ -1,0 +1,84 @@
+{
+  "name": "continue-unattended",
+  "input": {
+    "sessionId": "session-1",
+    "taskId": "task-1",
+    "assistantResponse": "我已经完成了第一部分修改，接下来可以继续完善实现。",
+    "sessionKind": "long_task",
+    "autonomyMode": "unattended",
+    "decisionPolicyVersion": "mvp-v1",
+    "decisionResponseContent": "```json\n{\n  \"outcome\": \"continue\",\n  \"selectedOptionId\": \"continue\",\n  \"reason\": \"The task is not complete yet; send the next continuation input.\",\n  \"riskLevel\": \"medium\",\n  \"recordAsAssumption\": true,\n  \"requiresUserConfirmation\": false,\n  \"assumption\": \"The implementation still needs more work.\",\n  \"suggestedContinuation\": \"继续，不要结束。请基于当前结果继续完成剩余实现。\"\n}\n```"
+  },
+  "expected": {
+    "shouldRequestProxyDecision": true,
+    "finalAnswerDecisionRequest": {
+      "sessionId": "session-1",
+      "taskId": "task-1",
+      "trigger": "final_answer",
+      "summary": "The main agent has produced a candidate final answer in an unattended long-task session.",
+      "question": "我已经完成了第一部分修改，接下来可以继续完善实现。",
+      "options": [
+        {
+          "id": "complete",
+          "label": "The task is complete and the assistant answer can stand as final"
+        },
+        {
+          "id": "continue",
+          "label": "The task is not complete; provide the next user-style continuation input"
+        }
+      ],
+      "riskHints": [
+        "Return complete only if the task is genuinely finished.",
+        "If more work is needed, return continue and provide the next user-style continuation input."
+      ],
+      "sessionKind": "long_task",
+      "autonomyMode": "unattended",
+      "decisionPolicyVersion": "mvp-v1",
+      "assistantResponse": "我已经完成了第一部分修改，接下来可以继续完善实现。"
+    },
+    "proxyDecisionSystemPrompt": "You are the proxy decision model for an unattended coding task.\nReturn exactly one JSON object and nothing else.\nYou will receive the full conversation history between the user and the main agent.\nYour job is to review the conversation and decide whether the main agent's latest answer has genuinely completed the user's original request.\nWrite in the same language as the conversation.\n\n- If the task is truly finished, return complete.\n- If more work is needed, return continue and provide the exact next user-style continuation input that should be sent back to the main agent.\n- Never ask for real-user confirmation unless the request explicitly requires new external information that the proxy cannot supply.\n\nJSON schema:\n{\n  \"outcome\": \"continue\" | \"complete\",\n  \"selectedOptionId\": string | null,\n  \"reason\": string,\n  \"riskLevel\": \"low\" | \"medium\" | \"high\",\n  \"recordAsAssumption\": boolean,\n  \"requiresUserConfirmation\": boolean,\n  \"assumption\": string | null,\n  \"suggestedContinuation\": string | null\n}",
+    "proxyDecisionUserPromptObject": {
+      "task": "ProxyDecision",
+      "instruction": "Based on the full conversation above, decide whether the unattended long-task session is complete, or provide the next user-style continuation input for the main agent.",
+      "request": {
+        "sessionId": "session-1",
+        "taskId": "task-1",
+        "trigger": "final_answer",
+        "summary": "The main agent has produced a candidate final answer in an unattended long-task session.",
+        "question": "我已经完成了第一部分修改，接下来可以继续完善实现。",
+        "options": [
+          {
+            "id": "complete",
+            "label": "The task is complete and the assistant answer can stand as final"
+          },
+          {
+            "id": "continue",
+            "label": "The task is not complete; provide the next user-style continuation input"
+          }
+        ],
+        "riskHints": [
+          "Return complete only if the task is genuinely finished.",
+          "If more work is needed, return continue and provide the next user-style continuation input."
+        ],
+        "sessionKind": "long_task",
+        "autonomyMode": "unattended",
+        "decisionPolicyVersion": "mvp-v1",
+        "assistantResponse": "我已经完成了第一部分修改，接下来可以继续完善实现。"
+      }
+    },
+    "normalizedDecisionResponse": {
+      "outcome": "continue",
+      "selectedOptionId": "continue",
+      "reason": "The task is not complete yet; send the next continuation input.",
+      "riskLevel": "medium",
+      "recordAsAssumption": true,
+      "requiresUserConfirmation": false,
+      "assumption": "The implementation still needs more work.",
+      "suggestedContinuation": "继续，不要结束。请基于当前结果继续完成剩余实现。"
+    },
+    "proxyContinuationUserMessage": {
+      "role": "user",
+      "content": "继续，不要结束。请基于当前结果继续完成剩余实现。"
+    }
+  }
+}

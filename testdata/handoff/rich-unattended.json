@@ -1,0 +1,91 @@
+{
+  "name": "rich-unattended",
+  "input": {
+    "sourceSessionId": "session-old",
+    "continuedSessionId": "session-new",
+    "sourceSessionTitle": "长任务排查",
+    "generatedAt": "2026-06-10T20:00:00.000Z",
+    "model": "test-model",
+    "sessionKind": "long_task",
+    "autonomyMode": "unattended",
+    "decisionPolicyVersion": "mvp-v1",
+    "decisionModel": "decision-model",
+    "contextUsage": {
+      "usedTokens": 150000,
+      "maxTokens": 200000,
+      "remainingTokens": 50000,
+      "reservedTokens": 40000,
+      "triggerThreshold": 0.75
+    },
+    "handoffBody": "## Original User Intent\n继续任务\n\n## Pending Next Actions\n1. Update frontend/src/features/agent/handoff.ts\n\n## Key Decisions\n- Trust the working set.\n\n## Artifacts And Evidence\n- Unknown",
+    "qualityFailures": [
+      "Missing pending next actions."
+    ],
+    "supplementalContext": {
+      "workingSet": [
+        {
+          "path": "frontend/src/features/agent/handoff.ts",
+          "operationType": "edit",
+          "lastOperation": "2026-07-08T10:00:00.000Z",
+          "createdAt": 1
+        },
+        {
+          "path": "[glob]",
+          "operationType": "search",
+          "lastOperation": "2026-07-08T09:59:00.000Z",
+          "createdAt": 0,
+          "needsVerification": true
+        }
+      ],
+      "gitSnapshot": {
+        "branch": "main",
+        "statusShort": "M backend/src/agent/handoff.rs",
+        "diffStat": "1 file changed, 10 insertions(+), 2 deletions(-)",
+        "unstagedDiff": "diff --git a/a b/b\n...",
+        "stagedDiff": "",
+        "recentLog": "abc123 latest commit"
+      },
+      "verification": {
+        "lastTestCommand": "pnpm test handoff",
+        "lastTestExitCode": 0,
+        "lastBuildCommand": null,
+        "lastBuildExitCode": null,
+        "failingCommandSnippet": null
+      },
+      "backgroundJobs": [
+        {
+          "shellId": "shell-1",
+          "command": "pnpm dev",
+          "workingDirectory": "/workspace",
+          "status": "running",
+          "lastOutput": "ready"
+        }
+      ],
+      "historyFilePath": ".agent/sessions/source/history.jsonl",
+      "toolArchiveIndexPath": ".agent/sessions/source/tool-archive/index.json",
+      "chainManifestPath": ".agent/sessions/chain.json",
+      "assumptions": [
+        "Use unattended defaults."
+      ],
+      "knownErrors": [
+        "shell: TS2345 at handoff.ts:42"
+      ],
+      "decisionSummaries": [
+        "Continue with the existing handoff plan. Reason: The previous test already passed."
+      ]
+    },
+    "fallbackUserContent": "继续修复跨 session 续跑"
+  },
+  "expected": {
+    "handoffUserPrompt": "Create a handoff document for a fresh session that has no memory of the previous conversation.\nThe next session should trust the working set and archived tool outputs, continuing immediately with minimal verification.\n\nHandoff requirements:\n- Preserve intent, constraints, decisions, evidence, and next steps.\n- Call out any risky or destructive next actions explicitly.\n- Mention unfinished tools, background jobs, watchers, or commands only if they are actually known from the conversation.\n- Prefer autonomous continuation. If the original task would normally require clarification, recommend the safest reasonable default and record that assumption explicitly.\n- Only describe the task as blocked if there is truly no reasonable action the next session can take.\n- Include at least one concrete file path in Pending Next Actions when files were touched.\n- If no tests were run, write Unknown under Artifacts And Evidence.\n\nCurrent rollover context:\n- sourceSessionTitle: 长任务排查\n- sessionKind: long_task\n- autonomyMode: unattended\n- decisionPolicyVersion: mvp-v1\n- decisionModel: decision-model\n- usedTokens: 150000\n- maxTokens: 200000\n- remainingTokens: 50000\n- reservedTokens: 40000\n- triggerThreshold: 0.75\n\nPrevious attempt failed quality checks. Fix these issues:\n- Missing pending next actions.",
+    "verificationChecklist": [
+      "Re-run `pnpm test handoff` and expect exit code 0.",
+      "Confirm `frontend/src/features/agent/handoff.ts` still matches the handoff before editing.",
+      "Check running shell shell-1 in `/workspace` before starting duplicate processes."
+    ],
+    "continuationTitle": "Continue · 长任务排查",
+    "fallbackHandoffBody": "## Original User Intent\n继续修复跨 session 续跑\n\n## Current Objective\nContinue the task from session \"长任务排查\".\n\n## Constraints\n- Preserve the user's original intent and avoid repeating completed work.\n\n## Completed\n- Unknown. Review the previous session history before continuing.\n\n## In Progress\n- Automatic handoff generation failed; verify the latest assistant message and tool outputs.\n\n## Pending Next Actions\n1. Review the previous session's latest assistant/tool outputs.\n2. Reconstruct the exact current state before making more changes.\n\n## Key Decisions\n- Unknown\n\n## Rejected Or Superseded Approaches\n- Unknown\n\n## Artifacts And Evidence\n- Previous session chat history\n\n## Background Jobs And Follow-ups\n- Unknown\n\n## Open Questions\n- Unknown. If needed, proceed with conservative assumptions and record them.\n\n## Resume Instructions\nTrust the latest persisted evidence first, then perform only the minimum verification needed to continue safely.\nContinue autonomously using the safest reasonable defaults; only stop if progress is impossible without new external information.",
+    "storedHandoffArtifact": "# Automatic Session Handoff\n\n- sourceSessionId: session-old\n- continuedSessionId: session-new\n- sourceSessionTitle: 长任务排查\n- generatedAt: 2026-06-10T20:00:00.000Z\n- model: test-model\n- sessionKind: long_task\n- autonomyMode: unattended\n- decisionPolicyVersion: mvp-v1\n- decisionModel: decision-model\n- contextBudget: 150000/200000 used, 50000 remaining, reserve 40000\n\n## Original User Intent\n继续任务\n\n## Pending Next Actions\n1. Update frontend/src/features/agent/handoff.ts\n\n## Key Decisions\n- Trust the working set.\n\n## Artifacts And Evidence\n- Unknown\n\n## Working Set\n| Path | Last Operation | Operation Type |\n|------|----------------|----------------|\n| frontend/src/features/agent/handoff.ts | 2026-07-08T10:00:00.000Z | edit |\n| [glob] | 2026-07-08T09:59:00.000Z | search (needs_verification) |\n\n## Code Delta\n- branch: main\n\n```text\n$ git status --short\nM backend/src/agent/handoff.rs\n\n$ git diff --stat\n1 file changed, 10 insertions(+), 2 deletions(-)\n\n$ git diff\ndiff --git a/a b/b\n...\n\n$ git diff --staged\n(empty)\n\n$ git log --oneline -n 20\nabc123 latest commit\n\n```\n\n## Verification\n```yaml\nlast_test_command: \"pnpm test handoff\"\nlast_test_exit_code: 0\nlast_build_command: Unknown\nlast_build_exit_code: Unknown\n```\n\n## Background Job Snapshot\n- shell-1: pnpm dev (running)\n  Last output: ready\n\n## Decision Trace\n- Continue with the existing handoff plan. Reason: The previous test already passed.\n\n## Known Errors Already Investigated\n- shell: TS2345 at handoff.ts:42\n\n## Assumptions\n- Use unattended defaults.\n\n## Source Session Resources\n- history: .agent/sessions/source/history.jsonl\n- toolArchiveIndex: .agent/sessions/source/tool-archive/index.json\n- chainManifest: .agent/sessions/chain.json",
+    "continuationPrompt": "A previous session of this task reached its context budget and handed off the work.\nTreat the handoff below as the authoritative working state written by the previous session.\nDefault to trusting the handoff, working set, code delta, and archived evidence.\nContinue autonomously without waiting for user input whenever a safe, conservative, and reversible next step exists.\nWhen clarification would normally help, choose the best reasonable default, record the assumption in your work, and keep moving.\nOnly stop to ask the user if proceeding is literally impossible without information that cannot be inferred or safely defaulted.\n\nRules:\n1. Execute Pending Next Actions immediately if the verification checklist passes.\n2. Do NOT re-read files listed in the Working Set unless you are about to edit them, verification failed, or the handoff marks them as needs_verification.\n3. Do NOT glob or broadly explore the codebase just to re-understand the project.\n4. Prefer source session history and tool archive evidence over re-running prior read/search commands.\n5. During the first 1-2 turns, keep exploration extremely small and justify any extra verification.\n\nPrevious session: 长任务排查\nSession policy: long_task / unattended / mvp-v1\n\n## Continuation Working Set\n1. frontend/src/features/agent/handoff.ts (edit, trusted)\n2. [glob] (search, needs_verification)\n\n## Continuation Verification Checklist\n1. Re-run `pnpm test handoff` and expect exit code 0.\n2. Confirm `frontend/src/features/agent/handoff.ts` still matches the handoff before editing.\n3. Check running shell shell-1 in `/workspace` before starting duplicate processes.\n\n## Exploration Budget (Turns 1-2)\n- Maximum 2 targeted file reads.\n- Zero broad glob/codebase exploration unless checklist verification fails.\n- Prefer archived tool output and git delta before re-running tools.\n\nTool archive index: .agent/sessions/source/tool-archive/index.json\n\nSource session history: .agent/sessions/source/history.jsonl\n\nSession chain manifest: .agent/sessions/chain.json\n\n# Automatic Session Handoff\n\n- sourceSessionId: session-old\n- continuedSessionId: session-new\n- sourceSessionTitle: 长任务排查\n- generatedAt: 2026-06-10T20:00:00.000Z\n- model: test-model\n- sessionKind: long_task\n- autonomyMode: unattended\n- decisionPolicyVersion: mvp-v1\n- decisionModel: decision-model\n- contextBudget: 150000/200000 used, 50000 remaining, reserve 40000\n\n## Original User Intent\n继续任务\n\n## Pending Next Actions\n1. Update frontend/src/features/agent/handoff.ts\n\n## Key Decisions\n- Trust the working set.\n\n## Artifacts And Evidence\n- Unknown\n\n## Working Set\n| Path | Last Operation | Operation Type |\n|------|----------------|----------------|\n| frontend/src/features/agent/handoff.ts | 2026-07-08T10:00:00.000Z | edit |\n| [glob] | 2026-07-08T09:59:00.000Z | search (needs_verification) |\n\n## Code Delta\n- branch: main\n\n```text\n$ git status --short\nM backend/src/agent/handoff.rs\n\n$ git diff --stat\n1 file changed, 10 insertions(+), 2 deletions(-)\n\n$ git diff\ndiff --git a/a b/b\n...\n\n$ git diff --staged\n(empty)\n\n$ git log --oneline -n 20\nabc123 latest commit\n\n```\n\n## Verification\n```yaml\nlast_test_command: \"pnpm test handoff\"\nlast_test_exit_code: 0\nlast_build_command: Unknown\nlast_build_exit_code: Unknown\n```\n\n## Background Job Snapshot\n- shell-1: pnpm dev (running)\n  Last output: ready\n\n## Decision Trace\n- Continue with the existing handoff plan. Reason: The previous test already passed.\n\n## Known Errors Already Investigated\n- shell: TS2345 at handoff.ts:42\n\n## Assumptions\n- Use unattended defaults.\n\n## Source Session Resources\n- history: .agent/sessions/source/history.jsonl\n- toolArchiveIndex: .agent/sessions/source/tool-archive/index.json\n- chainManifest: .agent/sessions/chain.json"
+  }
+}

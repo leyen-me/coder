@@ -4,7 +4,6 @@ import {
   agentContextMonitorConfig,
   buildAgentContextDiagnostics,
   estimateAgentContextUsage,
-  shouldTriggerContextHandoff,
 } from "./context-monitor";
 
 describe("context-monitor", () => {
@@ -48,41 +47,6 @@ describe("context-monitor", () => {
     expect(usage.estimatedTokens).toBeGreaterThan(0);
     expect(usage.remainingTokens).toBe(10_000 - usage.usedTokens);
     expect(usage.reservedTokens).toBeGreaterThan(0);
-  });
-
-  it("does not trigger handoff before the agent has produced any replayable work", () => {
-    const handoff = shouldTriggerContextHandoff({
-      maxTokens: 1_000,
-      messages: [
-        { role: "system", content: "System prompt" },
-        { role: "user", content: "这是一个很长很长的输入".repeat(300) },
-      ],
-    });
-
-    expect(handoff).toBeNull();
-  });
-
-  it("triggers handoff once the replayable history approaches the reserve budget", () => {
-    const handoff = shouldTriggerContextHandoff({
-      maxTokens: 4_200,
-      messages: [
-        { role: "system", content: "System prompt" },
-        { role: "user", content: "继续处理长任务" },
-        {
-          role: "assistant",
-          content: "我已经检查完目录和实现细节。".repeat(300),
-        },
-        {
-          role: "tool",
-          tool_call_id: "call_1",
-          name: "read_file",
-          content: "文件内容".repeat(300),
-        },
-      ],
-    });
-
-    expect(handoff).not.toBeNull();
-    expect(handoff?.remainingTokens).toBeLessThanOrEqual(handoff?.reservedTokens ?? 0);
   });
 
   it("uses the default threshold configuration when none is provided", () => {

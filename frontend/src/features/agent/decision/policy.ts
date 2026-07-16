@@ -1,7 +1,9 @@
 import type {
   DecisionOption,
   DecisionRequest,
+  DecisionResponse,
 } from "@/lib/decision";
+import type { AgentChatMessage } from "../types";
 
 function decisionOptions(): DecisionOption[] {
   return [
@@ -37,5 +39,16 @@ export function buildFinalAnswerDecisionRequest(input: {
     autonomyMode: input.autonomyMode,
     decisionPolicyVersion: input.decisionPolicyVersion,
     assistantResponse: input.assistantResponse.trim(),
+  };
+}
+
+export function buildProxyContinuationUserMessage(
+  response: DecisionResponse
+): AgentChatMessage {
+  return {
+    role: "user",
+    content:
+      response.suggestedContinuation?.trim() ||
+      "继续，任务还没有完成。请基于当前上下文自行推进，直到真正完成为止。",
   };
 }

@@ -1,0 +1,15 @@
+{
+  "name": "unattended-or-policy",
+  "input": {
+    "sessionId": "session-3",
+    "taskId": "task-3",
+    "assistantResponse": "继续这个标准任务。",
+    "sessionKind": "standard",
+    "autonomyMode": "unattended",
+    "decisionPolicyVersion": "mvp-v1",
+    "decisionResponseContent": "{\n  \"outcome\": \"continue\",\n  \"selectedOptionId\": \"continue\",\n  \"reason\": \"Need another autonomous step.\",\n  \"riskLevel\": \"medium\",\n  \"recordAsAssumption\": false,\n  \"requiresUserConfirmation\": false,\n  \"assumption\": null,\n  \"suggestedContinuation\": \"继续，补完最后一步。\"\n}"
+  },
+  "expected": {
+    "shouldRequestProxyDecision": true
+  }
+}

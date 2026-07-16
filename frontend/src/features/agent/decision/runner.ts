@@ -1,14 +1,8 @@
-import type { AgentChatMessage } from "../types";
-import { AgentCancellationError, throwIfAborted } from "../cancellation";
-import { cancelAgent, startAgent } from "../runner";
-import type { DecisionRequest, DecisionResponse } from "@/lib/decision";
-import {
-  buildProxyDecisionUserPrompt,
-  PROXY_DECISION_SYSTEM_PROMPT,
-} from "./prompt";
-import { randomUUID } from "@/lib/random-id";
+import type { DecisionResponse } from "@/lib/decision";
 
-function extractJsonObject(content: string): string {
+// Legacy parity oracle helpers kept for frontend/backend differential tests.
+// Runtime proxy decision execution now lives exclusively in the backend.
+export function extractJsonObject(content: string): string {
   const trimmed = content.trim();
   if (!trimmed) {
     throw new Error("Decision model returned empty content");
@@ -28,7 +22,7 @@ function extractJsonObject(content: string): string {
   return trimmed.slice(firstBrace, lastBrace + 1);
 }
 
-function normalizeDecisionResponse(raw: unknown): DecisionResponse {
+export function normalizeDecisionResponse(raw: unknown): DecisionResponse {
   if (!raw || typeof raw !== "object") {
     throw new Error("Decision response must be an object");
   }
@@ -73,91 +67,3 @@ function normalizeDecisionResponse(raw: unknown): DecisionResponse {
   };
 }
 
-export async function requestProxyDecision(input: {
-  taskId: string;
-  model: string;
-  baseUrl: string;
-  apiKey: string;
-  apiKeySource: "manual" | "env";
-  apiKeyEnvVar: string;
-  request: DecisionRequest;
-  /** Full conversation history for context-aware decisions. */
-  conversationMessages?: AgentChatMessage[];
-  signal?: AbortSignal;
-}): Promise<DecisionResponse> {
-  const decisionTaskId = `${input.taskId}:decision:${randomUUID()}`;
-  throwIfAborted(input.signal, decisionTaskId);
-
-  const messages: AgentChatMessage[] = [
-    { role: "system", content: PROXY_DECISION_SYSTEM_PROMPT },
-    // Include the full conversation so the decision model can evaluate
-    // whether the user's original request is genuinely complete.
-    ...(input.conversationMessages ?? []),
-    { role: "user", content: buildProxyDecisionUserPrompt(input.request) },
-  ];
-
-  let content = "";
-  let detachAbortListener = () => {};
-
-  try {
-    if (input.signal) {
-      const onAbort = () => {
-        void cancelAgent(decisionTaskId);
-      };
-      detachAbortListener = () => {
-        input.signal?.removeEventListener("abort", onAbort);
-      };
-      input.signal.addEventListener("abort", onAbort, { once: true });
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      void startAgent(
-        {
-          taskId: decisionTaskId,
-          baseUrl: input.baseUrl,
-          apiKey: input.apiKey,
-          apiKeySource: input.apiKeySource,
-          apiKeyEnvVar: input.apiKeyEnvVar,
-          model: input.model,
-          messages,
-        },
-        (event) => {
-          if (event.type === "content_delta") {
-            content += event.delta;
-            return;
-          }
-
-          if (event.type === "error") {
-            reject(new Error(event.message));
-            return;
-          }
-
-          if (event.type === "status") {
-            if (event.status === "completed") {
-              resolve();
-              return;
-            }
-
-            if (event.status === "failed" || event.status === "cancelled") {
-              reject(
-                new Error(
-                  `Decision model ended with status: ${event.status}`
-                )
-              );
-            }
-          }
-        },
-        { signal: input.signal }
-      ).catch(reject);
-    });
-  } catch (error) {
-    if (input.signal?.aborted) {
-      throw new AgentCancellationError(decisionTaskId);
-    }
-    throw error;
-  } finally {
-    detachAbortListener();
-  }
-
-  return normalizeDecisionResponse(JSON.parse(extractJsonObject(content)));
-}

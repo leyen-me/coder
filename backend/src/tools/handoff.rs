@@ -1,13 +1,13 @@
 use std::path::Path;
 use std::process::Command;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::tools::git::git_current_branch;
 
 const MAX_DIFF_CHARS: usize = 65_536;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GitSnapshotResult {
     pub branch: Option<String>,

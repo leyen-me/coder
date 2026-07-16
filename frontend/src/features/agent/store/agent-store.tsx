@@ -64,7 +64,6 @@ import type {
   AgentChatMessage,
   ActiveTaskState,
   AgentEvent,
-  AgentContextUsageSnapshot,
   AgentMode,
   AgentStatus,
   SessionHandoffPhase,
@@ -337,7 +336,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           return;
         case "decision_requested":
           streamingBufferRef.current.upsertProcessStep(assistantMessageId, {
-            id: `decision:${event.decisionId}`,
+            id: event.decisionId,
             kind: "decision",
             trigger: event.trigger,
             summary: event.summary,
@@ -353,7 +352,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           return;
         case "decision_resolved":
           streamingBufferRef.current.upsertProcessStep(assistantMessageId, {
-            id: `decision:${event.decisionId}`,
+            id: event.decisionId,
             kind: "decision",
             trigger: event.trigger,
             summary: event.summary,
@@ -519,12 +518,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
                   taskAbortControllersRef.current.delete(event.taskId);
                   tasksRef.current.delete(event.taskId);
-                  if (effectiveStatus === "completed" && task.handoff) {
-                    setSessionHandoffState(
-                      task.sessionId,
-                      "generating_handoff"
-                    );
-                  }
                   emit();
 
                   setTimeout(() => {
