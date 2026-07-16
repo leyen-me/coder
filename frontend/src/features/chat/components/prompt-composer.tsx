@@ -4,11 +4,11 @@ import { FolderOpenIcon, GitBranchIcon, XIcon } from "lucide-react";
 import {
   memo,
   useCallback,
-  useEffect,
   useRef,
   useState,
   type RefObject,
 } from "react";
+import { toast } from "sonner";
 
 import {
   PromptInput,
@@ -111,34 +111,6 @@ type ComposerSubmitProps = {
   supportsMultimodal: boolean;
   queueActionLabel?: string;
 };
-
-type ComposerAttachmentErrorProps = {
-  message: string | null;
-  onClear: () => void;
-};
-
-function ComposerAttachmentError({
-  message,
-  onClear,
-}: ComposerAttachmentErrorProps) {
-  const attachments = usePromptInputAttachments();
-
-  useEffect(() => {
-    if (attachments.files.length > 0) {
-      onClear();
-    }
-  }, [attachments.files.length, onClear]);
-
-  if (!message) {
-    return null;
-  }
-
-  return (
-    <p className="px-4 pt-2 text-destructive text-xs" role="alert">
-      {message}
-    </p>
-  );
-}
 
 function ComposerHotkeyActions({
   onSubmit,
@@ -324,7 +296,6 @@ export const PromptComposer = memo(function PromptComposer({
   }, [composerKey, initialValueProp]);
 
   const editorRef = useRef<Editor | null>(null);
-  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const submitStatus = resolveSubmitStatus(isRunning, Boolean(onStop));
   const selectedModel = findModelDefinition(models, model);
   const supportsMultimodal = selectedModel?.supportsMultimodal ?? false;
@@ -335,33 +306,29 @@ export const PromptComposer = memo(function PromptComposer({
     ? t("chat.queueUpdate")
     : t("chat.queueAdd");
 
-  const clearAttachmentError = useCallback(() => {
-    setAttachmentError(null);
+  const showAttachmentError = useCallback((message: string) => {
+    toast.error(message);
   }, []);
 
   const handleAttachmentError = useCallback(
     (error: PromptInputAttachmentError) => {
+      let message: string;
       switch (error.code) {
         case "accept":
-          setAttachmentError(
-            supportsMultimodal
-              ? t("chat.attachmentErrorAccept")
-              : t("chat.attachmentErrorMultimodalUnsupported")
-          );
+          message = supportsMultimodal
+            ? t("chat.attachmentErrorAccept")
+            : t("chat.attachmentErrorMultimodalUnsupported");
           break;
         case "max_file_size":
-          setAttachmentError(
-            t("chat.attachmentErrorMaxSize", { size: COMPOSER_MAX_FILE_SIZE_LABEL })
-          );
+          message = t("chat.attachmentErrorMaxSize", { size: COMPOSER_MAX_FILE_SIZE_LABEL });
           break;
         case "max_files":
-          setAttachmentError(
-            t("chat.attachmentErrorMaxFiles", { count: COMPOSER_MAX_FILES })
-          );
+          message = t("chat.attachmentErrorMaxFiles", { count: COMPOSER_MAX_FILES });
           break;
       }
+      showAttachmentError(message);
     },
-    [supportsMultimodal, t]
+    [showAttachmentError, supportsMultimodal, t]
   );
 
   const dropMessages = useCallback(
@@ -383,16 +350,15 @@ export const PromptComposer = memo(function PromptComposer({
         return;
       }
 
-      setAttachmentError(null);
       void processNativeFileDropItems({
         items,
         workspaceDir,
         addAttachments,
-        onError: setAttachmentError,
+        onError: showAttachmentError,
         messages: dropMessages(),
       });
     },
-    [dropMessages, workspaceDir]
+    [dropMessages, showAttachmentError, workspaceDir]
   );
 
   const handleNativeFileDrop = useCallback(
@@ -477,10 +443,6 @@ export const PromptComposer = memo(function PromptComposer({
         editorRef={editorRef}
       />
       <PromptComposerAttachmentsHeader />
-      <ComposerAttachmentError
-        message={attachmentError}
-        onClear={clearAttachmentError}
-      />
 
       <PromptInputBody>
         <ComposerRichInput
