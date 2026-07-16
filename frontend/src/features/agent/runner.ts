@@ -1,4 +1,4 @@
-import { apiPost } from "@/lib/api/client";
+import { apiGet, apiPost } from "@/lib/api/client";
 import { connectAgentSse, type AgentSseConnection } from "@/lib/api/sse";
 import type { AgentEvent, AgentStartInput, AgentStatus } from "./types";
 
@@ -107,6 +107,7 @@ export async function startAgent(
         maybeFinalize();
       },
       (error) => settle(() => reject(new Error(error))),
+      { fromSeq: 0 },
     );
     activeConnections.set(input.taskId, connection);
 
@@ -134,6 +135,7 @@ export async function startAgent(
         }
         await apiPost("/agent/start", {
           taskId: input.taskId,
+          sessionId: input.sessionId ?? null,
           baseUrl: input.baseUrl,
           apiKey: input.apiKey || null,
           apiKeySource: input.apiKeySource,
@@ -142,6 +144,16 @@ export async function startAgent(
           messages: input.messages,
           tools: input.tools ?? null,
           requestExtensions: input.requestExtensions ?? null,
+          emitAssistantOutput: input.emitAssistantOutput ?? true,
+          maxContextTokens: input.maxContextTokens ?? null,
+          handoffTriggerThreshold: input.handoffTriggerThreshold ?? null,
+          agentMode: input.agentMode ?? null,
+          thinkingEnabled: input.thinkingEnabled ?? null,
+          models: input.models ?? null,
+          sessionKind: input.sessionKind ?? null,
+          autonomyMode: input.autonomyMode ?? null,
+          decisionPolicyVersion: input.decisionPolicyVersion ?? null,
+          decisionModel: input.decisionModel ?? null,
         });
         didStart = true;
         maybeFinalize();
@@ -167,10 +179,108 @@ export async function cancelAgent(taskId: string): Promise<void> {
 
 export async function getAgentStatus(
   taskId: string,
-): Promise<{ taskId: string; status: string } | null> {
+): Promise<{ taskId: string; status: string; lastSeq?: number | null } | null> {
   try {
     return await apiPost("/agent/status", { taskId });
   } catch {
     return null;
   }
+}
+
+export async function getAgentSessionStatus(
+  sessionId: string,
+): Promise<
+  | {
+      running: boolean;
+      taskId?: string;
+      status?: string;
+      lastSeq?: number | null;
+    }
+  | null
+> {
+  try {
+    return await apiGet(`/api/agent/session/${encodeURIComponent(sessionId)}/status`);
+  } catch {
+    return null;
+  }
+}
+
+export async function resumeAgentStream(
+  taskId: string,
+  onEvent: (event: AgentEvent) => void,
+  options: StartAgentOptions & { fromSeq?: number } = {},
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    let terminalStatus: AgentStatus | null = null;
+    let settled = false;
+    let detachAbortListener = () => {};
+    const settle = (callback: () => void) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      activeConnections.delete(taskId);
+      detachAbortListener();
+      callback();
+    };
+    const connection = connectAgentSse(
+      taskId,
+      (raw) => {
+        const event = raw as AgentEvent;
+        if (event.type === "status" && isTerminalStatus(event.status)) {
+          terminalStatus = event.status;
+        }
+        onEvent(event);
+      },
+      () => {
+        if (terminalStatus) {
+          settle(resolve);
+          return;
+        }
+        void getAgentStatus(taskId)
+          .then((statusResponse) => {
+            if (statusResponse && isTerminalStatus(statusResponse.status)) {
+              onEvent({
+                type: "status",
+                taskId,
+                status: statusResponse.status,
+              });
+              settle(resolve);
+              return;
+            }
+            settle(resolve);
+          })
+          .catch(() => settle(resolve));
+      },
+      (error) => settle(() => reject(new Error(error))),
+      { fromSeq: options.fromSeq },
+    );
+    activeConnections.set(taskId, connection);
+
+    if (options.signal) {
+      if (options.signal.aborted) {
+        connection.close();
+        settle(() => reject(createAbortError(taskId)));
+        return;
+      }
+
+      const onAbort = () => {
+        connection.close();
+        settle(() => reject(createAbortError(taskId)));
+      };
+      detachAbortListener = () => {
+        options.signal?.removeEventListener("abort", onAbort);
+      };
+      options.signal.addEventListener("abort", onAbort, { once: true });
+    }
+
+    void connection.ready
+      .then(() => resolve())
+      .catch((error: unknown) => {
+        connection.close();
+        settle(() =>
+          reject(error instanceof Error ? error : new Error(String(error))),
+        );
+      });
+  });
 }

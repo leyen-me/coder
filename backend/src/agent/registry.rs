@@ -5,10 +5,11 @@ use reqwest::Client;
 use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
+use super::event_log::EventLog;
+use super::loop_::{run_agent_loop, AgentLoopError};
 use super::openai::{
-    build_http_client, chat_completions_url, complete_chat_completion, stream_chat_completion,
-    REFINE_PROMPT_MAX_TOKENS, SESSION_TITLE_MAX_TOKENS,
-    SESSION_TITLE_SYSTEM_PROMPT,
+    build_http_client, chat_completions_url, complete_chat_completion, REFINE_PROMPT_MAX_TOKENS,
+    SESSION_TITLE_MAX_TOKENS, SESSION_TITLE_SYSTEM_PROMPT,
 };
 use super::stream_log::{agent_diagnostic_log, agent_stream_log};
 use super::types::{
@@ -93,6 +94,18 @@ fn debug_emit_log(event: &AgentEvent) {
         AgentEvent::Done { task_id, .. } => {
             agent_stream_log(format!("emit task_id={task_id} type=done"));
         }
+        AgentEvent::HandoffRequired { task_id, .. } => {
+            agent_stream_log(format!("emit task_id={task_id} type=handoff_required"));
+        }
+        AgentEvent::ChatRetry {
+            task_id,
+            attempt,
+            max_attempts,
+        } => {
+            agent_stream_log(format!(
+                "emit task_id={task_id} type=chat_retry attempt={attempt}/{max_attempts}"
+            ));
+        }
         AgentEvent::Error { task_id, message } => {
             agent_stream_log(format!(
                 "emit task_id={task_id} type=error message={message:?}"
@@ -103,7 +116,9 @@ fn debug_emit_log(event: &AgentEvent) {
 
 struct AgentRun {
     status: AgentStatus,
+    session_id: Option<String>,
     cancel: CancellationToken,
+    event_log: EventLog,
 }
 
 pub struct AgentRegistry {
@@ -123,11 +138,47 @@ impl AgentRegistry {
         self.runs.get(task_id).map(|run| AgentStatusResponse {
             task_id: task_id.to_string(),
             status: run.status.clone(),
+            last_seq: Some(run.event_log.latest_seq()),
         })
     }
 
     pub fn http_client(&self) -> Client {
         self.client.clone()
+    }
+
+    pub fn record_event(&mut self, task_id: &str, event_json: &str) -> u64 {
+        self.runs
+            .get_mut(task_id)
+            .map(|run| run.event_log.push(event_json))
+            .unwrap_or(0)
+    }
+
+    pub fn update_status(&mut self, task_id: &str, status: AgentStatus) {
+        if let Some(run) = self.runs.get_mut(task_id) {
+            run.status = status;
+        }
+    }
+
+    pub fn remove_run(&mut self, task_id: &str) {
+        self.runs.remove(task_id);
+    }
+
+    pub fn replay_events_from(&self, task_id: &str, from_seq: u64) -> Vec<String> {
+        self.runs
+            .get(task_id)
+            .map(|run| run.event_log.replay_from(from_seq))
+            .unwrap_or_default()
+    }
+
+    pub fn get_session_status(&self, session_id: &str) -> Option<AgentStatusResponse> {
+        self.runs
+            .iter()
+            .find(|(_, run)| run.session_id.as_deref() == Some(session_id) && is_active_run_status(&run.status))
+            .map(|(task_id, run)| AgentStatusResponse {
+                task_id: task_id.clone(),
+                status: run.status.clone(),
+                last_seq: Some(run.event_log.latest_seq()),
+            })
     }
 }
 
@@ -282,6 +333,7 @@ impl AgentRegistry {
         params: AgentStartParams,
         broadcaster: Arc<crate::SseBroadcaster>,
         registry: Arc<Mutex<AgentRegistry>>,
+        app_state: Arc<crate::AppState>,
     ) -> Result<(), String> {
         if let Some(existing) = self.runs.get(&params.task_id) {
             if is_active_run_status(&existing.status) {
@@ -311,20 +363,19 @@ impl AgentRegistry {
         let cancel = CancellationToken::new();
         let child_cancel = cancel.child_token();
         let task_id = params.task_id.clone();
-        let url = chat_completions_url(&params.base_url);
         let model = params.model.clone();
-        let messages = params.messages.clone();
-        let tools = params.tools.clone();
-        let request_extensions = params.request_extensions.clone();
         let client = self.client.clone();
         let emit_broadcaster = broadcaster.clone();
         let emit_task_id = task_id.clone();
+        let session_id = params.session_id.clone();
 
         self.runs.insert(
             params.task_id.clone(),
             AgentRun {
                 status: AgentStatus::Running,
+                session_id: session_id.clone(),
                 cancel,
+                event_log: EventLog::new(),
             },
         );
 
@@ -333,23 +384,22 @@ impl AgentRegistry {
             status: AgentStatus::Running,
         };
         debug_emit_log(&initial_event);
-        let _ = emit_broadcaster.emit_agent_event(&emit_task_id, &initial_event);
+        if let Ok(json) = serde_json::to_string(&initial_event) {
+            let seq = self.record_event(&emit_task_id, &json);
+            emit_broadcaster.emit(&emit_task_id, &super::loop_::inject_seq_into_event_json(&json, seq));
+        }
 
         tokio::spawn(async move {
-            let result = stream_chat_completion(
-                &client,
-                url,
-                &api_key,
-                &model,
-                &messages,
-                tools.as_deref(),
-                request_extensions.as_ref(),
-                child_cancel.clone(),
-                |event| {
-                    debug_emit_log(&event);
-                    emit_broadcaster.emit_agent_event(&emit_task_id, &event);
+            let result = run_agent_loop(
+                AgentStartParams {
+                    api_key: Some(api_key),
+                    ..params
                 },
-                &task_id,
+                client,
+                emit_broadcaster.clone(),
+                child_cancel.clone(),
+                registry.clone(),
+                app_state.clone(),
             )
             .await;
 
@@ -358,9 +408,14 @@ impl AgentRegistry {
             } else {
                 match &result {
                     Ok(()) => AgentStatus::Completed,
+                    Err(AgentLoopError::Cancelled) => AgentStatus::Cancelled,
                     Err(_) => AgentStatus::Failed,
                 }
             };
+
+            if let Ok(mut registry_guard) = registry.lock() {
+                registry_guard.update_status(&task_id, final_status.clone());
+            }
 
             if let Err(message) = result {
                 agent_diagnostic_log(format!(
@@ -368,10 +423,20 @@ impl AgentRegistry {
                 ));
                 let error_event = AgentEvent::Error {
                     task_id: task_id.clone(),
-                    message,
+                    message: message.to_string(),
                 };
                 debug_emit_log(&error_event);
-                emit_broadcaster.emit_agent_event(&task_id, &error_event);
+                if let Ok(json) = serde_json::to_string(&error_event) {
+                    let seq = if let Ok(mut registry_guard) = registry.lock() {
+                        registry_guard.record_event(&task_id, &json)
+                    } else {
+                        0
+                    };
+                    emit_broadcaster.emit(
+                        &task_id,
+                        &super::loop_::inject_seq_into_event_json(&json, seq),
+                    );
+                }
             }
 
             let final_event = AgentEvent::Status {
@@ -379,12 +444,22 @@ impl AgentRegistry {
                 status: final_status.clone(),
             };
             debug_emit_log(&final_event);
-            emit_broadcaster.emit_agent_event(&task_id, &final_event);
+            if let Ok(json) = serde_json::to_string(&final_event) {
+                let seq = if let Ok(mut registry_guard) = registry.lock() {
+                    registry_guard.record_event(&task_id, &json)
+                } else {
+                    0
+                };
+                emit_broadcaster.emit(
+                    &task_id,
+                    &super::loop_::inject_seq_into_event_json(&json, seq),
+                );
+            }
 
             emit_broadcaster.unregister(&task_id);
 
             if let Ok(mut registry) = registry.lock() {
-                registry.runs.remove(&task_id);
+                registry.remove_run(&task_id);
             }
         });
 

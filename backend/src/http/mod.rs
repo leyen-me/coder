@@ -119,6 +119,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/agent/start", post(routes_tool::handle_agent_start))
         .route("/agent/cancel", post(routes_tool::handle_agent_cancel))
         .route("/agent/status", post(routes_tool::handle_agent_status))
+        .route(
+            "/api/agent/session/{session_id}/status",
+            get(routes_tool::handle_agent_session_status),
+        )
         .route("/agent/generate_title", post(routes_tool::handle_generate_session_title))
         .route("/agent/refine_prompt", post(routes_tool::handle_refine_prompt))
         .route("/sse/events/{topic}", get(routes_sse::handle_sse_events))

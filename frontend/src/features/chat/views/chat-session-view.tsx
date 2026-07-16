@@ -76,10 +76,11 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     getSessionTask,
     getSessionHandoffState,
     isSessionRunning,
+    resumeSessionTask,
   } = useAgentStore();
   const location = useLocation();
   const handoffPreviewMode = getHandoffPreviewMode();
-  const { session, messages, isLoading } = useSessionData(chatId);
+  const { session, messages, isLoading, refresh } = useSessionData(chatId);
   const previewMessages = useMemo(() => {
     if (!handoffPreviewMode || handoffPreviewMode === "progress") {
       return null;
@@ -175,6 +176,12 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       setModel(session.model);
     }
   }, [session?.model]);
+
+  useEffect(() => {
+    void resumeSessionTask(chatId).finally(() => {
+      void refresh();
+    });
+  }, [chatId, refresh, resumeSessionTask]);
 
   const handleCancelEdit = useCallback(() => {
     setEditingMessageId(null);

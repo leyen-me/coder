@@ -1,8 +1,9 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     response::sse::{Event, KeepAlive, Sse},
 };
 use futures::stream::Stream;
+use serde::Deserialize;
 use std::convert::Infallible;
 use std::sync::Arc;
 use tokio::sync::broadcast::error::RecvError;
@@ -24,13 +25,24 @@ fn close_event_json(reason: &str, message: &str, skipped: Option<u64>) -> String
 /// SSE endpoint for agent events and other real-time streaming.
 pub async fn handle_sse_events(
     Path(topic): Path<String>,
+    Query(query): Query<SseReplayQuery>,
     State(state): State<Arc<AppState>>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     let rx = state.sse_broadcaster.subscribe(&topic);
+    let replay_events = query
+        .from_seq
+        .and_then(|from_seq| {
+            crate::agent::agent_replay_events(&state.agent_registry, topic.clone(), from_seq).ok()
+        })
+        .unwrap_or_default();
 
     let stream = async_stream::stream! {
         // Yield a heartbeat immediately so the proxy / client sees headers
         yield Ok(Event::default().data(r#"{"type":"heartbeat"}"#));
+
+        for replay in replay_events {
+            yield Ok(Event::default().data(replay));
+        }
 
         let mut rx = rx;
         loop {
@@ -63,6 +75,12 @@ pub async fn handle_sse_events(
             .interval(std::time::Duration::from_secs(15))
             .text(r#"{"type":"heartbeat"}"#),
     )
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SseReplayQuery {
+    pub from_seq: Option<u64>,
 }
 
 /// SSE endpoint for shell output streaming.

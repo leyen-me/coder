@@ -72,6 +72,16 @@ pub struct TokenUsage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentContextUsageSnapshot {
+    pub used_tokens: u32,
+    pub max_tokens: u32,
+    pub remaining_tokens: u32,
+    pub reserved_tokens: u32,
+    pub trigger_threshold: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all_fields = "camelCase")]
 pub enum AgentEvent {
     #[serde(rename = "status")]
@@ -122,6 +132,17 @@ pub enum AgentEvent {
         #[serde(skip_serializing_if = "Option::is_none")]
         usage: Option<TokenUsage>,
     },
+    #[serde(rename = "handoff_required")]
+    HandoffRequired {
+        task_id: String,
+        context_usage: AgentContextUsageSnapshot,
+    },
+    #[serde(rename = "chat_retry")]
+    ChatRetry {
+        task_id: String,
+        attempt: u32,
+        max_attempts: u32,
+    },
     #[serde(rename = "error")]
     Error {
         task_id: String,
@@ -141,6 +162,28 @@ pub struct AgentStartParams {
     pub messages: Vec<ChatMessage>,
     pub tools: Option<Vec<AgentToolDefinition>>,
     pub request_extensions: Option<Value>,
+    #[serde(default)]
+    pub session_id: Option<String>,
+    #[serde(default)]
+    pub emit_assistant_output: Option<bool>,
+    #[serde(default)]
+    pub max_context_tokens: Option<u32>,
+    #[serde(default)]
+    pub handoff_trigger_threshold: Option<f64>,
+    #[serde(default)]
+    pub agent_mode: Option<String>,
+    #[serde(default)]
+    pub thinking_enabled: Option<bool>,
+    #[serde(default)]
+    pub models: Option<Vec<Value>>,
+    #[serde(default)]
+    pub session_kind: Option<String>,
+    #[serde(default)]
+    pub autonomy_mode: Option<String>,
+    #[serde(default)]
+    pub decision_policy_version: Option<String>,
+    #[serde(default)]
+    pub decision_model: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,6 +191,8 @@ pub struct AgentStartParams {
 pub struct AgentStatusResponse {
     pub task_id: String,
     pub status: AgentStatus,
+    #[serde(default)]
+    pub last_seq: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

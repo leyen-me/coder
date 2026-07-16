@@ -1,4 +1,4 @@
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{extract::{Path, State}, http::StatusCode, Json};
 use chrono::Utc;
 use serde::Deserialize;
 use serde_json::Value;
@@ -280,6 +280,17 @@ pub struct AgentStartParams {
     pub messages: Vec<agent::ChatMessage>,
     pub tools: Option<Vec<agent::AgentToolDefinition>>,
     pub request_extensions: Option<Value>,
+    pub session_id: Option<String>,
+    pub emit_assistant_output: Option<bool>,
+    pub max_context_tokens: Option<u32>,
+    pub handoff_trigger_threshold: Option<f64>,
+    pub agent_mode: Option<String>,
+    pub thinking_enabled: Option<bool>,
+    pub models: Option<Vec<Value>>,
+    pub session_kind: Option<String>,
+    pub autonomy_mode: Option<String>,
+    pub decision_policy_version: Option<String>,
+    pub decision_model: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -924,11 +935,23 @@ pub async fn handle_agent_start(
         messages: params.messages,
         tools: params.tools,
         request_extensions: params.request_extensions,
+        session_id: params.session_id,
+        emit_assistant_output: params.emit_assistant_output,
+        max_context_tokens: params.max_context_tokens,
+        handoff_trigger_threshold: params.handoff_trigger_threshold,
+        agent_mode: params.agent_mode,
+        thinking_enabled: params.thinking_enabled,
+        models: params.models,
+        session_kind: params.session_kind,
+        autonomy_mode: params.autonomy_mode,
+        decision_policy_version: params.decision_policy_version,
+        decision_model: params.decision_model,
     };
     agent::agent_start(
         &state.agent_registry,
         agent_params,
         state.sse_broadcaster.clone(),
+        state.clone(),
     )
     .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(serde_json::to_value(serde_json::json!({"ok": true})).map_err(
@@ -959,6 +982,27 @@ pub async fn handle_agent_status(
     Ok(Json(serde_json::to_value(result).map_err(|e| {
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
     })?))
+}
+
+/// GET /api/agent/session/{session_id}/status
+pub async fn handle_agent_session_status(
+    Path(session_id): Path<String>,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let result = agent::agent_get_session_status(&state.agent_registry, session_id)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    let payload = match result {
+        Some(status) => serde_json::json!({
+            "running": true,
+            "taskId": status.task_id,
+            "status": status.status,
+            "lastSeq": status.last_seq,
+        }),
+        None => serde_json::json!({
+            "running": false,
+        }),
+    };
+    Ok(Json(payload))
 }
 
 /// POST /agent/generate_title

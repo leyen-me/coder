@@ -1,5 +1,8 @@
+pub mod event_log;
+pub mod loop_;
 pub mod openai;
 pub mod registry;
+pub mod tool_dispatch;
 mod stream_log;
 mod types;
 
@@ -7,7 +10,7 @@ use std::sync::{Arc, Mutex};
 
 use registry::{generate_session_title, refine_prompt, AgentRegistry};
 pub use types::{
-    AgentEvent, AgentStartParams, AgentStatus, AgentStatusResponse, AgentToolDefinition,
+    AgentContextUsageSnapshot, AgentEvent, AgentStartParams, AgentStatus, AgentStatusResponse, AgentToolDefinition,
     ApiToolCall, ApiToolCallFunction, ChatMessage, GenerateSessionTitleParams,
     RefineContextMessage, RefinePromptParams, ToolCall,
 };
@@ -23,6 +26,27 @@ pub fn agent_get_status(
         .lock()
         .map_err(|_| "Agent registry lock poisoned".to_string())?;
     Ok(r.get_status(&task_id))
+}
+
+pub fn agent_get_session_status(
+    registry: &Mutex<AgentRegistry>,
+    session_id: String,
+) -> Result<Option<AgentStatusResponse>, String> {
+    let r = registry
+        .lock()
+        .map_err(|_| "Agent registry lock poisoned".to_string())?;
+    Ok(r.get_session_status(&session_id))
+}
+
+pub fn agent_replay_events(
+    registry: &Mutex<AgentRegistry>,
+    task_id: String,
+    from_seq: u64,
+) -> Result<Vec<String>, String> {
+    let r = registry
+        .lock()
+        .map_err(|_| "Agent registry lock poisoned".to_string())?;
+    Ok(r.replay_events_from(&task_id, from_seq))
 }
 
 pub fn agent_cancel(
@@ -65,9 +89,10 @@ pub fn agent_start(
     registry: &Arc<Mutex<AgentRegistry>>,
     params: AgentStartParams,
     broadcaster: Arc<crate::SseBroadcaster>,
+    app_state: Arc<crate::AppState>,
 ) -> Result<(), String> {
     let mut r = registry
         .lock()
         .map_err(|_| "Agent registry lock poisoned".to_string())?;
-    r.start(params, broadcaster, registry.clone())
+    r.start(params, broadcaster, registry.clone(), app_state)
 }

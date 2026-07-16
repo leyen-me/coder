@@ -115,6 +115,7 @@ export function connectAgentSse(
   onEvent: (event: SseEvent) => void,
   onDone: (completion: AgentSseCompletion) => void,
   onError: (error: string) => void,
+  options: { fromSeq?: number } = {},
 ): AgentSseConnection {
   const controller = new AbortController();
   let resolveReady!: () => void;
@@ -147,7 +148,11 @@ export function connectAgentSse(
 
   void (async () => {
     try {
-      const response = await fetch(`/sse/events/${encodeURIComponent(taskId)}`, {
+      const url = new URL(`/sse/events/${encodeURIComponent(taskId)}`, window.location.origin);
+      if (typeof options.fromSeq === "number" && Number.isFinite(options.fromSeq)) {
+        url.searchParams.set("from_seq", String(options.fromSeq));
+      }
+      const response = await fetch(url.toString(), {
         signal: controller.signal,
       });
 

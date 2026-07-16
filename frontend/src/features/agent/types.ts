@@ -98,6 +98,7 @@ export type TokenUsage = {
 
 export type AgentStartInput = {
   taskId: string;
+  sessionId?: string;
   baseUrl: string;
   apiKey: string;
   apiKeySource: "manual" | "env";

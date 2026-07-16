@@ -16,6 +16,7 @@ import {
   createMessage,
   createSession,
   createTaskId,
+  DEFAULT_SESSION_AUTONOMY_MODE,
   deleteMessagesAfter,
   deleteSession,
   deriveSessionTitle,
@@ -31,13 +32,10 @@ import {
 } from "@/lib/db";
 import { paths } from "@/app/paths";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
-import { useWebTools } from "@/lib/web-tools/web-tools-provider";
 import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
 import { appEventBus } from "@/lib/event-bus";
 import { randomUUID } from "@/lib/random-id";
-import { runAgentWithTools } from "../agent-loop";
-import { resolveMcpAgentTools } from "@/features/mcp/lib/resolve-mcp-tools";
 import { buildAgentMessages } from "../build-agent-messages";
 import { isAgentCancellationError } from "../cancellation";
 import { SkillReferenceValidationError } from "@/features/skills/lib/skill-errors";
@@ -63,7 +61,12 @@ import {
 } from "@/lib/model-provider/model-definition";
 import { resolveContextWindowForModel } from "../headless-runner";
 import { buildThinkingRequestExtensions, resolveDefaultThinkingEnabled } from "../thinking-preference";
-import { cancelAgent, startAgent } from "../runner";
+import {
+  cancelAgent,
+  getAgentSessionStatus,
+  resumeAgentStream,
+  startAgent,
+} from "../runner";
 import type {
   AgentChatMessage,
   ActiveTaskState,
@@ -143,6 +146,7 @@ type AgentStoreValue = {
     agentMode?: AgentMode;
   }) => Promise<{ userMessageId: string; assistantMessageId: string; taskId: string }>;
   cancelTask: (taskId: string) => Promise<void>;
+  resumeSessionTask: (sessionId: string) => Promise<void>;
 };
 
 const AgentStoreContext = createContext<AgentStoreValue | null>(null);
@@ -251,11 +255,6 @@ function navigateToSession(sessionId: string): void {
 
 export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const { resolved, resolveProviderForModel } = useModelProvider();
-  const {
-    webSearchConfig,
-    webSearchConfigError,
-    settings: webToolsSettings,
-  } = useWebTools();
   const resolvedRef = useRef(resolved);
   resolvedRef.current = resolved;
   const tasksRef = useRef(new Map<string, ActiveTaskState>());
@@ -780,8 +779,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       taskAbortControllersRef.current.set(taskId, abortController);
       emit();
 
-      const mcpTools = await resolveMcpAgentTools().catch(() => []);
-      const extraTools = [...mcpTools, ...(input.extraTools ?? [])];
+      const extraTools = input.extraTools ?? [];
       const tools =
         extraTools.length > 0
           ? [...getAgentToolDefinitions(input.agentMode), ...extraTools]
@@ -812,9 +810,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         // best-effort
       });
 
-      void runAgentWithTools(
+      void startAgent(
         {
           taskId,
+          sessionId: input.sessionId,
           baseUrl: input.resolvedConfig.baseUrl,
           apiKey: resolveApiKey(input.resolvedConfig),
           apiKeySource: input.resolvedConfig.apiKeySource,
@@ -837,19 +836,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           decisionModel: input.decisionModel,
           thinkingEnabled: input.thinkingEnabled,
         },
-        {
-          workspaceDir: input.workspaceDir,
-          sessionId: input.sessionId,
-          taskId,
-          signal: abortController.signal,
-          webSearchConfig,
-          webSearchConfigError,
-          allowPrivateNetworkAccess: webToolsSettings.allowPrivateNetworkAccess,
-          agentMode: input.agentMode,
-        },
         (event) => {
           dispatchAgentEvent(taskId, assistantMessage.id, event);
-        }
+        },
+        { signal: abortController.signal },
       ).catch((error: unknown) => {
         if (
           abortController.signal.aborted ||
@@ -883,10 +873,104 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     [
       dispatchAgentEvent,
       emit,
-      webSearchConfig,
-      webSearchConfigError,
-      webToolsSettings.allowPrivateNetworkAccess,
     ]
+  );
+
+  const resumeSessionTask = useCallback(
+    async (sessionId: string) => {
+      if (!sessionId) {
+        return;
+      }
+
+      for (const task of tasksRef.current.values()) {
+        if (task.sessionId === sessionId) {
+          return;
+        }
+      }
+
+      const status = await getAgentSessionStatus(sessionId);
+      if (!status?.running || !status.taskId) {
+        return;
+      }
+
+      const [session, messages] = await Promise.all([
+        getSession(sessionId),
+        getMessagesBySession(sessionId),
+      ]);
+      const assistantMessage = messages.find(
+        (message) => message.role === "assistant" && message.taskId === status.taskId,
+      );
+      if (!assistantMessage) {
+        return;
+      }
+
+      const latestUserMessage = [...messages]
+        .reverse()
+        .find((message) => message.role === "user");
+      const model = session?.model ?? "";
+      const activeTask: ActiveTaskState = {
+        taskId: status.taskId,
+        sessionId,
+        assistantMessageId: assistantMessage.id,
+        status: (status.status as AgentStatus | undefined) ?? "running",
+        error: assistantMessage.error ?? null,
+        chatRetry: null,
+        isFirstTurn: false,
+        model,
+        userContent: latestUserMessage?.content ?? "",
+        thinkingEnabled: model
+          ? resolveDefaultThinkingEnabled(
+              findModelDefinition(resolvedRef.current.models, model)
+            )
+          : true,
+        handoff: null,
+        agentMode: assistantMessage.messageKind === "plan" ? "plan" : "agent",
+        sessionKind: session?.sessionKind ?? "standard",
+        autonomyMode:
+          session?.autonomyMode ?? DEFAULT_SESSION_AUTONOMY_MODE,
+        decisionPolicyVersion: session?.decisionPolicyVersion ?? "v1",
+        decisionModel: session?.decisionModel ?? null,
+      };
+      tasksRef.current.set(status.taskId, activeTask);
+      const abortController = new AbortController();
+      taskAbortControllersRef.current.set(status.taskId, abortController);
+      emit();
+
+      void resumeAgentStream(
+        status.taskId,
+        (event) => {
+          dispatchAgentEvent(status.taskId!, assistantMessage.id, event);
+        },
+        {
+          signal: abortController.signal,
+          fromSeq: status.lastSeq ?? undefined,
+        },
+      ).catch((error: unknown) => {
+        if (
+          abortController.signal.aborted ||
+          isAgentCancellationError(error)
+        ) {
+          dispatchAgentEvent(status.taskId!, assistantMessage.id, {
+            type: "status",
+            taskId: status.taskId!,
+            status: "cancelled",
+          });
+          return;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        dispatchAgentEvent(status.taskId!, assistantMessage.id, {
+          type: "error",
+          taskId: status.taskId!,
+          message,
+        });
+        dispatchAgentEvent(status.taskId!, assistantMessage.id, {
+          type: "status",
+          taskId: status.taskId!,
+          status: "failed",
+        });
+      });
+    },
+    [dispatchAgentEvent, emit],
   );
 
   const generateHandoffDocument = useCallback(
@@ -1820,6 +1904,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       sendMessage,
       regenerateMessage,
       cancelTask,
+      resumeSessionTask,
     }),
     [
       activeTasks,
@@ -1829,6 +1914,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       getSessionTask,
       isSessionRunning,
       regenerateMessage,
+      resumeSessionTask,
       sendMessage,
     ]
   );
