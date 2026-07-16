@@ -61,16 +61,20 @@ describe("askQuestionHandler", () => {
   });
 
   it("returns answers after the user responds", async () => {
-    vi.mocked(requestAskQuestionResponse).mockResolvedValueOnce([
-      {
-        question_id: "stack",
-        prompt: "Which stack?",
-        allow_multiple: false,
-        selected_option_ids: ["react"],
-        selected_option_labels: ["React"],
-        other_text: null,
-      },
-    ]);
+    vi.mocked(requestAskQuestionResponse).mockResolvedValueOnce({
+      status: "answered",
+      timedOut: false,
+      answers: [
+        {
+          question_id: "stack",
+          prompt: "Which stack?",
+          allow_multiple: false,
+          selected_option_ids: ["react"],
+          selected_option_labels: ["React"],
+          other_text: null,
+        },
+      ],
+    });
 
     const result = await askQuestionHandler(
       {
@@ -92,6 +96,7 @@ describe("askQuestionHandler", () => {
     expect(requestAskQuestionResponse).toHaveBeenCalledWith(
       {
         title: "Clarify stack",
+        timeout_ms: null,
         taskId: "task-1",
         sessionId: "session-1",
         questions: [
@@ -106,12 +111,15 @@ describe("askQuestionHandler", () => {
           },
         ],
       },
-      undefined
+      undefined,
+      30000
     );
     expect(result).toEqual(
       toolSuccess(ASK_QUESTION_TOOL_NAME, {
         title: "Clarify stack",
         questionCount: 1,
+        status: "answered",
+        timedOut: false,
         answers: [
           {
             question_id: "stack",
@@ -122,6 +130,69 @@ describe("askQuestionHandler", () => {
             other_text: null,
           },
         ],
+      })
+    );
+  });
+
+  it("returns a timeout result instead of failing", async () => {
+    vi.mocked(requestAskQuestionResponse).mockResolvedValueOnce({
+      status: "timeout",
+      timedOut: true,
+      timeoutMs: 30_000,
+      message:
+        "User did not respond before timeout and may be away from the computer.",
+      answers: [],
+    });
+
+    const result = await askQuestionHandler(
+      {
+        title: "Clarify stack",
+        timeout_ms: 30000,
+        questions: [
+          {
+            id: "stack",
+            prompt: "Which stack?",
+            options: [
+              { id: "react", label: "React" },
+              { id: "vue", label: "Vue" },
+            ],
+          },
+        ],
+      },
+      { workspaceDir: "/tmp/project", taskId: "task-1", sessionId: "session-1" }
+    );
+
+    expect(requestAskQuestionResponse).toHaveBeenCalledWith(
+      {
+        title: "Clarify stack",
+        timeout_ms: 30000,
+        taskId: "task-1",
+        sessionId: "session-1",
+        questions: [
+          {
+            id: "stack",
+            prompt: "Which stack?",
+            allow_multiple: false,
+            options: [
+              { id: "react", label: "React" },
+              { id: "vue", label: "Vue" },
+            ],
+          },
+        ],
+      },
+      undefined,
+      30000
+    );
+    expect(result).toEqual(
+      toolSuccess(ASK_QUESTION_TOOL_NAME, {
+        title: "Clarify stack",
+        questionCount: 1,
+        status: "timeout",
+        timedOut: true,
+        timeoutMs: 30000,
+        message:
+          "User did not respond before timeout and may be away from the computer.",
+        answers: [],
       })
     );
   });

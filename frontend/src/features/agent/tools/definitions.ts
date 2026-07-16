@@ -808,7 +808,7 @@ export const ASK_QUESTION_TOOL: AgentToolDefinition = {
   function: {
     name: ASK_QUESTION_TOOL_NAME,
     description:
-      "Ask the user one or more structured clarification questions and wait for their answers before continuing. Each question can be single-select or multi-select. The UI always provides an Other/custom-text option for every question.",
+      "Ask the user one or more structured clarification questions and wait for their answers before continuing. Each question can be single-select or multi-select. The UI always provides an Other/custom-text option for every question. Set timeout_ms when the agent should continue after waiting for a limited time.",
     parameters: {
       type: "object",
       properties: {
@@ -816,6 +816,11 @@ export const ASK_QUESTION_TOOL: AgentToolDefinition = {
           type: "string",
           description:
             "Optional short title shown above the question list, e.g. Clarify requirements.",
+        },
+        timeout_ms: {
+          type: "integer",
+          description:
+            "Optional wait timeout in milliseconds. When it expires, the tool returns a timeout result to the model instead of failing.",
         },
         questions: {
           type: "array",

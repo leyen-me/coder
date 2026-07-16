@@ -7,6 +7,8 @@ import {
 } from "./ask-question-shared";
 import { requestAskQuestionResponse } from "./ask-question-session";
 
+const DEFAULT_ASK_QUESTION_TIMEOUT_MS = 30_000;
+
 export const askQuestionHandler: ToolHandler = async (rawArgs, context) => {
   const taskId = context.taskId?.trim();
   if (!taskId) {
@@ -22,19 +24,34 @@ export const askQuestionHandler: ToolHandler = async (rawArgs, context) => {
     return toolFailure(ASK_QUESTION_TOOL_NAME, "invalid_arguments", parsed.message);
   }
 
-  const answers = await requestAskQuestionResponse(
+  const response = await requestAskQuestionResponse(
     {
       ...parsed.value,
       taskId,
       sessionId: context.sessionId?.trim() || null,
     },
-    context.signal
+    context.signal,
+    parsed.value.timeout_ms ?? DEFAULT_ASK_QUESTION_TIMEOUT_MS
   );
+
+  if (response.status === "timeout") {
+    return toolSuccess(ASK_QUESTION_TOOL_NAME, {
+      title: parsed.value.title,
+      questionCount: parsed.value.questions.length,
+      status: "timeout",
+      timedOut: true,
+      timeoutMs: response.timeoutMs,
+      message: response.message,
+      answers: [],
+    });
+  }
 
   return toolSuccess(ASK_QUESTION_TOOL_NAME, {
     title: parsed.value.title,
     questionCount: parsed.value.questions.length,
-    answers: normalizeAskQuestionAnswers(answers),
+    status: "answered",
+    timedOut: false,
+    answers: normalizeAskQuestionAnswers(response.answers),
   });
 };
 

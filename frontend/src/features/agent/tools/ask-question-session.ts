@@ -7,6 +7,7 @@ import { AgentCancellationError } from "../cancellation";
 import type {
   AskQuestionAnswer,
   AskQuestionRequest,
+  AskQuestionResponseResult,
 } from "./ask-question-shared";
 
 export type PendingAskQuestionRequest = AskQuestionRequest & {
@@ -16,7 +17,8 @@ export type PendingAskQuestionRequest = AskQuestionRequest & {
 
 type PendingEntry = {
   request: PendingAskQuestionRequest;
-  resolve: (answers: AskQuestionAnswer[]) => void;
+  resolveAnswered: (answers: AskQuestionAnswer[]) => void;
+  resolveTimedOut: () => void;
   reject: (error: unknown) => void;
   abortListener?: () => void;
 };
@@ -62,8 +64,9 @@ function cleanup(taskId: string): PendingEntry | null {
 
 export function requestAskQuestionResponse(
   request: PendingAskQuestionRequest,
-  signal?: AbortSignal
-): Promise<AskQuestionAnswer[]> {
+  signal?: AbortSignal,
+  timeoutMs?: number | null
+): Promise<AskQuestionResponseResult> {
   const guardedSignal = signal;
   const existing = pendingEntries.get(request.taskId);
   if (existing) {
@@ -73,21 +76,54 @@ export function requestAskQuestionResponse(
     pendingEntries.delete(request.taskId);
   }
 
-  return new Promise<AskQuestionAnswer[]>((resolve, reject) => {
+  return new Promise<AskQuestionResponseResult>((resolve, reject) => {
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    let settled = false;
+    const clearResources = () => {
+      if (abortCleanup) {
+        guardedSignal?.removeEventListener("abort", abortCleanup);
+      }
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+        timeoutHandle = null;
+      }
+    };
+    const settleResolve = (result: AskQuestionResponseResult) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearResources();
+      resolve(result);
+    };
+    const settleReject = (error: unknown) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearResources();
+      reject(error);
+    };
     const entry: PendingEntry = {
       request,
-      resolve: (answers) => {
-        if (abortCleanup) {
-          guardedSignal?.removeEventListener("abort", abortCleanup);
-        }
-        resolve(answers);
+      resolveAnswered: (answers) => {
+        settleResolve({
+          status: "answered",
+          timedOut: false,
+          answers,
+        });
       },
-      reject: (error) => {
-        if (abortCleanup) {
-          guardedSignal?.removeEventListener("abort", abortCleanup);
-        }
-        reject(error);
+      resolveTimedOut: () => {
+        settleResolve({
+          status: "timeout",
+          timedOut: true,
+          timeoutMs: timeoutMs ?? 0,
+          message:
+            "User did not respond before timeout and may be away from the computer.",
+          answers: [],
+        });
       },
+      reject: settleReject,
     };
 
     const abortCleanup =
@@ -101,6 +137,13 @@ export function requestAskQuestionResponse(
     if (abortCleanup && guardedSignal) {
       guardedSignal.addEventListener("abort", abortCleanup, { once: true });
       entry.abortListener = abortCleanup;
+    }
+
+    if (typeof timeoutMs === "number" && timeoutMs > 0) {
+      timeoutHandle = setTimeout(() => {
+        const removed = cleanup(request.taskId);
+        removed?.resolveTimedOut();
+      }, timeoutMs);
     }
 
     pendingEntries.set(request.taskId, entry);
@@ -117,7 +160,7 @@ export function submitAskQuestionResponse(
     return false;
   }
 
-  entry.resolve(answers);
+  entry.resolveAnswered(answers);
   return true;
 }
 

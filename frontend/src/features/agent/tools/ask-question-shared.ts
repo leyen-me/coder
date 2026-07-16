@@ -15,6 +15,7 @@ export type AskQuestionItem = {
 
 export type AskQuestionRequest = {
   title: string | null;
+  timeout_ms: number | null;
   questions: AskQuestionItem[];
 };
 
@@ -27,6 +28,20 @@ export type AskQuestionAnswer = {
   other_text: string | null;
 };
 
+export type AskQuestionResponseResult =
+  | {
+      status: "answered";
+      timedOut: false;
+      answers: AskQuestionAnswer[];
+    }
+  | {
+      status: "timeout";
+      timedOut: true;
+      timeoutMs: number;
+      message: string;
+      answers: [];
+    };
+
 export function parseAskQuestionRequest(
   rawArgs: unknown
 ): { ok: true; value: AskQuestionRequest } | { ok: false; message: string } {
@@ -36,10 +51,23 @@ export function parseAskQuestionRequest(
 
   const record = rawArgs as Record<string, unknown>;
   const rawTitle = record.title;
+  const rawTimeoutMs = record.timeout_ms;
   const rawQuestions = record.questions;
 
   if (rawTitle !== undefined && typeof rawTitle !== "string") {
     return { ok: false, message: "title must be a string when provided" };
+  }
+
+  if (
+    rawTimeoutMs !== undefined &&
+    (!Number.isInteger(rawTimeoutMs) ||
+      typeof rawTimeoutMs !== "number" ||
+      rawTimeoutMs <= 0)
+  ) {
+    return {
+      ok: false,
+      message: "timeout_ms must be a positive integer when provided",
+    };
   }
 
   if (!Array.isArray(rawQuestions) || rawQuestions.length === 0) {
@@ -165,6 +193,7 @@ export function parseAskQuestionRequest(
     ok: true,
     value: {
       title: typeof rawTitle === "string" && rawTitle.trim() ? rawTitle.trim() : null,
+      timeout_ms: typeof rawTimeoutMs === "number" ? rawTimeoutMs : null,
       questions,
     },
   };

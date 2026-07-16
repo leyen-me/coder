@@ -464,6 +464,47 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
             }),
         ),
         tool_definition(
+            "ask_question",
+            "Ask the user one or more structured clarification questions and wait for their answers before continuing. Set timeout_ms when the agent should continue after waiting for a limited time.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "title": string_schema("Optional short title shown above the question list."),
+                    "timeout_ms": int_schema("Optional wait timeout in milliseconds. When it expires, the tool returns a timeout result to the model instead of failing.", None),
+                    "questions": {
+                        "type": "array",
+                        "description": "A non-empty list of questions to ask in one batch.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": string_schema("Stable identifier for this question."),
+                                "prompt": string_schema("The question shown to the user."),
+                                "allow_multiple": bool_schema("Whether the user may select multiple options.", Some(false)),
+                                "options": {
+                                    "type": "array",
+                                    "description": "At least 2 predefined options. The UI adds an Other/custom option automatically.",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": string_schema("Stable identifier for this option."),
+                                            "label": string_schema("Option label shown to the user."),
+                                            "recommended": bool_schema("Optional. Set to true on the option you recommend the user pick.", None)
+                                        },
+                                        "required": ["id", "label"],
+                                        "additionalProperties": false
+                                    }
+                                }
+                            },
+                            "required": ["id", "prompt", "options"],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                "required": ["questions"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
             "get_workspace_tree",
             "Display the workspace directory tree structure with pagination.",
             json!({
@@ -567,6 +608,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                 "list_dir",
                 "read_file",
                 "todo_read",
+                "ask_question",
                 "glob",
                 "grep",
                 "web_search",
@@ -582,6 +624,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                 "read_file",
                 "todo_read",
                 "todo_write",
+                "ask_question",
                 "glob",
                 "grep",
                 "web_search",
@@ -1803,6 +1846,7 @@ struct TodoWriteArgs {
 struct AskQuestionArgs {
     title: Option<String>,
     questions: Vec<AskQuestionItem>,
+    timeout_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -1829,6 +1873,7 @@ struct SpawnSubAgentArgs {
 }
 
 const MAX_SUBAGENT_DEPTH: usize = 3;
+const DEFAULT_ASK_QUESTION_TIMEOUT_MS: u64 = 30_000;
 
 fn execute_todo_write(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
     let args: TodoWriteArgs = match parse_from_value("todo_write", args) {
@@ -1973,12 +2018,32 @@ async fn execute_ask_question(
         }
     };
 
-    let result = tokio::select! {
-        _ = ctx.cancel_token.cancelled() => {
-            let _ = ctx.ask_question_registry.cancel(&task_id, "Cancelled");
-            return Ok(tool_failure("ask_question", "cancelled", "ask_question was cancelled."));
+    let timeout_ms = resolve_ask_question_timeout_ms(args.timeout_ms);
+
+    let result = {
+        tokio::select! {
+            _ = ctx.cancel_token.cancelled() => {
+                let _ = ctx.ask_question_registry.cancel(&task_id, "Cancelled");
+                return Ok(tool_failure("ask_question", "cancelled", "ask_question was cancelled."));
+            }
+            _ = tokio::time::sleep(std::time::Duration::from_millis(timeout_ms)) => {
+                let message = ask_question_timeout_message(timeout_ms);
+                let _ = ctx.ask_question_registry.cancel(&task_id, message.clone());
+                return Ok(tool_success(
+                    "ask_question",
+                    json!({
+                        "title": args.title.as_deref().map(str::trim).filter(|value| !value.is_empty()),
+                        "questionCount": args.questions.len(),
+                        "status": "timeout",
+                        "timedOut": true,
+                        "timeoutMs": timeout_ms,
+                        "message": message,
+                        "answers": [],
+                    }),
+                ));
+            }
+            response = receiver => response
         }
-        response = receiver => response
     };
 
     match result {
@@ -1992,6 +2057,8 @@ async fn execute_ask_question(
                 json!({
                     "title": args.title.as_deref().map(str::trim).filter(|value| !value.is_empty()),
                     "questionCount": args.questions.len(),
+                    "status": "answered",
+                    "timedOut": false,
                     "answers": answers,
                 }),
             ))
@@ -2063,6 +2130,14 @@ fn normalize_ask_question_answers(
 }
 
 fn validate_ask_question_args(args: &AskQuestionArgs) -> Result<(), ToolResultEnvelope> {
+    if matches!(args.timeout_ms, Some(0)) {
+        return Err(tool_failure(
+            "ask_question",
+            "invalid_arguments",
+            "timeout_ms must be greater than 0 when provided.",
+        ));
+    }
+
     if args.questions.is_empty() {
         return Err(tool_failure(
             "ask_question",
@@ -2132,6 +2207,17 @@ fn validate_ask_question_args(args: &AskQuestionArgs) -> Result<(), ToolResultEn
     }
 
     Ok(())
+}
+
+fn ask_question_timeout_message(timeout_ms: u64) -> String {
+    format!(
+        "User did not respond before the {} ms timeout and may be away from the computer.",
+        timeout_ms
+    )
+}
+
+fn resolve_ask_question_timeout_ms(timeout_ms: Option<u64>) -> u64 {
+    timeout_ms.unwrap_or(DEFAULT_ASK_QUESTION_TIMEOUT_MS)
 }
 
 async fn execute_spawn_subagent(
@@ -2786,9 +2872,11 @@ fn current_timestamp_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_tool_archive_file_path, extract_prior_tool_output_content, sanitize_path_segment,
+        ask_question_timeout_message, build_tool_archive_file_path,
+        extract_prior_tool_output_content, resolve_ask_question_timeout_ms,
+        sanitize_path_segment, validate_ask_question_args, AskQuestionArgs,
+        AskQuestionItem, AskQuestionOption, DEFAULT_ASK_QUESTION_TIMEOUT_MS,
     };
-
     #[test]
     fn archive_file_path_matches_frontend_naming_scheme() {
         let path = build_tool_archive_file_path(
@@ -2832,5 +2920,53 @@ mod tests {
     #[test]
     fn sanitize_path_segment_replaces_unsupported_characters() {
         assert_eq!(sanitize_path_segment("call/1 test"), "call_1_test");
+    }
+
+    #[test]
+    fn ask_question_timeout_message_mentions_user_may_be_away() {
+        let message = ask_question_timeout_message(30_000);
+        assert!(message.contains("30"));
+        assert!(message.contains("may be away from the computer"));
+    }
+
+    #[test]
+    fn ask_question_rejects_zero_timeout() {
+        let error = validate_ask_question_args(&AskQuestionArgs {
+            title: Some("Clarify".to_string()),
+            timeout_ms: Some(0),
+            questions: vec![AskQuestionItem {
+                id: "q1".to_string(),
+                prompt: "Choose one".to_string(),
+                allow_multiple: false,
+                options: vec![
+                    AskQuestionOption {
+                        id: "a".to_string(),
+                        label: "A".to_string(),
+                        recommended: None,
+                    },
+                    AskQuestionOption {
+                        id: "b".to_string(),
+                        label: "B".to_string(),
+                        recommended: Some(true),
+                    },
+                ],
+            }],
+        })
+        .unwrap_err();
+        assert_eq!(error.tool, "ask_question");
+        assert_eq!(
+            error.error.as_ref().map(|payload| payload.code.as_str()),
+            Some("invalid_arguments")
+        );
+        assert_eq!(error.data, None);
+    }
+
+    #[test]
+    fn ask_question_uses_default_timeout_when_missing() {
+        assert_eq!(
+            resolve_ask_question_timeout_ms(None),
+            DEFAULT_ASK_QUESTION_TIMEOUT_MS
+        );
+        assert_eq!(resolve_ask_question_timeout_ms(Some(5_000)), 5_000);
     }
 }
