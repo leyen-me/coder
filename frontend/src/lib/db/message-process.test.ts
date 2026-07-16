@@ -41,4 +41,42 @@ describe("normalizeMessageProcessSteps", () => {
       },
     ]);
   });
+
+  it("keeps decision steps with null responses", () => {
+    const steps = [
+      {
+        id: "decision:1",
+        kind: "decision",
+        trigger: "final_answer",
+        summary: "summary",
+        question: "question",
+        options: [
+          { id: "complete", label: "Complete" },
+          { id: "continue", label: "Continue" },
+        ],
+        risk_level: "medium",
+        status: "requested",
+        requires_user_confirmation: false,
+        response: null,
+      },
+    ] as MessageProcessStep[];
+
+    expect(normalizeMessageProcessSteps(steps)).toEqual([
+      {
+        id: "decision:1",
+        kind: "decision",
+        trigger: "final_answer",
+        summary: "summary",
+        question: "question",
+        options: [
+          { id: "complete", label: "Complete" },
+          { id: "continue", label: "Continue" },
+        ],
+        riskLevel: "medium",
+        status: "requested",
+        requiresUserConfirmation: false,
+        response: null,
+      },
+    ]);
+  });
 });

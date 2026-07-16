@@ -59,6 +59,8 @@ function normalizeMessageProcessStep(
       return null;
     }
 
+    const rawResponse = record.response;
+
     return {
       id,
       kind,
@@ -69,8 +71,11 @@ function normalizeMessageProcessStep(
       riskLevel,
       status,
       requiresUserConfirmation,
-      response: (record.response as MessageProcessStep & { response?: unknown })
-        .response as MessageProcessStep extends { response?: infer T } ? T : unknown,
+      response: rawResponse == null ? rawResponse : (rawResponse as MessageProcessStep extends {
+          response?: infer T;
+        }
+          ? T
+          : unknown),
     } as MessageProcessStep;
   }
 

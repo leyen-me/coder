@@ -103,15 +103,21 @@ pub struct MessageToolInvocation {
 pub enum MessageProcessStep {
     Reasoning { id: String, text: String },
     Answer { id: String, text: String },
-    Tool { id: String, tool_call_id: String },
+    Tool {
+        id: String,
+        #[serde(alias = "toolCallId")]
+        tool_call_id: String,
+    },
     Decision {
         id: String,
         trigger: String,
         summary: String,
         question: String,
         options: Vec<DecisionOptionRecord>,
+        #[serde(alias = "riskLevel")]
         risk_level: String,
         status: String,
+        #[serde(alias = "requiresUserConfirmation")]
         requires_user_confirmation: bool,
         #[serde(skip_serializing_if = "Option::is_none")]
         response: Option<DecisionResponseRecord>,
@@ -129,12 +135,17 @@ pub struct DecisionOptionRecord {
 #[serde(rename_all = "camelCase")]
 pub struct DecisionResponseRecord {
     pub outcome: String,
+    #[serde(alias = "selectedOptionId")]
     pub selected_option_id: Option<String>,
     pub reason: String,
+    #[serde(alias = "riskLevel")]
     pub risk_level: String,
+    #[serde(alias = "recordAsAssumption")]
     pub record_as_assumption: bool,
+    #[serde(alias = "requiresUserConfirmation")]
     pub requires_user_confirmation: bool,
     pub assumption: Option<String>,
+    #[serde(alias = "suggestedContinuation")]
     pub suggested_continuation: Option<String>,
 }
 
@@ -242,5 +253,61 @@ pub fn normalize_todo_status(status: &str) -> String {
         "completed" => "completed".to_string(),
         "cancelled" => "cancelled".to_string(),
         _ => "pending".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::MessageProcessStep;
+
+    #[test]
+    fn decision_step_deserializes_legacy_camel_case_fields() {
+        let raw = serde_json::json!({
+            "id": "decision:1",
+            "kind": "decision",
+            "trigger": "final_answer",
+            "summary": "summary",
+            "question": "question",
+            "options": [
+                { "id": "complete", "label": "Complete" },
+                { "id": "continue", "label": "Continue" }
+            ],
+            "riskLevel": "medium",
+            "status": "requested",
+            "requiresUserConfirmation": false,
+            "response": {
+                "outcome": "continue",
+                "selectedOptionId": "continue",
+                "reason": "Need more work",
+                "riskLevel": "medium",
+                "recordAsAssumption": false,
+                "requiresUserConfirmation": false,
+                "assumption": null,
+                "suggestedContinuation": "Keep going"
+            }
+        });
+
+        let step: MessageProcessStep =
+            serde_json::from_value(raw).expect("decision step should deserialize");
+
+        match step {
+            MessageProcessStep::Decision {
+                risk_level,
+                requires_user_confirmation,
+                response,
+                ..
+            } => {
+                assert_eq!(risk_level, "medium");
+                assert!(!requires_user_confirmation);
+                let response = response.expect("response");
+                assert_eq!(response.selected_option_id.as_deref(), Some("continue"));
+                assert_eq!(response.risk_level, "medium");
+                assert_eq!(
+                    response.suggested_continuation.as_deref(),
+                    Some("Keep going")
+                );
+            }
+            _ => panic!("expected decision step"),
+        }
     }
 }
