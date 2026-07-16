@@ -1982,14 +1982,20 @@ async fn execute_ask_question(
     };
 
     match result {
-        Ok(Ok(answers)) => Ok(tool_success(
-            "ask_question",
-            json!({
-                "title": args.title.as_deref().map(str::trim).filter(|value| !value.is_empty()),
-                "questionCount": args.questions.len(),
-                "answers": answers,
-            }),
-        )),
+        Ok(Ok(answers)) => {
+            let answers = match normalize_ask_question_answers(&args.questions, answers) {
+                Ok(value) => value,
+                Err(error) => return Ok(error),
+            };
+            Ok(tool_success(
+                "ask_question",
+                json!({
+                    "title": args.title.as_deref().map(str::trim).filter(|value| !value.is_empty()),
+                    "questionCount": args.questions.len(),
+                    "answers": answers,
+                }),
+            ))
+        }
         Ok(Err(message)) => Ok(tool_failure("ask_question", "cancelled", message)),
         Err(_) => Ok(tool_failure(
             "ask_question",
@@ -1997,6 +2003,63 @@ async fn execute_ask_question(
             "ask_question request was dropped before the user responded.",
         )),
     }
+}
+
+fn normalize_ask_question_answers(
+    questions: &[AskQuestionItem],
+    answers: Vec<crate::agent::ask_question::AskQuestionAnswer>,
+) -> Result<Vec<crate::agent::ask_question::AskQuestionAnswer>, ToolResultEnvelope> {
+    let question_map = questions
+        .iter()
+        .map(|question| (question.id.trim().to_string(), question))
+        .collect::<std::collections::HashMap<_, _>>();
+    let mut seen_answer_ids = std::collections::HashSet::new();
+    let mut normalized_answers = Vec::with_capacity(answers.len());
+
+    for answer in answers {
+        let question_id = answer.question_id.trim();
+        if question_id.is_empty() {
+            return Err(tool_failure(
+                "ask_question",
+                "invalid_response",
+                "Answer question_id is required.",
+            ));
+        }
+        if !seen_answer_ids.insert(question_id.to_string()) {
+            return Err(tool_failure(
+                "ask_question",
+                "invalid_response",
+                format!("Duplicate answer for question id: {question_id}"),
+            ));
+        }
+
+        let Some(question) = question_map.get(question_id) else {
+            return Err(tool_failure(
+                "ask_question",
+                "invalid_response",
+                format!("Unknown question id in answer: {question_id}"),
+            ));
+        };
+
+        if !question.allow_multiple && answer.selected_option_ids.len() > 1 {
+            return Err(tool_failure(
+                "ask_question",
+                "invalid_response",
+                format!("Question {question_id} does not allow multiple selections."),
+            ));
+        }
+
+        normalized_answers.push(crate::agent::ask_question::AskQuestionAnswer {
+            question_id: question.id.trim().to_string(),
+            prompt: question.prompt.trim().to_string(),
+            allow_multiple: question.allow_multiple,
+            selected_option_ids: answer.selected_option_ids,
+            selected_option_labels: answer.selected_option_labels,
+            other_text: answer.other_text,
+        });
+    }
+
+    Ok(normalized_answers)
 }
 
 fn validate_ask_question_args(args: &AskQuestionArgs) -> Result<(), ToolResultEnvelope> {
