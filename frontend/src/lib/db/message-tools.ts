@@ -11,7 +11,7 @@ const TOOL_STATE_RANK: Record<MessageToolState, number> = {
 export function normalizeToolInvocations(
   invocations: MessageToolInvocation[] | undefined
 ): MessageToolInvocation[] {
-  return invocations ?? [];
+  return (invocations ?? []).map(normalizeToolInvocation);
 }
 
 /** Prefer the furthest-along tool state when merging streaming flushes with direct writes. */
@@ -97,4 +97,34 @@ export async function completeMessageToolInvocation(
 
   const updated = await updateMessage(messageId, { toolInvocations });
   return updated ? toolInvocations : null;
+}
+
+function normalizeToolInvocation(
+  invocation: MessageToolInvocation
+): MessageToolInvocation {
+  if (
+    invocation.state !== "output-available" ||
+    invocation.output === undefined ||
+    isToolResultEnvelope(invocation.output)
+  ) {
+    return invocation;
+  }
+
+  return {
+    ...invocation,
+    output: {
+      ok: true,
+      tool: invocation.name,
+      data: invocation.output,
+    },
+  };
+}
+
+function isToolResultEnvelope(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return typeof record.ok === "boolean";
 }

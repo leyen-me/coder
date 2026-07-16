@@ -42,7 +42,9 @@ export function isCachedStreamingOverlayBehindDb(
 ): boolean {
   return (
     message.content.length > cached.content.length ||
-    message.thinking.length > cached.thinking.length
+    message.thinking.length > cached.thinking.length ||
+    (message.processSteps?.length ?? 0) > (cached.processSteps?.length ?? 0) ||
+    (message.toolInvocations?.length ?? 0) > (cached.toolInvocations?.length ?? 0)
   );
 }
 
