@@ -46,7 +46,6 @@ export {
   SPAWN_SUBAGENT_TOOL_NAME,
 } from "./definitions";
 export { toApiToolCall, toApiToolCalls, type ApiToolCall } from "./api-tool-call";
-export { getAgentToolDefinitions } from "./registry";
 export {
   serializeToolResult,
   toolFailure,

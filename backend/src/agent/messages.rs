@@ -77,6 +77,25 @@ pub fn assemble_agent_messages(
     Ok(result)
 }
 
+pub fn build_system_prompt_preview(
+    app_state: &AppState,
+    session: &SessionRecord,
+    agent_mode: Option<&str>,
+    workspace_dir_override: Option<&str>,
+) -> Result<String, String> {
+    let mut effective_session = session.clone();
+    if let Some(workspace_dir) = workspace_dir_override.map(str::trim).filter(|value| !value.is_empty()) {
+        effective_session.workspace_dir = Some(workspace_dir.to_string());
+    }
+    let messages = assemble_agent_messages(app_state, &effective_session, agent_mode)?;
+    let system_blocks = messages
+        .into_iter()
+        .take_while(|message| message.role == "system")
+        .filter_map(|message| message.content.and_then(|value| value.as_str().map(str::to_string)))
+        .collect::<Vec<_>>();
+    Ok(join_prompt_blocks(system_blocks))
+}
+
 pub async fn resolve_agent_tool_definitions(
     app_state: &AppState,
     agent_mode: Option<&str>,

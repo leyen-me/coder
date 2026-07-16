@@ -917,6 +917,16 @@ pub struct RuntimeEnvironmentParams {
     pub workspace_dir: Option<String>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentSystemPromptParams {
+    pub session_id: String,
+    #[serde(default)]
+    pub workspace_dir: Option<String>,
+    #[serde(default)]
+    pub agent_mode: Option<String>,
+}
+
 /// POST /api/runtime_environment
 pub async fn handle_runtime_environment(
     State(state): State<Arc<AppState>>,
@@ -928,6 +938,30 @@ pub async fn handle_runtime_environment(
     Ok(Json(serde_json::to_value(result).map_err(|e| {
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
     })?))
+}
+
+/// POST /api/agent/system_prompt
+pub async fn handle_agent_system_prompt(
+    State(state): State<Arc<AppState>>,
+    Json(params): Json<AgentSystemPromptParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database lock poisoned".to_string()))?;
+    let session = get_session(&db, &params.session_id)
+        .map_err(|error| (StatusCode::BAD_REQUEST, error))?
+        .ok_or_else(|| (StatusCode::BAD_REQUEST, format!("Session not found: {}", params.session_id)))?;
+    drop(db);
+
+    let system_prompt = agent::build_system_prompt_preview(
+        &state,
+        &session,
+        params.agent_mode.as_deref(),
+        params.workspace_dir.as_deref(),
+    )
+    .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+    Ok(Json(serde_json::json!({ "systemPrompt": system_prompt })))
 }
 
 /// POST /api/test_remote_connection

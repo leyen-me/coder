@@ -121,6 +121,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/agent/regenerate", post(routes_tool::handle_agent_regenerate))
         .route("/agent/cancel", post(routes_tool::handle_agent_cancel))
         .route("/agent/status", post(routes_tool::handle_agent_status))
+        .route("/api/agent/system_prompt", post(routes_tool::handle_agent_system_prompt))
         .route(
             "/api/agent/ask_question/respond",
             post(routes_tool::handle_agent_ask_question_response),

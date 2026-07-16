@@ -1,33 +1,31 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { resolveAgentEnvironment } from "@/features/agent/environment";
-import {
-  assembleSystemMessages,
-  serializeSystemMessages,
-} from "@/features/agent/system-messages";
-import type { AgentSessionPolicy } from "@/features/agent/session-policy";
+import { apiPost } from "@/lib/api/client";
 import type { AgentMode } from "@/features/agent/types";
 
 export function useSystemPrompt(
   workspaceDir: string | null | undefined,
   sessionId?: string | null,
-  agentMode?: AgentMode,
-  sessionPolicy?: AgentSessionPolicy | null
+  agentMode?: AgentMode
 ) {
   const [systemPrompt, setSystemPrompt] = useState<string | null>(null);
 
   const loadSystemPrompt = useCallback(async () => {
-    const environment = await resolveAgentEnvironment(
-      workspaceDir?.trim() || null
+    const normalizedSessionId = sessionId?.trim();
+    if (!normalizedSessionId) {
+      setSystemPrompt(null);
+      return;
+    }
+    const response = await apiPost<{ systemPrompt?: string | null }>(
+      "/api/agent/system_prompt",
+      {
+        sessionId: normalizedSessionId,
+        workspaceDir: workspaceDir?.trim() || null,
+        agentMode: agentMode ?? null,
+      }
     );
-    const systemMessages = await assembleSystemMessages({
-      environment,
-      agentMode,
-      sessionId: sessionId?.trim() || undefined,
-      sessionPolicy,
-    });
-    setSystemPrompt(serializeSystemMessages(systemMessages));
-  }, [workspaceDir, sessionId, agentMode, sessionPolicy]);
+    setSystemPrompt(response.systemPrompt?.trim() || null);
+  }, [workspaceDir, sessionId, agentMode]);
 
   const refreshSystemPrompt = useCallback(async () => {
     await loadSystemPrompt();
@@ -37,26 +35,30 @@ export function useSystemPrompt(
     let active = true;
 
     void (async () => {
-      const environment = await resolveAgentEnvironment(workspaceDir?.trim() || null);
-      if (!active) {
+      const normalizedSessionId = sessionId?.trim();
+      if (!normalizedSessionId) {
+        if (active) {
+          setSystemPrompt(null);
+        }
         return;
       }
-      const systemMessages = await assembleSystemMessages({
-        environment,
-        agentMode,
-        sessionId: sessionId?.trim() || undefined,
-        sessionPolicy,
-      });
-      if (!active) {
-        return;
+      const response = await apiPost<{ systemPrompt?: string | null }>(
+        "/api/agent/system_prompt",
+        {
+          sessionId: normalizedSessionId,
+          workspaceDir: workspaceDir?.trim() || null,
+          agentMode: agentMode ?? null,
+        }
+      );
+      if (active) {
+        setSystemPrompt(response.systemPrompt?.trim() || null);
       }
-      setSystemPrompt(serializeSystemMessages(systemMessages));
     })();
 
     return () => {
       active = false;
     };
-  }, [workspaceDir, sessionId, agentMode, sessionPolicy]);
+  }, [workspaceDir, sessionId, agentMode]);
 
   return { systemPrompt, refreshSystemPrompt };
 }

@@ -20,7 +20,7 @@ pub use types::{
     RefineContextMessage, RefinePromptParams, ToolCall,
     TokenUsage,
 };
-pub use messages::{assemble_agent_messages, resolve_agent_tool_definitions};
+pub use messages::{assemble_agent_messages, build_system_prompt_preview, resolve_agent_tool_definitions};
 pub use stream_log::{agent_diagnostic_file_log, cleanup_agent_log_dirs};
 
 pub struct AgentState(pub Arc<Mutex<AgentRegistry>>);

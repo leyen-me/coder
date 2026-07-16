@@ -52,7 +52,6 @@ import { useSystemPrompt } from "../hooks/use-system-prompt";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
 import type { MessageRecord } from "@/lib/db";
 import { updateSession } from "@/lib/db/sessions";
-import { resolveAgentSessionPolicy } from "@/features/agent/session-policy";
 import {
   buildHandoffPreviewMessages,
   buildHandoffPreviewSessionPatch,
@@ -148,11 +147,6 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     session: effectiveSession,
     canEdit: canEditWorkspace,
   });
-  const sessionPolicy = useMemo(
-    () => (effectiveSession ? resolveAgentSessionPolicy(effectiveSession) : null),
-    [effectiveSession]
-  );
-
   const gitControls = useWorkspaceGitControls({
     workspaceDir: workspaceBinding.workspaceDir,
     enabled: canEditWorkspace,
@@ -160,8 +154,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const { systemPrompt, refreshSystemPrompt } = useSystemPrompt(
     workspaceBinding.workspaceDir,
     chatId,
-    agentMode,
-    sessionPolicy
+    agentMode
   );
 
   const activeTask = getSessionTask(chatId);

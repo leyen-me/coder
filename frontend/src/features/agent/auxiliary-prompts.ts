@@ -1,4 +1,3 @@
-import { buildCoreRulesSection } from "./environment/build-system-prompt";
 import { joinPromptBlocks } from "./prompt-blocks";
 
 type SubAgentPromptInput = {
@@ -8,6 +7,18 @@ type SubAgentPromptInput = {
   depth: number;
   maxDepth: number;
 };
+
+function buildCoreRulesSection(): string[] {
+  return [
+    "## Communication Rules",
+    "",
+    "1. Reply in the same language the user uses. Be concise, accurate, and direct.",
+    "2. The user holds final decision authority. Use read, search, and other read-only tools freely when they improve your answer. Do not edit files, run mutating commands, or implement changes until the user has clearly asked for them.",
+    "3. Lead with the answer or result. Mention process details only when they help the user make a decision or understand risk.",
+    "4. When the user is exploring or has not chosen an approach, present analysis and options - do not implement on their behalf.",
+    "5. Once the user has asked for implementation, proceed with safe, conventional defaults and existing project patterns for tactical details. Reserve questions for direction-level choices - scope, architecture, or costly-to-reverse trade-offs - or when genuinely blocked with no safe default.",
+  ];
+}
 
 export function buildHandoffSystemPrompt(): string {
   return joinPromptBlocks([
