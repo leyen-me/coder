@@ -4,6 +4,7 @@ import { FolderOpenIcon, GitBranchIcon, XIcon } from "lucide-react";
 import {
   memo,
   useCallback,
+  useEffect,
   useRef,
   useState,
   type RefObject,
