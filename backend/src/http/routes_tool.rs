@@ -925,6 +925,19 @@ pub async fn handle_agent_start(
     State(state): State<Arc<AppState>>,
     Json(params): Json<AgentStartParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
+    let agent_mode = params.agent_mode.clone();
+    let tools = params.tools.clone().filter(|tools| !tools.is_empty()).or_else(|| {
+        let defaults = agent::tool_dispatch::get_tool_definitions(agent_mode.as_deref());
+        (!defaults.is_empty()).then_some(defaults)
+    });
+    log::info!(
+        "agent_start task_id={} session_id={:?} model={} agent_mode={:?} tools={}",
+        params.task_id,
+        params.session_id,
+        params.model,
+        agent_mode,
+        tools.as_ref().map(|items| items.len()).unwrap_or(0)
+    );
     let agent_params = agent::AgentStartParams {
         task_id: params.task_id,
         base_url: params.base_url,
@@ -933,7 +946,7 @@ pub async fn handle_agent_start(
         api_key_env_var: params.api_key_env_var.unwrap_or_else(|| "OPENAI_API_KEY".to_string()),
         model: params.model,
         messages: params.messages,
-        tools: params.tools,
+        tools,
         request_extensions: params.request_extensions,
         session_id: params.session_id,
         emit_assistant_output: params.emit_assistant_output,

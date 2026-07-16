@@ -779,11 +779,12 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       taskAbortControllersRef.current.set(taskId, abortController);
       emit();
 
+      const baseTools = getAgentToolDefinitions(input.agentMode);
       const extraTools = input.extraTools ?? [];
       const tools =
         extraTools.length > 0
-          ? [...getAgentToolDefinitions(input.agentMode), ...extraTools]
-          : undefined;
+          ? [...baseTools, ...extraTools]
+          : baseTools;
       const maxContextTokens = resolveContextWindowForModel(
         input.resolvedConfig,
         input.model

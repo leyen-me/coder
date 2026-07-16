@@ -150,8 +150,485 @@ pub fn all_tool_names() -> Vec<String> {
     .collect()
 }
 
-pub fn get_tool_definitions(_agent_mode: Option<&str>) -> Vec<AgentToolDefinition> {
-    Vec::new()
+pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition> {
+    let mut tools = vec![
+        tool_definition(
+            "list_dir",
+            "List files and directories under a path. Relative paths are resolved against the workspace root.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "path": string_schema("Relative or absolute path within the workspace."),
+                    "recursive": bool_schema("Whether to list entries recursively.", Some(false)),
+                    "max_depth": int_schema("Maximum recursion depth when recursive is true.", Some(1)),
+                    "show_hidden": bool_schema("Whether to include dotfiles and dot-directories.", Some(false))
+                },
+                "required": ["path"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "read_file",
+            "Read a text file with line numbers and pagination. Relative paths are resolved against the workspace root.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "path": string_schema("Relative or absolute path to the file within the workspace."),
+                    "start_line": int_schema("First line to read (1-based).", Some(1)),
+                    "max_lines": int_schema("Maximum number of lines to return.", Some(500)),
+                    "respect_gitignore": bool_schema("Whether to refuse reading paths ignored by .gitignore.", Some(true))
+                },
+                "required": ["path"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "write_file",
+            "Create a new text file. Fails if the file already exists. Use edit_file or replace_lines to modify existing files.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "path": string_schema("Relative or absolute path to the new file within the workspace."),
+                    "content": string_schema("Full file content to write."),
+                    "create_parent_dirs": bool_schema("Whether to create missing parent directories.", Some(true))
+                },
+                "required": ["path", "content"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "replace_file",
+            "Replace an existing text file with new content. Prefer edit_file or replace_lines first.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "path": string_schema("Relative or absolute path to the file within the workspace."),
+                    "content": string_schema("Full replacement file content."),
+                    "expected_sha256": string_schema("SHA256 hash from read_file. Rejects the write if the file changed."),
+                    "create_backup": bool_schema("Whether to save a backup copy under .history before writing.", Some(false)),
+                    "respect_gitignore": bool_schema("Whether to refuse editing paths ignored by .gitignore.", Some(true))
+                },
+                "required": ["path", "content"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "edit_file",
+            "Apply a search-and-replace edit to an existing text file. Use this first for targeted edits.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "path": string_schema("Relative or absolute path to the file within the workspace."),
+                    "old_string": string_schema("Exact text to replace. Must match uniquely unless replace_all is true."),
+                    "new_string": string_schema("Replacement text."),
+                    "expected_sha256": string_schema("SHA256 hash from read_file. Rejects the edit if the file changed."),
+                    "replace_all": bool_schema("Whether to replace every occurrence of old_string.", Some(false)),
+                    "create_backup": bool_schema("Whether to save a backup copy under .history before writing.", Some(false)),
+                    "respect_gitignore": bool_schema("Whether to refuse editing paths ignored by .gitignore.", Some(true))
+                },
+                "required": ["path", "old_string", "new_string"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "replace_lines",
+            "Replace a range of lines in an existing text file by line number.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "path": string_schema("Relative or absolute path to the file within the workspace."),
+                    "start_line": int_schema("First line to replace (1-based).", None),
+                    "end_line": int_schema("Last line to replace (inclusive, 1-based).", None),
+                    "content": string_schema("Replacement content for the specified line range."),
+                    "expected_sha256": string_schema("SHA256 hash from read_file. Rejects the edit if the file changed."),
+                    "create_backup": bool_schema("Whether to save a backup copy under .history before writing.", Some(false)),
+                    "respect_gitignore": bool_schema("Whether to refuse editing paths ignored by .gitignore.", Some(true))
+                },
+                "required": ["path", "start_line", "end_line", "content"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "glob",
+            "Find files by glob pattern under a directory.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "glob_pattern": string_schema("Glob pattern such as **/*.tsx or src/**/*.rs."),
+                    "target_directory": string_schema("Directory to search from. Defaults to the workspace root."),
+                    "head_limit": int_schema("Maximum number of matching paths to return.", Some(100)),
+                    "respect_gitignore": bool_schema("Whether to skip paths ignored by .gitignore.", Some(true))
+                },
+                "required": ["glob_pattern"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "grep",
+            "Search file contents with a regex pattern.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "pattern": string_schema("Regular expression pattern to search for."),
+                    "path": string_schema("File or directory to search. Defaults to the workspace root."),
+                    "glob": string_schema("Optional glob filter to limit searched files, such as *.{ts,tsx}."),
+                    "output_mode": enum_string_schema("One of content, files_with_matches, or count.", &["content", "files_with_matches", "count"], Some("content")),
+                    "case_insensitive": bool_schema("Whether to ignore letter case while matching.", Some(false)),
+                    "context_before": int_schema("Number of lines to include before each match.", None),
+                    "context_after": int_schema("Number of lines to include after each match.", None),
+                    "context": int_schema("Number of lines to include before and after each match.", None),
+                    "head_limit": int_schema("Maximum number of results to return.", Some(200)),
+                    "offset": int_schema("Number of results to skip in content mode.", Some(0)),
+                    "multiline": bool_schema("Whether . should match newlines.", Some(false)),
+                    "respect_gitignore": bool_schema("Whether to skip paths ignored by .gitignore.", Some(true))
+                },
+                "required": ["pattern"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "shell",
+            "Execute a shell command in the workspace. Use block_until_ms=0 for background mode.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "command": string_schema("The shell command to execute."),
+                    "description": string_schema("Short human-readable description for UI display only."),
+                    "working_directory": string_schema("Directory to run the command in, relative to workspace root."),
+                    "block_until_ms": int_schema("Max wait time in ms. Default 30000. Use 0 for background mode.", Some(30000))
+                },
+                "required": ["command"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "remote_shell",
+            "Execute a command on a remote machine via SSH.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "target": string_schema("Target remote machine alias."),
+                    "command": string_schema("The shell command to execute on the remote machine."),
+                    "description": string_schema("Short human-readable description for UI display only."),
+                    "block_until_ms": int_schema("Max wait time in ms. Default 30000. Use 0 for background mode.", Some(30000))
+                },
+                "required": ["target", "command"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "await",
+            "Poll a background shell until it completes or times out.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "shell_id": string_schema("The shell_id returned from a background shell invocation."),
+                    "block_until_ms": int_schema("Max wait time in ms before returning current output.", Some(30000))
+                },
+                "required": ["shell_id"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "list_shells",
+            "List background shell processes started by the agent.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "status_filter": enum_string_schema("Filter by status.", &["running", "completed", "failed", "timeout", "cancelled", "all"], Some("running")),
+                    "task_id_filter": string_schema("Optional task ID to list only shells from a specific agent run.")
+                },
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "kill_shell",
+            "Kill a running background shell process by shell_id.",
+            json!({
+                "type": "object",
+                "properties": { "shell_id": string_schema("The shell_id to terminate.") },
+                "required": ["shell_id"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "read_shell_logs",
+            "Read logs from a background shell in batches.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "shell_id": string_schema("The shell_id to read logs from."),
+                    "stream": enum_string_schema("Which stream to read.", &["stdout", "stderr"], None),
+                    "offset": int_schema("Byte offset to start reading from.", None),
+                    "limit": int_schema("Maximum bytes to return.", Some(4096))
+                },
+                "required": ["shell_id"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "web_search",
+            "Search the web for real-time information outside training data.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "search_term": string_schema("The search term to look up on the web."),
+                    "explanation": string_schema("One sentence explanation of why this search is being used."),
+                    "max_results": int_schema("Maximum number of search results to return.", Some(5))
+                },
+                "required": ["search_term"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "browse_page",
+            "Fetch a public web page and return readable Markdown content.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "url": string_schema("The URL to fetch. Must be http or https."),
+                    "start_line": int_schema("First line to read (1-based).", Some(1)),
+                    "max_lines": int_schema("Maximum number of lines to return.", Some(500)),
+                    "explanation": string_schema("One sentence explanation of why this page is being fetched.")
+                },
+                "required": ["url"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "todo_read",
+            "Read the current structured todo list for this chat session.",
+            json!({
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "todo_write",
+            "Create and update a structured todo list for the current chat session.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "merge": bool_schema("Whether to merge with existing todos by id.", None),
+                    "todos": {
+                        "type": "array",
+                        "description": "Todo items to create or update.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": string_schema("Stable identifier for this todo item."),
+                                "content": string_schema("Short description of the task."),
+                                "status": enum_string_schema("One of pending, in_progress, completed, or cancelled.", &["pending", "in_progress", "completed", "cancelled"], None)
+                            },
+                            "required": ["id", "status"],
+                            "additionalProperties": false
+                        }
+                    },
+                    "remove_ids": {
+                        "type": "array",
+                        "description": "Todo ids to delete from the list.",
+                        "items": { "type": "string" }
+                    }
+                },
+                "required": ["merge", "todos"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "get_workspace_tree",
+            "Display the workspace directory tree structure with pagination.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "start_line": int_schema("First line to return (1-based).", Some(1)),
+                    "max_lines": int_schema("Maximum number of lines to return.", Some(500))
+                },
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "plan_create",
+            "Create a new plan markdown file in the .plan/ directory.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "name": string_schema("Plan filename ending with -plan.md."),
+                    "content": string_schema("Full plan content in Markdown.")
+                },
+                "required": ["name", "content"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "plan_read",
+            "Read a plan markdown file from the .plan/ directory.",
+            json!({
+                "type": "object",
+                "properties": { "name": string_schema("Plan filename.") },
+                "required": ["name"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "plan_update",
+            "Replace the content of an existing plan file in the .plan/ directory.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "name": string_schema("Plan filename."),
+                    "content": string_schema("Full updated plan content in Markdown.")
+                },
+                "required": ["name", "content"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "plan_edit",
+            "Apply a targeted search-and-replace edit to an existing plan file in the .plan/ directory.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "name": string_schema("Plan filename."),
+                    "old_string": string_schema("Exact text to replace."),
+                    "new_string": string_schema("Replacement text."),
+                    "replace_all": bool_schema("Whether to replace every occurrence of old_string.", Some(false))
+                },
+                "required": ["name", "old_string", "new_string"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "plan_delete",
+            "Delete a plan markdown file from the .plan/ directory.",
+            json!({
+                "type": "object",
+                "properties": { "name": string_schema("Plan filename to delete.") },
+                "required": ["name"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "plan_list",
+            "List all plan markdown files in the .plan/ directory.",
+            json!({
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "send_email",
+            "Send an email to a recipient using configured email settings.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "to": string_schema("Recipient email address."),
+                    "subject": string_schema("Email subject line."),
+                    "body": string_schema("Plain text email body content.")
+                },
+                "required": ["to", "subject", "body"],
+                "additionalProperties": false
+            }),
+        ),
+    ];
+
+    match agent_mode.unwrap_or("agent") {
+        "ask" => {
+            let allowed = [
+                "list_dir",
+                "read_file",
+                "todo_read",
+                "glob",
+                "grep",
+                "web_search",
+                "browse_page",
+                "list_shells",
+                "get_workspace_tree",
+            ];
+            tools.retain(|tool| allowed.contains(&tool.function.name.as_str()));
+        }
+        "plan" => {
+            let allowed = [
+                "list_dir",
+                "read_file",
+                "todo_read",
+                "todo_write",
+                "glob",
+                "grep",
+                "web_search",
+                "browse_page",
+                "list_shells",
+                "get_workspace_tree",
+                "plan_create",
+                "plan_read",
+                "plan_update",
+                "plan_edit",
+                "plan_delete",
+                "plan_list",
+            ];
+            tools.retain(|tool| allowed.contains(&tool.function.name.as_str()));
+        }
+        _ => {}
+    }
+
+    tools
+}
+
+fn tool_definition(name: &str, description: &str, parameters: Value) -> AgentToolDefinition {
+    AgentToolDefinition {
+        kind: "function".to_string(),
+        function: super::types::AgentToolFunction {
+            name: name.to_string(),
+            description: description.to_string(),
+            parameters,
+        },
+    }
+}
+
+fn string_schema(description: &str) -> Value {
+    json!({
+        "type": "string",
+        "description": description,
+    })
+}
+
+fn bool_schema(description: &str, default: Option<bool>) -> Value {
+    let mut value = json!({
+        "type": "boolean",
+        "description": description,
+    });
+    if let Some(default) = default {
+        value["default"] = Value::Bool(default);
+    }
+    value
+}
+
+fn int_schema(description: &str, default: Option<i64>) -> Value {
+    let mut value = json!({
+        "type": "integer",
+        "description": description,
+    });
+    if let Some(default) = default {
+        value["default"] = Value::from(default);
+    }
+    value
+}
+
+fn enum_string_schema(
+    description: &str,
+    variants: &[&str],
+    default: Option<&str>,
+) -> Value {
+    let mut value = json!({
+        "type": "string",
+        "description": description,
+        "enum": variants,
+    });
+    if let Some(default) = default {
+        value["default"] = Value::String(default.to_string());
+    }
+    value
 }
 
 fn parse_args(arguments: &str) -> Result<Value, String> {
