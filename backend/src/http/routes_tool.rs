@@ -3,8 +3,16 @@ use chrono::Utc;
 use serde::Deserialize;
 use serde_json::Value;
 use std::sync::Arc;
+use uuid::Uuid;
 
 use crate::agent;
+use crate::db::{
+    records::{current_timestamp_ms, normalize_provider, MessageRecord},
+    session_store::{
+        delete_messages_after, get_messages_by_session, get_session, new_message_id,
+        put_message, update_message, update_session,
+    },
+};
 use crate::tools::*;
 use crate::AppState;
 
@@ -58,6 +66,42 @@ fn truncate_for_log(text: &str) -> String {
     } else {
         preview
     }
+}
+
+fn derive_session_title(text: &str, max_length: usize) -> String {
+    let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if normalized.len() <= max_length {
+        return normalized;
+    }
+    format!("{}…", &normalized[..max_length.saturating_sub(1)])
+}
+
+fn session_fallback_workspace_dir(state: &AppState) -> Option<String> {
+    let value = state.workspace_dir.to_string_lossy().trim().to_string();
+    (!value.is_empty()).then_some(value)
+}
+
+fn normalize_skill_references(skills: Option<Vec<String>>) -> Option<Vec<String>> {
+    let mut normalized = Vec::new();
+    for value in skills.unwrap_or_default() {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() && !normalized.iter().any(|existing: &String| existing == trimmed) {
+            normalized.push(trimmed.to_string());
+        }
+    }
+    (!normalized.is_empty()).then_some(normalized)
+}
+
+async fn cancel_active_session_task(state: &Arc<AppState>, session_id: &str) {
+    let Ok(status) = agent::agent_get_session_status(&state.agent_registry, session_id.to_string()) else {
+        return;
+    };
+    let Some(status) = status else {
+        return;
+    };
+    let _ = state.ask_question_registry.cancel(&status.task_id, "Cancelled");
+    let _ = agent::agent_cancel(&state.agent_registry, status.task_id.clone());
+    let _ = shell_kill_by_task(&state.shell_registry, status.task_id);
 }
 
 // ---------------------------------------------------------------------------
@@ -315,7 +359,8 @@ pub struct AgentStartParams {
     pub api_key_source: Option<String>,
     pub api_key_env_var: Option<String>,
     pub model: String,
-    pub messages: Vec<agent::ChatMessage>,
+    #[serde(default)]
+    pub messages: Option<Vec<agent::ChatMessage>>,
     pub tools: Option<Vec<agent::AgentToolDefinition>>,
     pub request_extensions: Option<Value>,
     pub session_id: Option<String>,
@@ -329,6 +374,71 @@ pub struct AgentStartParams {
     pub autonomy_mode: Option<String>,
     pub decision_policy_version: Option<String>,
     pub decision_model: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentSendParams {
+    pub session_id: String,
+    pub content: String,
+    #[serde(default)]
+    pub images: Option<Vec<crate::db::records::MessageImageAttachment>>,
+    #[serde(default)]
+    pub edit_message_id: Option<String>,
+    #[serde(default)]
+    pub referenced_skills: Option<Vec<String>>,
+    pub base_url: String,
+    pub api_key: Option<String>,
+    pub api_key_source: Option<String>,
+    pub api_key_env_var: Option<String>,
+    pub model: String,
+    pub request_extensions: Option<Value>,
+    #[serde(default)]
+    pub max_context_tokens: Option<u32>,
+    #[serde(default)]
+    pub handoff_trigger_threshold: Option<f64>,
+    #[serde(default)]
+    pub agent_mode: Option<String>,
+    #[serde(default)]
+    pub thinking_enabled: Option<bool>,
+    #[serde(default)]
+    pub models: Option<Vec<Value>>,
+    #[serde(default)]
+    pub extra_tools: Option<Vec<agent::AgentToolDefinition>>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentRegenerateParams {
+    pub session_id: String,
+    pub assistant_message_id: String,
+    pub base_url: String,
+    pub api_key: Option<String>,
+    pub api_key_source: Option<String>,
+    pub api_key_env_var: Option<String>,
+    pub model: String,
+    pub request_extensions: Option<Value>,
+    #[serde(default)]
+    pub max_context_tokens: Option<u32>,
+    #[serde(default)]
+    pub handoff_trigger_threshold: Option<f64>,
+    #[serde(default)]
+    pub agent_mode: Option<String>,
+    #[serde(default)]
+    pub thinking_enabled: Option<bool>,
+    #[serde(default)]
+    pub models: Option<Vec<Value>>,
+    #[serde(default)]
+    pub extra_tools: Option<Vec<agent::AgentToolDefinition>>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AgentMutationResponse {
+    user_message_id: String,
+    assistant_message_id: String,
+    task_id: String,
+    deleted_message_ids: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -980,12 +1090,44 @@ pub async fn handle_agent_start(
     State(state): State<Arc<AppState>>,
     Json(params): Json<AgentStartParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
+    let session = params
+        .session_id
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .map(|session_id| {
+            let db = state
+                .db
+                .lock()
+                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database lock poisoned".to_string()))?;
+            get_session(&db, session_id)
+                .map_err(|error| (StatusCode::BAD_REQUEST, error))?
+                .ok_or_else(|| (StatusCode::BAD_REQUEST, format!("Session not found: {session_id}")))
+        })
+        .transpose()?;
+    let messages = match params.messages.clone().filter(|items| !items.is_empty()) {
+        Some(messages) => messages,
+        None => {
+            let session = session.as_ref().ok_or_else(|| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    "messages or sessionId is required".to_string(),
+                )
+            })?;
+            agent::assemble_agent_messages(&state, session, params.agent_mode.as_deref())
+                .map_err(|error| (StatusCode::BAD_REQUEST, error))?
+        }
+    };
     let agent_mode = params.agent_mode.clone();
-    let tools = params.tools.clone().filter(|tools| !tools.is_empty()).or_else(|| {
-        let defaults = agent::tool_dispatch::get_tool_definitions(agent_mode.as_deref());
+    let tools = {
+        let defaults = agent::resolve_agent_tool_definitions(
+            &state,
+            agent_mode.as_deref(),
+            params.tools.clone(),
+        )
+        .await;
         (!defaults.is_empty()).then_some(defaults)
-    });
-    if let Some((user_message_count, preview_chars, preview)) = summarize_latest_user_message(&params.messages) {
+    };
+    if let Some((user_message_count, preview_chars, preview)) = summarize_latest_user_message(&messages) {
         log::info!(
             "agent_start task_id={} session_id={:?} model={} agent_mode={:?} tools={} user_messages={} preview_chars={} preview={:?}",
             params.task_id,
@@ -1014,7 +1156,7 @@ pub async fn handle_agent_start(
         api_key_source: params.api_key_source.unwrap_or_else(|| "manual".to_string()),
         api_key_env_var: params.api_key_env_var.unwrap_or_else(|| "OPENAI_API_KEY".to_string()),
         model: params.model,
-        messages: params.messages,
+        messages,
         tools,
         request_extensions: params.request_extensions,
         session_id: params.session_id,
@@ -1039,6 +1181,316 @@ pub async fn handle_agent_start(
     Ok(Json(serde_json::to_value(serde_json::json!({"ok": true})).map_err(
         |e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
     )?))
+}
+
+/// POST /api/agent/send
+pub async fn handle_agent_send(
+    State(state): State<Arc<AppState>>,
+    Json(params): Json<AgentSendParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let trimmed = params.content.trim().to_string();
+    let images = params.images.clone().unwrap_or_default();
+    if trimmed.is_empty() && images.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "Message content is required".to_string()));
+    }
+
+    cancel_active_session_task(&state, &params.session_id).await;
+
+    let task_id = Uuid::new_v4().to_string();
+    let (updated_session, user_message, assistant_message, deleted_message_ids) = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database lock poisoned".to_string()))?;
+        let session = get_session(&db, &params.session_id)
+            .map_err(|error| (StatusCode::BAD_REQUEST, error))?
+            .ok_or_else(|| (StatusCode::BAD_REQUEST, format!("Session not found: {}", params.session_id)))?;
+        let workspace_dir = session
+            .workspace_dir
+            .clone()
+            .or_else(|| session_fallback_workspace_dir(&state));
+        let updated_session = update_session(&db, &params.session_id, |record| {
+            record.model = params.model.trim().to_string();
+            record.provider = normalize_provider("", &params.model);
+            record.workspace_dir = workspace_dir.clone();
+            record.context_usage_snapshot = None;
+        })
+        .map_err(|error| (StatusCode::BAD_REQUEST, error))?
+        .ok_or_else(|| (StatusCode::BAD_REQUEST, format!("Session not found: {}", params.session_id)))?;
+
+        let existing_messages = get_messages_by_session(&db, &params.session_id)
+            .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+        let (user_message, is_first_turn, deleted_message_ids) = if let Some(edit_message_id) =
+            params.edit_message_id.as_deref()
+        {
+            let edit_index = existing_messages
+                .iter()
+                .position(|message| message.id == edit_message_id)
+                .ok_or_else(|| (StatusCode::BAD_REQUEST, format!("Message not found: {edit_message_id}")))?;
+            let message_to_edit = existing_messages
+                .get(edit_index)
+                .ok_or_else(|| (StatusCode::BAD_REQUEST, format!("Message not found: {edit_message_id}")))?;
+            if message_to_edit.role != "user" {
+                return Err((StatusCode::BAD_REQUEST, "Only user messages can be edited".to_string()));
+            }
+            let deleted_message_ids = delete_messages_after(&db, &params.session_id, edit_message_id)
+                .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+            let updated = update_message(&db, edit_message_id, true, |message| {
+                message.content = trimmed.clone();
+                message.images = (!images.is_empty()).then_some(images.clone());
+                message.referenced_skills = normalize_skill_references(params.referenced_skills.clone());
+            })
+            .map_err(|error| (StatusCode::BAD_REQUEST, error))?
+            .ok_or_else(|| (StatusCode::BAD_REQUEST, format!("Message not found: {edit_message_id}")))?;
+            (updated, edit_index == 0, deleted_message_ids)
+        } else {
+            let message = MessageRecord {
+                id: new_message_id(),
+                session_id: params.session_id.clone(),
+                role: "user".to_string(),
+                message_kind: None,
+                content: trimmed.clone(),
+                images: (!images.is_empty()).then_some(images.clone()),
+                referenced_skills: normalize_skill_references(params.referenced_skills.clone()),
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: None,
+                error: None,
+                created_at: current_timestamp_ms(),
+                duration_ms: None,
+                usage: None,
+            };
+            put_message(&db, &message, true).map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+            (message, existing_messages.is_empty(), Vec::new())
+        };
+
+        if is_first_turn {
+            let derived_title = derive_session_title(&trimmed, 48);
+            if !derived_title.is_empty() {
+                let _ = update_session(&db, &params.session_id, |record| {
+                    record.title = derived_title.clone();
+                });
+            }
+        }
+
+        let assistant_message = MessageRecord {
+            id: new_message_id(),
+            session_id: params.session_id.clone(),
+            role: "assistant".to_string(),
+            message_kind: (params.agent_mode.as_deref() == Some("plan")).then_some("plan".to_string()),
+            content: String::new(),
+            images: None,
+            referenced_skills: None,
+            thinking: String::new(),
+            process_steps: Some(Vec::new()),
+            tool_invocations: Vec::new(),
+            status: "pending".to_string(),
+            task_id: Some(task_id.clone()),
+            error: None,
+            created_at: current_timestamp_ms(),
+            duration_ms: None,
+            usage: None,
+        };
+        put_message(&db, &assistant_message, true).map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+        (updated_session, user_message, assistant_message, deleted_message_ids)
+    };
+
+    let history = agent::assemble_agent_messages(&state, &updated_session, params.agent_mode.as_deref())
+        .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+    let tools = agent::resolve_agent_tool_definitions(
+        &state,
+        params.agent_mode.as_deref(),
+        params.extra_tools.clone(),
+    )
+    .await;
+    let agent_params = agent::AgentStartParams {
+        task_id: task_id.clone(),
+        base_url: params.base_url,
+        api_key: params.api_key,
+        api_key_source: params.api_key_source.unwrap_or_else(|| "manual".to_string()),
+        api_key_env_var: params.api_key_env_var.unwrap_or_else(|| "OPENAI_API_KEY".to_string()),
+        model: params.model.clone(),
+        messages: history,
+        tools: (!tools.is_empty()).then_some(tools),
+        request_extensions: params.request_extensions,
+        session_id: Some(params.session_id.clone()),
+        emit_assistant_output: Some(true),
+        max_context_tokens: params.max_context_tokens,
+        handoff_trigger_threshold: params.handoff_trigger_threshold,
+        agent_mode: params.agent_mode.clone(),
+        thinking_enabled: params.thinking_enabled,
+        models: params.models,
+        session_kind: Some(updated_session.session_kind.clone()),
+        autonomy_mode: Some(updated_session.autonomy_mode.clone()),
+        decision_policy_version: Some(updated_session.decision_policy_version.clone()),
+        decision_model: updated_session.decision_model.clone(),
+    };
+    if let Err(error) = agent::agent_start(
+        &state.agent_registry,
+        agent_params,
+        state.sse_broadcaster.clone(),
+        state.clone(),
+    ) {
+        let db = state
+            .db
+            .lock()
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database lock poisoned".to_string()))?;
+        let _ = update_message(&db, &assistant_message.id, true, |message| {
+            message.status = "failed".to_string();
+            message.error = Some(error.clone());
+        });
+        return Err((StatusCode::BAD_REQUEST, error));
+    }
+
+    Ok(Json(serde_json::to_value(AgentMutationResponse {
+        user_message_id: user_message.id,
+        assistant_message_id: assistant_message.id,
+        task_id,
+        deleted_message_ids,
+    })
+    .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?))
+}
+
+/// POST /api/agent/regenerate
+pub async fn handle_agent_regenerate(
+    State(state): State<Arc<AppState>>,
+    Json(params): Json<AgentRegenerateParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    cancel_active_session_task(&state, &params.session_id).await;
+
+    let task_id = Uuid::new_v4().to_string();
+    let (updated_session, user_message, assistant_message, resolved_agent_mode, deleted_message_ids) = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database lock poisoned".to_string()))?;
+        let session = get_session(&db, &params.session_id)
+            .map_err(|error| (StatusCode::BAD_REQUEST, error))?
+            .ok_or_else(|| (StatusCode::BAD_REQUEST, format!("Session not found: {}", params.session_id)))?;
+        let session_messages = get_messages_by_session(&db, &params.session_id)
+            .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+        let assistant_index = session_messages
+            .iter()
+            .position(|message| message.id == params.assistant_message_id)
+            .ok_or_else(|| (StatusCode::BAD_REQUEST, format!("Message not found: {}", params.assistant_message_id)))?;
+        let target_assistant = session_messages
+            .get(assistant_index)
+            .ok_or_else(|| (StatusCode::BAD_REQUEST, format!("Message not found: {}", params.assistant_message_id)))?;
+        if target_assistant.role != "assistant" {
+            return Err((StatusCode::BAD_REQUEST, "Only assistant messages can be regenerated".to_string()));
+        }
+        let user_index = (0..assistant_index)
+            .rev()
+            .find(|index| session_messages[*index].role == "user")
+            .ok_or_else(|| {
+                (
+                    StatusCode::BAD_REQUEST,
+                    "No user message found before assistant message".to_string(),
+                )
+            })?;
+        let user_message = session_messages[user_index].clone();
+        let resolved_agent_mode = params
+            .agent_mode
+            .clone()
+            .or_else(|| (target_assistant.message_kind.as_deref() == Some("plan")).then_some("plan".to_string()));
+        let deleted_message_ids = delete_messages_after(&db, &params.session_id, &user_message.id)
+            .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+        let workspace_dir = session
+            .workspace_dir
+            .clone()
+            .or_else(|| session_fallback_workspace_dir(&state));
+        let updated_session = update_session(&db, &params.session_id, |record| {
+            record.model = params.model.trim().to_string();
+            record.provider = normalize_provider("", &params.model);
+            record.workspace_dir = workspace_dir.clone();
+            record.context_usage_snapshot = None;
+        })
+        .map_err(|error| (StatusCode::BAD_REQUEST, error))?
+        .ok_or_else(|| (StatusCode::BAD_REQUEST, format!("Session not found: {}", params.session_id)))?;
+        let assistant_message = MessageRecord {
+            id: new_message_id(),
+            session_id: params.session_id.clone(),
+            role: "assistant".to_string(),
+            message_kind: (resolved_agent_mode.as_deref() == Some("plan")).then_some("plan".to_string()),
+            content: String::new(),
+            images: None,
+            referenced_skills: None,
+            thinking: String::new(),
+            process_steps: Some(Vec::new()),
+            tool_invocations: Vec::new(),
+            status: "pending".to_string(),
+            task_id: Some(task_id.clone()),
+            error: None,
+            created_at: current_timestamp_ms(),
+            duration_ms: None,
+            usage: None,
+        };
+        put_message(&db, &assistant_message, true).map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+        (
+            updated_session,
+            user_message,
+            assistant_message,
+            resolved_agent_mode,
+            deleted_message_ids,
+        )
+    };
+
+    let history = agent::assemble_agent_messages(&state, &updated_session, resolved_agent_mode.as_deref())
+        .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+    let tools = agent::resolve_agent_tool_definitions(
+        &state,
+        resolved_agent_mode.as_deref(),
+        params.extra_tools.clone(),
+    )
+    .await;
+    let agent_params = agent::AgentStartParams {
+        task_id: task_id.clone(),
+        base_url: params.base_url,
+        api_key: params.api_key,
+        api_key_source: params.api_key_source.unwrap_or_else(|| "manual".to_string()),
+        api_key_env_var: params.api_key_env_var.unwrap_or_else(|| "OPENAI_API_KEY".to_string()),
+        model: params.model.clone(),
+        messages: history,
+        tools: (!tools.is_empty()).then_some(tools),
+        request_extensions: params.request_extensions,
+        session_id: Some(params.session_id.clone()),
+        emit_assistant_output: Some(true),
+        max_context_tokens: params.max_context_tokens,
+        handoff_trigger_threshold: params.handoff_trigger_threshold,
+        agent_mode: resolved_agent_mode.clone(),
+        thinking_enabled: params.thinking_enabled,
+        models: params.models,
+        session_kind: Some(updated_session.session_kind.clone()),
+        autonomy_mode: Some(updated_session.autonomy_mode.clone()),
+        decision_policy_version: Some(updated_session.decision_policy_version.clone()),
+        decision_model: updated_session.decision_model.clone(),
+    };
+    if let Err(error) = agent::agent_start(
+        &state.agent_registry,
+        agent_params,
+        state.sse_broadcaster.clone(),
+        state.clone(),
+    ) {
+        let db = state
+            .db
+            .lock()
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database lock poisoned".to_string()))?;
+        let _ = update_message(&db, &assistant_message.id, true, |message| {
+            message.status = "failed".to_string();
+            message.error = Some(error.clone());
+        });
+        return Err((StatusCode::BAD_REQUEST, error));
+    }
+
+    Ok(Json(serde_json::to_value(AgentMutationResponse {
+        user_message_id: user_message.id,
+        assistant_message_id: assistant_message.id,
+        task_id,
+        deleted_message_ids,
+    })
+    .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?))
 }
 
 /// POST /agent/cancel
@@ -1162,6 +1614,305 @@ pub async fn handle_refine_prompt(
     Ok(Json(serde_json::to_value(result).map_err(|e| {
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
     })?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::{Arc, Mutex};
+
+    use crate::agent::registry::AgentRegistry;
+    use crate::db::records::SessionRecord;
+    use crate::db::session_store::{get_messages_by_session, get_session, new_message_id, put_message, put_session};
+    use crate::tools::{McpRegistry, PageCache, RemoteConnectionPool, ShellRegistry};
+    use crate::{agent, db::Database, SseBroadcaster};
+
+    fn temp_dir(label: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "coder-routes-tool-{label}-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
+
+    fn create_test_state(workspace_dir: &PathBuf) -> Arc<AppState> {
+        let coder_dir = temp_dir("coder-data");
+        let db = Database::new(&coder_dir).expect("db");
+        Arc::new(AppState {
+            workspace_dir: workspace_dir.clone(),
+            http_base_url: "http://127.0.0.1:9".to_string(),
+            db: Arc::new(Mutex::new(db)),
+            agent_registry: Arc::new(Mutex::new(AgentRegistry::new().expect("agent registry"))),
+            ask_question_registry: Arc::new(agent::ask_question::AskQuestionRegistry::new()),
+            shell_registry: Arc::new(Mutex::new(ShellRegistry::new())),
+            mcp_registry: Arc::new(McpRegistry::new()),
+            page_cache: Arc::new(PageCache::new()),
+            remote_pool: RemoteConnectionPool::new(),
+            sse_broadcaster: Arc::new(SseBroadcaster::new()),
+        })
+    }
+
+    fn sample_session(workspace_dir: Option<String>) -> SessionRecord {
+        SessionRecord {
+            id: crate::db::session_store::new_session_id(),
+            title: "New Chat".to_string(),
+            model: "old-model".to_string(),
+            provider: "custom".to_string(),
+            workspace_dir,
+            session_kind: "standard".to_string(),
+            autonomy_mode: "interactive".to_string(),
+            decision_policy_version: "mvp-v1".to_string(),
+            decision_model: None,
+            parent_session_id: None,
+            handoff_from_session_id: None,
+            handoff_message_id: None,
+            handoff_phase: None,
+            plan_file_name: None,
+            plan_built_at: None,
+            context_usage_snapshot: None,
+            pinned_at: None,
+            created_at: current_timestamp_ms(),
+            updated_at: current_timestamp_ms(),
+        }
+    }
+
+    async fn decode_response(result: Result<Json<Value>, (StatusCode, String)>) -> Value {
+        result.expect("handler success").0
+    }
+
+    #[tokio::test]
+    async fn handle_agent_send_edits_user_message_and_truncates_following_history() {
+        let workspace_dir = temp_dir("send-workspace");
+        let state = create_test_state(&workspace_dir);
+        let session = sample_session(None);
+        let original_user_id = new_message_id();
+        let original_assistant_id = new_message_id();
+        let trailing_user_id = new_message_id();
+        {
+            let db = state.db.lock().expect("db");
+            put_session(&db, &session).expect("put session");
+            put_message(
+                &db,
+                &MessageRecord {
+                    id: original_user_id.clone(),
+                    session_id: session.id.clone(),
+                    role: "user".to_string(),
+                    message_kind: None,
+                    content: "old content".to_string(),
+                    images: None,
+                    referenced_skills: None,
+                    thinking: String::new(),
+                    process_steps: None,
+                    tool_invocations: Vec::new(),
+                    status: "completed".to_string(),
+                    task_id: None,
+                    error: None,
+                    created_at: current_timestamp_ms(),
+                    duration_ms: None,
+                    usage: None,
+                },
+                true,
+            )
+            .expect("put user");
+            put_message(
+                &db,
+                &MessageRecord {
+                    id: original_assistant_id.clone(),
+                    session_id: session.id.clone(),
+                    role: "assistant".to_string(),
+                    message_kind: None,
+                    content: "old answer".to_string(),
+                    images: None,
+                    referenced_skills: None,
+                    thinking: String::new(),
+                    process_steps: None,
+                    tool_invocations: Vec::new(),
+                    status: "completed".to_string(),
+                    task_id: None,
+                    error: None,
+                    created_at: current_timestamp_ms(),
+                    duration_ms: None,
+                    usage: None,
+                },
+                true,
+            )
+            .expect("put assistant");
+            put_message(
+                &db,
+                &MessageRecord {
+                    id: trailing_user_id.clone(),
+                    session_id: session.id.clone(),
+                    role: "user".to_string(),
+                    message_kind: None,
+                    content: "later question".to_string(),
+                    images: None,
+                    referenced_skills: None,
+                    thinking: String::new(),
+                    process_steps: None,
+                    tool_invocations: Vec::new(),
+                    status: "completed".to_string(),
+                    task_id: None,
+                    error: None,
+                    created_at: current_timestamp_ms(),
+                    duration_ms: None,
+                    usage: None,
+                },
+                true,
+            )
+            .expect("put trailing user");
+        }
+
+        let response = decode_response(
+            handle_agent_send(
+                State(state.clone()),
+                Json(AgentSendParams {
+                    session_id: session.id.clone(),
+                    content: "new content".to_string(),
+                    images: None,
+                    edit_message_id: Some(original_user_id.clone()),
+                    referenced_skills: Some(vec!["demo-skill".to_string()]),
+                    base_url: "http://127.0.0.1:9".to_string(),
+                    api_key: Some("test-key".to_string()),
+                    api_key_source: Some("manual".to_string()),
+                    api_key_env_var: Some("OPENAI_API_KEY".to_string()),
+                    model: "new-model".to_string(),
+                    request_extensions: None,
+                    max_context_tokens: Some(32000),
+                    handoff_trigger_threshold: Some(0.8),
+                    agent_mode: Some("agent".to_string()),
+                    thinking_enabled: Some(false),
+                    models: None,
+                    extra_tools: None,
+                }),
+            )
+            .await,
+        )
+        .await;
+
+        let response: AgentMutationResponse =
+            serde_json::from_value(response).expect("decode response");
+        assert_eq!(response.user_message_id, original_user_id);
+        assert_eq!(response.deleted_message_ids.len(), 2);
+        assert!(response.deleted_message_ids.contains(&original_assistant_id));
+        assert!(response.deleted_message_ids.contains(&trailing_user_id));
+
+        let db = state.db.lock().expect("db");
+        let session_after = get_session(&db, &session.id).expect("get session").expect("session");
+        assert_eq!(session_after.model, "new-model");
+        assert_eq!(
+            session_after.workspace_dir.as_deref(),
+            Some(workspace_dir.to_string_lossy().as_ref())
+        );
+
+        let messages = get_messages_by_session(&db, &session.id).expect("messages");
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].id, original_user_id);
+        assert_eq!(messages[0].content, "new content");
+        assert_eq!(
+            messages[0].referenced_skills.as_ref().expect("skills"),
+            &vec!["demo-skill".to_string()]
+        );
+        assert_eq!(messages[1].id, response.assistant_message_id);
+        assert_eq!(messages[1].role, "assistant");
+        assert_eq!(messages[1].task_id.as_deref(), Some(response.task_id.as_str()));
+    }
+
+    #[tokio::test]
+    async fn handle_agent_regenerate_truncates_from_target_user_and_creates_new_placeholder() {
+        let workspace_dir = temp_dir("regenerate-workspace");
+        let state = create_test_state(&workspace_dir);
+        let session = sample_session(Some(workspace_dir.to_string_lossy().to_string()));
+        let u1 = new_message_id();
+        let a1 = new_message_id();
+        let u2 = new_message_id();
+        let a2 = new_message_id();
+        let u3 = new_message_id();
+        let a3 = new_message_id();
+        {
+            let db = state.db.lock().expect("db");
+            put_session(&db, &session).expect("put session");
+            for (id, role, content) in [
+                (&u1, "user", "first"),
+                (&a1, "assistant", "first answer"),
+                (&u2, "user", "second"),
+                (&a2, "assistant", "second answer"),
+                (&u3, "user", "third"),
+                (&a3, "assistant", "third answer"),
+            ] {
+                put_message(
+                    &db,
+                    &MessageRecord {
+                        id: id.clone(),
+                        session_id: session.id.clone(),
+                        role: role.to_string(),
+                        message_kind: None,
+                        content: content.to_string(),
+                        images: None,
+                        referenced_skills: None,
+                        thinking: String::new(),
+                        process_steps: None,
+                        tool_invocations: Vec::new(),
+                        status: "completed".to_string(),
+                        task_id: None,
+                        error: None,
+                        created_at: current_timestamp_ms(),
+                        duration_ms: None,
+                        usage: None,
+                    },
+                    true,
+                )
+                .expect("put message");
+            }
+        }
+
+        let response = decode_response(
+            handle_agent_regenerate(
+                State(state.clone()),
+                Json(AgentRegenerateParams {
+                    session_id: session.id.clone(),
+                    assistant_message_id: a2.clone(),
+                    base_url: "http://127.0.0.1:9".to_string(),
+                    api_key: Some("test-key".to_string()),
+                    api_key_source: Some("manual".to_string()),
+                    api_key_env_var: Some("OPENAI_API_KEY".to_string()),
+                    model: "regen-model".to_string(),
+                    request_extensions: None,
+                    max_context_tokens: Some(64000),
+                    handoff_trigger_threshold: Some(0.8),
+                    agent_mode: Some("agent".to_string()),
+                    thinking_enabled: Some(false),
+                    models: None,
+                    extra_tools: None,
+                }),
+            )
+            .await,
+        )
+        .await;
+
+        let response: AgentMutationResponse =
+            serde_json::from_value(response).expect("decode response");
+        assert_eq!(response.user_message_id, u2);
+        assert_eq!(response.deleted_message_ids.len(), 3);
+        assert!(response.deleted_message_ids.contains(&a2));
+        assert!(response.deleted_message_ids.contains(&u3));
+        assert!(response.deleted_message_ids.contains(&a3));
+
+        let db = state.db.lock().expect("db");
+        let messages = get_messages_by_session(&db, &session.id).expect("messages");
+        let ids = messages.iter().map(|message| message.id.as_str()).collect::<Vec<_>>();
+        assert_eq!(ids, vec![u1.as_str(), a1.as_str(), u2.as_str(), response.assistant_message_id.as_str()]);
+        assert_eq!(messages[3].role, "assistant");
+        assert_eq!(messages[3].task_id.as_deref(), Some(response.task_id.as_str()));
+
+        let session_after = get_session(&db, &session.id).expect("get session").expect("session");
+        assert_eq!(session_after.model, "regen-model");
+    }
 }
 
 // ---------------------------------------------------------------------------

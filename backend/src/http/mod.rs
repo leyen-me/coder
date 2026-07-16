@@ -117,6 +117,8 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/tool_plan_list", post(routes_tool::handle_plan_list))
         // Agent streaming
         .route("/agent/start", post(routes_tool::handle_agent_start))
+        .route("/api/agent/send", post(routes_tool::handle_agent_send))
+        .route("/api/agent/regenerate", post(routes_tool::handle_agent_regenerate))
         .route("/agent/cancel", post(routes_tool::handle_agent_cancel))
         .route("/agent/status", post(routes_tool::handle_agent_status))
         .route(

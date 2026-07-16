@@ -205,6 +205,95 @@ export async function getAgentSessionStatus(
   }
 }
 
+export async function sendAgentMessage(input: {
+  sessionId: string;
+  content: string;
+  images?: Array<{
+    id: string;
+    filename?: string;
+    mediaType?: string;
+    url: string;
+  }>;
+  editMessageId?: string;
+  referencedSkills?: string[];
+  baseUrl: string;
+  apiKey: string;
+  apiKeySource: "manual" | "env";
+  apiKeyEnvVar: string;
+  model: string;
+  requestExtensions?: Record<string, unknown>;
+  maxContextTokens?: number;
+  handoffTriggerThreshold?: number;
+  agentMode?: string;
+  thinkingEnabled?: boolean;
+  models?: readonly unknown[];
+  extraTools?: unknown[];
+}): Promise<{
+  userMessageId: string;
+  assistantMessageId: string;
+  taskId: string;
+  deletedMessageIds?: string[];
+}> {
+  return apiPost("/api/agent/send", {
+    sessionId: input.sessionId,
+    content: input.content,
+    images: input.images ?? null,
+    editMessageId: input.editMessageId ?? null,
+    referencedSkills: input.referencedSkills ?? null,
+    baseUrl: input.baseUrl,
+    apiKey: input.apiKey || null,
+    apiKeySource: input.apiKeySource,
+    apiKeyEnvVar: input.apiKeyEnvVar,
+    model: input.model,
+    requestExtensions: input.requestExtensions ?? null,
+    maxContextTokens: input.maxContextTokens ?? null,
+    handoffTriggerThreshold: input.handoffTriggerThreshold ?? null,
+    agentMode: input.agentMode ?? null,
+    thinkingEnabled: input.thinkingEnabled ?? null,
+    models: input.models ?? null,
+    extraTools: input.extraTools ?? null,
+  });
+}
+
+export async function regenerateAgentMessage(input: {
+  sessionId: string;
+  assistantMessageId: string;
+  baseUrl: string;
+  apiKey: string;
+  apiKeySource: "manual" | "env";
+  apiKeyEnvVar: string;
+  model: string;
+  requestExtensions?: Record<string, unknown>;
+  maxContextTokens?: number;
+  handoffTriggerThreshold?: number;
+  agentMode?: string;
+  thinkingEnabled?: boolean;
+  models?: readonly unknown[];
+  extraTools?: unknown[];
+}): Promise<{
+  userMessageId: string;
+  assistantMessageId: string;
+  taskId: string;
+  deletedMessageIds?: string[];
+}> {
+  return apiPost("/api/agent/regenerate", {
+    sessionId: input.sessionId,
+    assistantMessageId: input.assistantMessageId,
+    baseUrl: input.baseUrl,
+    apiKey: input.apiKey || null,
+    apiKeySource: input.apiKeySource,
+    apiKeyEnvVar: input.apiKeyEnvVar,
+    model: input.model,
+    requestExtensions: input.requestExtensions ?? null,
+    maxContextTokens: input.maxContextTokens ?? null,
+    handoffTriggerThreshold: input.handoffTriggerThreshold ?? null,
+    agentMode: input.agentMode ?? null,
+    thinkingEnabled: input.thinkingEnabled ?? null,
+    models: input.models ?? null,
+    extraTools: input.extraTools ?? null,
+  });
+}
+
 export async function resumeAgentStream(
   taskId: string,
   onEvent: (event: AgentEvent) => void,

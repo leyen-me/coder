@@ -58,7 +58,7 @@ pub use read_editor_file::tool_read_editor_file;
 pub use read_file::tool_read_file;
 pub use remote_connection::{test_remote_connection, RemoteConnectionPool, SshStreamEvent};
 pub use replace_file::tool_replace_file;
-pub use runtime::agent_get_runtime_environment;
+pub use runtime::{agent_get_runtime_environment, RuntimeEnvironmentResponse};
 pub use search_workspace::tool_search_workspace_paths;
 pub use skills::{
     delete_user_skill, ensure_skill_roots, import_user_skill, list_available_skills,

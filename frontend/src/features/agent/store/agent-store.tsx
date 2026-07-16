@@ -9,15 +9,10 @@ import {
 } from "react";
 
 import {
-  createMessage,
-  createTaskId,
   DEFAULT_SESSION_AUTONOMY_MODE,
-  deleteMessagesAfter,
   deriveSessionTitle,
   getMessagesBySession,
   getSession,
-  inferProviderFromModel,
-  updateMessage,
   updateSession,
   updateSessionTitle,
   type MessageRecord,
@@ -28,21 +23,14 @@ import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
 import { appEventBus } from "@/lib/event-bus";
-import { randomUUID } from "@/lib/random-id";
-import { resolveMcpAgentTools } from "@/features/mcp/lib/resolve-mcp-tools";
-import { buildAgentMessages } from "../build-agent-messages";
 import { isAgentCancellationError } from "../cancellation";
 import { SkillReferenceValidationError } from "@/features/skills/lib/skill-errors";
 import { resolveWorkspaceAwareSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
 import { extractSkillSlugsFromText } from "@/features/skills/lib/parse-skill-references";
 import { createStreamingBufferManager } from "../streaming-buffer";
 import { fileUIPartsToStoredImages } from "../message-content";
-import { messageRecordToAgentMessages } from "../message-history";
 import type { FileUIPart } from "ai";
-import { getAgentToolDefinitions } from "../tools";
 import type { AgentToolDefinition } from "../tools/types";
-import { ensureSessionWorkspaceForAgent } from "../ensure-session-workspace";
-import { resolveAgentEnvironment } from "../environment";
 import { applyGeneratedSessionTitle } from "../generate-session-title";
 import {
   resolveApiKey,
@@ -57,11 +45,11 @@ import { buildThinkingRequestExtensions, resolveDefaultThinkingEnabled } from ".
 import {
   cancelAgent,
   getAgentSessionStatus,
+  regenerateAgentMessage,
   resumeAgentStream,
-  startAgent,
+  sendAgentMessage,
 } from "../runner";
 import type {
-  AgentChatMessage,
   ActiveTaskState,
   AgentEvent,
   AgentMode,
@@ -71,8 +59,6 @@ import type {
 } from "../types";
 import { readAgentHandoffThreshold } from "../handoff-settings";
 import { resolveAgentSessionPolicy } from "../session-policy";
-import { writeAgentDiagnosticLog } from "../diagnostic-log";
-import { buildAgentContextDiagnostics } from "../context-monitor";
 
 export type StreamingMessageOverlay = {
   content: string;
@@ -567,10 +553,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
   const startAgentTask = useCallback(
     async (input: {
+      taskId: string;
+      assistantMessageId: string;
       sessionId: string;
       model: string;
-      history: AgentChatMessage[];
-      workspaceDir: string | null;
       userContent: string;
       isFirstTurn: boolean;
       thinkingEnabled: boolean;
@@ -579,28 +565,11 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       autonomyMode: ActiveTaskState["autonomyMode"];
       decisionPolicyVersion: ActiveTaskState["decisionPolicyVersion"];
       decisionModel: ActiveTaskState["decisionModel"];
-      resolvedConfig: ResolvedProviderConfig;
-      extraTools?: AgentToolDefinition[];
     }) => {
-      const taskId = createTaskId();
-      const assistantMessage = await createMessage({
-        id: randomUUID(),
-        sessionId: input.sessionId,
-        role: "assistant",
-        messageKind: input.agentMode === "plan" ? "plan" : undefined,
-        content: "",
-        thinking: "",
-        processSteps: [],
-        toolInvocations: [],
-        status: "pending",
-        taskId,
-        error: null,
-      });
-
       const activeTask: ActiveTaskState = {
-        taskId,
+        taskId: input.taskId,
         sessionId: input.sessionId,
-        assistantMessageId: assistantMessage.id,
+        assistantMessageId: input.assistantMessageId,
         status: "running",
         error: null,
         chatRetry: null,
@@ -615,102 +584,45 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         decisionPolicyVersion: input.decisionPolicyVersion,
         decisionModel: input.decisionModel,
       };
-      tasksRef.current.set(taskId, activeTask);
+      tasksRef.current.set(input.taskId, activeTask);
       const abortController = new AbortController();
-      taskAbortControllersRef.current.set(taskId, abortController);
+      taskAbortControllersRef.current.set(input.taskId, abortController);
       emit();
 
-      const baseTools = getAgentToolDefinitions(input.agentMode);
-      const mcpTools = await resolveMcpAgentTools().catch(() => []);
-      const extraTools = input.extraTools ?? [];
-      const tools = [...baseTools, ...mcpTools, ...extraTools].filter(
-        (tool, index, all) =>
-          all.findIndex((candidate) => candidate.function.name === tool.function.name) === index
-      );
-      const maxContextTokens = resolveContextWindowForModel(
-        input.resolvedConfig,
-        input.model
-      );
-      const handoffTriggerThreshold = readAgentHandoffThreshold();
-
-      void writeAgentDiagnosticLog({
-        category: "agent_context_preflight",
-        sessionId: input.sessionId,
-        taskId,
-        payload: {
-          model: input.model,
-          workspaceDir: input.workspaceDir,
-          sessionKind: input.sessionKind,
-          autonomyMode: input.autonomyMode,
-          agentMode: input.agentMode ?? "agent",
-          diagnostics: buildAgentContextDiagnostics({
-            messages: input.history,
-            maxTokens: maxContextTokens,
-            triggerThreshold: handoffTriggerThreshold,
-          }),
-        },
-      }).catch(() => {
-        // best-effort
-      });
-
-      void startAgent(
-        {
-          taskId,
-          sessionId: input.sessionId,
-          baseUrl: input.resolvedConfig.baseUrl,
-          apiKey: resolveApiKey(input.resolvedConfig),
-          apiKeySource: input.resolvedConfig.apiKeySource,
-          apiKeyEnvVar: resolveApiKeyEnvVar(input.resolvedConfig),
-          model: input.model,
-          models: input.resolvedConfig.models,
-          messages: input.history,
-          tools,
-          requestExtensions: buildThinkingRequestExtensions({
-            models: input.resolvedConfig.models,
-            modelId: input.model,
-            thinkingEnabled: input.thinkingEnabled,
-          }),
-          maxContextTokens,
-          handoffTriggerThreshold,
-          agentMode: input.agentMode,
-          sessionKind: input.sessionKind,
-          autonomyMode: input.autonomyMode,
-          decisionPolicyVersion: input.decisionPolicyVersion,
-          decisionModel: input.decisionModel,
-          thinkingEnabled: input.thinkingEnabled,
-        },
+      void resumeAgentStream(
+        input.taskId,
         (event) => {
-          dispatchAgentEvent(taskId, assistantMessage.id, event);
+          dispatchAgentEvent(input.taskId, input.assistantMessageId, event);
         },
-        { signal: abortController.signal },
+        { signal: abortController.signal, fromSeq: 0 },
       ).catch((error: unknown) => {
         if (
           abortController.signal.aborted ||
           isAgentCancellationError(error)
         ) {
-          dispatchAgentEvent(taskId, assistantMessage.id, {
+          dispatchAgentEvent(input.taskId, input.assistantMessageId, {
             type: "status",
-            taskId,
+            taskId: input.taskId,
             status: "cancelled",
           });
           return;
         }
         const message = error instanceof Error ? error.message : String(error);
-        dispatchAgentEvent(taskId, assistantMessage.id, {
+        dispatchAgentEvent(input.taskId, input.assistantMessageId, {
           type: "error",
-          taskId,
+          taskId: input.taskId,
           message,
         });
-        dispatchAgentEvent(taskId, assistantMessage.id, {
+        dispatchAgentEvent(input.taskId, input.assistantMessageId, {
           type: "status",
-          taskId,
+          taskId: input.taskId,
           status: "failed",
         });
       });
 
       return {
-        assistantMessageId: assistantMessage.id,
-        taskId,
+        assistantMessageId: input.assistantMessageId,
+        taskId: input.taskId,
       };
     },
     [
@@ -873,87 +785,23 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
             : undefined;
 
       writeLastSelectedModel(input.model);
-
-      void updateSession(input.sessionId, {
-        contextUsageSnapshot: null,
-      }).catch(() => {
-        // best-effort
-      });
-
-      for (const task of tasksRef.current.values()) {
-        if (
-          task.sessionId === input.sessionId &&
-          isActiveAgentTask(task.status)
-        ) {
-          tasksRef.current.set(task.taskId, { ...task, status: "cancelling" });
-          emit();
-          taskAbortControllersRef.current.get(task.taskId)?.abort();
-          await cancelAgent(task.taskId);
-        }
-      }
-
-      let userMessage: MessageRecord;
       let isFirstTurn: boolean;
-
+      const sessionMessages = await getMessagesBySession(input.sessionId);
       if (input.editMessageId) {
-        const sessionMessages = await getMessagesBySession(input.sessionId);
         const editIndex = sessionMessages.findIndex(
           (message) => message.id === input.editMessageId
         );
         if (editIndex === -1) {
           throw new Error(`Message not found: ${input.editMessageId}`);
         }
-
         const messageToEdit = sessionMessages[editIndex];
         if (messageToEdit?.role !== "user") {
           throw new Error("Only user messages can be edited");
         }
-
         isFirstTurn = editIndex === 0;
-        const deletedMessageIds = await deleteMessagesAfter(
-          input.sessionId,
-          input.editMessageId
-        );
-        for (const messageId of deletedMessageIds) {
-          streamingBufferRef.current.clear(messageId);
-        }
-
-        const updated = await updateMessage(input.editMessageId, {
-          content: trimmed,
-          images: storedImages.length > 0 ? storedImages : undefined,
-          referencedSkills: referencedSkillsToStore,
-        });
-        if (!updated) {
-          throw new Error(`Message not found: ${input.editMessageId}`);
-        }
-        userMessage = updated;
       } else {
-        const existingMessages = await getMessagesBySession(input.sessionId);
-        isFirstTurn = existingMessages.length === 0;
-        userMessage = await createMessage({
-          id: randomUUID(),
-          sessionId: input.sessionId,
-          role: "user",
-          content: trimmed,
-          images: storedImages.length > 0 ? storedImages : undefined,
-          referencedSkills: referencedSkillsToStore,
-          thinking: "",
-          processSteps: [],
-          toolInvocations: [],
-          status: "completed",
-          taskId: null,
-          error: null,
-        });
+        isFirstTurn = sessionMessages.length === 0;
       }
-
-      // Persist the selected model on the session so the model choice
-      // survives session reload (fixes edit/regenerate model mismatch).
-      updateSession(input.sessionId, {
-        model: input.model,
-        provider: inferProviderFromModel(null, input.model),
-      }).catch(() => {
-        // best-effort
-      });
 
       // Set session title synchronously from user message on first turn,
       // then fire-and-forget an LLM refinement
@@ -976,31 +824,53 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         });
       }
 
-      const session = await ensureSessionWorkspaceForAgent(input.sessionId);
-      const workspaceDir = session.workspaceDir?.trim() || null;
+      const session = await getSession(input.sessionId);
+      if (!session) {
+        throw new Error(`Session not found: ${input.sessionId}`);
+      }
       const sessionPolicy = resolveAgentSessionPolicy(session);
       const sessionResolved = resolveProviderForModel(input.model) ?? resolved;
-      const [historyMessages, environment] = await Promise.all([
-        getMessagesBySession(input.sessionId),
-        resolveAgentEnvironment(workspaceDir),
-      ]);
-      const history = await buildAgentMessages(
-        historyMessages.flatMap(messageRecordToAgentMessages),
-        environment,
-        input.agentMode,
-        input.sessionId,
-        sessionPolicy
-      );
       const thinkingEnabled = resolveThinkingEnabledForRequest(
         sessionResolved,
         input.model,
         input.thinkingEnabled
       );
+      const maxContextTokens = resolveContextWindowForModel(
+        sessionResolved,
+        input.model
+      );
+      const handoffTriggerThreshold = readAgentHandoffThreshold();
+      const started = await sendAgentMessage({
+        sessionId: input.sessionId,
+        content: trimmed,
+        images: storedImages,
+        editMessageId: input.editMessageId,
+        referencedSkills: referencedSkillsToStore,
+        baseUrl: sessionResolved.baseUrl,
+        apiKey: resolveApiKey(sessionResolved),
+        apiKeySource: sessionResolved.apiKeySource,
+        apiKeyEnvVar: resolveApiKeyEnvVar(sessionResolved),
+        model: input.model,
+        models: sessionResolved.models,
+        requestExtensions: buildThinkingRequestExtensions({
+          models: sessionResolved.models,
+          modelId: input.model,
+          thinkingEnabled,
+        }),
+        maxContextTokens,
+        handoffTriggerThreshold,
+        agentMode: input.agentMode,
+        thinkingEnabled,
+        extraTools: input.extraTools,
+      });
+      for (const messageId of started.deletedMessageIds ?? []) {
+        streamingBufferRef.current.clear(messageId);
+      }
       const { assistantMessageId, taskId } = await startAgentTask({
+        taskId: started.taskId,
+        assistantMessageId: started.assistantMessageId,
         sessionId: input.sessionId,
         model: input.model,
-        history,
-        workspaceDir,
         userContent:
           trimmed ||
           storedImages[0]?.filename?.trim() ||
@@ -1012,12 +882,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         autonomyMode: sessionPolicy.autonomyMode,
         decisionPolicyVersion: sessionPolicy.decisionPolicyVersion,
         decisionModel: sessionPolicy.decisionModel,
-        resolvedConfig: sessionResolved,
-        extraTools: input.extraTools,
       });
 
       return {
-        userMessageId: userMessage.id,
+        userMessageId: started.userMessageId,
         assistantMessageId,
         taskId,
       };
@@ -1034,24 +902,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       agentMode?: AgentMode;
     }) => {
       writeLastSelectedModel(input.model);
-
-      void updateSession(input.sessionId, {
-        contextUsageSnapshot: null,
-      }).catch(() => {
-        // best-effort
-      });
-
-      for (const task of tasksRef.current.values()) {
-        if (
-          task.sessionId === input.sessionId &&
-          isActiveAgentTask(task.status)
-        ) {
-          tasksRef.current.set(task.taskId, { ...task, status: "cancelling" });
-          emit();
-          taskAbortControllersRef.current.get(task.taskId)?.abort();
-          await cancelAgent(task.taskId);
-        }
-      }
 
       const sessionMessages = await getMessagesBySession(input.sessionId);
       const assistantIndex = sessionMessages.findIndex(
@@ -1082,50 +932,51 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const resolvedAgentMode =
         input.agentMode ??
         (assistantMessage.messageKind === "plan" ? "plan" : "agent");
-      const deletedMessageIds = await deleteMessagesAfter(
-        input.sessionId,
-        userMessage.id
-      );
-      for (const messageId of deletedMessageIds) {
-        streamingBufferRef.current.clear(messageId);
+      const session = await getSession(input.sessionId);
+      if (!session) {
+        throw new Error(`Session not found: ${input.sessionId}`);
       }
-
-      const session = await ensureSessionWorkspaceForAgent(input.sessionId);
-      const workspaceDir = session.workspaceDir?.trim() || null;
       const sessionPolicy = resolveAgentSessionPolicy(session);
 
-      // Persist the selected model on the session so the model choice
-      // survives session reload (fixes edit/regenerate model mismatch).
-      updateSession(input.sessionId, {
-        model: input.model,
-        provider: inferProviderFromModel(null, input.model),
-      }).catch(() => {
-        // best-effort
-      });
-
       const sessionResolved = resolveProviderForModel(input.model) ?? resolved;
-      const [historyMessages, environment] = await Promise.all([
-        getMessagesBySession(input.sessionId),
-        resolveAgentEnvironment(workspaceDir),
-      ]);
-      const history = await buildAgentMessages(
-        historyMessages.flatMap(messageRecordToAgentMessages),
-        environment,
-        resolvedAgentMode,
-        input.sessionId,
-        sessionPolicy
-      );
       const storedImages = userMessage.images ?? [];
       const thinkingEnabled = resolveThinkingEnabledForRequest(
         sessionResolved,
         input.model,
         input.thinkingEnabled
       );
+      const maxContextTokens = resolveContextWindowForModel(
+        sessionResolved,
+        input.model
+      );
+      const handoffTriggerThreshold = readAgentHandoffThreshold();
+      const started = await regenerateAgentMessage({
+        sessionId: input.sessionId,
+        assistantMessageId: input.assistantMessageId,
+        baseUrl: sessionResolved.baseUrl,
+        apiKey: resolveApiKey(sessionResolved),
+        apiKeySource: sessionResolved.apiKeySource,
+        apiKeyEnvVar: resolveApiKeyEnvVar(sessionResolved),
+        model: input.model,
+        models: sessionResolved.models,
+        requestExtensions: buildThinkingRequestExtensions({
+          models: sessionResolved.models,
+          modelId: input.model,
+          thinkingEnabled,
+        }),
+        maxContextTokens,
+        handoffTriggerThreshold,
+        agentMode: resolvedAgentMode,
+        thinkingEnabled,
+      });
+      for (const messageId of started.deletedMessageIds ?? []) {
+        streamingBufferRef.current.clear(messageId);
+      }
       const { assistantMessageId, taskId } = await startAgentTask({
+        taskId: started.taskId,
+        assistantMessageId: started.assistantMessageId,
         sessionId: input.sessionId,
         model: input.model,
-        history,
-        workspaceDir,
         userContent:
           userMessage.content.trim() ||
           storedImages[0]?.filename?.trim() ||
@@ -1137,11 +988,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         autonomyMode: sessionPolicy.autonomyMode,
         decisionPolicyVersion: sessionPolicy.decisionPolicyVersion,
         decisionModel: sessionPolicy.decisionModel,
-        resolvedConfig: sessionResolved,
       });
 
       return {
-        userMessageId: userMessage.id,
+        userMessageId: started.userMessageId,
         assistantMessageId,
         taskId,
       };

@@ -137,6 +137,29 @@ pub fn get_messages_by_session(
         .collect::<Vec<_>>())
 }
 
+pub fn delete_messages_after(
+    db: &Database,
+    session_id: &str,
+    message_id: &str,
+) -> Result<Vec<String>, String> {
+    let messages = get_messages_by_session(db, session_id)?;
+    let cutoff_index = messages
+        .iter()
+        .position(|message| message.id == message_id)
+        .ok_or_else(|| format!("Message not found: {message_id}"))?;
+
+    let to_delete = messages.into_iter().skip(cutoff_index + 1).collect::<Vec<_>>();
+    if to_delete.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    for message in &to_delete {
+        db.delete(MESSAGES_STORE, &message.id)?;
+    }
+    touch_session(db, session_id)?;
+    Ok(to_delete.into_iter().map(|message| message.id).collect())
+}
+
 pub fn find_assistant_message_by_task_id(
     db: &Database,
     session_id: Option<&str>,

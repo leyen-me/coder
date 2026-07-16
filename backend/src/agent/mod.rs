@@ -4,6 +4,7 @@ pub mod decision;
 pub mod event_log;
 pub mod handoff;
 pub mod loop_;
+pub mod messages;
 pub mod openai;
 pub mod registry;
 pub mod tool_dispatch;
@@ -19,6 +20,7 @@ pub use types::{
     RefineContextMessage, RefinePromptParams, ToolCall,
     TokenUsage,
 };
+pub use messages::{assemble_agent_messages, resolve_agent_tool_definitions};
 pub use stream_log::{agent_diagnostic_file_log, cleanup_agent_log_dirs};
 
 pub struct AgentState(pub Arc<Mutex<AgentRegistry>>);
