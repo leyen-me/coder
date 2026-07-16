@@ -101,6 +101,14 @@ export type Messages = {
     disable: string;
     runNow: string;
     running: string;
+    nextRunIn: string;
+    nextRunNow: string;
+    nextRunPaused: string;
+    nextRunInvalid: string;
+    countdownSeconds: string;
+    countdownMinutesSeconds: string;
+    countdownHoursMinutes: string;
+    countdownDaysHours: string;
     thinkingEnabledBadge: string;
     deleteConfirmTitle: string;
     deleteConfirmDescription: string;

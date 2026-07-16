@@ -1,7 +1,6 @@
 import type { ScheduledJobRecord } from "./api";
 
 export type ScheduledJobViewModel = ScheduledJobRecord & {
-  relativeTime: string;
   running: boolean;
 };
 

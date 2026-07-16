@@ -15,6 +15,8 @@ use super::provider::resolve_job_runtime;
 use super::store::{finish_job_run, get_job, start_job_run};
 use super::types::{RunStatus, ScheduledJobRecord};
 
+const AUTOMATION_SESSION_TITLE_PREFIX: &str = "自动化 · ";
+
 pub fn queue_job_run(state: Arc<AppState>, job: ScheduledJobRecord) -> bool {
     if !state.scheduled_job_lock.try_acquire(&job.id) {
         return false;
@@ -41,13 +43,10 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
     let task_id = uuid::Uuid::new_v4().to_string();
     let workspace_dir = resolve_workspace_dir(job.workspace_dir.as_deref(), &state);
     let now = current_timestamp_ms();
+    let session_title = derive_automation_session_title(&job, 48);
     let session = SessionRecord {
         id: session_id.clone(),
-        title: if job.name.trim().is_empty() {
-            derive_session_title(&job.prompt, 48)
-        } else {
-            job.name.trim().to_string()
-        },
+        title: session_title.clone(),
         model: job.model.trim().to_string(),
         provider: runtime.provider.clone(),
         workspace_dir: workspace_dir.clone(),
@@ -77,6 +76,16 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
 
     start_job_run(&state.db, &job.id, &task_id, &session_id)?;
     let receiver = state.sse_broadcaster.subscribe(&task_id);
+    log::info!(
+        "[scheduled_jobs] job_start job_id={} task_id={} session_id={} title={:?} model={} agent_mode={:?} cron={:?}",
+        job.id,
+        task_id,
+        session_id,
+        session_title,
+        job.model,
+        job.agent_mode,
+        job.cron_expression
+    );
 
     let response = start_agent_send_with_task_id(
         state.clone(),
@@ -166,6 +175,14 @@ async fn watch_job_run(
         }
     };
 
+    log::info!(
+        "[scheduled_jobs] job_finish job_id={} task_id={} session_id={} status={:?} summary={:?}",
+        run.job_id,
+        run.task_id,
+        run.session_id,
+        outcome.0,
+        outcome.1
+    );
     if let Err(error) = finish_job_run(&state.db, &run.job_id, &run.task_id, outcome.1, outcome.0) {
         log::error!(
             "[scheduled_jobs] failed to finalize run {} for job {}: {}",
@@ -273,6 +290,16 @@ fn derive_session_title(text: &str, max_length: usize) -> String {
             .take(max_length.saturating_sub(1))
             .collect::<String>()
     )
+}
+
+fn derive_automation_session_title(job: &ScheduledJobRecord, max_length: usize) -> String {
+    let prefix_len = AUTOMATION_SESSION_TITLE_PREFIX.chars().count();
+    let base = if job.name.trim().is_empty() {
+        derive_session_title(&job.prompt, max_length.saturating_sub(prefix_len))
+    } else {
+        derive_session_title(job.name.trim(), max_length.saturating_sub(prefix_len))
+    };
+    format!("{AUTOMATION_SESSION_TITLE_PREFIX}{base}")
 }
 
 fn terminal_status_from_event(payload: &str) -> Option<RunStatus> {

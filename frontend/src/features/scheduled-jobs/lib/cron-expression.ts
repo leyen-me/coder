@@ -19,6 +19,14 @@ export type SimpleSchedule =
       weekdays: number[];
     };
 
+type ParsedCronSchedule = {
+  minute: Set<number> | null;
+  hour: Set<number> | null;
+  dayOfMonth: Set<number> | null;
+  month: Set<number> | null;
+  weekday: Set<number> | null;
+};
+
 function normalizeWeekdayValue(value: number): number {
   return value === 7 ? 0 : value;
 }
@@ -157,6 +165,80 @@ export function normalizeCronExpression(expression: string): string | null {
 
 export function isValidCronExpression(expression: string): boolean {
   return normalizeCronExpression(expression) !== null;
+}
+
+function parseCronSchedule(expression: string): ParsedCronSchedule | null {
+  const normalized = normalizeCronExpression(expression);
+  if (!normalized) {
+    return null;
+  }
+
+  const [minuteField, hourField, dayOfMonthField, monthField, weekdayField] =
+    normalized.split(" ");
+
+  const minute = minuteField === "*" ? null : parseCronField(minuteField, 0, 59);
+  const hour = hourField === "*" ? null : parseCronField(hourField, 0, 23);
+  const dayOfMonth =
+    dayOfMonthField === "*" ? null : parseCronField(dayOfMonthField, 1, 31);
+  const month = monthField === "*" ? null : parseCronField(monthField, 1, 12);
+  const weekday =
+    weekdayField === "*" ? null : parseCronField(weekdayField, 0, 7, true);
+
+  if (
+    (minuteField !== "*" && minute === null) ||
+    (hourField !== "*" && hour === null) ||
+    (dayOfMonthField !== "*" && dayOfMonth === null) ||
+    (monthField !== "*" && month === null) ||
+    (weekdayField !== "*" && weekday === null)
+  ) {
+    return null;
+  }
+
+  return { minute, hour, dayOfMonth, month, weekday };
+}
+
+function alignToMinute(timestampMs: number): number {
+  return timestampMs - (timestampMs % 60_000);
+}
+
+function matchesField(field: Set<number> | null, value: number): boolean {
+  return field === null || field.has(value);
+}
+
+function matchesSchedule(schedule: ParsedCronSchedule, timestampMs: number): boolean {
+  const current = new Date(timestampMs);
+  return (
+    matchesField(schedule.minute, current.getUTCMinutes()) &&
+    matchesField(schedule.hour, current.getUTCHours()) &&
+    matchesField(schedule.dayOfMonth, current.getUTCDate()) &&
+    matchesField(schedule.month, current.getUTCMonth() + 1) &&
+    matchesField(schedule.weekday, current.getUTCDay())
+  );
+}
+
+export function getNextCronOccurrenceAt(
+  expression: string,
+  fromTimestampMs: number
+): number | null {
+  const schedule = parseCronSchedule(expression);
+  if (!schedule) {
+    return null;
+  }
+
+  let candidate =
+    fromTimestampMs % 60_000 === 0
+      ? fromTimestampMs
+      : alignToMinute(fromTimestampMs) + 60_000;
+
+  const maxChecks = 366 * 24 * 60;
+  for (let attempt = 0; attempt < maxChecks; attempt += 1) {
+    if (matchesSchedule(schedule, candidate)) {
+      return candidate;
+    }
+    candidate += 60_000;
+  }
+
+  return null;
 }
 
 function isValidTimeString(value: string): boolean {
