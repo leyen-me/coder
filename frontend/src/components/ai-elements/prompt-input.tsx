@@ -585,6 +585,9 @@ function handlePromptInputDrop(
 ): void {
   const { add, onNativeFileDrop } = options;
   const dataTransfer = event.dataTransfer;
+  const hasExternalPaths = dataTransfer
+    ? hasExtractableExternalPaths(dataTransfer)
+    : false;
 
   if (
     !acceptsPromptInputDrop(dataTransfer, {
@@ -600,7 +603,7 @@ function handlePromptInputDrop(
   if (
     onNativeFileDrop &&
     dataTransfer &&
-    (dataTransfer.files.length > 0 || hasExtractableExternalPaths(dataTransfer))
+    hasExternalPaths
   ) {
     onNativeFileDrop({ dataTransfer, addAttachments: add });
     return;

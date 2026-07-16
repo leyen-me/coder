@@ -158,12 +158,14 @@ export const enMessages = {
     skillNoResults: "No enabled skills found",
     removeSkillReference: "Remove skill reference",
     skillNotFound: "Skill /{slug} was not found.",
-    attachmentErrorAccept: "Only image files are supported",
+    attachmentErrorAccept:
+      "Only image files are supported right now. For other files, enter the path directly or place the file in the workspace first",
     attachmentErrorMultimodalUnsupported: "The selected model does not support image input",
     attachmentErrorMaxSize: "Each image must be {size} or smaller",
     attachmentErrorMaxFiles: "You can attach up to {count} images",
     externalDropImageLoadFailed: "Could not load the image preview. Check that the file exists and is under 10 MB",
-    externalDropPathUnresolved: "Could not resolve the dropped file path. Try dragging again from Finder or Explorer",
+    externalDropPathUnresolved:
+      "Could not resolve the dropped file path. For non-image files, enter the path directly or place the file in the workspace first",
     externalDropInvalidPath: "That path cannot be referenced. Check that the file exists",
     externalDropUnsupportedRuntime: "External file references are only supported in the desktop app",
     defaultPermission: "Default permission",
