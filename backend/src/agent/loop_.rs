@@ -117,6 +117,7 @@ pub async fn run_agent_loop(
     let mut cumulative_usage: Option<TokenUsage> = None;
     let mut last_tool_signature: Option<String> = None;
     let mut repeated_tool_signature_count = 0_u32;
+    let mut turn_index = 0_u32;
 
     if let Some(state) = persisted_state.as_mut() {
         persist_message_snapshot(
@@ -165,6 +166,7 @@ pub async fn run_agent_loop(
             &app_state.db,
         )
         .await?;
+        turn_index += 1;
 
         if let Some(usage) = &turn.usage {
             cumulative_usage = Some(match cumulative_usage.as_ref() {
@@ -175,6 +177,14 @@ pub async fn run_agent_loop(
 
         if turn.tool_calls.is_empty() {
             let final_usage = cumulative_usage.clone().or(turn.usage.clone());
+            log::info!(
+                "agent_task_completed task_id={} turns={} content_chars={} reasoning_chars={} total_tokens={}",
+                params.task_id,
+                turn_index,
+                turn.content.chars().count(),
+                turn.reasoning_content.chars().count(),
+                final_usage.as_ref().map(|usage| usage.total_tokens).unwrap_or(0)
+            );
             emit_event(
                 &registry,
                 &broadcaster,

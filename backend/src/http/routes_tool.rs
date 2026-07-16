@@ -8,6 +8,8 @@ use crate::agent;
 use crate::tools::*;
 use crate::AppState;
 
+const LOG_MESSAGE_PREVIEW_CHARS: usize = 160;
+
 fn resolve_workspace_dir(requested: Option<String>, fallback: &std::path::Path) -> String {
     requested
         .and_then(|dir| {
@@ -20,6 +22,42 @@ fn resolve_workspace_dir(requested: Option<String>, fallback: &std::path::Path) 
         })
         .map(|path| format_absolute_path(std::path::Path::new(&path)))
         .unwrap_or_else(|| format_absolute_path(fallback))
+}
+
+fn summarize_latest_user_message(messages: &[agent::ChatMessage]) -> Option<(usize, usize, String)> {
+    let user_message_count = messages.iter().filter(|message| message.role == "user").count();
+    let message = messages.iter().rev().find(|message| message.role == "user")?;
+    let preview = summarize_message_content(message.content.as_ref());
+    let char_count = preview.chars().count();
+    Some((user_message_count, char_count, preview))
+}
+
+fn summarize_message_content(content: Option<&Value>) -> String {
+    match content {
+        Some(Value::String(text)) => truncate_for_log(text),
+        Some(Value::Array(items)) => format!("[non-text content items={}]", items.len()),
+        Some(Value::Object(_)) => "[structured content object]".to_string(),
+        Some(Value::Bool(value)) => value.to_string(),
+        Some(Value::Number(value)) => value.to_string(),
+        Some(Value::Null) | None => "[empty]".to_string(),
+    }
+}
+
+fn truncate_for_log(text: &str) -> String {
+    let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut preview = String::new();
+    for (index, ch) in normalized.chars().enumerate() {
+        if index >= LOG_MESSAGE_PREVIEW_CHARS {
+            preview.push_str("...");
+            break;
+        }
+        preview.push(ch);
+    }
+    if preview.is_empty() {
+        "[empty]".to_string()
+    } else {
+        preview
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -947,14 +985,28 @@ pub async fn handle_agent_start(
         let defaults = agent::tool_dispatch::get_tool_definitions(agent_mode.as_deref());
         (!defaults.is_empty()).then_some(defaults)
     });
-    log::info!(
-        "agent_start task_id={} session_id={:?} model={} agent_mode={:?} tools={}",
-        params.task_id,
-        params.session_id,
-        params.model,
-        agent_mode,
-        tools.as_ref().map(|items| items.len()).unwrap_or(0)
-    );
+    if let Some((user_message_count, preview_chars, preview)) = summarize_latest_user_message(&params.messages) {
+        log::info!(
+            "agent_start task_id={} session_id={:?} model={} agent_mode={:?} tools={} user_messages={} preview_chars={} preview={:?}",
+            params.task_id,
+            params.session_id,
+            params.model,
+            agent_mode,
+            tools.as_ref().map(|items| items.len()).unwrap_or(0),
+            user_message_count,
+            preview_chars,
+            preview
+        );
+    } else {
+        log::info!(
+            "agent_start task_id={} session_id={:?} model={} agent_mode={:?} tools={} user_messages=0",
+            params.task_id,
+            params.session_id,
+            params.model,
+            agent_mode,
+            tools.as_ref().map(|items| items.len()).unwrap_or(0)
+        );
+    }
     let agent_params = agent::AgentStartParams {
         task_id: params.task_id,
         base_url: params.base_url,
