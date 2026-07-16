@@ -1,0 +1,28 @@
+{
+  "history": [
+    {
+      "role": "user",
+      "content": "hello, what files are in this project?"
+    }
+  ],
+  "user_content": "hello, what files are in this project?",
+  "environment": {
+    "workspaceDir": "/Users/test/project",
+    "os": "macos aarch64 (26.5.1)",
+    "shell": "/bin/zsh",
+    "isGitRepository": true,
+    "today": "Thursday, 2026-07-16, GMT+08:00",
+    "agentsMd": null,
+    "systemModules": [],
+    "skillRoots": {
+      "user": "/Users/test/.coder/skills",
+      "workspace": "/Users/test/project/.coder/skills"
+    },
+    "availableSkills": [],
+    "remoteTargets": []
+  },
+  "agentMode": "agent",
+  "sessionId": "session-001",
+  "sessionPolicy": null,
+  "todoSnapshot": null
+}
