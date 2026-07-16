@@ -458,6 +458,7 @@ export const MessageItem = memo(function MessageItem({
           isStreaming={isStreaming}
           answerText={answerText}
           durationMs={message.durationMs}
+          defaultOpen={isPlanMessage}
         />
       ) : answerText && showStandaloneAnswer ? (
         <StreamingMessageContent text={answerText} />

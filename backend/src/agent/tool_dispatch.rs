@@ -1587,7 +1587,10 @@ fn execute_plan_create(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<To
         Err(error) => return Ok(error),
     };
     Ok(match tool_plan_create(workspace_dir, args.name, args.content) {
-        Ok(result) => tool_success("plan_create", result),
+        Ok(result) => {
+            let _ = bind_plan_to_session(ctx, &result.name);
+            tool_success("plan_create", result)
+        }
         Err(error) => tool_failure("plan_create", "execution_failed", error.to_string()),
     })
 }
@@ -1617,7 +1620,10 @@ fn execute_plan_update(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<To
         Err(error) => return Ok(error),
     };
     Ok(match tool_plan_update(workspace_dir, args.name, args.content) {
-        Ok(result) => tool_success("plan_update", result),
+        Ok(result) => {
+            let _ = bind_plan_to_session(ctx, &result.name);
+            tool_success("plan_update", result)
+        }
         Err(error) => tool_failure("plan_update", "execution_failed", error.to_string()),
     })
 }
@@ -1638,7 +1644,10 @@ fn execute_plan_edit(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<Tool
         args.new_string,
         args.replace_all,
     ) {
-        Ok(result) => tool_success("plan_edit", result),
+        Ok(result) => {
+            let _ = bind_plan_to_session(ctx, &result.name);
+            tool_success("plan_edit", result)
+        }
         Err(error) => tool_failure("plan_edit", "execution_failed", error.to_string()),
     })
 }
@@ -1653,7 +1662,10 @@ fn execute_plan_delete(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<To
         Err(error) => return Ok(error),
     };
     Ok(match tool_plan_delete(workspace_dir, args.name) {
-        Ok(result) => tool_success("plan_delete", result),
+        Ok(result) => {
+            let _ = clear_session_plan_binding_if_matches(ctx, &result.name);
+            tool_success("plan_delete", result)
+        }
         Err(error) => tool_failure("plan_delete", "execution_failed", error.to_string()),
     })
 }
@@ -1667,6 +1679,81 @@ fn execute_plan_list(ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelop
         Ok(result) => tool_success("plan_list", result),
         Err(error) => tool_failure("plan_list", "execution_failed", error.to_string()),
     })
+}
+
+fn bind_plan_to_session(ctx: &ToolExecutionContext<'_>, plan_file_name: &str) -> Result<(), String> {
+    let Some(session_id) = ctx
+        .session_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(());
+    };
+    update_session_plan_fields(ctx, session_id, Some(plan_file_name), Some(serde_json::Value::Null))
+}
+
+fn clear_session_plan_binding_if_matches(
+    ctx: &ToolExecutionContext<'_>,
+    plan_file_name: &str,
+) -> Result<(), String> {
+    let Some(session_id) = ctx
+        .session_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(());
+    };
+    let db = ctx.db.lock().map_err(|_| "Database lock poisoned.".to_string())?;
+    let Some(session) = db.get::<Value>("sessions", session_id)? else {
+        return Ok(());
+    };
+    let current_name = session
+        .get("planFileName")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+    drop(db);
+    if current_name != plan_file_name {
+        return Ok(());
+    }
+    update_session_plan_fields(ctx, session_id, None, Some(serde_json::Value::Null))
+}
+
+fn update_session_plan_fields(
+    ctx: &ToolExecutionContext<'_>,
+    session_id: &str,
+    plan_file_name: Option<&str>,
+    plan_built_at: Option<Value>,
+) -> Result<(), String> {
+    let db = ctx.db.lock().map_err(|_| "Database lock poisoned.".to_string())?;
+    let Some(mut session) = db.get::<Value>("sessions", session_id)? else {
+        return Ok(());
+    };
+    let Some(object) = session.as_object_mut() else {
+        return Ok(());
+    };
+    object.insert(
+        "planFileName".to_string(),
+        plan_file_name
+            .map(|value| Value::String(value.to_string()))
+            .unwrap_or(Value::Null),
+    );
+    if let Some(value) = plan_built_at {
+        object.insert("planBuiltAt".to_string(), value);
+    }
+    let updated_at = current_timestamp_ms();
+    object.insert("updatedAt".to_string(), Value::from(updated_at));
+    db.put(
+        "sessions",
+        session_id,
+        &session,
+        &[crate::db::IndexEntry {
+            name: "by-updatedAt".to_string(),
+            value: updated_at.to_string(),
+        }],
+    )
 }
 
 fn execute_plan_list_args(

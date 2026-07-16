@@ -27,6 +27,7 @@ type AssistantProcessCollapsibleProps = {
   taskId?: string | null;
   /** Persisted duration from the message record (ms). Available on re-open. */
   durationMs?: number;
+  defaultOpen?: boolean;
 };
 
 export const AssistantProcessCollapsible = memo(
@@ -36,11 +37,12 @@ export const AssistantProcessCollapsible = memo(
     isStreaming,
     taskId,
     durationMs: persistedDurationMs,
+    defaultOpen = false,
   }: AssistantProcessCollapsibleProps) {
     const { t } = useTranslation();
 
     // -- open/closed state --
-    const [isOpen, setIsOpen] = useState(isStreaming);
+    const [isOpen, setIsOpen] = useState(isStreaming || defaultOpen);
     const hasEverStreamedRef = useRef(false);
     const [hasAutoClosed, setHasAutoClosed] = useState(false);
 
