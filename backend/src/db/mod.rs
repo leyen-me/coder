@@ -1,4 +1,3 @@
-pub mod purge_automation_sessions;
 pub mod records;
 pub mod session_store;
 

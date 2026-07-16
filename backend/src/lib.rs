@@ -3,6 +3,7 @@ mod shell_env;
 pub mod tools;
 pub mod http;
 pub mod db;
+pub mod scheduled_jobs;
 pub mod server;
 
 use std::path::PathBuf;
@@ -10,6 +11,7 @@ use std::sync::{Arc, Mutex};
 
 use agent::registry::AgentRegistry;
 use db::Database;
+use scheduled_jobs::{ActiveRunRegistry, RunLock};
 use tools::{ensure_skill_roots, McpRegistry, PageCache, RemoteConnectionPool, ShellRegistry};
 
 /// Global shared state for all HTTP handlers.
@@ -24,6 +26,8 @@ pub struct AppState {
     pub page_cache: Arc<PageCache>,
     pub remote_pool: RemoteConnectionPool,
     pub sse_broadcaster: Arc<SseBroadcaster>,
+    pub scheduled_job_lock: Arc<RunLock>,
+    pub scheduled_job_active_runs: Arc<ActiveRunRegistry>,
 }
 
 /// SSE event for agent streaming.
@@ -151,6 +155,8 @@ pub fn initialize_app_state(workspace_dir: &PathBuf, http_base_url: String) -> A
         page_cache: Arc::new(PageCache::new()),
         remote_pool,
         sse_broadcaster: Arc::new(SseBroadcaster::new()),
+        scheduled_job_lock: Arc::new(RunLock::new()),
+        scheduled_job_active_runs: Arc::new(ActiveRunRegistry::new()),
     })
 }
 

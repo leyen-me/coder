@@ -4,7 +4,7 @@ Coder
 
 ### 项目描述
 
-An AI-native development environment with autonomous agent loop, remote SSH execution, cron-based automations, and a customizable skills system — built with Rust and React.
+An AI-native development environment with an autonomous agent loop, remote SSH execution, cron-based automations, and a customizable skills system — built with Rust and React.
 
 ### 依赖管理工具
 

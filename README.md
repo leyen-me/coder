@@ -289,13 +289,13 @@ Custom skills define reusable instructions that extend the agent's capabilities.
 
 ### Scheduled Automations
 
-Create cron-based AI tasks that run autonomously with:
+Create cron-based scheduled runs with:
 
 - Configurable cron expressions
-- Per-job model selection and agent mode (Agent/Ask)
+- Per-job workspace, model, and agent mode (Agent/Ask)
 - Optional thinking/reasoning per job
-- Email notification on completion or failure
-- Run history with up to 50 recorded executions
+- Each trigger creates a fresh standard session and sends the saved prompt as the first user message
+- Run history with up to 50 recorded executions, each linked to its generated session
 
 ---
 

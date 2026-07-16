@@ -103,11 +103,7 @@ pub async fn start_server(opts: ServerOptions) -> Result<RunningServer, String> 
 
     let local_url = format!("http://127.0.0.1:{actual_port}");
     let state = initialize_app_state(&workspace_dir, local_url.clone());
-
-    if let Err(error) = crate::db::purge_automation_sessions::purge_automation_sessions(&state.db)
-    {
-        log::error!("Failed to purge automation sessions: {error}");
-    }
+    crate::scheduled_jobs::spawn_scheduler(state.clone());
 
     let app = crate::http::build_router(state.clone());
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();

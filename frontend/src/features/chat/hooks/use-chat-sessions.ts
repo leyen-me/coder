@@ -10,6 +10,8 @@ import {
 import { appEventBus } from "@/lib/event-bus";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
+const SESSION_LIST_POLL_MS = 5000;
+
 function toHistoryItem(
   session: SessionRecord,
   t: ReturnType<typeof useTranslation>["t"]
@@ -51,7 +53,14 @@ export function useChatSessions(limit: number | null = null) {
     const unsubscribeExternal = appEventBus.on("sessions:external_changed", () => {
       void refresh();
     });
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      void refresh();
+    }, SESSION_LIST_POLL_MS);
     return () => {
+      window.clearInterval(timer);
       unsubscribeDb();
       unsubscribeExternal();
     };

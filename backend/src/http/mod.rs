@@ -4,6 +4,7 @@ pub mod routes_skills;
 pub mod routes_settings;
 pub mod routes_sse;
 pub mod routes_mcp;
+pub mod routes_scheduled_jobs;
 pub mod static_files;
 
 use axum::{
@@ -88,6 +89,15 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         )
         .route("/api/send_email", post(routes_tool::handle_send_email))
         .route("/api/server_info", get(routes_tool::handle_server_info))
+        .route("/scheduled-jobs/list", post(routes_scheduled_jobs::handle_list_jobs))
+        .route("/scheduled-jobs/create", post(routes_scheduled_jobs::handle_create_job))
+        .route("/scheduled-jobs/update", post(routes_scheduled_jobs::handle_update_job))
+        .route("/scheduled-jobs/delete", post(routes_scheduled_jobs::handle_delete_job))
+        .route("/scheduled-jobs/toggle", post(routes_scheduled_jobs::handle_toggle_job))
+        .route("/scheduled-jobs/run", post(routes_scheduled_jobs::handle_run_job))
+        .route("/scheduled-jobs/running", post(routes_scheduled_jobs::handle_running_jobs))
+        .route("/scheduled-jobs/active-runs", post(routes_scheduled_jobs::handle_active_runs))
+        .route("/scheduled-jobs/cancel", post(routes_scheduled_jobs::handle_cancel_scheduled_job))
         // ── Compat: `tool_` prefix (used by frontend agent tools) ────────
         .route("/api/tool_list_dir", post(routes_tool::handle_list_dir))
         .route("/api/tool_read_file", post(routes_tool::handle_read_file))

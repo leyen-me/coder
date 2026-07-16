@@ -4,6 +4,7 @@ import {
   Search,
   Settings,
   Sparkles,
+  Workflow,
 } from "lucide-react";
 import { useMatch } from "react-router-dom";
 import { toast } from "sonner";
@@ -198,6 +199,11 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps) {
           label={t("sidebar.skills")}
           shortcutActionId="global.skills"
           to={paths.skills}
+        />
+        <SidebarNavItem
+          icon={Workflow}
+          label={t("sidebar.automations")}
+          to={paths.automations}
         />
       </nav>
 

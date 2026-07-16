@@ -432,13 +432,13 @@ pub struct AgentRegenerateParams {
     pub extra_tools: Option<Vec<agent::AgentToolDefinition>>,
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct AgentMutationResponse {
-    user_message_id: String,
-    assistant_message_id: String,
-    task_id: String,
-    deleted_message_ids: Vec<String>,
+pub struct AgentMutationResponse {
+    pub user_message_id: String,
+    pub assistant_message_id: String,
+    pub task_id: String,
+    pub deleted_message_ids: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -1218,10 +1218,11 @@ pub async fn handle_agent_start(
 }
 
 /// POST /api/agent/send
-pub async fn handle_agent_send(
-    State(state): State<Arc<AppState>>,
-    Json(params): Json<AgentSendParams>,
-) -> Result<Json<Value>, (StatusCode, String)> {
+pub async fn start_agent_send_with_task_id(
+    state: Arc<AppState>,
+    params: AgentSendParams,
+    task_id: String,
+) -> Result<AgentMutationResponse, (StatusCode, String)> {
     let trimmed = params.content.trim().to_string();
     let images = params.images.clone().unwrap_or_default();
     if trimmed.is_empty() && images.is_empty() {
@@ -1230,7 +1231,6 @@ pub async fn handle_agent_send(
 
     cancel_active_session_task(&state, &params.session_id).await;
 
-    let task_id = Uuid::new_v4().to_string();
     let (updated_session, user_message, assistant_message, deleted_message_ids) = {
         let db = state
             .db
@@ -1378,13 +1378,30 @@ pub async fn handle_agent_send(
         return Err((StatusCode::BAD_REQUEST, error));
     }
 
-    Ok(Json(serde_json::to_value(AgentMutationResponse {
+    Ok(AgentMutationResponse {
         user_message_id: user_message.id,
         assistant_message_id: assistant_message.id,
         task_id,
         deleted_message_ids,
     })
-    .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?))
+}
+
+pub async fn start_agent_send(
+    state: Arc<AppState>,
+    params: AgentSendParams,
+) -> Result<AgentMutationResponse, (StatusCode, String)> {
+    start_agent_send_with_task_id(state, params, Uuid::new_v4().to_string()).await
+}
+
+pub async fn handle_agent_send(
+    State(state): State<Arc<AppState>>,
+    Json(params): Json<AgentSendParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let response = start_agent_send(state, params).await?;
+    Ok(Json(
+        serde_json::to_value(response)
+            .map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?,
+    ))
 }
 
 /// POST /api/agent/regenerate
