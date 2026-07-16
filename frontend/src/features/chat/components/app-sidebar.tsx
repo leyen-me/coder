@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Search,
@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { useGeneratingSessionTitles } from "@/features/agent/session-title-store";
 import { useRunningSessionIds } from "@/features/agent/store/agent-store";
 import { useChatSessions } from "@/features/chat/hooks/use-chat-sessions";
+import { listActiveScheduledRuns } from "@/features/scheduled-jobs/lib/api";
 import { deleteSession, getMessagesBySession, getSession, pinSession, unpinSession, updateSessionTitle } from "@/lib/db";
 import { useLocale } from "@/lib/i18n/locale-provider";
 
@@ -29,6 +30,8 @@ type AppSidebarProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
+
+const ACTIVE_RUNS_POLL_MS = 3000;
 
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toISOString().replace("T", " ").slice(0, 19);
@@ -117,6 +120,9 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps) {
   const { sessions, refresh } = useChatSessions();
   const generatingTitleIds = useGeneratingSessionTitles();
   const runningSessionIds = useRunningSessionIds();
+  const [automationRunningSessionIds, setAutomationRunningSessionIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   const { open: openSearch } = useSearchDialog();
 
   const chatMatch = useMatch("/chat/:chatId");
@@ -172,6 +178,51 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps) {
     [refresh]
   );
 
+  useEffect(() => {
+    let mounted = true;
+
+    const syncActiveRuns = async () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      try {
+        const runs = await listActiveScheduledRuns();
+        if (!mounted) {
+          return;
+        }
+        setAutomationRunningSessionIds(
+          new Set(
+            runs
+              .map((run) => run.sessionId.trim())
+              .filter((sessionId) => sessionId.length > 0)
+          )
+        );
+      } catch {
+        if (mounted) {
+          setAutomationRunningSessionIds(new Set());
+        }
+      }
+    };
+
+    void syncActiveRuns();
+    const timer = window.setInterval(() => {
+      void syncActiveRuns();
+    }, ACTIVE_RUNS_POLL_MS);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const combinedRunningSessionIds = useMemo(() => {
+    const ids = new Set(runningSessionIds);
+    for (const sessionId of automationRunningSessionIds) {
+      ids.add(sessionId);
+    }
+    return ids;
+  }, [automationRunningSessionIds, runningSessionIds]);
+
   return (
     <ResponsiveSidebarPanel
       open={open}
@@ -213,7 +264,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps) {
         items={sessions}
         selectedId={selectedChatId}
         generatingTitleIds={generatingTitleIds}
-        runningSessionIds={runningSessionIds}
+        runningSessionIds={combinedRunningSessionIds}
         onDeleteSession={handleDeleteSession}
         onExportSession={handleExportSession}
         onRenameSession={handleRenameSession}

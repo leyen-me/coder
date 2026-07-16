@@ -234,9 +234,6 @@ export function AutomationDialog({
                 onChange={(event) => setCronExpression(event.target.value)}
                 placeholder="0 9 * * 1-5"
               />
-              <p className="text-xs text-muted-foreground">
-                {t("automations.fieldCronHint")}
-              </p>
             </div>
 
             <AutomationRunSettings
@@ -265,9 +262,6 @@ export function AutomationDialog({
                 rows={6}
                 className="min-h-28 resize-y"
               />
-              <p className="text-xs text-muted-foreground">
-                {t("automations.fieldPromptHint")}
-              </p>
             </div>
 
             {error ? (
