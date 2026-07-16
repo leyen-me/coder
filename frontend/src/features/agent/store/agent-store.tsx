@@ -931,6 +931,12 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         decisionPolicyVersion: session?.decisionPolicyVersion ?? "v1",
         decisionModel: session?.decisionModel ?? null,
       };
+      streamingBufferRef.current.hydrate(assistantMessage.id, {
+        content: assistantMessage.content,
+        thinking: assistantMessage.thinking,
+        processSteps: assistantMessage.processSteps ?? [],
+        toolInvocations: assistantMessage.toolInvocations ?? [],
+      });
       tasksRef.current.set(status.taskId, activeTask);
       const abortController = new AbortController();
       taskAbortControllersRef.current.set(status.taskId, abortController);

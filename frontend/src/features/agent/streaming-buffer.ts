@@ -47,6 +47,7 @@ type BufferState = {
 };
 
 export type StreamingBufferManager = {
+  hydrate: (messageId: string, fields: StreamingFields) => void;
   append: (
     messageId: string,
     field: "content" | "thinking",
@@ -106,6 +107,22 @@ export function createStreamingBufferManager(options: {
       buffers.set(messageId, buffer);
     }
     return buffer;
+  };
+
+  const hydrate = (messageId: string, fields: StreamingFields) => {
+    const buffer = ensureBuffer(messageId);
+    buffer.processSteps =
+      fields.processSteps.length > 0
+        ? [...fields.processSteps]
+        : synthesizeProcessSteps(fields);
+    buffer.toolInvocations = [...fields.toolInvocations];
+    buffer.cached = {
+      content: fields.content,
+      thinking: fields.thinking,
+      processSteps: [...buffer.processSteps],
+      toolInvocations: [...buffer.toolInvocations],
+    };
+    emitChangeNow();
   };
 
   const toStreamingFields = (buffer: BufferState): StreamingFields => {
@@ -317,6 +334,7 @@ export function createStreamingBufferManager(options: {
   };
 
   return {
+    hydrate,
     append,
     flush,
     finalize,
@@ -339,6 +357,32 @@ export function createStreamingBufferManager(options: {
         ])
       ),
   };
+}
+
+function synthesizeProcessSteps(fields: StreamingFields): MessageProcessStep[] {
+  const steps: MessageProcessStep[] = [];
+  if (fields.thinking.trim()) {
+    steps.push({
+      id: "reasoning:hydrated",
+      kind: "reasoning",
+      text: fields.thinking,
+    });
+  }
+  for (const invocation of fields.toolInvocations) {
+    steps.push({
+      id: `tool:${invocation.id}`,
+      kind: "tool",
+      toolCallId: invocation.id,
+    });
+  }
+  if (fields.content.trim()) {
+    steps.push({
+      id: "answer:hydrated",
+      kind: "answer",
+      text: fields.content,
+    });
+  }
+  return steps;
 }
 
 function appendTextProcessStep(

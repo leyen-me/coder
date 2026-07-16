@@ -61,6 +61,14 @@ struct MessageToolInvocation {
     state: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+enum MessageProcessStep {
+    Reasoning { id: String, text: String },
+    Answer { id: String, text: String },
+    Tool { id: String, tool_call_id: String },
+}
+
 #[derive(Debug, Clone)]
 struct PersistedMessageState {
     session_id: String,
@@ -68,6 +76,7 @@ struct PersistedMessageState {
     created_at: u64,
     content: String,
     thinking: String,
+    process_steps: Vec<MessageProcessStep>,
     tool_invocations: Vec<MessageToolInvocation>,
 }
 
@@ -85,6 +94,8 @@ struct MessageRecord {
     role: String,
     content: String,
     thinking: String,
+    #[serde(default)]
+    process_steps: Vec<MessageProcessStep>,
     tool_invocations: Vec<MessageToolInvocation>,
     task_id: Option<String>,
     created_at: u64,
@@ -238,6 +249,7 @@ async fn run_single_turn_with_retry(
 ) -> Result<AgentTurnResult, AgentLoopError> {
     let mut turn_messages = messages.to_vec();
     let mut last_error = None;
+    let mut persisted_state = persisted_state;
 
     for attempt in 1..=MAX_RETRY_ATTEMPTS {
         match run_single_turn_attempt(
@@ -248,7 +260,7 @@ async fn run_single_turn_with_retry(
             broadcaster,
             cancel_token,
             registry,
-            persisted_state.as_ref().map(|state| (*state).clone()),
+            persisted_state.as_deref_mut(),
             db,
         )
         .await
@@ -288,7 +300,7 @@ async fn run_single_turn_attempt(
     broadcaster: &Arc<crate::SseBroadcaster>,
     cancel_token: &CancellationToken,
     registry: &Arc<Mutex<super::registry::AgentRegistry>>,
-    mut persisted_state: Option<PersistedMessageState>,
+    mut persisted_state: Option<&mut PersistedMessageState>,
     db: &Arc<Mutex<Database>>,
 ) -> Result<AgentTurnResult, AgentLoopError> {
     let mut tool_calls = Vec::new();
@@ -313,6 +325,7 @@ async fn run_single_turn_attempt(
                     reasoning.push_str(delta);
                     if let Some(state) = persisted_state.as_mut() {
                         state.thinking = reasoning.clone();
+                        append_process_text_step(&mut state.process_steps, "reasoning", delta);
                         let _ = persist_message_snapshot(
                             db,
                             state,
@@ -332,6 +345,7 @@ async fn run_single_turn_attempt(
                     content.push_str(delta);
                     if let Some(state) = persisted_state.as_mut() {
                         state.content = content.clone();
+                        append_process_text_step(&mut state.process_steps, "answer", delta);
                         let _ = persist_message_snapshot(
                             db,
                             state,
@@ -390,7 +404,7 @@ async fn execute_and_append_tool_results(
     ctx: ToolExecutionContext<'_>,
     broadcaster: &Arc<crate::SseBroadcaster>,
     registry: &Arc<Mutex<super::registry::AgentRegistry>>,
-    persisted_state: Option<&mut PersistedMessageState>,
+    mut persisted_state: Option<&mut PersistedMessageState>,
     db: &Arc<Mutex<Database>>,
 ) -> Result<Vec<ChatMessage>, AgentLoopError> {
     let assistant_message = build_assistant_message(turn);
@@ -421,12 +435,12 @@ async fn execute_and_append_tool_results(
                 error_text: None,
                 state: "input-available".to_string(),
             });
-            if let Some(state) = persisted_state.as_ref() {
-                let mut cloned = (**state).clone();
-                cloned.tool_invocations = invocations.clone();
+            if let Some(state) = persisted_state.as_mut() {
+                ensure_tool_process_step(&mut state.process_steps, &call.id);
+                state.tool_invocations = invocations.clone();
                 persist_message_snapshot(
                     db,
-                    &cloned,
+                    state,
                     MessageStatusPatch {
                         status: Some("streaming"),
                         error: None,
@@ -464,12 +478,11 @@ async fn execute_and_append_tool_results(
                     "output-available".to_string()
                 };
             }
-            if let Some(state) = persisted_state.as_ref() {
-                let mut cloned = (**state).clone();
-                cloned.tool_invocations = invocations.clone();
+            if let Some(state) = persisted_state.as_mut() {
+                state.tool_invocations = invocations.clone();
                 persist_message_snapshot(
                     db,
-                    &cloned,
+                    state,
                     MessageStatusPatch {
                         status: Some("streaming"),
                         error: None,
@@ -570,6 +583,7 @@ fn find_persisted_message_state(
         created_at: message.created_at,
         content: message.content,
         thinking: message.thinking,
+        process_steps: message.process_steps,
         tool_invocations: message.tool_invocations,
     })
 }
@@ -601,6 +615,11 @@ fn persist_message_snapshot(
     };
     object.insert("content".to_string(), Value::String(state.content.clone()));
     object.insert("thinking".to_string(), Value::String(state.thinking.clone()));
+    object.insert(
+        "processSteps".to_string(),
+        serde_json::to_value(&state.process_steps)
+            .map_err(|error| AgentLoopError::Other(error.to_string()))?,
+    );
     object.insert(
         "toolInvocations".to_string(),
         serde_json::to_value(&state.tool_invocations)
@@ -745,6 +764,48 @@ fn build_stream_idle_recovery_messages(messages: &[ChatMessage]) -> Vec<ChatMess
         name: None,
     });
     next
+}
+
+fn append_process_text_step(
+    steps: &mut Vec<MessageProcessStep>,
+    kind: &str,
+    delta: &str,
+) {
+    if delta.is_empty() {
+        return;
+    }
+    match (kind, steps.last_mut()) {
+        ("reasoning", Some(MessageProcessStep::Reasoning { text, .. })) => {
+            text.push_str(delta);
+        }
+        ("answer", Some(MessageProcessStep::Answer { text, .. })) => {
+            text.push_str(delta);
+        }
+        ("reasoning", _) => steps.push(MessageProcessStep::Reasoning {
+            id: format!("reasoning:{}", steps.len()),
+            text: delta.to_string(),
+        }),
+        ("answer", _) => steps.push(MessageProcessStep::Answer {
+            id: format!("answer:{}", steps.len()),
+            text: delta.to_string(),
+        }),
+        _ => {}
+    }
+}
+
+fn ensure_tool_process_step(steps: &mut Vec<MessageProcessStep>, tool_call_id: &str) {
+    if steps.iter().any(|step| {
+        matches!(
+            step,
+            MessageProcessStep::Tool { tool_call_id: existing, .. } if existing == tool_call_id
+        )
+    }) {
+        return;
+    }
+    steps.push(MessageProcessStep::Tool {
+        id: format!("tool:{tool_call_id}"),
+        tool_call_id: tool_call_id.to_string(),
+    });
 }
 
 fn current_timestamp_ms() -> u64 {
