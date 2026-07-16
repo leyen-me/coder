@@ -263,10 +263,16 @@ fn resolve_workspace_dir(requested: Option<&str>, state: &AppState) -> Option<St
 
 fn derive_session_title(text: &str, max_length: usize) -> String {
     let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    if normalized.len() <= max_length {
+    if normalized.chars().count() <= max_length {
         return normalized;
     }
-    format!("{}…", &normalized[..max_length.saturating_sub(1)])
+    format!(
+        "{}…",
+        normalized
+            .chars()
+            .take(max_length.saturating_sub(1))
+            .collect::<String>()
+    )
 }
 
 fn terminal_status_from_event(payload: &str) -> Option<RunStatus> {

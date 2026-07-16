@@ -70,10 +70,16 @@ fn truncate_for_log(text: &str) -> String {
 
 fn derive_session_title(text: &str, max_length: usize) -> String {
     let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    if normalized.len() <= max_length {
+    if normalized.chars().count() <= max_length {
         return normalized;
     }
-    format!("{}…", &normalized[..max_length.saturating_sub(1)])
+    format!(
+        "{}…",
+        normalized
+            .chars()
+            .take(max_length.saturating_sub(1))
+            .collect::<String>()
+    )
 }
 
 fn session_fallback_workspace_dir(state: &AppState) -> Option<String> {
@@ -1677,6 +1683,7 @@ mod tests {
     use crate::agent::registry::AgentRegistry;
     use crate::db::records::SessionRecord;
     use crate::db::session_store::{get_messages_by_session, get_session, new_message_id, put_message, put_session};
+    use crate::scheduled_jobs::{ActiveRunRegistry, RunLock};
     use crate::tools::{McpRegistry, PageCache, RemoteConnectionPool, ShellRegistry};
     use crate::{agent, db::Database, SseBroadcaster};
 
@@ -1706,6 +1713,8 @@ mod tests {
             page_cache: Arc::new(PageCache::new()),
             remote_pool: RemoteConnectionPool::new(),
             sse_broadcaster: Arc::new(SseBroadcaster::new()),
+            scheduled_job_lock: Arc::new(RunLock::new()),
+            scheduled_job_active_runs: Arc::new(ActiveRunRegistry::new()),
         })
     }
 
@@ -1963,6 +1972,13 @@ mod tests {
 
         let session_after = get_session(&db, &session.id).expect("get session").expect("session");
         assert_eq!(session_after.model, "regen-model");
+    }
+
+    #[test]
+    fn derive_session_title_truncates_on_character_boundaries() {
+        let title = derive_session_title("自动化工具巡检任务", 6);
+        assert_eq!(title, "自动化工具…");
+        assert_eq!(title.chars().count(), 6);
     }
 }
 

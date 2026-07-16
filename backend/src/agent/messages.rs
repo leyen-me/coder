@@ -954,10 +954,13 @@ fn strip_leading_markdown_h1(content: &str) -> String {
 
 fn compact_description(description: &str) -> String {
     let normalized = description.split_whitespace().collect::<Vec<_>>().join(" ");
-    if normalized.len() <= 220 {
+    if normalized.chars().count() <= 220 {
         normalized
     } else {
-        format!("{}...", &normalized[..217])
+        format!(
+            "{}...",
+            normalized.chars().take(217).collect::<String>()
+        )
     }
 }
 
@@ -1254,6 +1257,7 @@ mod tests {
     use crate::agent::registry::AgentRegistry;
     use crate::db::records::{current_timestamp_ms, AgentTodoRecord, MessageToolInvocation};
     use crate::db::session_store::{new_message_id, new_session_id, new_todo_id, put_agent_todo, put_message, put_session};
+    use crate::scheduled_jobs::{ActiveRunRegistry, RunLock};
     use crate::tools::{McpRegistry, PageCache, RemoteConnectionPool, ShellRegistry};
     use crate::{agent, db::Database, AppState, SseBroadcaster};
 
@@ -1283,6 +1287,8 @@ mod tests {
             page_cache: Arc::new(PageCache::new()),
             remote_pool: RemoteConnectionPool::new(),
             sse_broadcaster: Arc::new(SseBroadcaster::new()),
+            scheduled_job_lock: Arc::new(RunLock::new()),
+            scheduled_job_active_runs: Arc::new(ActiveRunRegistry::new()),
         })
     }
 
@@ -1590,5 +1596,13 @@ Prefer deterministic test scaffolding.
         assert!(definition.function.parameters["properties"]["query"].is_object());
         assert!(definition.function.parameters["properties"].get("bad").is_none());
         assert_eq!(definition.function.parameters["additionalProperties"], false);
+    }
+
+    #[test]
+    fn compact_description_truncates_on_character_boundaries() {
+        let input = format!("{}额外说明", "工具".repeat(120));
+        let output = compact_description(&input);
+        assert!(output.ends_with("..."));
+        assert_eq!(output.chars().count(), 220);
     }
 }
