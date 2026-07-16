@@ -278,6 +278,7 @@ export const zhMessages = {
     modePlanLabel: "规划模式 — 调研并将计划写入 .plan/ 目录",
     composerModeLabel: "模式",
     composerModelLabel: "模型",
+    composerMoreActions: "打开更多选项",
     sessionTypeStandard: "标准会话",
     sessionTypeLongTask: "长任务",
     sessionTypeLabel: "会话类型",

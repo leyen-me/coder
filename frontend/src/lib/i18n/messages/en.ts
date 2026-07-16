@@ -284,6 +284,7 @@ export const enMessages = {
     modePlanLabel: "Plan mode — research and write plans to .plan/",
     composerModeLabel: "Mode",
     composerModelLabel: "Model",
+    composerMoreActions: "Open more options",
     sessionTypeStandard: "Standard",
     sessionTypeLongTask: "Long task",
     sessionTypeLabel: "Session type",

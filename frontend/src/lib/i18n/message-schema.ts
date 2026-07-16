@@ -267,6 +267,7 @@ export type Messages = {
     modePlanLabel: string;
     composerModeLabel: string;
     composerModelLabel: string;
+    composerMoreActions: string;
     sessionTypeStandard: string;
     sessionTypeLongTask: string;
     sessionTypeLabel: string;
