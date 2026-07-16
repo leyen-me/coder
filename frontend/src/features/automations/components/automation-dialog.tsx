@@ -1,6 +1,9 @@
-import { AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertCircle, CalendarClockIcon, ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import {
+  composerFooterControlClassName,
+} from "@/components/ai-elements/composer-footer-control";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { resolveDefaultThinkingEnabled } from "@/features/agent/thinking-preference";
 import {
@@ -13,10 +16,12 @@ import {
 import { resolveInitialSessionWorkspaceDir } from "@/features/workspace/resolve-session-workspace";
 import { Button } from "@/components/ui/button";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -27,18 +32,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { findModelDefinition } from "@/lib/model-provider/model-definition";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
+import { cn } from "@/lib/utils";
 
 import type {
   CreateScheduledJobInput,
@@ -83,7 +82,6 @@ export function AutomationDialog({
     createDefaultSimpleSchedule
   );
   const [advancedOnly, setAdvancedOnly] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [workspaceDir, setWorkspaceDir] = useState<string | null>(null);
   const [model, setModel] = useState(() => resolveDefaultModel({ models: allModels }));
@@ -133,7 +131,6 @@ export function AutomationDialog({
       setAdvancedOnly(false);
     } else {
       setAdvancedOnly(true);
-      setAdvancedOpen(true);
     }
   }, []);
 
@@ -151,12 +148,10 @@ export function AutomationDialog({
         setSimpleSchedule(parsedSchedule);
         setCronExpression(buildCronFromSimple(parsedSchedule));
         setAdvancedOnly(false);
-        setAdvancedOpen(false);
       } else {
         setSimpleSchedule(createDefaultSimpleSchedule());
         setCronExpression(editItem.cronExpression.trim());
         setAdvancedOnly(true);
-        setAdvancedOpen(true);
       }
       setPrompt(editItem.prompt);
       setWorkspaceDir(runConfig.workspaceDir);
@@ -171,7 +166,6 @@ export function AutomationDialog({
       setSimpleSchedule(defaultSchedule);
       setCronExpression(buildCronFromSimple(defaultSchedule));
       setAdvancedOnly(false);
-      setAdvancedOpen(false);
       setPrompt("");
       setWorkspaceDir(resolveInitialSessionWorkspaceDir());
       setModel(defaultModel);
@@ -271,7 +265,10 @@ export function AutomationDialog({
     workspaceDir,
   ]);
 
-  const schedulePreview = !advancedOnly ? normalizeCronExpression(cronExpression) : null;
+  const frequencyLabel =
+    simpleSchedule.kind === "daily"
+      ? t("automations.scheduleFrequencyDaily")
+      : t("automations.scheduleFrequencyWeekly");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -314,38 +311,36 @@ export function AutomationDialog({
             </div>
 
             <div className="space-y-3 rounded-xl border border-border/60 p-3">
-              <div className="space-y-1">
-                <Label>{t("automations.fieldSchedule")}</Label>
-                <p className="text-xs text-muted-foreground">
-                  {t("automations.scheduleUtcHint")}
-                </p>
-              </div>
+              <Label>{t("automations.fieldSchedule")}</Label>
 
-              {advancedOnly ? (
-                <div className="rounded-lg border border-dashed border-border/70 bg-muted/30 px-3 py-2">
-                  <p className="text-sm text-muted-foreground">
-                    {t("automations.scheduleAdvancedOnly")}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-3"
-                    onClick={() => applySimpleSchedule(createDefaultSimpleSchedule())}
-                  >
-                    {t("automations.scheduleUseSimpleMode")}
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="automation-schedule-kind">
-                        {t("automations.scheduleFrequency")}
-                      </Label>
-                      <Select
-                        value={simpleSchedule.kind}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="automation-schedule-kind">
+                    {t("automations.scheduleFrequency")}
+                  </Label>
+                  <DropdownMenu modal={false}>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        id="automation-schedule-kind"
+                        type="button"
                         disabled={saving}
+                        className={cn(
+                          composerFooterControlClassName,
+                          "inline-flex h-9 w-full min-w-0 items-center justify-between gap-1.5 rounded-xl border border-transparent bg-input/50 px-3 text-foreground",
+                          "hover:bg-input/70 data-[state=open]:border-ring data-[state=open]:bg-input/70 data-[state=open]:text-foreground"
+                        )}
+                        title={frequencyLabel}
+                      >
+                        <span className="inline-flex min-w-0 items-center gap-1.5">
+                          <CalendarClockIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{frequencyLabel}</span>
+                        </span>
+                        <ChevronDown className="size-3.5 shrink-0 opacity-60" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="min-w-40">
+                      <DropdownMenuRadioGroup
+                        value={simpleSchedule.kind}
                         onValueChange={(value) => {
                           const nextKind = value as SimpleSchedule["kind"];
                           if (nextKind === simpleSchedule.kind) {
@@ -369,124 +364,86 @@ export function AutomationDialog({
                           });
                         }}
                       >
-                        <SelectTrigger id="automation-schedule-kind" className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="daily">
-                            {t("automations.scheduleFrequencyDaily")}
-                          </SelectItem>
-                          <SelectItem value="weekly">
-                            {t("automations.scheduleFrequencyWeekly")}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                        <DropdownMenuRadioItem value="daily">
+                          {t("automations.scheduleFrequencyDaily")}
+                        </DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="weekly">
+                          {t("automations.scheduleFrequencyWeekly")}
+                        </DropdownMenuRadioItem>
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
 
-                    <div className="space-y-1.5">
-                      <Label htmlFor="automation-schedule-time">
-                        {t("automations.scheduleTime")}
-                      </Label>
-                      <Input
-                        id="automation-schedule-time"
-                        type="time"
-                        step={60}
-                        disabled={saving}
-                        value={simpleSchedule.time}
-                        onChange={(event) => {
-                          const nextTime = event.target.value;
-                          if (simpleSchedule.kind === "daily") {
-                            applySimpleSchedule({
-                              kind: "daily",
-                              time: nextTime,
-                            });
-                            return;
-                          }
-                          applySimpleSchedule({
-                            kind: "weekly",
-                            time: nextTime,
-                            weekdays: simpleSchedule.weekdays,
-                          });
-                        }}
-                      />
-                    </div>
-                  </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="automation-schedule-time">
+                    {t("automations.scheduleTime")}
+                  </Label>
+                  <Input
+                    id="automation-schedule-time"
+                    type="time"
+                    step={60}
+                    disabled={saving}
+                    className="rounded-xl"
+                    value={simpleSchedule.time}
+                    onChange={(event) => {
+                      const nextTime = event.target.value;
+                      if (simpleSchedule.kind === "daily") {
+                        applySimpleSchedule({
+                          kind: "daily",
+                          time: nextTime,
+                        });
+                        return;
+                      }
+                      applySimpleSchedule({
+                        kind: "weekly",
+                        time: nextTime,
+                        weekdays: simpleSchedule.weekdays,
+                      });
+                    }}
+                  />
+                </div>
+              </div>
 
-                  {simpleSchedule.kind === "weekly" ? (
-                    <div className="space-y-1.5">
-                      <Label>{t("automations.scheduleWeekdays")}</Label>
-                      <ToggleGroup
-                        type="multiple"
-                        variant="outline"
-                        size="sm"
-                        className="w-full flex-wrap"
-                        disabled={saving}
-                        value={simpleSchedule.weekdays.map(String)}
-                        onValueChange={(values) =>
-                          applySimpleSchedule({
-                            kind: "weekly",
-                            time: simpleSchedule.time,
-                            weekdays: values.map((value) => Number.parseInt(value, 10)),
-                          })
-                        }
-                      >
-                        {weekdayOptions.map((option) => (
-                          <ToggleGroupItem
-                            key={option.value}
-                            value={String(option.value)}
-                            className="min-w-10 flex-1"
-                          >
-                            {option.label}
-                          </ToggleGroupItem>
-                        ))}
-                      </ToggleGroup>
-                    </div>
-                  ) : null}
-
-                  {schedulePreview ? (
-                    <p className="text-xs text-muted-foreground">
-                      {t("automations.scheduleCronPreview")}{" "}
-                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">
-                        {schedulePreview}
-                      </code>
-                    </p>
-                  ) : null}
-                </>
-              )}
-
-              <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-                <CollapsibleTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
+              {simpleSchedule.kind === "weekly" ? (
+                <div className="space-y-1.5">
+                  <Label>{t("automations.scheduleWeekdays")}</Label>
+                  <ToggleGroup
+                    type="multiple"
+                    variant="outline"
                     size="sm"
-                    className="-ml-2 h-auto justify-start px-2 text-muted-foreground"
+                    className="w-full flex-wrap"
+                    disabled={saving}
+                    value={simpleSchedule.weekdays.map(String)}
+                    onValueChange={(values) =>
+                      applySimpleSchedule({
+                        kind: "weekly",
+                        time: simpleSchedule.time,
+                        weekdays: values.map((value) => Number.parseInt(value, 10)),
+                      })
+                    }
                   >
-                    {advancedOpen ? (
-                      <ChevronUp className="mr-1 size-4" />
-                    ) : (
-                      <ChevronDown className="mr-1 size-4" />
-                    )}
-                    {t("automations.scheduleAdvancedToggle")}
-                  </Button>
-                </CollapsibleTrigger>
+                    {weekdayOptions.map((option) => (
+                      <ToggleGroupItem
+                        key={option.value}
+                        value={String(option.value)}
+                        className="min-w-10 flex-1"
+                      >
+                        {option.label}
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                </div>
+              ) : null}
 
-                <CollapsibleContent className="space-y-2 pt-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="automation-cron">{t("automations.fieldCron")}</Label>
-                    <Input
-                      id="automation-cron"
-                      disabled={saving}
-                      value={cronExpression}
-                      onChange={(event) => syncScheduleFromCron(event.target.value)}
-                      placeholder="0 9 * * 1-5"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {t("automations.fieldCronHint")}
-                  </p>
-                </CollapsibleContent>
-              </Collapsible>
+              <Input
+                id="automation-cron"
+                disabled={saving}
+                value={cronExpression}
+                onChange={(event) => syncScheduleFromCron(event.target.value)}
+                placeholder="0 9 * * 1-5"
+                className="h-10 rounded-xl border-border/60 bg-background/80"
+              />
             </div>
 
             <AutomationRunSettings
