@@ -137,7 +137,7 @@ pub struct ReadFileParams {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WriteFileParams {
+pub struct CreateFileParams {
     pub workspace_dir: Option<String>,
     pub path: String,
     pub content: String,
@@ -543,17 +543,25 @@ pub async fn handle_read_file(
     })?))
 }
 
-/// POST /api/write_file
-pub async fn handle_write_file(
+/// POST /api/create_file
+pub async fn handle_create_file(
     State(state): State<Arc<AppState>>,
-    Json(params): Json<WriteFileParams>,
+    Json(params): Json<CreateFileParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let workspace_dir = resolve_workspace_dir(params.workspace_dir, &state.workspace_dir);
-    let result = tool_write_file(workspace_dir, params.path, params.content, params.create_parent_dirs)
+    let result = tool_create_file(workspace_dir, params.path, params.content, params.create_parent_dirs)
         .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
     Ok(Json(serde_json::to_value(result).map_err(|e| {
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
     })?))
+}
+
+/// Legacy alias for [`handle_create_file`].
+pub async fn handle_write_file(
+    state: State<Arc<AppState>>,
+    params: Json<CreateFileParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    handle_create_file(state, params).await
 }
 
 /// POST /api/edit_file

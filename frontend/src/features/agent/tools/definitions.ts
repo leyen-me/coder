@@ -3,7 +3,16 @@ import type { AgentToolDefinition } from "./types";
 export const LIST_DIR_TOOL_NAME = "list_dir";
 export const READ_FILE_TOOL_NAME = "read_file";
 export const READ_PRIOR_TOOL_OUTPUT_TOOL_NAME = "read_prior_tool_output";
-export const WRITE_FILE_TOOL_NAME = "write_file";
+export const CREATE_FILE_TOOL_NAME = "create_file";
+/** Legacy tool name kept for historical message display and replay. */
+export const LEGACY_WRITE_FILE_TOOL_NAME = "write_file";
+
+export function isCreateFileToolName(toolName: string): boolean {
+  return (
+    toolName === CREATE_FILE_TOOL_NAME ||
+    toolName === LEGACY_WRITE_FILE_TOOL_NAME
+  );
+}
 export const REPLACE_FILE_TOOL_NAME = "replace_file";
 export const EDIT_FILE_TOOL_NAME = "edit_file";
 export const REPLACE_LINES_TOOL_NAME = "replace_lines";
@@ -136,10 +145,10 @@ export const READ_PRIOR_TOOL_OUTPUT_TOOL: AgentToolDefinition = {
   },
 };
 
-export const WRITE_FILE_TOOL: AgentToolDefinition = {
+export const CREATE_FILE_TOOL: AgentToolDefinition = {
   type: "function",
   function: {
-    name: WRITE_FILE_TOOL_NAME,
+    name: CREATE_FILE_TOOL_NAME,
     description:
       "Create a new text file. Fails if the file already exists. Use edit_file to modify existing files.",
     parameters: {
@@ -1143,7 +1152,7 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   LIST_DIR_TOOL,
   READ_FILE_TOOL,
   READ_PRIOR_TOOL_OUTPUT_TOOL,
-  WRITE_FILE_TOOL,
+  CREATE_FILE_TOOL,
   REPLACE_FILE_TOOL,
   EDIT_FILE_TOOL,
   // REPLACE_LINES_TOOL — temporarily disabled; see DISABLED_AGENT_TOOL_NAMES in backend.

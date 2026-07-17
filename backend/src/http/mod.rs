@@ -27,6 +27,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         // ── Tool endpoints (canonical paths) ──────────────────────────────
         .route("/api/list_dir", post(routes_tool::handle_list_dir))
         .route("/api/read_file", post(routes_tool::handle_read_file))
+        .route("/api/create_file", post(routes_tool::handle_create_file))
         .route("/api/write_file", post(routes_tool::handle_write_file))
         .route("/api/edit_file", post(routes_tool::handle_edit_file))
         .route("/api/replace_lines", post(routes_tool::handle_replace_lines))
@@ -101,6 +102,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         // ── Compat: `tool_` prefix (used by frontend agent tools) ────────
         .route("/api/tool_list_dir", post(routes_tool::handle_list_dir))
         .route("/api/tool_read_file", post(routes_tool::handle_read_file))
+        .route("/api/tool_create_file", post(routes_tool::handle_create_file))
         .route("/api/tool_write_file", post(routes_tool::handle_write_file))
         .route("/api/tool_edit_file", post(routes_tool::handle_edit_file))
         .route("/api/tool_replace_lines", post(routes_tool::handle_replace_lines))

@@ -12,7 +12,7 @@ use crate::tools::{
     tool_edit_file, tool_get_workspace_tree, tool_glob, tool_grep, tool_list_dir,
     tool_plan_create, tool_plan_delete, tool_plan_edit, tool_plan_list, tool_plan_read,
     tool_plan_update, tool_read_file, tool_remote_shell, tool_replace_file,
-    tool_replace_lines, tool_shell, tool_web_search, tool_write_file, PageCache,
+    tool_replace_lines, tool_shell, tool_web_search, tool_create_file, PageCache,
     RemoteConnectionPool, ShellRegistry,
 };
 
@@ -84,7 +84,7 @@ pub async fn execute_tool_call(
     }
     match name {
         "read_file" => execute_read_file(args, ctx),
-        "write_file" => execute_write_file(args, ctx),
+        "create_file" | "write_file" => execute_create_file(args, ctx),
         "replace_file" => execute_replace_file(args, ctx),
         "edit_file" => execute_edit_file(args, ctx),
         "replace_lines" => execute_replace_lines(args, ctx),
@@ -137,7 +137,7 @@ fn parse_mcp_tool_name(name: &str) -> Option<(String, String)> {
 pub fn all_tool_names() -> Vec<String> {
     [
         "read_file",
-        "write_file",
+        "create_file",
         "replace_file",
         "edit_file",
         "replace_lines",
@@ -238,7 +238,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
             }),
         ),
         tool_definition(
-            "write_file",
+            "create_file",
             "Create a new text file. Fails if the file already exists. Use edit_file to modify existing files.",
             json!({
                 "type": "object",
@@ -1134,24 +1134,24 @@ fn extract_prior_tool_output_content(raw_content: &str) -> String {
 }
 
 #[derive(Deserialize)]
-struct WriteFileArgs {
+struct CreateFileArgs {
     path: String,
     content: String,
     create_parent_dirs: Option<bool>,
 }
 
-fn execute_write_file(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
-    let args: WriteFileArgs = match parse_from_value("write_file", args) {
+fn execute_create_file(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
+    let args: CreateFileArgs = match parse_from_value("create_file", args) {
         Ok(value) => value,
         Err(error) => return Ok(error),
     };
-    let workspace_dir = match require_workspace_dir(ctx, "write_file") {
+    let workspace_dir = match require_workspace_dir(ctx, "create_file") {
         Ok(value) => value,
         Err(error) => return Ok(error),
     };
-    Ok(match tool_write_file(workspace_dir, args.path, args.content, args.create_parent_dirs) {
-        Ok(result) => tool_success("write_file", result),
-        Err(error) => tool_failure("write_file", "execution_failed", error.to_string()),
+    Ok(match tool_create_file(workspace_dir, args.path, args.content, args.create_parent_dirs) {
+        Ok(result) => tool_success("create_file", result),
+        Err(error) => tool_failure("create_file", "execution_failed", error.to_string()),
     })
 }
 
@@ -2926,7 +2926,7 @@ mod tests {
     #[test]
     fn agent_mode_excludes_plan_tools() {
         let names = tool_names(Some("agent"));
-        assert!(names.contains(&"write_file".to_string()));
+        assert!(names.contains(&"create_file".to_string()));
         assert!(names.contains(&"shell".to_string()));
         assert!(!names.contains(&"plan_create".to_string()));
         assert!(!names.contains(&"plan_list".to_string()));
@@ -2937,7 +2937,7 @@ mod tests {
         let names = tool_names(Some("plan"));
         assert!(names.contains(&"plan_create".to_string()));
         assert!(names.contains(&"plan_list".to_string()));
-        assert!(!names.contains(&"write_file".to_string()));
+        assert!(!names.contains(&"create_file".to_string()));
         assert!(!names.contains(&"shell".to_string()));
     }
 
@@ -2946,7 +2946,7 @@ mod tests {
         let names = tool_names(Some("ask"));
         assert!(names.contains(&"read_file".to_string()));
         assert!(!names.contains(&"plan_create".to_string()));
-        assert!(!names.contains(&"write_file".to_string()));
+        assert!(!names.contains(&"create_file".to_string()));
     }
     #[test]
     fn archive_file_path_matches_frontend_naming_scheme() {

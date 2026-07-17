@@ -7,14 +7,14 @@ describe("toApiToolCall", () => {
     expect(
       toApiToolCall({
         id: "call_2",
-        name: "write_file",
+        name: "create_file",
         arguments: "{\"create_parent_dirs\": false",
       })
     ).toEqual({
       id: "call_2",
       type: "function",
       function: {
-        name: "write_file",
+        name: "create_file",
         arguments: "{\"raw\":\"{\\\"create_parent_dirs\\\": false\"}",
       },
     });

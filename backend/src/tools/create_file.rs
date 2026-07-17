@@ -11,7 +11,7 @@ use super::workspace_path::{format_error_path, resolve_workspace_write_path, wor
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WriteFileResult {
+pub struct CreateFileResult {
     pub path: String,
     pub action: String,
     pub sha256: String,
@@ -26,12 +26,12 @@ pub struct WriteFileResult {
     pub warning: Option<String>,
 }
 
-pub fn tool_write_file(
+pub fn tool_create_file(
     workspace_dir: String,
     path: String,
     content: String,
     create_parent_dirs: Option<bool>,
-) -> Result<WriteFileResult, TextFileToolError> {
+) -> Result<CreateFileResult, TextFileToolError> {
     let workspace = PathBuf::from(workspace_dir.trim());
     if workspace.as_os_str().is_empty() {
         return Err(TextFileToolError::new(
@@ -104,7 +104,7 @@ pub fn tool_write_file(
         )
     })?;
 
-    Ok(WriteFileResult {
+    Ok(CreateFileResult {
         path: relative_path,
         action: "created".to_string(),
         sha256: sha256_hex(&encoded),
@@ -119,13 +119,13 @@ pub fn tool_write_file(
 
 #[cfg(test)]
 mod tests {
-    use super::tool_write_file;
+    use super::tool_create_file;
     use std::fs;
     use std::path::PathBuf;
 
     fn temp_workspace(name: &str) -> PathBuf {
         let temp = std::env::temp_dir().join(format!(
-            "coder-write-file-{name}-{}",
+            "coder-create-file-{name}-{}",
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .expect("clock")
@@ -138,7 +138,7 @@ mod tests {
     #[test]
     fn creates_new_file() {
         let temp = temp_workspace("create");
-        let result = tool_write_file(
+        let result = tool_create_file(
             temp.to_string_lossy().into_owned(),
             "src/new.ts".to_string(),
             "const value = 1;\n".to_string(),
@@ -163,7 +163,7 @@ mod tests {
         let temp = temp_workspace("exists");
         fs::write(temp.join("existing.txt"), "old").expect("seed file");
 
-        let error = tool_write_file(
+        let error = tool_create_file(
             temp.to_string_lossy().into_owned(),
             "existing.txt".to_string(),
             "new".to_string(),
@@ -178,7 +178,7 @@ mod tests {
     #[test]
     fn warns_on_sensitive_paths() {
         let temp = temp_workspace("sensitive");
-        let result = tool_write_file(
+        let result = tool_create_file(
             temp.to_string_lossy().into_owned(),
             ".env".to_string(),
             "KEY=value\n".to_string(),
@@ -194,7 +194,7 @@ mod tests {
     fn rejects_oversized_content() {
         let temp = temp_workspace("large");
         let content = "a".repeat(super::super::text_file::MAX_WRITE_BYTES + 1);
-        let error = tool_write_file(
+        let error = tool_create_file(
             temp.to_string_lossy().into_owned(),
             "large.txt".to_string(),
             content,

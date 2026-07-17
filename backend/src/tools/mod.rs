@@ -31,7 +31,7 @@ mod shell_registry;
 mod text_file;
 mod web_search;
 mod workspace_path;
-mod write_file;
+mod create_file;
 
 pub use browse_directories::tool_browse_directories;
 pub use browse_page::tool_browse_page;
@@ -73,5 +73,5 @@ pub use shell_registry::{
 pub use web_search::tool_web_search;
 pub use workspace_path::{format_absolute_path, validate_workspace_dir};
 pub use workspace_tree::tool_get_workspace_tree;
-pub use write_file::tool_write_file;
+pub use create_file::tool_create_file;
 pub use git::git_current_branch;

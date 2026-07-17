@@ -166,6 +166,7 @@ function getToolIcon(toolName?: string): string {
       return "📖";
     case "edit_file":
     case "replace_file":
+    case "create_file":
     case "write_file":
       return "✏️";
     case "shell":

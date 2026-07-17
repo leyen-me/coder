@@ -1,8 +1,8 @@
 import {
   EDIT_FILE_TOOL_NAME,
+  isCreateFileToolName,
   REPLACE_FILE_TOOL_NAME,
   REPLACE_LINES_TOOL_NAME,
-  WRITE_FILE_TOOL_NAME,
 } from "./definitions";
 
 type FileDiffData = {
@@ -22,7 +22,7 @@ export function getFileDiffChipLabel(
   output: unknown
 ): string | null {
   if (
-    toolName !== WRITE_FILE_TOOL_NAME &&
+    !isCreateFileToolName(toolName) &&
     toolName !== REPLACE_FILE_TOOL_NAME &&
     toolName !== REPLACE_LINES_TOOL_NAME &&
     toolName !== EDIT_FILE_TOOL_NAME

@@ -37,7 +37,7 @@ import {
   TODO_WRITE_TOOL_NAME,
   UPDATE_SKILL_TOOL_NAME,
   WEB_SEARCH_TOOL_NAME,
-  WRITE_FILE_TOOL_NAME,
+  isCreateFileToolName,
   SPAWN_SUBAGENT_TOOL_NAME,
 } from "@/features/agent/tools/definitions";
 import { getAskQuestionChipLabel } from "@/features/agent/tools/ask-question-display";
@@ -140,7 +140,7 @@ export function ToolInvocationChip({
     invocation.name === SHELL_TOOL_NAME || invocation.name === AWAIT_TOOL_NAME || invocation.name === REMOTE_SHELL_TOOL_NAME;
   const isBrowsePageTool = invocation.name === BROWSE_PAGE_TOOL_NAME;
   const isFileDiffTool =
-    invocation.name === WRITE_FILE_TOOL_NAME ||
+    isCreateFileToolName(invocation.name) ||
     invocation.name === REPLACE_FILE_TOOL_NAME ||
     invocation.name === REPLACE_LINES_TOOL_NAME ||
     invocation.name === EDIT_FILE_TOOL_NAME;

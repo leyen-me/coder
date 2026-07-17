@@ -7,9 +7,10 @@ import { useMemo } from "react";
 
 import { extractFileDiffData } from "@/features/agent/tools/file-diff-display";
 import {
+  CREATE_FILE_TOOL_NAME,
   EDIT_FILE_TOOL_NAME,
+  LEGACY_WRITE_FILE_TOOL_NAME,
   REPLACE_FILE_TOOL_NAME,
-  WRITE_FILE_TOOL_NAME,
 } from "@/features/agent/tools/definitions";
 
 import { useTheme } from "@/lib/theme/theme-provider";
@@ -75,7 +76,8 @@ function resolveModifiedContent(
   }
 
   switch (toolName) {
-    case WRITE_FILE_TOOL_NAME:
+    case CREATE_FILE_TOOL_NAME:
+    case LEGACY_WRITE_FILE_TOOL_NAME:
     case REPLACE_FILE_TOOL_NAME: {
       return typeof inputRecord.content === "string" ? inputRecord.content : "";
     }

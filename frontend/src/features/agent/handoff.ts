@@ -730,7 +730,7 @@ function resolveWorkingSetOperationType(
   if (toolName === "read_file") {
     return "read";
   }
-  if (toolName === "write_file") {
+  if (toolName === "write_file" || toolName === "create_file") {
     return "write";
   }
   if (toolName === "edit_file") {

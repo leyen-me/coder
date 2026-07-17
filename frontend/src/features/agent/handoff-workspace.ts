@@ -303,7 +303,7 @@ export async function upsertWorkspaceTextFile(
     }
   }
 
-  await apiPost("/api/write_file", {
+  await apiPost("/api/create_file", {
     workspaceDir,
     path,
     content,

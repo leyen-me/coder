@@ -1028,7 +1028,7 @@ fn to_working_set_entry(
 fn resolve_working_set_operation_type(tool_name: &str) -> Option<&'static str> {
     match tool_name {
         "read_file" => Some("read"),
-        "write_file" => Some("write"),
+        "create_file" | "write_file" => Some("write"),
         "edit_file" => Some("edit"),
         "replace_file" | "replace_lines" => Some("replace"),
         "glob" | "grep" => Some("search"),

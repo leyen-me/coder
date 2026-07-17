@@ -1027,7 +1027,7 @@ Choose the narrowest tool that gives reliable evidence.
 - Use grep for exact strings, symbols, routes, config keys, and errors.
 - Use get_workspace_tree for a quick project overview instead of manually traversing directories.
 - Use shell for builds, tests, git, package commands, and repository inspection.
-- Use edit_file first for normal edits. Use replace_file only when the situation truly calls for it. Use write_file for new files.
+- Use edit_file first for normal edits. Use replace_file only when the situation truly calls for it. Use create_file for new files.
 
 ### Shell discipline
 
@@ -1557,7 +1557,7 @@ Prefer deterministic test scaffolding.
 
         assert!(names.contains(&"read_file"));
         assert!(names.contains(&"custom_preview"));
-        assert!(!names.contains(&"write_file"));
+        assert!(!names.contains(&"create_file"));
         assert_eq!(names.iter().filter(|name| **name == "read_file").count(), 1);
     }
 
