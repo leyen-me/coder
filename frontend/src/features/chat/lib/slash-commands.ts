@@ -1,4 +1,4 @@
-import { TerminalIcon, type LucideIcon } from "lucide-react";
+import { TerminalIcon, PlusIcon, type LucideIcon } from "lucide-react";
 
 export type SlashCommand = {
   slug: string;
@@ -13,6 +13,12 @@ export const BUILTIN_SLASH_COMMANDS: SlashCommand[] = [
     label: "Handoff",
     description: "Trigger a context handoff to continue in a new session",
     icon: TerminalIcon,
+  },
+  {
+    slug: "new",
+    label: "New Chat",
+    description: "Start a new conversation",
+    icon: PlusIcon,
   },
 ];
 

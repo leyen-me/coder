@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { nanoid } from "nanoid";
 import { LoaderCircleIcon } from "lucide-react";
 
@@ -19,6 +19,7 @@ import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { apiPost } from "@/lib/api/client";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { useTranslation } from "@/lib/i18n/locale-provider";
+import { paths } from "@/app/paths";
 
 import { ChatHotkeyActions } from "@/features/keyboard-shortcuts/chat-hotkey-actions";
 
@@ -79,6 +80,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     resumeSessionTask,
   } = useAgentStore();
   const location = useLocation();
+  const navigate = useNavigate();
   const handoffPreviewMode = getHandoffPreviewMode();
   const { session, messages, isLoading, refresh } = useSessionData(chatId);
   const previewMessages = useMemo(() => {
@@ -586,6 +588,16 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     window.addEventListener("coder:command-handoff", handler);
     return () => window.removeEventListener("coder:command-handoff", handler);
   }, [chatId, model, agentMode, thinkingEnabled, resolveProviderForModel]);
+
+  // ── /new command handler ────────────────────────────────────────────
+  useEffect(() => {
+    const handler = () => {
+      navigate(paths.chatNew);
+    };
+
+    window.addEventListener("coder:command-new", handler);
+    return () => window.removeEventListener("coder:command-new", handler);
+  }, [navigate]);
 
   if (isLoading) {
     return (

@@ -204,6 +204,25 @@ export function ComposerRichInput({
           );
           return;
         }
+
+        if (item.command.slug === "new") {
+          editor
+            .chain()
+            .focus()
+            .deleteRange({
+              from: activeSlash.range.from,
+              to: activeSlash.range.to,
+            })
+            .insertContent("")
+            .run();
+
+          slashRef.current = null;
+          setSlashMention(null);
+          updateSelectedIndex(0);
+
+          window.dispatchEvent(new CustomEvent("coder:command-new"));
+          return;
+        }
         return;
       }
 
