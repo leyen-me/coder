@@ -134,13 +134,14 @@ pub async fn run_agent_loop(
                 },
             )?;
             if let Some(state) = persisted_state.as_mut() {
+                let display_usage = build_display_usage(latest_prompt_tokens, cumulative_usage.as_ref());
                 persist_message_snapshot(
                     &app_state.db,
                     state,
                     MessageStatusPatch {
                         status: Some("completed"),
                         error: None,
-                        usage: cumulative_usage.clone(),
+                        usage: Some(display_usage),
                         duration_ms: Some(current_timestamp_ms().saturating_sub(state.created_at)),
                     },
                 )?;
@@ -168,6 +169,22 @@ pub async fn run_agent_loop(
                 Some(acc) => merge_usage(acc, usage),
                 None => usage.clone(),
             });
+
+            // Persist the latest token usage to DB now so the Composer uses real
+            // values during the agent loop instead of heuristic estimates.
+            if let Some(state) = persisted_state.as_mut() {
+                let display_usage = build_display_usage(latest_prompt_tokens, cumulative_usage.as_ref());
+                persist_message_snapshot(
+                    &app_state.db,
+                    state,
+                    MessageStatusPatch {
+                        status: Some("streaming"),
+                        error: None,
+                        usage: Some(display_usage),
+                        duration_ms: None,
+                    },
+                )?;
+            }
         }
 
         if turn.tool_calls.is_empty() {
@@ -327,13 +344,14 @@ pub async fn run_agent_loop(
                 },
             )?;
             if let Some(state) = persisted_state.as_mut() {
+                let display_usage = build_display_usage(latest_prompt_tokens, cumulative_usage.as_ref());
                 persist_message_snapshot(
                     &app_state.db,
                     state,
                     MessageStatusPatch {
                         status: Some("completed"),
                         error: None,
-                        usage: final_usage,
+                        usage: Some(display_usage),
                         duration_ms: Some(current_timestamp_ms().saturating_sub(state.created_at)),
                     },
                 )?;
@@ -664,6 +682,27 @@ fn merge_usage(acc: &TokenUsage, next: &TokenUsage) -> TokenUsage {
         prompt_tokens: acc.prompt_tokens.saturating_add(next.prompt_tokens),
         completion_tokens: acc.completion_tokens.saturating_add(next.completion_tokens),
         total_tokens: acc.total_tokens.saturating_add(next.total_tokens),
+    }
+}
+
+/// Build a usage snapshot that is meaningful for the Composer context display.
+///
+/// Uses the *latest* `prompt_tokens` (the actual prompt size of the last API
+/// call, NOT the cumulative sum) together with the cumulative `completion_tokens`
+/// across all turns. This correctly represents the agent's current context-window
+/// footprint without double-counting prompt tokens from prior turns.
+fn build_display_usage(
+    latest_prompt_tokens: Option<u32>,
+    cumulative_usage: Option<&TokenUsage>,
+) -> TokenUsage {
+    let prompt = latest_prompt_tokens.unwrap_or(0);
+    let completion = cumulative_usage
+        .map(|c| c.completion_tokens)
+        .unwrap_or(0);
+    TokenUsage {
+        prompt_tokens: prompt,
+        completion_tokens: completion,
+        total_tokens: prompt + completion,
     }
 }
 

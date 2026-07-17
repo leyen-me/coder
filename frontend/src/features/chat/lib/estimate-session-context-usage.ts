@@ -141,30 +141,83 @@ export function estimateSessionContextUsage(input: {
     return null;
   }
 
-  const breakdown = effectiveMessages.reduce(
-    (totals, message) => {
-      const usage = estimateMessageUsage(message);
-      return {
-        inputTokens: totals.inputTokens + usage.inputTokens,
-        outputTokens: totals.outputTokens + usage.outputTokens,
-        reasoningTokens: totals.reasoningTokens + usage.reasoningTokens,
-      };
-    },
-    { inputTokens: 0, outputTokens: 0, reasoningTokens: 0 }
-  );
-
-  const systemPrompt = input.systemPrompt?.trim() ?? "";
-  breakdown.inputTokens += estimateTextTokens(systemPrompt);
-
-  const usedTokens =
-    breakdown.inputTokens + breakdown.outputTokens + breakdown.reasoningTokens;
   const selectedModel = findModelDefinition(input.models, input.modelId);
   const maxTokens = selectedModel?.contextWindow ?? DEFAULT_MODEL_CONTEXT_WINDOW;
+
+  // Find the last assistant message that has provider-reported token usage.
+  // Its prompt_tokens is the actual input token count covering the system prompt
+  // and all messages up to that point.
+  let lastProviderIndex = -1;
+  for (let i = effectiveMessages.length - 1; i >= 0; i--) {
+    const msg = effectiveMessages[i];
+    if (
+      msg.role === "assistant" &&
+      msg.usage &&
+      msg.usage.promptTokens != null
+    ) {
+      lastProviderIndex = i;
+      break;
+    }
+  }
+
+  let inputTokens: number;
+  let outputTokens: number;
+  let reasoningTokens: number;
+
+  if (lastProviderIndex >= 0) {
+    // Use the last provider-reported prompt_tokens as the total input.
+    // This accurately covers the system prompt and all messages through
+    // the user message that triggered this assistant response.
+    const checkpointMsg = effectiveMessages[lastProviderIndex];
+    inputTokens = checkpointMsg.usage!.promptTokens;
+    outputTokens = 0;
+    reasoningTokens = 0;
+
+    // Messages at or before the checkpoint: use provider completionTokens.
+    for (let i = 0; i <= lastProviderIndex; i++) {
+      const msg = effectiveMessages[i];
+      if (msg.usage && msg.role === "assistant") {
+        outputTokens += msg.usage.completionTokens;
+      }
+    }
+
+    // Messages after the checkpoint (e.g. new user messages not yet sent
+    // to the API): estimate their input/output/reasoning contribution.
+    for (let i = lastProviderIndex + 1; i < effectiveMessages.length; i++) {
+      const est = estimateMessageUsage(effectiveMessages[i]);
+      inputTokens += est.inputTokens;
+      outputTokens += est.outputTokens;
+      reasoningTokens += est.reasoningTokens;
+    }
+  } else {
+    // No provider usage snapshot available (e.g. streaming agent, or no
+    // completed turns yet). Fall back to heuristic estimation.
+    const breakdown = effectiveMessages.reduce(
+      (totals, message) => {
+        const usage = estimateMessageUsage(message);
+        return {
+          inputTokens: totals.inputTokens + usage.inputTokens,
+          outputTokens: totals.outputTokens + usage.outputTokens,
+          reasoningTokens: totals.reasoningTokens + usage.reasoningTokens,
+        };
+      },
+      { inputTokens: 0, outputTokens: 0, reasoningTokens: 0 }
+    );
+
+    inputTokens = breakdown.inputTokens;
+    outputTokens = breakdown.outputTokens;
+    reasoningTokens = breakdown.reasoningTokens;
+
+    const systemPrompt = input.systemPrompt?.trim() ?? "";
+    inputTokens += estimateTextTokens(systemPrompt);
+  }
+
+  const usedTokens = inputTokens + outputTokens + reasoningTokens;
 
   return {
     modelId: input.modelId,
     maxTokens,
     usedTokens,
-    usage: createUsage(breakdown),
+    usage: createUsage({ inputTokens, outputTokens, reasoningTokens }),
   };
 }
