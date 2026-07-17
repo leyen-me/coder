@@ -1,4 +1,4 @@
-use chrono::{Datelike, TimeZone, Timelike, Utc};
+use chrono::{Datelike, Local, TimeZone, Timelike};
 
 use super::types::{JobRunRecord, RunStatus, ScheduledJobRecord, STALE_RUN_MS};
 
@@ -58,7 +58,7 @@ struct CronSchedule {
 
 impl CronSchedule {
     fn matches(&self, timestamp_ms: i64) -> bool {
-        let Some(dt) = Utc.timestamp_millis_opt(timestamp_ms).single() else {
+        let Some(dt) = Local.timestamp_millis_opt(timestamp_ms).single() else {
             return false;
         };
         self.minute.matches(dt.minute() as usize)

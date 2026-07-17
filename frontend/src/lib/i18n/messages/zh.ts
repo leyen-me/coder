@@ -72,7 +72,7 @@ export const zhMessages = {
     scheduleWeekdays: "星期",
     scheduleAdvancedToggle: "高级定时",
     scheduleUseSimpleMode: "改用简单时间配置",
-    scheduleUtcHint: "当前按 UTC 时间解释，精确到分钟。",
+    scheduleLocalHint: "按本机时区解释，精确到分钟。",
     scheduleAdvancedOnly:
       "当前 Cron 超出了简单模式支持范围。你仍可在高级模式中直接编辑，或切回简单模式重新配置。",
     scheduleCronPreview: "将保存为 Cron：",

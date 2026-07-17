@@ -72,7 +72,7 @@ export const enMessages = {
     scheduleWeekdays: "Days",
     scheduleAdvancedToggle: "Advanced schedule",
     scheduleUseSimpleMode: "Switch to simple schedule",
-    scheduleUtcHint: "Interpreted in UTC and scheduled at minute precision.",
+    scheduleLocalHint: "Interpreted in your local timezone at minute precision.",
     scheduleAdvancedOnly:
       "This cron expression is outside the simple schedule presets. You can keep editing it in advanced mode or switch back to a simple schedule.",
     scheduleCronPreview: "Saved cron:",

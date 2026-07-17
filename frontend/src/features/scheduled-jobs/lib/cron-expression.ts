@@ -208,11 +208,11 @@ function matchesField(field: Set<number> | null, value: number): boolean {
 function matchesSchedule(schedule: ParsedCronSchedule, timestampMs: number): boolean {
   const current = new Date(timestampMs);
   return (
-    matchesField(schedule.minute, current.getUTCMinutes()) &&
-    matchesField(schedule.hour, current.getUTCHours()) &&
-    matchesField(schedule.dayOfMonth, current.getUTCDate()) &&
-    matchesField(schedule.month, current.getUTCMonth() + 1) &&
-    matchesField(schedule.weekday, current.getUTCDay())
+    matchesField(schedule.minute, current.getMinutes()) &&
+    matchesField(schedule.hour, current.getHours()) &&
+    matchesField(schedule.dayOfMonth, current.getDate()) &&
+    matchesField(schedule.month, current.getMonth() + 1) &&
+    matchesField(schedule.weekday, current.getDay())
   );
 }
 

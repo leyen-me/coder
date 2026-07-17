@@ -69,7 +69,7 @@ export type Messages = {
     scheduleWeekdays: string;
     scheduleAdvancedToggle: string;
     scheduleUseSimpleMode: string;
-    scheduleUtcHint: string;
+    scheduleLocalHint: string;
     scheduleAdvancedOnly: string;
     scheduleCronPreview: string;
     weekdaySunday: string;
