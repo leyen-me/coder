@@ -26,7 +26,6 @@ import { appEventBus } from "@/lib/event-bus";
 import { isAgentCancellationError } from "../cancellation";
 import { SkillReferenceValidationError } from "@/features/skills/lib/skill-errors";
 import { resolveWorkspaceAwareSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
-import { extractSkillSlugsFromText } from "@/features/skills/lib/parse-skill-references";
 import { createStreamingBufferManager } from "../streaming-buffer";
 import { fileUIPartsToStoredImages } from "../message-content";
 import type { FileUIPart } from "ai";
@@ -760,12 +759,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         throw new Error("Message content is required");
       }
 
-      // Prefer explicit skill slugs from the editor (derived from actual
-      // skillReference nodes) over regex-based extraction from text. This
-      // prevents plain-text /xxx from being falsely treated as skill references.
-      const skillSlugs =
-        input.skillSlugs ??
-        (trimmed ? extractSkillSlugsFromText(trimmed) : []);
+      // Only treat editor skillReference chips as skill references.
+      // Plain-text "/xxx" stays ordinary user text for the LLM.
+      const skillSlugs = input.skillSlugs ?? [];
 
       if (skillSlugs.length > 0) {
         const session = await getSession(input.sessionId);
@@ -781,11 +777,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         }
       }
       const referencedSkillsToStore =
-        input.skillSlugs !== undefined
-          ? input.skillSlugs
-          : skillSlugs.length > 0
-            ? skillSlugs
-            : undefined;
+        skillSlugs.length > 0 ? skillSlugs : undefined;
 
       writeLastSelectedModel(input.model);
       let isFirstTurn: boolean;

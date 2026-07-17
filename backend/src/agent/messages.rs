@@ -393,11 +393,9 @@ fn apply_referenced_skills_to_conversation(
         let Some(content) = message.chat.content.as_ref().and_then(Value::as_str) else {
             continue;
         };
-        let slugs = if message.referenced_skills.is_empty() {
-            extract_skill_slugs_from_text(content)
-        } else {
-            message.referenced_skills.clone()
-        };
+        // Only inject skills that were explicitly referenced (editor chips).
+        // Plain-text "/xxx" must remain ordinary user text for the LLM.
+        let slugs = message.referenced_skills.clone();
         if slugs.is_empty() {
             continue;
         }
@@ -421,21 +419,6 @@ fn apply_referenced_skills_to_conversation(
         message.chat.content = Some(Value::String(injected));
     }
     Ok(())
-}
-
-fn extract_skill_slugs_from_text(text: &str) -> Vec<String> {
-    let regex = Regex::new(r"(?:^|\s)/([a-z0-9]+(?:-[a-z0-9]+)*)").expect("valid skill regex");
-    let mut result = Vec::new();
-    for capture in regex.captures_iter(text) {
-        let Some(matched) = capture.get(1) else {
-            continue;
-        };
-        let slug = matched.as_str().trim();
-        if !slug.is_empty() && !result.iter().any(|existing: &String| existing == slug) {
-            result.push(slug.to_string());
-        }
-    }
-    result
 }
 
 fn inject_referenced_skills_into_user_content(content: &str, skills: &[ResolvedSkillPrompt]) -> String {
@@ -1466,6 +1449,53 @@ Prefer deterministic test scaffolding.
         assert!(user_content.contains("Referenced skill: demo-skill"));
         assert!(user_content.contains("Prefer deterministic test scaffolding."));
         assert!(user_content.contains("Please implement the following plan"));
+    }
+
+    #[test]
+    fn assemble_agent_messages_keeps_plain_text_slash_tokens_as_user_text() {
+        let workspace_dir = temp_dir("plain-slash");
+        let state = create_test_state(&workspace_dir);
+        let session = sample_session(&workspace_dir);
+        let db = state.db.lock().expect("db");
+        put_session(&db, &session).expect("put session");
+        put_message(
+            &db,
+            &MessageRecord {
+                id: new_message_id(),
+                session_id: session.id.clone(),
+                role: "user".to_string(),
+                message_kind: None,
+                content: "/xxx please treat this as plain text".to_string(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: None,
+                error: None,
+                created_at: current_timestamp_ms(),
+                duration_ms: None,
+                usage: None,
+            },
+            true,
+        )
+        .expect("put user");
+        drop(db);
+
+        let messages =
+            assemble_agent_messages(&state, &session, Some("agent")).expect("assemble messages");
+        let user_message = messages
+            .iter()
+            .find(|message| message.role == "user")
+            .expect("user message");
+        let user_content = user_message
+            .content
+            .as_ref()
+            .and_then(Value::as_str)
+            .expect("user text");
+        assert_eq!(user_content, "/xxx please treat this as plain text");
+        assert!(!user_content.contains("Referenced skill:"));
     }
 
     #[test]
