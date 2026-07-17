@@ -102,41 +102,45 @@ export function SkillsPage() {
             </div>
           ) : (
             <>
-              <SkillSection
-                action={
-                  <div className="flex flex-wrap gap-2">
-                    <input
-                      ref={fileInputRef}
-                      accept=".zip,application/zip"
-                      className="hidden"
-                      onChange={(event) => void handleImportChange(event)}
-                      type="file"
-                    />
-                    <Button
-                      disabled={importing}
-                      onClick={handleImportClick}
-                      type="button"
-                      variant="outline"
-                    >
-                      <UploadIcon className="size-4" />
-                      {importing ? t("skills.importing") : t("skills.importSkill")}
-                    </Button>
-                  </div>
-                }
-                description={
-                  userSkillsRootPath ? (
-                    <button
-                      aria-label={t("skills.openRootFolder")}
-                      className="break-all text-left font-mono text-xs text-muted-foreground underline decoration-muted-foreground/50 underline-offset-4 transition-colors hover:text-foreground hover:decoration-foreground/60"
-                      onClick={() => void handleOpenRootFolder()}
-                      type="button"
-                    >
-                      {userSkillsRootPath}
-                    </button>
-                  ) : undefined
-                }
-                title={t("skills.userSectionTitle")}
-              >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
+                    {t("skills.userSectionTitle")}
+                  </h1>
+                  {userSkillsRootPath ? (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      <button
+                        aria-label={t("skills.openRootFolder")}
+                        className="break-all text-left font-mono text-xs text-muted-foreground underline decoration-muted-foreground/50 underline-offset-4 transition-colors hover:text-foreground hover:decoration-foreground/60"
+                        onClick={() => void handleOpenRootFolder()}
+                        type="button"
+                      >
+                        {userSkillsRootPath}
+                      </button>
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    ref={fileInputRef}
+                    accept=".zip,application/zip"
+                    className="hidden"
+                    onChange={(event) => void handleImportChange(event)}
+                    type="file"
+                  />
+                  <Button
+                    disabled={importing}
+                    onClick={handleImportClick}
+                    type="button"
+                    variant="outline"
+                  >
+                    <UploadIcon className="size-4" />
+                    {importing ? t("skills.importing") : t("skills.importSkill")}
+                  </Button>
+                </div>
+              </div>
+
+              <SkillSection>
                 {userSkills.length === 0 ? (
                   <div className="flex flex-col items-center justify-center gap-3 rounded-4xl border border-dashed py-16 text-center">
                     <p className="text-sm text-muted-foreground">
