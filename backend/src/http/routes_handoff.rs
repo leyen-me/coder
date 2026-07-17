@@ -139,13 +139,14 @@ pub async fn handle_handoff(
         decision_model: session.decision_model.clone(),
     };
 
-    // 6. Create a context usage snapshot with high usage
+    // 6. Create a realistic context usage snapshot
+    // These values inform the LLM and are stored in the handoff artifact.
     let context_usage = AgentContextUsageSnapshot {
-        used_tokens: u32::MAX,
-        max_tokens: u32::MAX,
-        remaining_tokens: 0,
-        reserved_tokens: 0,
-        trigger_threshold: 0.5,
+        used_tokens: 80_000,
+        max_tokens: 100_000,
+        remaining_tokens: 20_000,
+        reserved_tokens: 5_000,
+        trigger_threshold: 0.8,
     };
 
     // 7. Execute the handoff
