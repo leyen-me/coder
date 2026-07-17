@@ -142,9 +142,6 @@ export function SkillsPage() {
                     <p className="text-sm text-muted-foreground">
                       {t("skills.emptyUserSkills")}
                     </p>
-                    <Button onClick={handleImportClick} type="button" variant="outline">
-                      {t("skills.importFirstSkill")}
-                    </Button>
                   </div>
                 ) : (
                   <SkillGrid>

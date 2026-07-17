@@ -55,7 +55,6 @@ export type Messages = {
     newAutomation: string;
     editAutomation: string;
     empty: string;
-    createFirst: string;
     fieldName: string;
     fieldNamePlaceholder: string;
     fieldDescription: string;
@@ -695,7 +694,6 @@ export type Messages = {
     viewDetails: string;
     close: string;
     importSkill: string;
-    importFirstSkill: string;
     importing: string;
     imported: string;
     importFailed: string;

@@ -297,8 +297,10 @@ export function McpServersSettingsPanel() {
       </div>
 
       {servers.length === 0 ? (
-        <div className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-          {t("settings.mcpServers.emptyState")}
+        <div className="flex flex-col items-center justify-center gap-3 rounded-4xl border border-dashed py-16 text-center">
+          <p className="text-sm text-muted-foreground">
+            {t("settings.mcpServers.emptyState")}
+          </p>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">

@@ -95,14 +95,10 @@ export function AutomationsPage() {
         </div>
 
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16 text-center">
-            <p className="mb-4 text-sm text-muted-foreground">
+          <div className="flex flex-col items-center justify-center gap-3 rounded-4xl border border-dashed py-16 text-center">
+            <p className="text-sm text-muted-foreground">
               {t("automations.empty")}
             </p>
-            <Button variant="outline" onClick={handleCreate}>
-              <Plus className="h-4 w-4" />
-              {t("automations.createFirst")}
-            </Button>
           </div>
         ) : (
           <div className="grid gap-4">
