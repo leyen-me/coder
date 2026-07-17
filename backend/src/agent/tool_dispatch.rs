@@ -2343,7 +2343,7 @@ struct SpawnSubAgentArgs {
 }
 
 const MAX_SUBAGENT_DEPTH: usize = 3;
-const DEFAULT_ASK_QUESTION_TIMEOUT_MS: u64 = 30_000;
+const DEFAULT_ASK_QUESTION_TIMEOUT_MS: u64 = 300_000;
 
 fn execute_todo_write(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
     let args: TodoWriteArgs = match parse_from_value("todo_write", args) {
