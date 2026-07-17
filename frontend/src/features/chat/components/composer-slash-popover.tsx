@@ -1,8 +1,5 @@
-import { SparklesIcon, type LucideIcon } from "lucide-react";
+import { SparklesIcon, TerminalIcon, type LucideIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
-
-import type { SlashCommand } from "../lib/slash-commands";
-import type { AvailableSkill } from "@/features/skills/types";
 
 import {
   Command,
@@ -16,6 +13,12 @@ import {
   PopoverAnchor,
   PopoverContent,
 } from "@/components/ui/popover";
+import { Spinner } from "@/components/ui/spinner";
+import type { AvailableSkill } from "@/features/skills/types";
+import { useTranslation } from "@/lib/i18n/locale-provider";
+import { cn } from "@/lib/utils";
+
+import type { SlashCommand } from "../lib/slash-commands";
 
 export type SlashPopoverItem =
   | { kind: "command"; command: SlashCommand }
@@ -29,19 +32,10 @@ type ComposerSlashPopoverProps = {
   selectedIndex: number;
   onSelect: (item: SlashPopoverItem) => void;
   onSelectedIndexChange: (index: number) => void;
-  anchorRef: React.RefObject<HTMLDivElement | null>;
 };
 
-const ITEM_ICON_CLASS = "mr-2 size-4 shrink-0";
-
-function itemLabel(item: SlashPopoverItem): string {
-  return item.kind === "command"
-    ? `/${item.command.slug}`
-    : `/${item.skill.slug}`;
-}
-
 function itemIcon(item: SlashPopoverItem): LucideIcon {
-  return item.kind === "command" ? item.command.icon : SparklesIcon;
+  return item.kind === "command" ? TerminalIcon : SparklesIcon;
 }
 
 export function ComposerSlashPopover({
@@ -52,25 +46,24 @@ export function ComposerSlashPopover({
   selectedIndex,
   onSelect,
   onSelectedIndexChange,
-  anchorRef,
 }: ComposerSlashPopoverProps) {
+  const { t } = useTranslation();
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll the selected item into view
   useEffect(() => {
-    if (!open || selectedIndex < 0 || !listRef.current) {
+    if (!open || loading || items.length === 0) {
       return;
     }
 
-    const container = listRef.current;
-    const items = container.querySelectorAll<HTMLElement>(
-      '[data-slash-item="true"]'
+    const selected = listRef.current?.querySelector(
+      `[data-slash-index="${selectedIndex}"]`
     );
-    const selected = items[selectedIndex];
-    if (selected) {
-      selected.scrollIntoView({ block: "nearest" });
-    }
-  }, [open, selectedIndex]);
+    selected?.scrollIntoView({ block: "nearest" });
+  }, [loading, open, items.length, selectedIndex]);
+
+  if (!open) {
+    return null;
+  }
 
   const commandItems = items.filter(
     (item): item is SlashPopoverItem & { kind: "command" } =>
@@ -81,32 +74,39 @@ export function ComposerSlashPopover({
       item.kind === "skill"
   );
 
-  // Compute the flat index of the first item in each group
   const commandStartIndex = 0;
   const skillStartIndex = commandItems.length;
 
   return (
-    <Popover open={open} modal={false}>
-      <PopoverAnchor virtualRef={anchorRef as React.RefObject<{ readonly getBoundingClientRect: () => DOMRect }>} />
+    <Popover modal={false} open={true}>
+      <PopoverAnchor className="pointer-events-none absolute inset-x-0 top-0 h-0" />
       <PopoverContent
         align="start"
-        className="p-0"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-        onCloseAutoFocus={(e) => e.preventDefault()}
-        style={{ width: anchorWidth ?? 320 }}
+        className="gap-0 rounded-2xl p-0 shadow-lg"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+        }}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+        }}
+        side="top"
+        sideOffset={8}
+        style={anchorWidth ? { width: anchorWidth } : undefined}
       >
-        <Command>
-          <CommandList ref={listRef}>
-            {loading && items.length === 0 && (
-              <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                Loading…
+        <Command shouldFilter={false} value="">
+          <CommandList className="max-h-60" ref={listRef}>
+            {loading ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground text-sm">
+                <Spinner className="size-4" />
+                <span>{t("chat.skillSearching")}</span>
               </div>
-            )}
-            {!loading && items.length === 0 && (
-              <CommandEmpty>No results</CommandEmpty>
-            )}
+            ) : null}
 
-            {commandItems.length > 0 && (
+            {!loading && items.length === 0 ? (
+              <CommandEmpty>{t("chat.skillNoResults")}</CommandEmpty>
+            ) : null}
+
+            {!loading && commandItems.length > 0 ? (
               <CommandGroup heading="Commands">
                 {commandItems.map((item, i) => {
                   const flatIndex = commandStartIndex + i;
@@ -114,25 +114,36 @@ export function ComposerSlashPopover({
                   return (
                     <CommandItem
                       key={`cmd-${item.command.slug}`}
-                      data-slash-item="true"
-                      data-selected={flatIndex === selectedIndex || undefined}
-                      onMouseEnter={() => onSelectedIndexChange(flatIndex)}
-                      onSelect={() => onSelect(item)}
+                      data-slash-index={flatIndex}
+                      className={cn(
+                        "gap-2 rounded-xl px-3 py-2",
+                        flatIndex === selectedIndex && "bg-muted"
+                      )}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                      }}
+                      onMouseEnter={() => {
+                        onSelectedIndexChange(flatIndex);
+                      }}
+                      onSelect={() => {
+                        onSelect(item);
+                      }}
+                      value={item.command.slug}
                     >
-                      <Icon className={ITEM_ICON_CLASS} />
-                      <span className="flex-1">
-                        <span className="font-medium">{itemLabel(item)}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {item.command.description}
-                        </span>
+                      <Icon className="size-4 shrink-0 opacity-70" />
+                      <span className="min-w-0 truncate font-medium">
+                        /{item.command.slug}
+                      </span>
+                      <span className="min-w-0 truncate text-muted-foreground text-xs">
+                        {item.command.description}
                       </span>
                     </CommandItem>
                   );
                 })}
               </CommandGroup>
-            )}
+            ) : null}
 
-            {skillItems.length > 0 && (
+            {!loading && skillItems.length > 0 ? (
               <CommandGroup heading="Skills">
                 {skillItems.map((item, i) => {
                   const flatIndex = skillStartIndex + i;
@@ -140,25 +151,39 @@ export function ComposerSlashPopover({
                   return (
                     <CommandItem
                       key={`sk-${item.skill.slug}`}
-                      data-slash-item="true"
-                      data-selected={flatIndex === selectedIndex || undefined}
-                      onMouseEnter={() => onSelectedIndexChange(flatIndex)}
-                      onSelect={() => onSelect(item)}
+                      data-slash-index={flatIndex}
+                      className={cn(
+                        "gap-2 rounded-xl px-3 py-2",
+                        flatIndex === selectedIndex && "bg-muted"
+                      )}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                      }}
+                      onMouseEnter={() => {
+                        onSelectedIndexChange(flatIndex);
+                      }}
+                      onSelect={() => {
+                        onSelect(item);
+                      }}
+                      value={item.skill.slug}
                     >
-                      <Icon className={ITEM_ICON_CLASS} />
-                      <span className="flex-1">
-                        <span className="font-medium">
-                          {itemLabel(item)}
-                        </span>
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {item.skill.description}
-                        </span>
+                      <Icon className="size-4 shrink-0 opacity-70" />
+                      <span className="min-w-0 truncate font-medium">
+                        {item.skill.name}
+                      </span>
+                      <span className="min-w-0 truncate font-mono text-muted-foreground text-xs">
+                        /{item.skill.slug}
+                      </span>
+                      <span className="shrink-0 rounded-full bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                        {item.skill.source === "workspace"
+                          ? t("skills.badgeWorkspace")
+                          : t("skills.badgeUser")}
                       </span>
                     </CommandItem>
                   );
                 })}
               </CommandGroup>
-            )}
+            ) : null}
           </CommandList>
         </Command>
       </PopoverContent>

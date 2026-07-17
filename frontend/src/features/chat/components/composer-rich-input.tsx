@@ -717,7 +717,6 @@ export function ComposerRichInput({
           onSelectedIndexChange={updateSelectedIndex}
           open={Boolean(slashMention)}
           selectedIndex={selectedIndex}
-          anchorRef={containerRef}
         />
         <EditorContent
           className={cn(
