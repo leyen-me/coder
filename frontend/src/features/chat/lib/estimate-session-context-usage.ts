@@ -153,7 +153,8 @@ export function estimateSessionContextUsage(input: {
     if (
       msg.role === "assistant" &&
       msg.usage &&
-      msg.usage.promptTokens != null
+      msg.usage.promptTokens != null &&
+      msg.usage.promptTokens > 0
     ) {
       lastProviderIndex = i;
       break;

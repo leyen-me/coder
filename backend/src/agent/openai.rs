@@ -72,11 +72,23 @@ struct StreamUsage {
     total_tokens: u32,
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct StreamTimings {
+    #[serde(default)]
+    prompt_n: u32,
+    #[serde(default)]
+    cache_n: u32,
+    #[serde(default)]
+    predicted_n: u32,
+}
+
 #[derive(Debug, Deserialize)]
 struct StreamChunk {
     choices: Vec<StreamChoice>,
     #[serde(default)]
     usage: Option<StreamUsage>,
+    #[serde(default)]
+    timings: Option<StreamTimings>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -494,6 +506,19 @@ fn process_sse_line(
         stream_usage.get_or_insert(usage);
     }
 
+    // Fallback: derive usage from timings when usage is missing (e.g. llama.cpp streaming).
+    if stream_usage.is_none() {
+        if let Some(t) = &parsed.timings {
+            let prompt_tokens = t.prompt_n.saturating_add(t.cache_n);
+            let completion_tokens = t.predicted_n;
+            stream_usage.get_or_insert(StreamUsage {
+                prompt_tokens,
+                completion_tokens,
+                total_tokens: prompt_tokens.saturating_add(completion_tokens),
+            });
+        }
+    }
+
     let Some(choice) = parsed.choices.first() else {
         return false;
     };
@@ -686,5 +711,54 @@ mod tests {
         assert_eq!(usage.prompt_tokens, 10);
         assert_eq!(usage.completion_tokens, 20);
         assert_eq!(usage.total_tokens, 30);
+    }
+
+    #[test]
+    fn derives_usage_from_timings_fallback() {
+        let mut events = Vec::new();
+        let mut tool_calls = ToolCallAccumulator {
+            calls: BTreeMap::new(),
+            announced_ids: std::collections::HashSet::new(),
+        };
+        let mut finish_reason = None;
+        let mut stream_usage = None;
+        let done = process_sse_line(
+            r#"data: {"choices":[{"finish_reason":"stop","index":0,"delta":{}}],"timings":{"prompt_n":4,"cache_n":9,"predicted_n":5}}"#,
+            "task-1",
+            &mut |event| events.push(format!("{event:?}")),
+            &mut tool_calls,
+            &mut finish_reason,
+            &mut stream_usage,
+        );
+        assert!(!done);
+        let usage = stream_usage.expect("should derive usage from timings");
+        assert_eq!(usage.prompt_tokens, 13); // 4 + 9
+        assert_eq!(usage.completion_tokens, 5);
+        assert_eq!(usage.total_tokens, 18);
+    }
+
+    #[test]
+    fn usage_takes_priority_over_timings() {
+        let mut events = Vec::new();
+        let mut tool_calls = ToolCallAccumulator {
+            calls: BTreeMap::new(),
+            announced_ids: std::collections::HashSet::new(),
+        };
+        let mut finish_reason = None;
+        let mut stream_usage = None;
+        let done = process_sse_line(
+            r#"data: {"choices":[{"delta":{}}],"usage":{"prompt_tokens":100,"completion_tokens":200,"total_tokens":300},"timings":{"prompt_n":4,"cache_n":9,"predicted_n":5}}"#,
+            "task-1",
+            &mut |event| events.push(format!("{event:?}")),
+            &mut tool_calls,
+            &mut finish_reason,
+            &mut stream_usage,
+        );
+        assert!(!done);
+        let usage = stream_usage.expect("should capture usage");
+        // usage takes priority over timings
+        assert_eq!(usage.prompt_tokens, 100);
+        assert_eq!(usage.completion_tokens, 200);
+        assert_eq!(usage.total_tokens, 300);
     }
 }
