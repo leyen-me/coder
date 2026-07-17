@@ -1166,10 +1166,14 @@ pub async fn handle_agent_start(
         }
     };
     let agent_mode = params.agent_mode.clone();
+    let include_handoff_tools = session
+        .as_ref()
+        .is_some_and(agent::session_includes_handoff_tools);
     let tools = {
         let defaults = agent::resolve_agent_tool_definitions(
             &state,
             agent_mode.as_deref(),
+            include_handoff_tools,
             params.tools.clone(),
         )
         .await;
@@ -1350,6 +1354,7 @@ pub async fn start_agent_send_with_task_id(
     let tools = agent::resolve_agent_tool_definitions(
         &state,
         params.agent_mode.as_deref(),
+        agent::session_includes_handoff_tools(&updated_session),
         params.extra_tools.clone(),
     )
     .await;
@@ -1507,6 +1512,7 @@ pub async fn handle_agent_regenerate(
     let tools = agent::resolve_agent_tool_definitions(
         &state,
         resolved_agent_mode.as_deref(),
+        agent::session_includes_handoff_tools(&updated_session),
         params.extra_tools.clone(),
     )
     .await;

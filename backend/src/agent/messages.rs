@@ -96,15 +96,27 @@ pub fn build_system_prompt_preview(
     Ok(join_prompt_blocks(system_blocks))
 }
 
+pub fn session_includes_handoff_tools(session: &SessionRecord) -> bool {
+    session
+        .handoff_from_session_id
+        .as_deref()
+        .is_some_and(|id| !id.trim().is_empty())
+}
+
 pub async fn resolve_agent_tool_definitions(
     app_state: &AppState,
     agent_mode: Option<&str>,
+    include_handoff_tools: bool,
     extra_tools: Option<Vec<AgentToolDefinition>>,
 ) -> Vec<AgentToolDefinition> {
-    let mut definitions = super::tool_dispatch::get_tool_definitions(agent_mode);
+    let mut definitions =
+        super::tool_dispatch::get_tool_definitions(agent_mode, include_handoff_tools);
     definitions.extend(resolve_mcp_agent_tools(app_state).await);
     if let Some(extra) = extra_tools {
-        definitions.extend(extra);
+        definitions.extend(extra.into_iter().filter(|tool| {
+            include_handoff_tools
+                || !super::tool_dispatch::is_handoff_only_agent_tool(&tool.function.name)
+        }));
     }
     dedupe_tool_definitions(definitions)
 }
@@ -1551,7 +1563,7 @@ Prefer deterministic test scaffolding.
             },
         };
 
-        let tools = resolve_agent_tool_definitions(&state, Some("ask"), Some(vec![extra, custom]))
+        let tools = resolve_agent_tool_definitions(&state, Some("ask"), false, Some(vec![extra, custom]))
             .await;
         let names = tools.iter().map(|tool| tool.function.name.as_str()).collect::<Vec<_>>();
 

@@ -78,6 +78,18 @@ pub async fn execute_tool_call(
             format!("Tool `{name}` is temporarily disabled."),
         ));
     }
+    if is_handoff_only_tool(name)
+        && !ctx
+            .available_tools
+            .iter()
+            .any(|tool| tool.function.name == name)
+    {
+        return Ok(tool_failure(
+            name,
+            "tool_not_allowed",
+            format!("Tool `{name}` is only available in handoff continuation sessions."),
+        ));
+    }
     let args = parse_args(arguments)?;
     if let Some((server_id, tool_name)) = parse_mcp_tool_name(name) {
         return execute_mcp_tool_call(name, &server_id, &tool_name, args, ctx).await;
@@ -183,6 +195,9 @@ const PLAN_TOOL_NAMES: &[&str] = &[
 /// Agent tools kept in code but withheld from the model until re-enabled.
 const DISABLED_AGENT_TOOL_NAMES: &[&str] = &["replace_lines"];
 
+/// Tools exposed only when continuing from a handoff session.
+const HANDOFF_ONLY_TOOL_NAMES: &[&str] = &["read_prior_tool_output"];
+
 fn is_plan_tool(name: &str) -> bool {
     PLAN_TOOL_NAMES.contains(&name)
 }
@@ -191,7 +206,18 @@ fn is_disabled_agent_tool(name: &str) -> bool {
     DISABLED_AGENT_TOOL_NAMES.contains(&name)
 }
 
-pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition> {
+fn is_handoff_only_tool(name: &str) -> bool {
+    HANDOFF_ONLY_TOOL_NAMES.contains(&name)
+}
+
+pub fn is_handoff_only_agent_tool(name: &str) -> bool {
+    is_handoff_only_tool(name)
+}
+
+pub fn get_tool_definitions(
+    agent_mode: Option<&str>,
+    include_handoff_tools: bool,
+) -> Vec<AgentToolDefinition> {
     let mut tools = vec![
         tool_definition(
             "list_dir",
@@ -674,6 +700,10 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
     }
 
     tools.retain(|tool| !is_disabled_agent_tool(&tool.function.name));
+
+    if !include_handoff_tools {
+        tools.retain(|tool| !is_handoff_only_tool(&tool.function.name));
+    }
 
     tools
 }
@@ -2910,22 +2940,34 @@ mod tests {
         AskQuestionArgs, AskQuestionItem, AskQuestionOption, DEFAULT_ASK_QUESTION_TIMEOUT_MS,
     };
 
-    fn tool_names(agent_mode: Option<&str>) -> Vec<String> {
-        get_tool_definitions(agent_mode)
+    fn tool_names(agent_mode: Option<&str>, include_handoff_tools: bool) -> Vec<String> {
+        get_tool_definitions(agent_mode, include_handoff_tools)
             .into_iter()
             .map(|tool| tool.function.name)
             .collect()
     }
 
     #[test]
+    fn agent_mode_excludes_handoff_tools_by_default() {
+        let names = tool_names(Some("agent"), false);
+        assert!(!names.contains(&"read_prior_tool_output".to_string()));
+    }
+
+    #[test]
+    fn agent_mode_includes_handoff_tools_when_requested() {
+        let names = tool_names(Some("agent"), true);
+        assert!(names.contains(&"read_prior_tool_output".to_string()));
+    }
+
+    #[test]
     fn agent_mode_excludes_disabled_tools() {
-        let names = tool_names(Some("agent"));
+        let names = tool_names(Some("agent"), false);
         assert!(!names.contains(&"replace_lines".to_string()));
     }
 
     #[test]
     fn agent_mode_excludes_plan_tools() {
-        let names = tool_names(Some("agent"));
+        let names = tool_names(Some("agent"), false);
         assert!(names.contains(&"create_file".to_string()));
         assert!(names.contains(&"shell".to_string()));
         assert!(!names.contains(&"plan_create".to_string()));
@@ -2934,7 +2976,7 @@ mod tests {
 
     #[test]
     fn plan_mode_includes_plan_tools() {
-        let names = tool_names(Some("plan"));
+        let names = tool_names(Some("plan"), false);
         assert!(names.contains(&"plan_create".to_string()));
         assert!(names.contains(&"plan_list".to_string()));
         assert!(!names.contains(&"create_file".to_string()));
@@ -2943,7 +2985,7 @@ mod tests {
 
     #[test]
     fn ask_mode_excludes_plan_and_write_tools() {
-        let names = tool_names(Some("ask"));
+        let names = tool_names(Some("ask"), false);
         assert!(names.contains(&"read_file".to_string()));
         assert!(!names.contains(&"plan_create".to_string()));
         assert!(!names.contains(&"create_file".to_string()));

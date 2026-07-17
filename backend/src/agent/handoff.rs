@@ -303,12 +303,20 @@ pub async fn continue_after_handoff(
     )?;
 
     let continuation_messages = build_continuation_messages(current_messages, &continuation_prompt);
+    let continuation_tools = super::messages::resolve_agent_tool_definitions(
+        &app_state,
+        params.agent_mode.as_deref(),
+        true,
+        None,
+    )
+    .await;
     super::agent_start(
         &app_state.agent_registry,
         AgentStartParams {
             task_id: continued_task_id.clone(),
             session_id: Some(continued_session.id.clone()),
             messages: continuation_messages,
+            tools: Some(continuation_tools),
             ..params.clone()
         },
         app_state.sse_broadcaster.clone(),
