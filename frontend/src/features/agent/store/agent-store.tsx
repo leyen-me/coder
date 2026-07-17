@@ -24,7 +24,6 @@ import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
 import { appEventBus } from "@/lib/event-bus";
 import { isAgentCancellationError } from "../cancellation";
-import { SkillReferenceValidationError } from "@/features/skills/lib/skill-errors";
 import { resolveWorkspaceAwareSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
 import { extractSkillSlugsFromText } from "@/features/skills/lib/parse-skill-references";
 import { createStreamingBufferManager } from "../streaming-buffer";
@@ -767,24 +766,24 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         input.skillSlugs ??
         (trimmed ? extractSkillSlugsFromText(trimmed) : []);
 
+      let resolvedSkillSlugs: string[] = [];
+
       if (skillSlugs.length > 0) {
         const session = await getSession(input.sessionId);
         const skillValidation = await resolveWorkspaceAwareSkillsBySlugs(
           session?.workspaceDir ?? null,
           skillSlugs
         );
-        if (!skillValidation.ok) {
-          throw new SkillReferenceValidationError(
-            skillValidation.error,
-            skillValidation.slug
-          );
+        if (skillValidation.ok) {
+          resolvedSkillSlugs = skillValidation.skills.map((s) => s.slug);
         }
+        // Unresolved slugs are silently ignored — they remain as plain text.
       }
       const referencedSkillsToStore =
         input.skillSlugs !== undefined
           ? input.skillSlugs
-          : skillSlugs.length > 0
-            ? skillSlugs
+          : resolvedSkillSlugs.length > 0
+            ? resolvedSkillSlugs
             : undefined;
 
       writeLastSelectedModel(input.model);
