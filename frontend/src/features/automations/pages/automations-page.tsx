@@ -88,8 +88,8 @@ export function AutomationsPage() {
               {t("automations.description")}
             </p>
           </div>
-          <Button className="w-full shrink-0 sm:w-auto" onClick={handleCreate}>
-            <Plus className="h-4 w-4" />
+          <Button className="w-full shrink-0 sm:w-auto" onClick={handleCreate} variant="outline">
+            <Plus className="size-4" />
             {t("automations.newAutomation")}
           </Button>
         </div>

@@ -55,10 +55,10 @@ export const zhMessages = {
   automations: {
     title: "自动化",
     description: "创建按计划运行的自动化任务，每次触发都会新建一个会话。",
-    newAutomation: "新建自动化",
+    newAutomation: "新建",
     editAutomation: "编辑自动化",
     empty: "还没有自动化任务",
-    createFirst: "创建第一个自动化",
+    createFirst: "新建自动化",
     fieldName: "名称",
     fieldNamePlaceholder: "工作日 PR 巡检",
     fieldDescription: "描述",

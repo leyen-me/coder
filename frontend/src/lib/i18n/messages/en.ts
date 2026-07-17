@@ -55,10 +55,10 @@ export const enMessages = {
   automations: {
     title: "Automations",
     description: "Create scheduled runs that start a new session each time.",
-    newAutomation: "New automation",
+    newAutomation: "New",
     editAutomation: "Edit automation",
     empty: "No automations yet",
-    createFirst: "Create your first automation",
+    createFirst: "New automation",
     fieldName: "Name",
     fieldNamePlaceholder: "Weekday PR triage",
     fieldDescription: "Description",
