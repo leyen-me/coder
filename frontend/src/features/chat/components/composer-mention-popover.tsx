@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "@/lib/i18n/locale-provider";
-import { cn } from "@/lib/utils";
 
 import type { WorkspacePathMatch } from "../lib/search-workspace-paths";
 
@@ -42,6 +41,7 @@ export function ComposerMentionPopover({
 }: ComposerMentionPopoverProps) {
   const { t } = useTranslation();
   const listRef = useRef<HTMLDivElement>(null);
+  const selectedValue = results[selectedIndex]?.path ?? "";
 
   useEffect(() => {
     if (!open || loading || results.length === 0) {
@@ -70,7 +70,16 @@ export function ComposerMentionPopover({
         sideOffset={8}
         style={anchorWidth ? { width: anchorWidth } : undefined}
       >
-        <Command shouldFilter={false} value="">
+        <Command
+          shouldFilter={false}
+          value={selectedValue}
+          onValueChange={(value) => {
+            const index = results.findIndex((item) => item.path === value);
+            if (index >= 0) {
+              onSelectedIndexChange(index);
+            }
+          }}
+        >
           <CommandList className="max-h-60" ref={listRef}>
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground text-sm">
@@ -97,15 +106,9 @@ export function ComposerMentionPopover({
                     <CommandItem
                       key={`${item.path}:${item.isDir ? "dir" : "file"}`}
                       data-mention-index={index}
-                      className={cn(
-                        "gap-2 rounded-xl px-3 py-2",
-                        index === selectedIndex && "bg-muted"
-                      )}
+                      className="gap-2 rounded-xl px-3 py-2"
                       onMouseDown={(event) => {
                         event.preventDefault();
-                      }}
-                      onMouseEnter={() => {
-                        onSelectedIndexChange(index);
                       }}
                       onSelect={() => {
                         onSelect(item);

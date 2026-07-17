@@ -16,7 +16,6 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import type { AvailableSkill } from "@/features/skills/types";
 import { useTranslation } from "@/lib/i18n/locale-provider";
-import { cn } from "@/lib/utils";
 
 import type { SlashCommand } from "../lib/slash-commands";
 
@@ -36,6 +35,12 @@ type ComposerSlashPopoverProps = {
 
 function itemIcon(item: SlashPopoverItem): LucideIcon {
   return item.kind === "command" ? TerminalIcon : SparklesIcon;
+}
+
+function slashItemValue(item: SlashPopoverItem): string {
+  return item.kind === "command"
+    ? `command:${item.command.slug}`
+    : `skill:${item.skill.slug}`;
 }
 
 export function ComposerSlashPopover({
@@ -76,6 +81,8 @@ export function ComposerSlashPopover({
 
   const commandStartIndex = 0;
   const skillStartIndex = commandItems.length;
+  const selectedValue =
+    items[selectedIndex] != null ? slashItemValue(items[selectedIndex]) : "";
 
   return (
     <Popover modal={false} open={true}>
@@ -93,7 +100,18 @@ export function ComposerSlashPopover({
         sideOffset={8}
         style={anchorWidth ? { width: anchorWidth } : undefined}
       >
-        <Command shouldFilter={false} value="">
+        <Command
+          shouldFilter={false}
+          value={selectedValue}
+          onValueChange={(value) => {
+            const index = items.findIndex(
+              (item) => slashItemValue(item) === value
+            );
+            if (index >= 0) {
+              onSelectedIndexChange(index);
+            }
+          }}
+        >
           <CommandList className="max-h-60" ref={listRef}>
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground text-sm">
@@ -115,20 +133,14 @@ export function ComposerSlashPopover({
                     <CommandItem
                       key={`cmd-${item.command.slug}`}
                       data-slash-index={flatIndex}
-                      className={cn(
-                        "gap-2 rounded-xl px-3 py-2",
-                        flatIndex === selectedIndex && "bg-muted"
-                      )}
+                      className="gap-2 rounded-xl px-3 py-2"
                       onMouseDown={(event) => {
                         event.preventDefault();
-                      }}
-                      onMouseEnter={() => {
-                        onSelectedIndexChange(flatIndex);
                       }}
                       onSelect={() => {
                         onSelect(item);
                       }}
-                      value={item.command.slug}
+                      value={slashItemValue(item)}
                     >
                       <Icon className="size-4 shrink-0 opacity-70" />
                       <span className="min-w-0 truncate font-medium">
@@ -152,20 +164,14 @@ export function ComposerSlashPopover({
                     <CommandItem
                       key={`sk-${item.skill.slug}`}
                       data-slash-index={flatIndex}
-                      className={cn(
-                        "gap-2 rounded-xl px-3 py-2",
-                        flatIndex === selectedIndex && "bg-muted"
-                      )}
+                      className="gap-2 rounded-xl px-3 py-2"
                       onMouseDown={(event) => {
                         event.preventDefault();
-                      }}
-                      onMouseEnter={() => {
-                        onSelectedIndexChange(flatIndex);
                       }}
                       onSelect={() => {
                         onSelect(item);
                       }}
-                      value={item.skill.slug}
+                      value={slashItemValue(item)}
                     >
                       <Icon className="size-4 shrink-0 opacity-70" />
                       <span className="min-w-0 truncate font-medium">
