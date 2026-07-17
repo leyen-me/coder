@@ -99,6 +99,44 @@ impl ScheduledJobRecord {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutomationRecord {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub cron_expression: String,
+    pub prompt: String,
+    pub workspace_dir: Option<String>,
+    pub model: String,
+    pub provider: String,
+    pub agent_mode: AgentMode,
+    pub thinking_enabled: bool,
+    pub enabled: bool,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+impl From<ScheduledJobRecord> for AutomationRecord {
+    fn from(record: ScheduledJobRecord) -> Self {
+        Self {
+            id: record.id,
+            name: record.name,
+            description: record.description,
+            cron_expression: record.cron_expression,
+            prompt: record.prompt,
+            workspace_dir: record.workspace_dir,
+            model: record.model,
+            provider: record.provider,
+            agent_mode: record.agent_mode,
+            thinking_enabled: record.thinking_enabled,
+            enabled: record.enabled,
+            created_at: record.created_at,
+            updated_at: record.updated_at,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateJobInput {
@@ -111,6 +149,8 @@ pub struct CreateJobInput {
     pub provider: Option<String>,
     pub agent_mode: AgentMode,
     pub thinking_enabled: bool,
+    #[serde(default)]
+    pub enabled: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]

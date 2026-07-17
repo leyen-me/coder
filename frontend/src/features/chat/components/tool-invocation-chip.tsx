@@ -11,6 +11,8 @@ import {
   AWAIT_TOOL_NAME,
   BROWSE_PAGE_TOOL_NAME,
   CREATE_SKILL_TOOL_NAME,
+  CREATE_AUTOMATION_TOOL_NAME,
+  DELETE_AUTOMATION_TOOL_NAME,
   EDIT_FILE_TOOL_NAME,
   GET_WORKSPACE_TREE_TOOL_NAME,
   GLOB_TOOL_NAME,
@@ -18,6 +20,7 @@ import {
   KILL_SHELL_TOOL_NAME,
   LIST_DIR_TOOL_NAME,
   LIST_SHELLS_TOOL_NAME,
+  LIST_AUTOMATIONS_TOOL_NAME,
   LIST_SKILLS_TOOL_NAME,
   PLAN_CREATE_TOOL_NAME,
   PLAN_DELETE_TOOL_NAME,
@@ -36,10 +39,12 @@ import {
   TODO_READ_TOOL_NAME,
   TODO_WRITE_TOOL_NAME,
   UPDATE_SKILL_TOOL_NAME,
+  UPDATE_AUTOMATION_TOOL_NAME,
   WEB_SEARCH_TOOL_NAME,
   isCreateFileToolName,
   SPAWN_SUBAGENT_TOOL_NAME,
 } from "@/features/agent/tools/definitions";
+import { getAutomationChipLabel } from "@/features/agent/tools/automation-display";
 import { getAskQuestionChipLabel } from "@/features/agent/tools/ask-question-display";
 import { getBrowsePageChipLabel } from "@/features/agent/tools/browse-page-display";
 import { getFileDiffChipLabel } from "@/features/agent/tools/file-diff-display";
@@ -77,6 +82,7 @@ import {
 import { useState } from "react";
 
 import { AskQuestionToolOutput } from "./ask-question-tool-output";
+import { AutomationToolOutput } from "./automation-tool-output";
 import { BrowsePageToolOutput } from "./browse-page-tool-output";
 import { FileDiffToolOutput } from "./file-diff-tool-output";
 import { GlobToolOutput } from "./glob-tool-output";
@@ -130,6 +136,7 @@ export function ToolInvocationChip({
     getReadShellLogsChipLabel(invocation.name, invocation.input, invocation.output) ??
     getKillShellChipLabel(invocation.name, invocation.input, invocation.output) ??
     getSkillChipLabel(invocation.name, invocation.input, invocation.output) ??
+    getAutomationChipLabel(invocation.name, invocation.input, invocation.output) ??
     getSendEmailChipLabel(invocation.name, invocation.input, invocation.output) ??
     getWorkspaceTreeChipLabel(invocation.name, invocation.output) ??
     getSubAgentChipLabel(invocation.name, invocation.input, invocation.output) ??
@@ -169,6 +176,11 @@ export function ToolInvocationChip({
     invocation.name === READ_SKILL_TOOL_NAME ||
     invocation.name === CREATE_SKILL_TOOL_NAME ||
     invocation.name === UPDATE_SKILL_TOOL_NAME;
+  const isAutomationTool =
+    invocation.name === LIST_AUTOMATIONS_TOOL_NAME ||
+    invocation.name === CREATE_AUTOMATION_TOOL_NAME ||
+    invocation.name === UPDATE_AUTOMATION_TOOL_NAME ||
+    invocation.name === DELETE_AUTOMATION_TOOL_NAME;
   const isSendEmailTool = invocation.name === SEND_EMAIL_TOOL_NAME;
   const isAskQuestionTool = invocation.name === ASK_QUESTION_TOOL_NAME;
   const isSubAgentTool = invocation.name === SPAWN_SUBAGENT_TOOL_NAME;
@@ -322,6 +334,15 @@ export function ToolInvocationChip({
             <SkillToolOutput
               collapsible={false}
               errorText={invocation.errorText}
+              output={invocation.output}
+              toolName={invocation.name}
+              state={invocation.state as ToolUIPart["state"]}
+            />
+          ) : isAutomationTool ? (
+            <AutomationToolOutput
+              collapsible={false}
+              errorText={invocation.errorText}
+              input={invocation.input}
               output={invocation.output}
               toolName={invocation.name}
               state={invocation.state as ToolUIPart["state"]}

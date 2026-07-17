@@ -63,7 +63,7 @@ pub fn create_job(
             .unwrap_or_default(),
         agent_mode: input.agent_mode,
         thinking_enabled: input.thinking_enabled,
-        enabled: true,
+        enabled: input.enabled.unwrap_or(true),
         runs: Vec::new(),
         created_at: now,
         updated_at: now,

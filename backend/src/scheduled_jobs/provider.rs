@@ -217,6 +217,10 @@ fn default_thinking_extensions(
     }
 }
 
+pub fn infer_provider_for_model(model_id: &str) -> String {
+    infer_provider_from_model(model_id)
+}
+
 pub fn resolve_job_runtime(
     provider_id: &str,
     model_id: &str,

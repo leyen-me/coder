@@ -157,6 +157,10 @@ fn normalize_upper_bound(max: usize, wrap_sunday: bool) -> usize {
     if wrap_sunday { 6 } else { max }
 }
 
+pub fn is_valid_cron_expression(expression: &str) -> bool {
+    parse_schedule(expression).is_some()
+}
+
 pub fn is_job_due(job: &ScheduledJobRecord, now_ms: i64) -> bool {
     if job
         .runs

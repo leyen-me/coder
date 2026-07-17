@@ -11,7 +11,10 @@ pub use active_runs::{ActiveRunRegistry, ActiveScheduledRun, SharedActiveRunRegi
 pub use lock::{RunLock, SharedRunLock};
 pub use runner::{queue_job_run, run_job_by_id};
 pub use scheduler::spawn_scheduler;
+pub use due::is_valid_cron_expression;
+pub use provider::{infer_provider_for_model, resolve_job_runtime};
 pub use store::{create_job, delete_job, get_job, list_jobs, update_job};
 pub use types::{
-    AgentMode, CreateJobInput, JobRunRecord, RunStatus, ScheduledJobRecord, UpdateJobInput,
+    AgentMode, AutomationRecord, CreateJobInput, JobRunRecord, RunStatus, ScheduledJobRecord,
+    UpdateJobInput,
 };

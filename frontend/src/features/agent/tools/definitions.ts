@@ -42,6 +42,11 @@ export const ASK_QUESTION_TOOL_NAME = "ask_question";
 
 export const SEND_EMAIL_TOOL_NAME = "send_email";
 
+export const LIST_AUTOMATIONS_TOOL_NAME = "list_automations";
+export const CREATE_AUTOMATION_TOOL_NAME = "create_automation";
+export const UPDATE_AUTOMATION_TOOL_NAME = "update_automation";
+export const DELETE_AUTOMATION_TOOL_NAME = "delete_automation";
+
 export const GET_WORKSPACE_TREE_TOOL_NAME = "get_workspace_tree";
 
 export const SPAWN_SUBAGENT_TOOL_NAME = "spawn_subagent";
@@ -1114,6 +1119,148 @@ export const SEND_EMAIL_TOOL: AgentToolDefinition = {
   },
 };
 
+export const LIST_AUTOMATIONS_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: LIST_AUTOMATIONS_TOOL_NAME,
+    description:
+      "List all scheduled automations with full configuration except run history. Use before create, update, or delete to inspect existing jobs and avoid duplicates.",
+    parameters: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+  },
+};
+
+export const CREATE_AUTOMATION_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: CREATE_AUTOMATION_TOOL_NAME,
+    description:
+      "Create a scheduled automation that starts a new agent session on each run. Cron times use the local system timezone at minute precision. New automations are created disabled; tell the user to review and enable them on the Automations page.",
+    parameters: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Short automation name.",
+        },
+        prompt: {
+          type: "string",
+          description: "Task prompt sent to the agent on each scheduled run.",
+        },
+        cron_expression: {
+          type: "string",
+          description:
+            'Standard 5-field cron expression, e.g. "0 9 * * 1-5" for weekdays at 09:00 local time.',
+        },
+        description: {
+          type: "string",
+          description: "Optional description shown in the automations list.",
+        },
+        workspace_dir: {
+          type: "string",
+          description:
+            "Workspace directory for scheduled runs. Defaults to the current session workspace.",
+        },
+        model: {
+          type: "string",
+          description:
+            "Model id for scheduled runs. Defaults to the current session model.",
+        },
+        agent_mode: {
+          type: "string",
+          enum: ["agent", "ask"],
+          description: "Agent mode for scheduled runs.",
+          default: "agent",
+        },
+        thinking_enabled: {
+          type: "boolean",
+          description:
+            "Whether thinking mode is enabled when the model supports it.",
+          default: false,
+        },
+      },
+      required: ["name", "prompt", "cron_expression"],
+      additionalProperties: false,
+    },
+  },
+};
+
+export const UPDATE_AUTOMATION_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: UPDATE_AUTOMATION_TOOL_NAME,
+    description:
+      "Update an existing automation by id. Only supplied fields are changed. enabled cannot be changed here; the user must enable or disable automations on the Automations page.",
+    parameters: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Automation id from list_automations.",
+        },
+        name: {
+          type: "string",
+          description: "Updated automation name.",
+        },
+        prompt: {
+          type: "string",
+          description: "Updated task prompt.",
+        },
+        cron_expression: {
+          type: "string",
+          description: "Updated 5-field cron expression in local time.",
+        },
+        description: {
+          type: "string",
+          description: "Updated description.",
+        },
+        workspace_dir: {
+          type: "string",
+          description: "Updated workspace directory.",
+        },
+        model: {
+          type: "string",
+          description: "Updated model id.",
+        },
+        agent_mode: {
+          type: "string",
+          enum: ["agent", "ask"],
+          description: "Updated agent mode.",
+        },
+        thinking_enabled: {
+          type: "boolean",
+          description: "Updated thinking mode setting.",
+        },
+      },
+      required: ["id"],
+      additionalProperties: false,
+    },
+  },
+};
+
+export const DELETE_AUTOMATION_TOOL: AgentToolDefinition = {
+  type: "function",
+  function: {
+    name: DELETE_AUTOMATION_TOOL_NAME,
+    description:
+      "Delete an automation by id. Use list_automations first to confirm the target id and name.",
+    parameters: {
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+          description: "Automation id from list_automations.",
+        },
+      },
+      required: ["id"],
+      additionalProperties: false,
+    },
+  },
+};
+
 export const SPAWN_SUBAGENT_TOOL: AgentToolDefinition = {
   type: "function",
   function: {
@@ -1176,6 +1323,10 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   PLAN_EDIT_TOOL,
   PLAN_DELETE_TOOL,
   PLAN_LIST_TOOL,
+  LIST_AUTOMATIONS_TOOL,
+  CREATE_AUTOMATION_TOOL,
+  UPDATE_AUTOMATION_TOOL,
+  DELETE_AUTOMATION_TOOL,
   SEND_EMAIL_TOOL,
   SPAWN_SUBAGENT_TOOL,
 ];

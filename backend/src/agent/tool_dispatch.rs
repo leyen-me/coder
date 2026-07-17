@@ -7,6 +7,10 @@ use tokio_util::sync::CancellationToken;
 use super::types::AgentToolDefinition;
 use crate::db::Database;
 use crate::http::routes_settings::get_setting;
+use crate::scheduled_jobs::{
+    create_job, delete_job, infer_provider_for_model, is_valid_cron_expression, list_jobs,
+    update_job, AgentMode, AutomationRecord, CreateJobInput, UpdateJobInput,
+};
 use crate::tools::{
     send_email, shell_kill, shell_list, shell_read_logs, tool_await, tool_browse_page,
     tool_edit_file, tool_get_workspace_tree, tool_glob, tool_grep, tool_list_dir,
@@ -124,6 +128,10 @@ pub async fn execute_tool_call(
         "spawn_subagent" => execute_spawn_subagent(args, ctx).await,
         "read_prior_tool_output" => execute_read_prior_tool_output(args, ctx),
         "send_email" => execute_send_email(args).await,
+        "list_automations" => execute_list_automations(ctx),
+        "create_automation" => execute_create_automation(args, ctx),
+        "update_automation" => execute_update_automation(args, ctx),
+        "delete_automation" => execute_delete_automation(args, ctx),
         _ => Ok(tool_failure(
             name,
             "unknown_tool",
@@ -177,6 +185,10 @@ pub fn all_tool_names() -> Vec<String> {
         "spawn_subagent",
         "read_prior_tool_output",
         "send_email",
+        "list_automations",
+        "create_automation",
+        "update_automation",
+        "delete_automation",
     ]
     .into_iter()
     .map(str::to_string)
@@ -650,6 +662,66 @@ pub fn get_tool_definitions(
                     "body": string_schema("Plain text email body content.")
                 },
                 "required": ["to", "subject", "body"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "list_automations",
+            "List all scheduled automations with full configuration except run history. Use before create/update/delete to inspect existing jobs and avoid duplicates.",
+            json!({
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "create_automation",
+            "Create a scheduled automation that starts a new agent session on each run. Cron times use the local system timezone at minute precision. New automations are created disabled; tell the user to review and enable them on the Automations page.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "name": string_schema("Short automation name."),
+                    "prompt": string_schema("Task prompt sent to the agent on each scheduled run."),
+                    "cron_expression": string_schema("Standard 5-field cron expression, e.g. \"0 9 * * 1-5\" for weekdays at 09:00 local time."),
+                    "description": string_schema("Optional description shown in the automations list."),
+                    "workspace_dir": string_schema("Workspace directory for scheduled runs. Defaults to the current session workspace."),
+                    "model": string_schema("Model id for scheduled runs. Defaults to the current session model."),
+                    "agent_mode": enum_string_schema("Agent mode for scheduled runs.", &["agent", "ask"], Some("agent")),
+                    "thinking_enabled": bool_schema("Whether thinking mode is enabled when the model supports it.", Some(false))
+                },
+                "required": ["name", "prompt", "cron_expression"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "update_automation",
+            "Update an existing automation by id. Only supplied fields are changed. enabled cannot be changed here; the user must enable or disable automations on the Automations page.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "id": string_schema("Automation id from list_automations."),
+                    "name": string_schema("Updated automation name."),
+                    "prompt": string_schema("Updated task prompt."),
+                    "cron_expression": string_schema("Updated 5-field cron expression in local time."),
+                    "description": string_schema("Updated description."),
+                    "workspace_dir": string_schema("Updated workspace directory."),
+                    "model": string_schema("Updated model id."),
+                    "agent_mode": enum_string_schema("Updated agent mode.", &["agent", "ask"], None),
+                    "thinking_enabled": bool_schema("Updated thinking mode setting.", None)
+                },
+                "required": ["id"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "delete_automation",
+            "Delete an automation by id. Use list_automations first to confirm the target id and name.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "id": string_schema("Automation id from list_automations.")
+                },
+                "required": ["id"],
                 "additionalProperties": false
             }),
         ),
@@ -1868,6 +1940,337 @@ fn execute_plan_list_args(
     execute_plan_list(ctx)
 }
 
+const AUTOMATION_ENABLE_HINT: &str =
+    "Automation created in disabled state. Ask the user to review and enable it on the Automations page.";
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreateAutomationArgs {
+    name: String,
+    prompt: String,
+    cron_expression: String,
+    description: Option<String>,
+    workspace_dir: Option<String>,
+    model: Option<String>,
+    agent_mode: Option<String>,
+    thinking_enabled: Option<bool>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UpdateAutomationArgs {
+    id: String,
+    name: Option<String>,
+    prompt: Option<String>,
+    cron_expression: Option<String>,
+    description: Option<String>,
+    workspace_dir: Option<String>,
+    model: Option<String>,
+    agent_mode: Option<String>,
+    thinking_enabled: Option<bool>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AutomationIdArgs {
+    id: String,
+}
+
+fn execute_list_automations(ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
+    match list_jobs(&ctx.db) {
+        Ok(jobs) => Ok(tool_success(
+            "list_automations",
+            json!({
+                "automations": jobs
+                    .into_iter()
+                    .map(AutomationRecord::from)
+                    .collect::<Vec<_>>()
+            }),
+        )),
+        Err(error) => Ok(tool_failure(
+            "list_automations",
+            "execution_failed",
+            error,
+        )),
+    }
+}
+
+fn execute_create_automation(
+    args: Value,
+    ctx: &ToolExecutionContext<'_>,
+) -> Result<ToolResultEnvelope, String> {
+    let args: CreateAutomationArgs = match parse_from_value("create_automation", args) {
+        Ok(value) => value,
+        Err(error) => return Ok(error),
+    };
+
+    let name = args.name.trim();
+    if name.is_empty() {
+        return Ok(tool_failure(
+            "create_automation",
+            "invalid_arguments",
+            "name is required",
+        ));
+    }
+
+    let prompt = args.prompt.trim();
+    if prompt.is_empty() {
+        return Ok(tool_failure(
+            "create_automation",
+            "invalid_arguments",
+            "prompt is required",
+        ));
+    }
+
+    let cron_expression = args.cron_expression.trim();
+    if cron_expression.is_empty() {
+        return Ok(tool_failure(
+            "create_automation",
+            "invalid_arguments",
+            "cron_expression is required",
+        ));
+    }
+    if !is_valid_cron_expression(cron_expression) {
+        return Ok(tool_failure(
+            "create_automation",
+            "invalid_arguments",
+            "cron_expression is invalid",
+        ));
+    }
+
+    let model = match resolve_automation_model(ctx, args.model) {
+        Ok(value) => value,
+        Err(error) => return Ok(error),
+    };
+
+    let agent_mode = match parse_automation_agent_mode(args.agent_mode.as_deref(), AgentMode::Agent)
+    {
+        Ok(value) => value,
+        Err(error) => {
+            return Ok(tool_failure(
+                "create_automation",
+                "invalid_arguments",
+                error,
+            ))
+        }
+    };
+
+    let thinking_enabled = args
+        .thinking_enabled
+        .unwrap_or_else(|| ctx.parent_start_params.thinking_enabled.unwrap_or(false));
+
+    let input = CreateJobInput {
+        name: name.to_string(),
+        description: args.description.unwrap_or_default(),
+        cron_expression: cron_expression.to_string(),
+        prompt: prompt.to_string(),
+        workspace_dir: resolve_automation_workspace_dir(ctx, args.workspace_dir),
+        model: model.clone(),
+        provider: Some(infer_provider_for_model(&model)),
+        agent_mode,
+        thinking_enabled,
+        enabled: Some(false),
+    };
+
+    match create_job(&ctx.db, input) {
+        Ok(record) => Ok(tool_success(
+            "create_automation",
+            json!({
+                "automation": AutomationRecord::from(record),
+                "hint": AUTOMATION_ENABLE_HINT,
+            }),
+        )),
+        Err(error) => Ok(tool_failure(
+            "create_automation",
+            "execution_failed",
+            error,
+        )),
+    }
+}
+
+fn execute_update_automation(
+    args: Value,
+    ctx: &ToolExecutionContext<'_>,
+) -> Result<ToolResultEnvelope, String> {
+    let args: UpdateAutomationArgs = match parse_from_value("update_automation", args) {
+        Ok(value) => value,
+        Err(error) => return Ok(error),
+    };
+
+    let id = args.id.trim();
+    if id.is_empty() {
+        return Ok(tool_failure(
+            "update_automation",
+            "invalid_arguments",
+            "id is required",
+        ));
+    }
+
+    if let Some(cron_expression) = args.cron_expression.as_deref() {
+        let trimmed = cron_expression.trim();
+        if trimmed.is_empty() {
+            return Ok(tool_failure(
+                "update_automation",
+                "invalid_arguments",
+                "cron_expression cannot be empty",
+            ));
+        }
+        if !is_valid_cron_expression(trimmed) {
+            return Ok(tool_failure(
+                "update_automation",
+                "invalid_arguments",
+                "cron_expression is invalid",
+            ));
+        }
+    }
+
+    let agent_mode = match args.agent_mode.as_deref() {
+        Some(raw) => match parse_automation_agent_mode(Some(raw), AgentMode::Agent) {
+            Ok(value) => Some(value),
+            Err(error) => {
+                return Ok(tool_failure(
+                    "update_automation",
+                    "invalid_arguments",
+                    error,
+                ))
+            }
+        },
+        None => None,
+    };
+
+    let model = args
+        .model
+        .as_ref()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty());
+
+    let provider = model
+        .as_ref()
+        .map(|value| infer_provider_for_model(value));
+
+    let patch = UpdateJobInput {
+        name: args.name,
+        description: args.description,
+        cron_expression: args.cron_expression,
+        prompt: args.prompt,
+        workspace_dir: args.workspace_dir,
+        model,
+        provider,
+        agent_mode,
+        thinking_enabled: args.thinking_enabled,
+        enabled: None,
+    };
+
+    match update_job(&ctx.db, id, patch) {
+        Ok(Some(record)) => Ok(tool_success(
+            "update_automation",
+            json!({ "automation": AutomationRecord::from(record) }),
+        )),
+        Ok(None) => Ok(tool_failure(
+            "update_automation",
+            "not_found",
+            format!("Automation not found: {id}"),
+        )),
+        Err(error) => Ok(tool_failure(
+            "update_automation",
+            "execution_failed",
+            error,
+        )),
+    }
+}
+
+fn execute_delete_automation(
+    args: Value,
+    ctx: &ToolExecutionContext<'_>,
+) -> Result<ToolResultEnvelope, String> {
+    let args: AutomationIdArgs = match parse_from_value("delete_automation", args) {
+        Ok(value) => value,
+        Err(error) => return Ok(error),
+    };
+
+    let id = args.id.trim();
+    if id.is_empty() {
+        return Ok(tool_failure(
+            "delete_automation",
+            "invalid_arguments",
+            "id is required",
+        ));
+    }
+
+    match delete_job(&ctx.db, id) {
+        Ok(true) => Ok(tool_success(
+            "delete_automation",
+            json!({ "id": id, "deleted": true }),
+        )),
+        Ok(false) => Ok(tool_failure(
+            "delete_automation",
+            "not_found",
+            format!("Automation not found: {id}"),
+        )),
+        Err(error) => Ok(tool_failure(
+            "delete_automation",
+            "execution_failed",
+            error,
+        )),
+    }
+}
+
+fn resolve_automation_model(
+    ctx: &ToolExecutionContext<'_>,
+    model: Option<String>,
+) -> Result<String, ToolResultEnvelope> {
+    if let Some(value) = model {
+        let trimmed = value.trim();
+        if !trimmed.is_empty() {
+            return Ok(trimmed.to_string());
+        }
+    }
+
+    let session_model = ctx.parent_start_params.model.trim();
+    if session_model.is_empty() {
+        return Err(tool_failure(
+            "create_automation",
+            "invalid_arguments",
+            "model is required when the current session has no model",
+        ));
+    }
+
+    Ok(session_model.to_string())
+}
+
+fn resolve_automation_workspace_dir(
+    ctx: &ToolExecutionContext<'_>,
+    workspace_dir: Option<String>,
+) -> Option<String> {
+    workspace_dir
+        .and_then(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        })
+        .or_else(|| ctx.workspace_dir.clone())
+}
+
+fn parse_automation_agent_mode(
+    value: Option<&str>,
+    default: AgentMode,
+) -> Result<AgentMode, String> {
+    let Some(raw) = value else {
+        return Ok(default);
+    };
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "agent" => Ok(AgentMode::Agent),
+        "ask" => Ok(AgentMode::Ask),
+        other if other.is_empty() => Ok(default),
+        other => Err(format!(
+            "Invalid agent_mode `{other}`. Use \"agent\" or \"ask\"."
+        )),
+    }
+}
+
 fn execute_todo_read(ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
     let session_id = match ctx.session_id.clone() {
         Some(value) if !value.trim().is_empty() => value,
@@ -2963,6 +3366,22 @@ mod tests {
     fn agent_mode_excludes_disabled_tools() {
         let names = tool_names(Some("agent"), false);
         assert!(!names.contains(&"replace_lines".to_string()));
+    }
+
+    #[test]
+    fn agent_mode_includes_automation_tools() {
+        let names = tool_names(Some("agent"), false);
+        assert!(names.contains(&"list_automations".to_string()));
+        assert!(names.contains(&"create_automation".to_string()));
+        assert!(names.contains(&"update_automation".to_string()));
+        assert!(names.contains(&"delete_automation".to_string()));
+    }
+
+    #[test]
+    fn ask_mode_excludes_automation_tools() {
+        let names = tool_names(Some("ask"), false);
+        assert!(!names.contains(&"create_automation".to_string()));
+        assert!(!names.contains(&"list_automations".to_string()));
     }
 
     #[test]
