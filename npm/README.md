@@ -13,6 +13,7 @@ npm i -g @leyen/coder
 ```bash
 coder          # start the local server and open the browser
 coder --help   # show CLI options
+coder --version # show CLI version
 ```
 
 Installing `@leyen/coder` automatically pulls the correct platform binary (`darwin-arm64`, `darwin-x64`, `linux-x64`, or `win32-x64`).
@@ -43,6 +44,7 @@ Linux (x64) 需要 glibc 2.35+（例如 Ubuntu 22.04 LTS 及以上）。
 ```bash
 npm i -g @leyen/coder
 coder
+coder --version
 ```
 
 ## License

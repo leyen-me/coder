@@ -141,6 +141,27 @@ jobs:
         with:
           workspaces: backend
 
+      - name: Write version to backend manifest
+        shell: bash
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          echo "Setting CLI version to $VERSION"
+
+          node -e '
+            const fs = require("fs");
+            const path = "backend/Cargo.toml";
+            const version = process.argv[1];
+            const source = fs.readFileSync(path, "utf8");
+            const updated = source.replace(
+              /^version = ".*"$/m,
+              `version = "${version}"`
+            );
+            if (updated === source) {
+              throw new Error("Failed to update backend/Cargo.toml version");
+            }
+            fs.writeFileSync(path, updated);
+          ' "$VERSION"
+
       - name: Build release binary (native)
         if: ${{ !matrix.use_zigbuild }}
         working-directory: backend

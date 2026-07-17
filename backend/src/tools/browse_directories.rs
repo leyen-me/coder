@@ -101,11 +101,12 @@ fn browse_directory(raw_path: &str) -> Result<BrowseDirectoriesResult, String> {
 }
 
 fn directory_parent(path: &Path) -> Option<String> {
-    let formatted = format_absolute_path(path);
-
     #[cfg(windows)]
-    if is_windows_drive_root(&formatted) {
-        return None;
+    {
+        let formatted = format_absolute_path(path);
+        if is_windows_drive_root(&formatted) {
+            return None;
+        }
     }
 
     path.parent()

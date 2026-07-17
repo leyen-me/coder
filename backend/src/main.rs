@@ -1,12 +1,16 @@
 use std::io::{IsTerminal, stdout};
 use std::net::IpAddr;
 
-use clap::Parser;
+use clap::{ArgAction, Parser};
 
 use coder_lib::server::{start_server, ServerOptions};
 
 #[derive(Parser)]
-#[command(name = "coder", about = "Coder — AI-powered coding assistant")]
+#[command(
+    name = "coder",
+    about = "Coder — AI-powered coding assistant",
+    disable_version_flag = true
+)]
 struct Cli {
     /// Port to listen on (default: 1421 in dev, random in release)
     #[arg(short, long)]
@@ -15,6 +19,10 @@ struct Cli {
     /// Do not open browser automatically
     #[arg(long)]
     no_open: bool,
+
+    /// Show version information
+    #[arg(short = 'v', long, action = ArgAction::SetTrue)]
+    version: bool,
 }
 
 fn stdout_supports_color() -> bool {
@@ -96,6 +104,11 @@ async fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let cli = Cli::parse();
+
+    if cli.version {
+        println!("coder {}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
 
     let server = start_server(ServerOptions {
         port: cli.port,
