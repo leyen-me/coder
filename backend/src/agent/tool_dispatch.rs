@@ -1944,34 +1944,39 @@ const AUTOMATION_ENABLE_HINT: &str =
     "Automation created in disabled state. Ask the user to review and enable it on the Automations page.";
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct CreateAutomationArgs {
     name: String,
     prompt: String,
+    #[serde(alias = "cronExpression")]
     cron_expression: String,
     description: Option<String>,
+    #[serde(alias = "workspaceDir")]
     workspace_dir: Option<String>,
     model: Option<String>,
+    #[serde(alias = "agentMode")]
     agent_mode: Option<String>,
+    #[serde(alias = "thinkingEnabled")]
     thinking_enabled: Option<bool>,
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct UpdateAutomationArgs {
     id: String,
     name: Option<String>,
     prompt: Option<String>,
+    #[serde(alias = "cronExpression")]
     cron_expression: Option<String>,
     description: Option<String>,
+    #[serde(alias = "workspaceDir")]
     workspace_dir: Option<String>,
     model: Option<String>,
+    #[serde(alias = "agentMode")]
     agent_mode: Option<String>,
+    #[serde(alias = "thinkingEnabled")]
     thinking_enabled: Option<bool>,
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct AutomationIdArgs {
     id: String,
 }
@@ -3340,8 +3345,10 @@ mod tests {
         ask_question_timeout_message, build_tool_archive_file_path,
         extract_prior_tool_output_content, get_tool_definitions,
         resolve_ask_question_timeout_ms, sanitize_path_segment, validate_ask_question_args,
-        AskQuestionArgs, AskQuestionItem, AskQuestionOption, DEFAULT_ASK_QUESTION_TIMEOUT_MS,
+        AskQuestionArgs, AskQuestionItem, AskQuestionOption, AutomationIdArgs,
+        CreateAutomationArgs, DEFAULT_ASK_QUESTION_TIMEOUT_MS, UpdateAutomationArgs,
     };
+    use serde_json::json;
 
     fn tool_names(agent_mode: Option<&str>, include_handoff_tools: bool) -> Vec<String> {
         get_tool_definitions(agent_mode, include_handoff_tools)
@@ -3382,6 +3389,63 @@ mod tests {
         let names = tool_names(Some("ask"), false);
         assert!(!names.contains(&"create_automation".to_string()));
         assert!(!names.contains(&"list_automations".to_string()));
+    }
+
+    #[test]
+    fn create_automation_args_accept_snake_case_tool_fields() {
+        let args: CreateAutomationArgs = serde_json::from_value(json!({
+            "name": "Daily review",
+            "prompt": "Review open PRs",
+            "cron_expression": "0 9 * * 1-5",
+            "workspace_dir": "/tmp/project",
+            "agent_mode": "agent",
+            "thinking_enabled": false
+        }))
+        .expect("snake_case args should deserialize");
+
+        assert_eq!(args.cron_expression, "0 9 * * 1-5");
+        assert_eq!(args.workspace_dir.as_deref(), Some("/tmp/project"));
+        assert_eq!(args.agent_mode.as_deref(), Some("agent"));
+        assert_eq!(args.thinking_enabled, Some(false));
+    }
+
+    #[test]
+    fn create_automation_args_accept_camel_case_aliases() {
+        let args: CreateAutomationArgs = serde_json::from_value(json!({
+            "name": "Daily review",
+            "prompt": "Review open PRs",
+            "cronExpression": "0 9 * * 1-5",
+            "workspaceDir": "/tmp/project",
+            "agentMode": "ask",
+            "thinkingEnabled": true
+        }))
+        .expect("camelCase aliases should deserialize");
+
+        assert_eq!(args.cron_expression, "0 9 * * 1-5");
+        assert_eq!(args.workspace_dir.as_deref(), Some("/tmp/project"));
+        assert_eq!(args.agent_mode.as_deref(), Some("ask"));
+        assert_eq!(args.thinking_enabled, Some(true));
+    }
+
+    #[test]
+    fn update_automation_args_accept_snake_case_tool_fields() {
+        let args: UpdateAutomationArgs = serde_json::from_value(json!({
+            "id": "job-1",
+            "cron_expression": "0 10 * * *",
+            "thinking_enabled": true
+        }))
+        .expect("update args should deserialize");
+
+        assert_eq!(args.id, "job-1");
+        assert_eq!(args.cron_expression.as_deref(), Some("0 10 * * *"));
+        assert_eq!(args.thinking_enabled, Some(true));
+    }
+
+    #[test]
+    fn delete_automation_args_accept_id_field() {
+        let args: AutomationIdArgs =
+            serde_json::from_value(json!({ "id": "job-1" })).expect("delete args should deserialize");
+        assert_eq!(args.id, "job-1");
     }
 
     #[test]
