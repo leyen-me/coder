@@ -9,13 +9,14 @@ import {
   useState,
 } from "react";
 import { useLocation } from "react-router-dom";
-import { LoaderCircleIcon } from "lucide-react";
 import { nanoid } from "nanoid";
+import { LoaderCircleIcon } from "lucide-react";
 
 import { storedImagesToFileUIParts } from "@/features/agent/message-content";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
+import { apiPost } from "@/lib/api/client";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
@@ -67,7 +68,7 @@ type ChatSessionViewProps = {
 
 export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const { t } = useTranslation();
-  const { allModels, modelProviders } = useModelProvider();
+  const { allModels, modelProviders, resolveProviderForModel } = useModelProvider();
   const {
     sendMessage,
     regenerateMessage,
@@ -545,6 +546,46 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       systemPrompt,
     ]
   );
+
+  // ── Handoff command handler ──────────────────────────────────────────
+  useEffect(() => {
+    const handler = () => {
+      const provider = resolveProviderForModel(model);
+      if (!provider) {
+        console.error("[Handoff] Could not resolve provider config for model:", model);
+        return;
+      }
+
+      const taskId = nanoid();
+
+      void apiPost<{ continuedSessionId: string; continuedTaskId: string }>(
+        "/api/handoff",
+        {
+          sessionId: chatId,
+          taskId,
+          baseUrl: provider.baseUrl,
+          apiKey: provider.apiKey || undefined,
+          apiKeySource: provider.apiKeySource,
+          apiKeyEnvVar: provider.apiKeyEnvVar,
+          model,
+          agentMode,
+          thinkingEnabled,
+          maxContextTokens: undefined,
+          handoffTriggerThreshold: undefined,
+        }
+      )
+        .then((result) => {
+          // Navigate to the continued session
+          window.location.href = `/chat/${result.continuedSessionId}`;
+        })
+        .catch((error) => {
+          console.error("[Handoff] API call failed:", error);
+        });
+    };
+
+    window.addEventListener("coder:command-handoff", handler);
+    return () => window.removeEventListener("coder:command-handoff", handler);
+  }, [chatId, model, agentMode, thinkingEnabled, resolveProviderForModel]);
 
   if (isLoading) {
     return (

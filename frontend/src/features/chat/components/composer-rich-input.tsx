@@ -35,17 +35,22 @@ import type { WorkspacePathMatch } from "../lib/search-workspace-paths";
 import { SkillReferenceExtension } from "../lib/skill-reference-extension";
 import { WorkspaceReferenceExtension } from "../lib/workspace-reference-extension";
 import {
-  getActiveComposerSkill,
-  type ActiveComposerSkill,
-} from "../lib/composer-skill-state";
+  getActiveSlashState,
+  type ActiveSlashState,
+} from "../lib/composer-slash-state";
+import {
+  searchSlashCommands,
+} from "../lib/slash-commands";
 import {
   filterAvailableSkills,
   useAvailableSkills,
 } from "../hooks/use-enabled-skills";
-import type { AvailableSkill } from "@/features/skills/types";
 
 import { ComposerMentionPopover } from "./composer-mention-popover";
-import { ComposerSkillPopover } from "./composer-skill-popover";
+import {
+  ComposerSlashPopover,
+  type SlashPopoverItem,
+} from "./composer-slash-popover";
 
 export type ComposerRichInputProps = {
   value: string;
@@ -81,12 +86,12 @@ export function ComposerRichInput({
   const editorRef = useRef<Editor | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const mentionRef = useRef<ActiveComposerMention | null>(null);
-  const skillRef = useRef<ActiveComposerSkill | null>(null);
+  const slashRef = useRef<ActiveSlashState | null>(null);
   const selectedIndexRef = useRef(0);
   const resultsRef = useRef<WorkspacePathMatch[]>([]);
-  const skillResultsRef = useRef<AvailableSkill[]>([]);
+  const slashItemsRef = useRef<SlashPopoverItem[]>([]);
   const [mention, setMention] = useState<ActiveComposerMention | null>(null);
-  const [skillMention, setSkillMention] = useState<ActiveComposerSkill | null>(null);
+  const [slashMention, setSlashMention] = useState<ActiveSlashState | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [anchorWidth, setAnchorWidth] = useState<number | undefined>();
 
@@ -102,10 +107,6 @@ export function ComposerRichInput({
     loading: skillsLoading,
     refresh: refreshAvailableSkills,
   } = useAvailableSkills(workspaceDir, true);
-  const skillResults = filterAvailableSkills(
-    availableSkills,
-    skillMention?.query ?? ""
-  );
   const availableSkillSlugs = useMemo(
     () => new Set(availableSkills.map((s) => s.slug)),
     // Stringify to produce a stable reference when the skill list hasn't changed.
@@ -135,6 +136,20 @@ export function ComposerRichInput({
     setSelectedIndex(nextIndex);
   }, []);
 
+  // Build combined slash items from commands and skills
+  const slashItems = useMemo<SlashPopoverItem[]>(() => {
+    const slashQuery = slashMention?.query ?? "";
+    const commands = searchSlashCommands(slashQuery);
+    const skills = slashQuery
+      ? filterAvailableSkills(availableSkills, slashQuery)
+      : availableSkills;
+
+    return [
+      ...commands.map((cmd) => ({ kind: "command" as const, command: cmd })),
+      ...skills.map((sk) => ({ kind: "skill" as const, skill: sk })),
+    ];
+  }, [availableSkills, slashMention?.query]);
+
   const syncMentionState = useCallback(
     (editor: Editor) => {
       const nextMention = getActiveComposerMention(editor.state);
@@ -142,12 +157,12 @@ export function ComposerRichInput({
       setMention(nextMention);
 
       if (nextMention) {
-        skillRef.current = null;
-        setSkillMention(null);
+        slashRef.current = null;
+        setSlashMention(null);
       } else {
-        const nextSkill = getActiveComposerSkill(editor.state);
-        skillRef.current = nextSkill;
-        setSkillMention(nextSkill);
+        const nextSlash = getActiveSlashState(editor.state);
+        slashRef.current = nextSlash;
+        setSlashMention(nextSlash);
       }
 
       updateSelectedIndex(0);
@@ -155,29 +170,61 @@ export function ComposerRichInput({
     [updateSelectedIndex]
   );
 
-  const handleSelectSkill = useCallback(
-    (item: AvailableSkill) => {
+  const handleSelectSlashItem = useCallback(
+    (item: SlashPopoverItem) => {
       const editor = editorRef.current;
-      const activeSkill = skillRef.current;
-      if (!editor || !activeSkill) {
+      const activeSlash = slashRef.current;
+      if (!editor || !activeSlash) {
         return;
       }
 
-      const attrs = resolveSkillReferenceAttrs(item.slug, { name: item.name });
+      if (item.kind === "command") {
+        // Handle built-in commands
+        if (item.command.slug === "handoff") {
+          // Clear the slash state and optionally trigger handoff
+          editor
+            .chain()
+            .focus()
+            .deleteRange({
+              from: activeSlash.range.from,
+              to: activeSlash.range.to,
+            })
+            .insertContent("")
+            .run();
+
+          slashRef.current = null;
+          setSlashMention(null);
+          updateSelectedIndex(0);
+
+          // Emit a custom event so the parent can handle the handoff
+          window.dispatchEvent(
+            new CustomEvent("coder:command-handoff", {
+              detail: {},
+            })
+          );
+          return;
+        }
+        return;
+      }
+
+      // Handle skill insertion
+      const attrs = resolveSkillReferenceAttrs(item.skill.slug, {
+        name: item.skill.name,
+      });
 
       editor
         .chain()
         .focus()
         .deleteRange({
-          from: activeSkill.range.from,
-          to: activeSkill.range.to,
+          from: activeSlash.range.from,
+          to: activeSlash.range.to,
         })
         .insertSkillReference(attrs)
         .insertContent(" ")
         .run();
 
-      skillRef.current = null;
-      setSkillMention(null);
+      slashRef.current = null;
+      setSlashMention(null);
       updateSelectedIndex(0);
     },
     [updateSelectedIndex]
@@ -253,7 +300,7 @@ export function ComposerRichInput({
       },
       handleKeyDown: (view, event) => {
         const activeMention = mentionRef.current;
-        const activeSkill = skillRef.current;
+        const activeSlash = slashRef.current;
 
         if (activeMention) {
           if (event.key === "Escape") {
@@ -291,22 +338,22 @@ export function ComposerRichInput({
           }
         }
 
-        if (activeSkill) {
+        if (activeSlash) {
           if (event.key === "Escape") {
             event.preventDefault();
-            skillRef.current = null;
-            setSkillMention(null);
+            slashRef.current = null;
+            setSlashMention(null);
             updateSelectedIndex(0);
             return true;
           }
 
           if (event.key === "ArrowDown") {
             event.preventDefault();
-            const nextResults = skillResultsRef.current;
+            const nextItems = slashItemsRef.current;
             const nextIndex =
-              nextResults.length === 0
+              nextItems.length === 0
                 ? 0
-                : Math.min(selectedIndexRef.current + 1, nextResults.length - 1);
+                : Math.min(selectedIndexRef.current + 1, nextItems.length - 1);
             updateSelectedIndex(nextIndex);
             return true;
           }
@@ -318,10 +365,10 @@ export function ComposerRichInput({
           }
 
           if (event.key === "Enter" || event.key === "Tab") {
-            const selected = skillResultsRef.current[selectedIndexRef.current];
+            const selected = slashItemsRef.current[selectedIndexRef.current];
             if (selected) {
               event.preventDefault();
-              handleSelectSkill(selected);
+              handleSelectSlashItem(selected);
               return true;
             }
           }
@@ -556,14 +603,14 @@ export function ComposerRichInput({
     syncMentionState(editor);
   }, [editor, availableSkillSlugs, deserializeOptions, syncMentionState]);
 
-  const hadSkillMentionRef = useRef(false);
+  const hadSlashMentionRef = useRef(false);
   useEffect(() => {
-    const active = skillMention !== null;
-    if (active && !hadSkillMentionRef.current) {
+    const active = slashMention !== null;
+    if (active && !hadSlashMentionRef.current) {
       void refreshAvailableSkills();
     }
-    hadSkillMentionRef.current = active;
-  }, [skillMention, refreshAvailableSkills]);
+    hadSlashMentionRef.current = active;
+  }, [slashMention, refreshAvailableSkills]);
 
   // Auto-focus the editor when the component mounts.
   // Move cursor to the end so editing an existing message puts the
@@ -577,21 +624,21 @@ export function ComposerRichInput({
   }, [editor]);
 
   useEffect(() => {
-    skillResultsRef.current = skillResults;
-  }, [skillResults]);
+    slashItemsRef.current = slashItems;
+  }, [slashItems]);
 
   useEffect(() => {
-    if (!skillMention) {
+    if (!slashMention) {
       return;
     }
 
-    if (skillResults.length === 0) {
+    if (slashItems.length === 0) {
       updateSelectedIndex(0);
       return;
     }
 
-    updateSelectedIndex(Math.min(selectedIndexRef.current, skillResults.length - 1));
-  }, [skillMention, skillResults.length, updateSelectedIndex]);
+    updateSelectedIndex(Math.min(selectedIndexRef.current, slashItems.length - 1));
+  }, [slashMention, slashItems.length, updateSelectedIndex]);
 
   useEffect(() => {
     resultsRef.current = results;
@@ -662,14 +709,15 @@ export function ComposerRichInput({
           results={results}
           selectedIndex={selectedIndex}
         />
-        <ComposerSkillPopover
+        <ComposerSlashPopover
           anchorWidth={anchorWidth}
           loading={skillsLoading}
-          onSelect={handleSelectSkill}
+          items={slashItems}
+          onSelect={handleSelectSlashItem}
           onSelectedIndexChange={updateSelectedIndex}
-          open={Boolean(skillMention)}
-          results={skillResults}
+          open={Boolean(slashMention)}
           selectedIndex={selectedIndex}
+          anchorRef={containerRef}
         />
         <EditorContent
           className={cn(

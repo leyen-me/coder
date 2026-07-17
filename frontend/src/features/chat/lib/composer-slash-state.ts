@@ -1,6 +1,6 @@
 import type { EditorState } from "@tiptap/pm/state";
 
-export type ActiveComposerSkill = {
+export type ActiveSlashState = {
   query: string;
   range: {
     from: number;
@@ -8,14 +8,14 @@ export type ActiveComposerSkill = {
   };
 };
 
-const SKILL_PATTERN = /(?:^|\s)\/([a-z0-9-]*)$/;
+const SLASH_PATTERN = /(?:^|\s)\/([a-z0-9-]*)$/;
 
-export function parseActiveComposerSkill(
+export function parseActiveSlashState(
   textBeforeCursor: string,
   cursorOffset: number,
   blockStart: number
-): ActiveComposerSkill | null {
-  const match = textBeforeCursor.match(SKILL_PATTERN);
+): ActiveSlashState | null {
+  const match = textBeforeCursor.match(SLASH_PATTERN);
   if (!match) {
     return null;
   }
@@ -36,9 +36,9 @@ export function parseActiveComposerSkill(
   };
 }
 
-export function getActiveComposerSkill(
+export function getActiveSlashState(
   state: EditorState
-): ActiveComposerSkill | null {
+): ActiveSlashState | null {
   const { $from } = state.selection;
   if (!$from.parent.isTextblock || !$from.parent.type.isTextblock) {
     return null;
@@ -51,9 +51,5 @@ export function getActiveComposerSkill(
     "\ufffc"
   );
 
-  return parseActiveComposerSkill(
-    textBefore,
-    $from.parentOffset,
-    $from.start()
-  );
+  return parseActiveSlashState(textBefore, $from.parentOffset, $from.start());
 }

@@ -5,6 +5,7 @@ pub mod routes_settings;
 pub mod routes_sse;
 pub mod routes_mcp;
 pub mod routes_scheduled_jobs;
+pub mod routes_handoff;
 pub mod static_files;
 
 use axum::{
@@ -90,6 +91,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         )
         .route("/api/send_email", post(routes_tool::handle_send_email))
         .route("/api/server_info", get(routes_tool::handle_server_info))
+        .route("/api/handoff", post(routes_handoff::handle_handoff))
         .route("/scheduled-jobs/list", post(routes_scheduled_jobs::handle_list_jobs))
         .route("/scheduled-jobs/create", post(routes_scheduled_jobs::handle_create_job))
         .route("/scheduled-jobs/update", post(routes_scheduled_jobs::handle_update_job))
