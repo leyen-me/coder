@@ -152,38 +152,47 @@ export function DataSettingsPanel() {
 
       {/* ---- Batch delete dialog ---- */}
       <Dialog onOpenChange={setBatchDeleteOpen} open={batchDeleteOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="overflow-hidden sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{t("settings.data.batchDeleteLabel")}</DialogTitle>
+            <DialogTitle className="truncate">{t("settings.data.batchDeleteLabel")}</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 rounded-md bg-muted/40 px-3 py-2">
-              <Checkbox checked={allSelected} id="select-all" onCheckedChange={toggleAll} />
-              <label className="flex-1 cursor-pointer text-sm font-medium" htmlFor="select-all">
+          <div className="min-w-0 space-y-3 overflow-hidden">
+            <div className="flex min-w-0 items-center gap-2 overflow-hidden rounded-md bg-muted/40 px-3 py-2">
+              <Checkbox
+                checked={allSelected}
+                className="shrink-0"
+                id="select-all"
+                onCheckedChange={toggleAll}
+              />
+              <label
+                className="min-w-0 flex-1 cursor-pointer truncate text-sm font-medium"
+                htmlFor="select-all"
+              >
                 {allSelected
                   ? t("settings.data.deselectAll")
                   : t("settings.data.selectAll", { count: sessions.length })}
               </label>
               {selectedIds.size > 0 && (
-                <span className="text-xs tabular-nums text-muted-foreground">
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                   {t("settings.data.selectedCount", { count: selectedIds.size })}
                 </span>
               )}
             </div>
 
-            <ScrollArea className="h-72">
-              <div className="space-y-0.5 pr-2">
+            <ScrollArea className="h-72 w-full min-w-0">
+              <div className="w-full min-w-0 space-y-0.5 pr-2">
                 {sessions.map((session) => (
                   <label
                     key={session.id}
                     className={cn(
-                      "flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 transition-colors hover:bg-muted/40",
+                      "flex w-full min-w-0 cursor-pointer items-center gap-2 overflow-hidden rounded-md px-3 py-2 transition-colors hover:bg-muted/40",
                       selectedIds.has(session.id) && "bg-muted/60",
                     )}
                   >
                     <Checkbox
                       checked={selectedIds.has(session.id)}
+                      className="shrink-0"
                       onCheckedChange={() => toggleSession(session.id)}
                     />
                     <span className="min-w-0 flex-1 truncate text-sm">
@@ -198,7 +207,7 @@ export function DataSettingsPanel() {
             </ScrollArea>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="min-w-0 flex-wrap sm:justify-end">
             <Button
               onClick={() => setBatchDeleteOpen(false)}
               size="sm"
