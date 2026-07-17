@@ -9,16 +9,16 @@ export type SlashCommand = {
 
 export const BUILTIN_SLASH_COMMANDS: SlashCommand[] = [
   {
-    slug: "handoff",
-    label: "Handoff",
-    description: "Trigger a context handoff to continue in a new session",
-    icon: TerminalIcon,
-  },
-  {
     slug: "new",
     label: "New Chat",
     description: "Start a new conversation",
     icon: PlusIcon,
+  },
+  {
+    slug: "handoff",
+    label: "Handoff",
+    description: "Trigger a context handoff to continue in a new session",
+    icon: TerminalIcon,
   },
 ];
 
