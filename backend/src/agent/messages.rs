@@ -753,7 +753,7 @@ fn build_identity_and_environment_section(
     let mode_line = match agent_mode.unwrap_or("agent") {
         "ask" => "ask (read-only: can read files, search code, browse the web, and ask structured clarification questions - cannot modify files or run shell commands)",
         "plan" => "plan (planning: can read files, search, browse, manage .plan/ files and todos - cannot modify project files or run shell commands)",
-        _ => "agent (full tool access)",
+        _ => "agent (implementation: full file, shell, and workspace tool access — plan file tools are Plan-mode only)",
     };
 
     [
@@ -1027,7 +1027,7 @@ Choose the narrowest tool that gives reliable evidence.
 - Use grep for exact strings, symbols, routes, config keys, and errors.
 - Use get_workspace_tree for a quick project overview instead of manually traversing directories.
 - Use shell for builds, tests, git, package commands, and repository inspection.
-- Use edit_file first for normal edits. Use replace_lines or replace_file only when the situation truly calls for them. Use write_file for new files.
+- Use edit_file first for normal edits. Use replace_file only when the situation truly calls for it. Use write_file for new files.
 
 ### Shell discipline
 

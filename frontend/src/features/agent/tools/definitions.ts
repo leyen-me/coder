@@ -141,7 +141,7 @@ export const WRITE_FILE_TOOL: AgentToolDefinition = {
   function: {
     name: WRITE_FILE_TOOL_NAME,
     description:
-      "Create a new text file. Fails if the file already exists. Use edit_file or replace_lines to modify existing files.",
+      "Create a new text file. Fails if the file already exists. Use edit_file to modify existing files.",
     parameters: {
       type: "object",
       properties: {
@@ -170,7 +170,7 @@ export const REPLACE_FILE_TOOL: AgentToolDefinition = {
   function: {
     name: REPLACE_FILE_TOOL_NAME,
     description:
-      "Replace an existing text file with new content. Use as a last resort — prefer edit_file or replace_lines first.",
+      "Replace an existing text file with new content. Use as a last resort — prefer edit_file first.",
     parameters: {
       type: "object",
       properties: {
@@ -1146,7 +1146,7 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   WRITE_FILE_TOOL,
   REPLACE_FILE_TOOL,
   EDIT_FILE_TOOL,
-  REPLACE_LINES_TOOL,
+  // REPLACE_LINES_TOOL — temporarily disabled; see DISABLED_AGENT_TOOL_NAMES in backend.
   GLOB_TOOL,
   GREP_TOOL,
   SHELL_TOOL,

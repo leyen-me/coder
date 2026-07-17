@@ -71,6 +71,13 @@ pub async fn execute_tool_call(
     arguments: &str,
     ctx: &ToolExecutionContext<'_>,
 ) -> Result<ToolResultEnvelope, String> {
+    if is_disabled_agent_tool(name) {
+        return Ok(tool_failure(
+            name,
+            "tool_disabled",
+            format!("Tool `{name}` is temporarily disabled."),
+        ));
+    }
     let args = parse_args(arguments)?;
     if let Some((server_id, tool_name)) = parse_mcp_tool_name(name) {
         return execute_mcp_tool_call(name, &server_id, &tool_name, args, ctx).await;
@@ -164,6 +171,26 @@ pub fn all_tool_names() -> Vec<String> {
     .collect()
 }
 
+const PLAN_TOOL_NAMES: &[&str] = &[
+    "plan_create",
+    "plan_read",
+    "plan_update",
+    "plan_edit",
+    "plan_delete",
+    "plan_list",
+];
+
+/// Agent tools kept in code but withheld from the model until re-enabled.
+const DISABLED_AGENT_TOOL_NAMES: &[&str] = &["replace_lines"];
+
+fn is_plan_tool(name: &str) -> bool {
+    PLAN_TOOL_NAMES.contains(&name)
+}
+
+fn is_disabled_agent_tool(name: &str) -> bool {
+    DISABLED_AGENT_TOOL_NAMES.contains(&name)
+}
+
 pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition> {
     let mut tools = vec![
         tool_definition(
@@ -212,7 +239,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
         ),
         tool_definition(
             "write_file",
-            "Create a new text file. Fails if the file already exists. Use edit_file or replace_lines to modify existing files.",
+            "Create a new text file. Fails if the file already exists. Use edit_file to modify existing files.",
             json!({
                 "type": "object",
                 "properties": {
@@ -226,7 +253,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
         ),
         tool_definition(
             "replace_file",
-            "Replace an existing text file with new content. Prefer edit_file or replace_lines first.",
+            "Replace an existing text file with new content. Prefer edit_file first.",
             json!({
                 "type": "object",
                 "properties": {
@@ -640,8 +667,13 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
             ];
             tools.retain(|tool| allowed.contains(&tool.function.name.as_str()));
         }
-        _ => {}
+        _ => {
+            // Plan file tools are exclusive to Plan mode; Agent mode implements directly.
+            tools.retain(|tool| !is_plan_tool(&tool.function.name));
+        }
     }
+
+    tools.retain(|tool| !is_disabled_agent_tool(&tool.function.name));
 
     tools
 }
@@ -2873,10 +2905,49 @@ fn current_timestamp_ms() -> u64 {
 mod tests {
     use super::{
         ask_question_timeout_message, build_tool_archive_file_path,
-        extract_prior_tool_output_content, resolve_ask_question_timeout_ms,
-        sanitize_path_segment, validate_ask_question_args, AskQuestionArgs,
-        AskQuestionItem, AskQuestionOption, DEFAULT_ASK_QUESTION_TIMEOUT_MS,
+        extract_prior_tool_output_content, get_tool_definitions,
+        resolve_ask_question_timeout_ms, sanitize_path_segment, validate_ask_question_args,
+        AskQuestionArgs, AskQuestionItem, AskQuestionOption, DEFAULT_ASK_QUESTION_TIMEOUT_MS,
     };
+
+    fn tool_names(agent_mode: Option<&str>) -> Vec<String> {
+        get_tool_definitions(agent_mode)
+            .into_iter()
+            .map(|tool| tool.function.name)
+            .collect()
+    }
+
+    #[test]
+    fn agent_mode_excludes_disabled_tools() {
+        let names = tool_names(Some("agent"));
+        assert!(!names.contains(&"replace_lines".to_string()));
+    }
+
+    #[test]
+    fn agent_mode_excludes_plan_tools() {
+        let names = tool_names(Some("agent"));
+        assert!(names.contains(&"write_file".to_string()));
+        assert!(names.contains(&"shell".to_string()));
+        assert!(!names.contains(&"plan_create".to_string()));
+        assert!(!names.contains(&"plan_list".to_string()));
+    }
+
+    #[test]
+    fn plan_mode_includes_plan_tools() {
+        let names = tool_names(Some("plan"));
+        assert!(names.contains(&"plan_create".to_string()));
+        assert!(names.contains(&"plan_list".to_string()));
+        assert!(!names.contains(&"write_file".to_string()));
+        assert!(!names.contains(&"shell".to_string()));
+    }
+
+    #[test]
+    fn ask_mode_excludes_plan_and_write_tools() {
+        let names = tool_names(Some("ask"));
+        assert!(names.contains(&"read_file".to_string()));
+        assert!(!names.contains(&"plan_create".to_string()));
+        assert!(!names.contains(&"write_file".to_string()));
+    }
     #[test]
     fn archive_file_path_matches_frontend_naming_scheme() {
         let path = build_tool_archive_file_path(
