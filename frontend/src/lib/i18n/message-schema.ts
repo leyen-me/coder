@@ -149,6 +149,9 @@ export type Messages = {
     mentionNoResults: string;
     skillSearching: string;
     skillNoResults: string;
+    slashCommandsHeading: string;
+    slashSkillsHeading: string;
+    slashHandoffDescription: string;
     removeSkillReference: string;
     skillNotFound: string;
     attachmentErrorAccept: string;

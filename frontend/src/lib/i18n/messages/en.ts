@@ -155,6 +155,9 @@ export const enMessages = {
     mentionNoResults: "No matching files or folders",
     skillSearching: "Searching skills…",
     skillNoResults: "No enabled skills found",
+    slashCommandsHeading: "Commands",
+    slashSkillsHeading: "Skills",
+    slashHandoffDescription: "Trigger a context handoff to continue in a new session",
     removeSkillReference: "Remove skill reference",
     skillNotFound: "Skill /{slug} was not found.",
     attachmentErrorAccept:

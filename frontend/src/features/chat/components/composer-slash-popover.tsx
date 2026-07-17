@@ -107,7 +107,7 @@ export function ComposerSlashPopover({
             ) : null}
 
             {!loading && commandItems.length > 0 ? (
-              <CommandGroup heading="Commands">
+              <CommandGroup heading={t("chat.slashCommandsHeading")}>
                 {commandItems.map((item, i) => {
                   const flatIndex = commandStartIndex + i;
                   const Icon = itemIcon(item);
@@ -144,7 +144,7 @@ export function ComposerSlashPopover({
             ) : null}
 
             {!loading && skillItems.length > 0 ? (
-              <CommandGroup heading="Skills">
+              <CommandGroup heading={t("chat.slashSkillsHeading")}>
                 {skillItems.map((item, i) => {
                   const flatIndex = skillStartIndex + i;
                   const Icon = itemIcon(item);
