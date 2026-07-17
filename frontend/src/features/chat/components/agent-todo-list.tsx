@@ -108,12 +108,14 @@ export function AgentTodoList({ sessionId, isRunning = false }: AgentTodoListPro
         />
       </CollapsibleTrigger>
 
-      <CollapsibleContent className="border-t px-3 py-2.5">
-        <ul className="space-y-1.5">
-          {todos.map((todo) => (
-            <TodoRow key={todo.id} todo={todo} isRunning={isRunning} />
-          ))}
-        </ul>
+      <CollapsibleContent className="border-t">
+        <div className="max-h-80 overflow-y-auto overscroll-contain px-3 py-2.5">
+          <ul className="space-y-1.5">
+            {todos.map((todo) => (
+              <TodoRow key={todo.id} todo={todo} isRunning={isRunning} />
+            ))}
+          </ul>
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );
