@@ -1,0 +1,11 @@
+node_modules
+.git
+.github
+desktop
+backend/target
+frontend/node_modules
+frontend/dist
+*.local
+.env
+.env.*
+.DS_Store
