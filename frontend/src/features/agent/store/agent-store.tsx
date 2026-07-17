@@ -554,6 +554,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const startAgentTask = useCallback(
     async (input: {
       taskId: string;
+      userMessageId: string;
       assistantMessageId: string;
       sessionId: string;
       model: string;
@@ -569,6 +570,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const activeTask: ActiveTaskState = {
         taskId: input.taskId,
         sessionId: input.sessionId,
+        userMessageId: input.userMessageId,
         assistantMessageId: input.assistantMessageId,
         status: "running",
         error: null,
@@ -666,6 +668,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       const activeTask: ActiveTaskState = {
         taskId: status.taskId,
         sessionId,
+        userMessageId: latestUserMessage?.id ?? "",
         assistantMessageId: assistantMessage.id,
         status: (status.status as AgentStatus | undefined) ?? "running",
         error: assistantMessage.error ?? null,
@@ -866,8 +869,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       for (const messageId of started.deletedMessageIds ?? []) {
         streamingBufferRef.current.clear(messageId);
       }
+      notifyDbChange();
       const { assistantMessageId, taskId } = await startAgentTask({
         taskId: started.taskId,
+        userMessageId: started.userMessageId,
         assistantMessageId: started.assistantMessageId,
         sessionId: input.sessionId,
         model: input.model,
@@ -972,8 +977,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       for (const messageId of started.deletedMessageIds ?? []) {
         streamingBufferRef.current.clear(messageId);
       }
+      notifyDbChange();
       const { assistantMessageId, taskId } = await startAgentTask({
         taskId: started.taskId,
+        userMessageId: started.userMessageId,
         assistantMessageId: started.assistantMessageId,
         sessionId: input.sessionId,
         model: input.model,

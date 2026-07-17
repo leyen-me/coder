@@ -168,6 +168,7 @@ export type SessionHandoffState = {
 export type ActiveTaskState = {
   taskId: string;
   sessionId: string;
+  userMessageId: string;
   assistantMessageId: string;
   status: AgentStatus;
   error: string | null;

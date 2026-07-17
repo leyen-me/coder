@@ -57,7 +57,7 @@ function isActiveAgentTask(status: AgentStatus): boolean {
   );
 }
 
-/** Keep in-flight assistant rows visible before IndexedDB refresh catches up. */
+/** Keep in-flight user/assistant rows visible before DB refresh catches up. */
 export function mergeActiveAssistantPlaceholders(
   messages: MessageRecord[],
   activeTasks: ReadonlyMap<string, ActiveTaskState>,
@@ -74,23 +74,42 @@ export function mergeActiveAssistantPlaceholders(
     if (task.sessionId !== sessionId || !isActiveAgentTask(task.status)) {
       continue;
     }
-    if (messageIds.has(task.assistantMessageId)) {
-      continue;
+
+    const placeholderCreatedAt = Date.now();
+
+    if (task.userMessageId && !messageIds.has(task.userMessageId)) {
+      placeholders.push({
+        id: task.userMessageId,
+        sessionId: task.sessionId,
+        role: "user",
+        content: task.userContent,
+        thinking: "",
+        processSteps: [],
+        toolInvocations: [],
+        status: "completed",
+        taskId: null,
+        error: null,
+        createdAt: placeholderCreatedAt,
+      });
+      messageIds.add(task.userMessageId);
     }
 
-    placeholders.push({
-      id: task.assistantMessageId,
-      sessionId: task.sessionId,
-      role: "assistant",
-      content: "",
-      thinking: "",
-      processSteps: [],
-      toolInvocations: [],
-      status: "streaming",
-      taskId: task.taskId,
-      error: null,
-      createdAt: Date.now(),
-    });
+    if (!messageIds.has(task.assistantMessageId)) {
+      placeholders.push({
+        id: task.assistantMessageId,
+        sessionId: task.sessionId,
+        role: "assistant",
+        content: "",
+        thinking: "",
+        processSteps: [],
+        toolInvocations: [],
+        status: "streaming",
+        taskId: task.taskId,
+        error: null,
+        createdAt: placeholderCreatedAt + 1,
+      });
+      messageIds.add(task.assistantMessageId);
+    }
   }
 
   if (placeholders.length === 0) {
