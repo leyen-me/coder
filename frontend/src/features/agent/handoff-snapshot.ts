@@ -38,7 +38,7 @@ export async function collectGitSnapshot(
   }
 
   try {
-    return await apiPost<HandoffGitSnapshot>("/api/handoff_git_snapshot", {
+    return await apiPost<HandoffGitSnapshot>("/api/git_snapshot", {
       workspaceDir: trimmed,
     });
   } catch {

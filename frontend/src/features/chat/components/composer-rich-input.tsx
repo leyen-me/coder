@@ -198,7 +198,7 @@ export function ComposerRichInput({
 
           // Emit a custom event so the parent can handle the handoff
           window.dispatchEvent(
-            new CustomEvent("coder:command-handoff", {
+            new CustomEvent("coder:command-compact", {
               detail: {},
             })
           );

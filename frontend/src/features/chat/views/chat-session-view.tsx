@@ -554,14 +554,14 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     const handler = () => {
       const provider = resolveProviderForModel(model);
       if (!provider) {
-        console.error("[Handoff] Could not resolve provider config for model:", model);
+        console.error("[Compact] Could not resolve provider config for model:", model);
         return;
       }
 
       const taskId = nanoid();
 
       void apiPost<{ continuedSessionId: string; continuedTaskId: string }>(
-        "/api/handoff",
+        "/api/compact",
         {
           sessionId: chatId,
           taskId,
@@ -581,12 +581,12 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
           window.location.href = `/chat/${result.continuedSessionId}`;
         })
         .catch((error) => {
-          console.error("[Handoff] API call failed:", error);
+          console.error("[Compact] API call failed:", error);
         });
     };
 
-    window.addEventListener("coder:command-handoff", handler);
-    return () => window.removeEventListener("coder:command-handoff", handler);
+    window.addEventListener("coder:command-compact", handler);
+    return () => window.removeEventListener("coder:command-compact", handler);
   }, [chatId, model, agentMode, thinkingEnabled, resolveProviderForModel]);
 
   // ── /new command handler ────────────────────────────────────────────
