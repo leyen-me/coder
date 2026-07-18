@@ -40,6 +40,12 @@ pub async fn search_searxng(
         .map_err(|error| NetworkToolError::new("provider_error", error.to_string()))?;
 
     let status = response.status();
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("unknown")
+        .to_string();
     let body = response
         .text()
         .await
@@ -60,9 +66,12 @@ pub async fn search_searxng(
     }
 
     let parsed: SearxngSearchResponse = serde_json::from_str(&body).map_err(|error| {
+        let preview: String = body.chars().take(300).collect();
         NetworkToolError::new(
             "provider_error",
-            format!("Failed to parse SearXNG response: {error}"),
+            format!(
+                "Failed to parse SearXNG response (Content-Type: {content_type}): {error}. Body preview: {preview}"
+            ),
         )
     })?;
 
