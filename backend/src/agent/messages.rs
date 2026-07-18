@@ -1047,7 +1047,33 @@ Do not repeat the same failing action without learning from the failure.
 
 ### spawn_subagent
 
-Use spawn_subagent only for independent tasks that require meaningful exploration, verification, or research. Do not use it for simple lookups, single-file reads, or work that fits a few direct tool calls.
+Use spawn_subagent primarily for independent research tasks that benefit from
+parallel or isolated execution. Sub-agents run in separate context windows and
+return a summary — use them when the findings are valuable and the exploration
+would bloat the main conversation.
+
+**When to spawn (strong signals):**
+- Searching for patterns across many files or directories (grepping, globbing)
+- Researching a specific subsystem where you need to read multiple files
+- Verifying work done by you or another sub-agent (fresh perspective)
+- Exploratory investigation with an uncertain outcome (what modules exist? what
+  patterns are used?)
+
+**When NOT to spawn (weak signals — use direct tools instead):**
+- Single-file reads, quick lookups, or obvious tool calls
+- Tasks that produce one output and require no reasoning
+- Purely mechanical operations (formatting, renaming, copying)
+
+**How to write a good task description:**
+Give the sub-agent enough project context so it does NOT need to re-explore the
+workspace from scratch. Include:
+- Relevant file paths and directory structures you already know
+- Key findings from your own exploration that set the stage
+- Specific patterns, regexes, or search terms to use
+- Clear expected output format (list of files, summary table, etc.)
+
+A well-written task saves the sub-agent from re-discovering what you already
+know. A poorly-written task wastes tokens on repeated exploration.
 "#;
 
 const COMMUNICATION_CONTENT: &str = r#"# Communication

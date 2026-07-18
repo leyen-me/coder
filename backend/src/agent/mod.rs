@@ -1,8 +1,9 @@
 pub mod ask_question;
+pub mod compact;
+pub mod compact_prompt;
 pub mod context;
 pub mod decision;
 pub mod event_log;
-pub mod handoff;
 pub mod loop_;
 pub mod messages;
 pub mod openai;

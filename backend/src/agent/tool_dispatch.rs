@@ -2742,6 +2742,7 @@ async fn execute_spawn_subagent(
         args.tools.as_deref(),
         current_depth,
         MAX_SUBAGENT_DEPTH,
+        ctx.workspace_dir.as_deref(),
     );
     let messages = vec![
         super::types::ChatMessage {
@@ -2833,7 +2834,7 @@ async fn execute_spawn_subagent(
         .iter()
         .filter(|step| step.get("kind").and_then(Value::as_str) == Some("tool"))
         .count();
-    let summary = build_subagent_summary(&steps, task, final_error.as_deref());
+    let summary = build_subagent_summary(&steps, task, &final_content, final_error.as_deref());
 
     if let Some(error) = final_error {
         return Ok(tool_failure("spawn_subagent", "subagent_failed", error));
@@ -2930,6 +2931,7 @@ fn build_subagent_system_prompt(
     tools: Option<&[String]>,
     depth: usize,
     max_depth: usize,
+    workspace_dir: Option<&str>,
 ) -> String {
     let mut sections = vec![
         format!(
@@ -2942,22 +2944,121 @@ fn build_subagent_system_prompt(
         "- You have access to the same workspace as the parent agent.".to_string(),
         "- Do not spawn further sub-agents.".to_string(),
         "- Keep your work narrowly focused on the delegated task.".to_string(),
-        "- When finished, provide a concise summary of what was accomplished, what evidence you gathered, and any uncertainty.".to_string(),
-        String::new(),
-        "Delegated Task:".to_string(),
-        task.to_string(),
+        "- When finished, provide a concise summary of what was found, what was accomplished, key evidence, and any remaining uncertainty.".to_string(),
     ];
+
+    // Inject project context so the sub-agent does NOT need to re-explore
+    // the workspace from scratch. The parent already knows the key files and
+    // structure — share that knowledge to save tokens.
+    if let Some(ws_dir) = workspace_dir {
+        if let Some(overview) = build_project_overview(ws_dir) {
+            sections.push(String::new());
+            sections.push(
+                "## Project Context (shared by parent agent)\n\
+                 The parent agent already knows the following about the workspace. \
+                 Use this to orient yourself quickly — you should NOT re-explore \
+                 what is already described here."
+                    .to_string(),
+            );
+            sections.push(overview);
+        }
+    }
+
+    sections.push(String::new());
+    sections.push("Delegated Task:".to_string());
+    sections.push(task.to_string());
+
     if let Some(context) = context.map(str::trim).filter(|value| !value.is_empty()) {
         sections.push(String::new());
-        sections.push("Additional Context:".to_string());
+        sections.push("Additional Context from Parent:".to_string());
         sections.push(context.to_string());
     }
     if let Some(tools) = tools.filter(|value| !value.is_empty()) {
         sections.push(String::new());
         sections.push("Allowed Tools:".to_string());
-        sections.push(format!("You may only use the following tools: {}.", tools.join(", ")));
+        sections.push(format!(
+            "You may only use the following tools: {}.",
+            tools.join(", ")
+        ));
     }
     sections.join("\n")
+}
+
+/// Build a lightweight project overview from the workspace directory.
+///
+/// Collects a top-level directory listing and the AGENTS.md (if present)
+/// so the sub-agent can orient itself without re-running `ls` / `get_workspace_tree`.
+fn build_project_overview(workspace_dir: &str) -> Option<String> {
+    use std::fs;
+    use std::path::Path;
+
+    let root = Path::new(workspace_dir);
+    if !root.is_dir() {
+        return None;
+    }
+
+    let mut lines: Vec<String> = Vec::new();
+    lines.push(format!("Workspace directory: {}", workspace_dir));
+
+    // Top-level listing (first 40 entries)
+    match fs::read_dir(root) {
+        Ok(entries) => {
+            let mut names: Vec<String> = entries
+                .filter_map(|e| e.ok())
+                .map(|e| {
+                    let path = e.path();
+                    let name = e.file_name().to_string_lossy().to_string();
+                    if path.is_dir() {
+                        format!("{}/", name)
+                    } else {
+                        name
+                    }
+                })
+                .collect();
+            names.sort_by(|a, b| {
+                let a_is_dir = a.ends_with('/');
+                let b_is_dir = b.ends_with('/');
+                b_is_dir.cmp(&a_is_dir).then_with(|| a.cmp(b))
+            });
+            let max_entries = 40usize;
+            let truncated = names.len() > max_entries;
+            if truncated {
+                names.truncate(max_entries);
+                names.push(format!("... and {} more entries", names.len() + 1));
+            }
+            lines.push(format!(
+                "Top-level files/directories:\n  {}",
+                names.join("\n  ")
+            ));
+        }
+        Err(_) => {
+            // Can't read — skip
+        }
+    }
+
+    // AGENTS.md (first 40 lines) if present
+    let agents_path = root.join("AGENTS.md");
+    if agents_path.is_file() {
+        if let Ok(content) = fs::read_to_string(&agents_path) {
+            let preview: String = content
+                .lines()
+                .take(40)
+                .collect::<Vec<_>>()
+                .join("\n");
+            if !preview.trim().is_empty() {
+                lines.push(format!(
+                    "Project rules (AGENTS.md preview):\n{}",
+                    preview
+                ));
+            }
+        }
+    }
+
+    if lines.len() <= 1 {
+        None
+    } else {
+        Some(lines.join("\n\n"))
+    }
 }
 
 fn subagent_context_depth(task_id: Option<&str>) -> usize {
@@ -2997,7 +3098,7 @@ fn truncate_label(value: &str, max_chars: usize) -> String {
     value.chars().take(max_chars).collect::<String>() + "…"
 }
 
-fn build_subagent_summary(steps: &[Value], task: &str, error: Option<&str>) -> String {
+fn build_subagent_summary(steps: &[Value], task: &str, final_content: &str, error: Option<&str>) -> String {
     let task_preview = if task.chars().count() > 60 {
         task.chars().take(60).collect::<String>() + "…"
     } else {
@@ -3006,6 +3107,15 @@ fn build_subagent_summary(steps: &[Value], task: &str, error: Option<&str>) -> S
     if let Some(error) = error {
         return format!("Task \"{task_preview}\" encountered an error: {error}");
     }
+
+    // Use the LLM's natural language output as the primary summary.
+    // This is significantly more useful than "Completed task using 5 tool calls..."
+    let trimmed_content = final_content.trim();
+    if !trimmed_content.is_empty() {
+        return trimmed_content.to_string();
+    }
+
+    // Fallback: programmatic summary when LLM produced no text output.
     let tool_steps: Vec<&Value> = steps
         .iter()
         .filter(|step| step.get("kind").and_then(Value::as_str) == Some("tool"))

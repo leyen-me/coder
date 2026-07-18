@@ -98,27 +98,6 @@ fn debug_emit_log(event: &AgentEvent) {
         AgentEvent::Done { task_id, .. } => {
             agent_stream_log(format!("emit task_id={task_id} type=done"));
         }
-        AgentEvent::HandoffRequired { task_id, .. } => {
-            agent_stream_log(format!("emit task_id={task_id} type=handoff_required"));
-        }
-        AgentEvent::HandoffProgress {
-            task_id,
-            session_id,
-            phase,
-        } => {
-            agent_stream_log(format!(
-                "emit task_id={task_id} type=handoff_progress session_id={session_id} phase={phase}"
-            ));
-        }
-        AgentEvent::HandoffComplete {
-            task_id,
-            source_session_id,
-            continued_session_id,
-        } => {
-            agent_stream_log(format!(
-                "emit task_id={task_id} type=handoff_complete source_session_id={source_session_id} continued_session_id={continued_session_id}"
-            ));
-        }
         AgentEvent::DecisionRequested {
             task_id,
             decision_id,
@@ -146,6 +125,24 @@ fn debug_emit_log(event: &AgentEvent) {
                 "emit task_id={task_id} type=chat_retry attempt={attempt}/{max_attempts}"
             ));
         }
+        AgentEvent::CompactStarted {
+            task_id,
+            estimated_tokens,
+            max_tokens,
+        } => {
+            agent_stream_log(format!(
+                "emit task_id={task_id} type=compact_started estimated_tokens={estimated_tokens} max_tokens={max_tokens}"
+            ));
+        }
+        AgentEvent::CompactCompleted {
+            task_id,
+            removed_count,
+            ..
+        } => {
+            agent_stream_log(format!(
+                "emit task_id={task_id} type=compact_completed removed={removed_count}"
+            ));
+        }
         AgentEvent::Error { task_id, message } => {
             agent_stream_log(format!(
                 "emit task_id={task_id} type=error message={message:?}"
@@ -164,6 +161,9 @@ struct AgentRun {
 pub struct AgentRegistry {
     client: Client,
     runs: HashMap<String, AgentRun>,
+    /// Pending manual compact requests keyed by task_id.
+    /// Route handler sets true; agent loop consumes and clears.
+    manual_compact_requests: HashMap<String, bool>,
 }
 
 impl AgentRegistry {
@@ -171,6 +171,7 @@ impl AgentRegistry {
         Ok(Self {
             client: build_http_client()?,
             runs: HashMap::new(),
+            manual_compact_requests: HashMap::new(),
         })
     }
 
@@ -545,6 +546,23 @@ impl AgentRegistry {
         });
 
         Ok(())
+    }
+    /// Signal a manual compact request for a running agent task.
+    ///
+    /// Called by the /api/compact route. The agent loop will pick this up
+    /// on its next cycle and trigger a compaction regardless of token budget.
+    pub fn request_compact(&mut self, task_id: &str) -> bool {
+        self.manual_compact_requests
+            .insert(task_id.to_string(), true);
+        self.runs.contains_key(task_id)
+    }
+
+    /// Consume a pending manual compact request.
+    ///
+    /// Called by the agent loop. Returns true only once per request —
+    /// the flag is cleared on consumption to avoid repeated compactions.
+    pub fn consume_compact_request(&mut self, task_id: &str) -> bool {
+        self.manual_compact_requests.remove(task_id).unwrap_or(false)
     }
 }
 

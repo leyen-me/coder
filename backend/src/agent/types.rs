@@ -153,22 +153,17 @@ pub enum AgentEvent {
         #[serde(skip_serializing_if = "Option::is_none")]
         usage: Option<TokenUsage>,
     },
-    #[serde(rename = "handoff_required")]
-    HandoffRequired {
+    #[serde(rename = "compact_started")]
+    CompactStarted {
         task_id: String,
-        context_usage: AgentContextUsageSnapshot,
+        estimated_tokens: u32,
+        max_tokens: u32,
     },
-    #[serde(rename = "handoff_progress")]
-    HandoffProgress {
+    #[serde(rename = "compact_completed")]
+    CompactCompleted {
         task_id: String,
-        session_id: String,
-        phase: String,
-    },
-    #[serde(rename = "handoff_complete")]
-    HandoffComplete {
-        task_id: String,
-        source_session_id: String,
-        continued_session_id: String,
+        removed_count: u32,
+        summary_preview: String,
     },
     #[serde(rename = "chat_retry")]
     ChatRetry {

@@ -1010,7 +1010,7 @@ pub async fn handle_handoff_git_snapshot(
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let _validated = validate_workspace_dir(&params.workspace_dir)
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    let result = tool_collect_git_snapshot(params.workspace_dir)
+    let result = tool_collect_git_snapshot(&params.workspace_dir)
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(serde_json::to_value(result).map_err(|e| {
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())

@@ -3,12 +3,11 @@ use std::sync::{Arc, Mutex};
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
-use super::context::{compact_tool_result_messages, should_trigger_handoff};
+use super::compact::{apply_compact, build_compact_snapshot, compact_tool_result_messages, is_micro_compact_mode, run_compact, should_trigger_compact};
 use super::decision::{
     build_final_answer_decision_request, build_proxy_continuation_message, request_proxy_decision,
     DecisionResponse,
 };
-use super::handoff::continue_after_handoff;
 use super::openai::stream_chat_completion;
 use super::tool_dispatch::{
     execute_tool_call, serialize_tool_result, ToolExecutionContext,
@@ -105,48 +104,206 @@ pub async fn run_agent_loop(
         }
 
         messages = compact_tool_result_messages(&messages);
-        if let Some(snapshot) = should_trigger_handoff(
-            &messages,
-            params.max_context_tokens,
+
+        // ── Auto-compact check (replaces the old session-handoff mechanism) ──
+        //
+        // When estimated token usage exceeds the threshold we compact in-place:
+        //  1. Take a snapshot of the current working context
+        //  2. Ask the LLM to write a concise handoff summary (natural language)
+        //  3. Replace old messages with the summary + recent tail
+        //  4. Continue the loop with the compacted message list
+        //
+        // This avoids the cost of creating a new DB session and keeps agent
+        // continuity within the same window.
+        let max_tokens = params.max_context_tokens.unwrap_or(96_000);
+        let prompt_estimate = estimate_prompt_size(&messages);
+        if should_trigger_compact(
+            prompt_estimate,
+            max_tokens,
             params.handoff_trigger_threshold,
-            latest_prompt_tokens,
         ) {
-            emit_event(&registry, &broadcaster, &params.task_id, AgentEvent::HandoffRequired {
-                task_id: params.task_id.clone(),
-                context_usage: snapshot.clone(),
-            })?;
-            continue_after_handoff(
-                &params,
-                &messages,
-                &snapshot,
-                &broadcaster,
-                &registry,
-                app_state.clone(),
-            )
-            .await?;
+            log::info!(
+                "auto_compact_triggered task_id={} estimated_tokens={} max_tokens={}",
+                params.task_id,
+                prompt_estimate,
+                max_tokens
+            );
+
             emit_event(
                 &registry,
                 &broadcaster,
                 &params.task_id,
-                AgentEvent::Done {
+                AgentEvent::CompactStarted {
                     task_id: params.task_id.clone(),
-                    usage: cumulative_usage.clone(),
+                    estimated_tokens: prompt_estimate,
+                    max_tokens,
                 },
             )?;
-            if let Some(state) = persisted_state.as_mut() {
-                let display_usage = build_display_usage(latest_prompt_tokens, cumulative_usage.as_ref());
-                persist_message_snapshot(
-                    &app_state.db,
-                    state,
-                    MessageStatusPatch {
-                        status: Some("completed"),
-                        error: None,
-                        usage: Some(display_usage),
-                        duration_ms: Some(current_timestamp_ms().saturating_sub(state.created_at)),
-                    },
-                )?;
+
+            let snapshot = build_compact_snapshot(
+                Vec::new(),  // working_files — populated downstream if needed
+                workspace_dir.clone(),
+                Vec::new(),  // recent_errors
+                Vec::new(),  // decisions
+                Vec::new(),  // background_tasks
+            );
+
+            let micro = is_micro_compact_mode(
+                max_tokens.saturating_sub(prompt_estimate),
+            );
+
+            match run_compact(
+                &http_client,
+                &params.base_url,
+                params.api_key.as_deref().unwrap_or_default(),
+                &params.model,
+                &messages,
+                &snapshot,
+                micro,
+            )
+            .await
+            {
+                Ok(summary) => {
+                    let (compacted, removed) = apply_compact(&messages, &summary);
+                    log::info!(
+                        "auto_compact_applied task_id={} removed={} remaining={} micro={}",
+                        params.task_id,
+                        removed,
+                        compacted.len(),
+                        summary.micro_mode
+                    );
+                    messages = compacted;
+
+                    emit_event(
+                        &registry,
+                        &broadcaster,
+                        &params.task_id,
+                        AgentEvent::CompactCompleted {
+                            task_id: params.task_id.clone(),
+                            removed_count: removed as u32,
+                            summary_preview: summary
+                                .text
+                                .chars()
+                                .take(200)
+                                .collect::<String>(),
+                        },
+                    )?;
+                }
+                Err(error) => {
+                    log::warn!(
+                        "auto_compact_failed task_id={} error={} — retrying once",
+                        params.task_id,
+                        error
+                    );
+
+                    // Retry compaction once with the micro prompt (tighter budget).
+                    // On second failure, continue with existing messages — compaction
+                    // is best-effort, the session keeps running either way.
+                    match run_compact(
+                        &http_client,
+                        &params.base_url,
+                        params.api_key.as_deref().unwrap_or_default(),
+                        &params.model,
+                        &messages,
+                        &snapshot,
+                        true, // micro mode on retry
+                    )
+                    .await
+                    {
+                        Ok(summary) => {
+                            let (compacted, removed) = apply_compact(&messages, &summary);
+                            log::info!(
+                                "auto_compact_retry_succeeded task_id={} removed={}",
+                                params.task_id,
+                                removed
+                            );
+                            messages = compacted;
+                            emit_event(
+                                &registry,
+                                &broadcaster,
+                                &params.task_id,
+                                AgentEvent::CompactCompleted {
+                                    task_id: params.task_id.clone(),
+                                    removed_count: removed as u32,
+                                    summary_preview: summary
+                                        .text
+                                        .chars()
+                                        .take(200)
+                                        .collect::<String>(),
+                                },
+                            )?;
+                        }
+                        Err(retry_error) => {
+                            log::warn!(
+                                "auto_compact_retry_failed task_id={} error={} — continuing without compaction",
+                                params.task_id,
+                                retry_error
+                            );
+                        }
+                    }
+                }
             }
-            return Ok(());
+        }
+
+        // ── Manual compact check ──
+        //
+        // The /api/compact route sets a flag in AgentRegistry. On the next
+        // loop cycle we consume it and trigger an immediate compaction
+        // regardless of token budget. This lets the user manually request
+        // a compact via slash command or frontend action.
+        let manual_requested = {
+            let mut reg = registry.lock().map_err(|_| AgentLoopError::Cancelled)?;
+            reg.consume_compact_request(&params.task_id)
+        };
+        if manual_requested {
+            log::info!("manual_compact_requested task_id={}", params.task_id);
+
+            let snapshot = build_compact_snapshot(
+                Vec::new(),
+                workspace_dir.clone(),
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+            );
+
+            match run_compact(
+                &http_client,
+                &params.base_url,
+                params.api_key.as_deref().unwrap_or_default(),
+                &params.model,
+                &messages,
+                &snapshot,
+                false,
+            )
+            .await
+            {
+                Ok(summary) => {
+                    let (compacted, removed) = apply_compact(&messages, &summary);
+                    log::info!(
+                        "manual_compact_applied task_id={} removed={}",
+                        params.task_id,
+                        removed
+                    );
+                    messages = compacted;
+                    emit_event(
+                        &registry,
+                        &broadcaster,
+                        &params.task_id,
+                        AgentEvent::CompactCompleted {
+                            task_id: params.task_id.clone(),
+                            removed_count: removed as u32,
+                            summary_preview: summary.text.chars().take(200).collect::<String>(),
+                        },
+                    )?;
+                }
+                Err(error) => {
+                    log::warn!(
+                        "manual_compact_failed task_id={} error={}",
+                        params.task_id,
+                        error
+                    );
+                }
+            }
         }
 
         let turn = run_single_turn_with_retry(
@@ -853,6 +1010,30 @@ fn is_stalled(
 
 fn is_stream_retryable(message: &str) -> bool {
     message.contains("timed out") || message.contains("Stream read failed")
+}
+
+/// Estimate the current prompt size by summing character counts across all
+/// messages. This is a zero-allocation heuristic — it is fast and adequate
+/// for triggering compaction before we overrun the context window.
+fn estimate_prompt_size(messages: &[ChatMessage]) -> u32 {
+    messages
+        .iter()
+        .map(|msg| {
+            let content_len = msg
+                .content
+                .as_ref()
+                .map(|v| match v {
+                    Value::String(s) => s.len(),
+                    other => other.to_string().len(),
+                })
+                .unwrap_or(0);
+            // Rough character-to-token ratio: ~3.5 chars per token for English,
+            // ~1.5 chars per token for CJK. We use 2.0 as a conservative
+            // midpoint — it slightly overestimates for mixed content, which is
+            // preferable to underestimating and risking overflow.
+            (content_len as f64 / 2.0).ceil() as u32
+        })
+        .sum()
 }
 
 fn build_stream_idle_recovery_messages(messages: &[ChatMessage]) -> Vec<ChatMessage> {
