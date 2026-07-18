@@ -549,45 +549,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     ]
   );
 
-  // ── Handoff command handler ──────────────────────────────────────────
-  useEffect(() => {
-    const handler = () => {
-      const provider = resolveProviderForModel(model);
-      if (!provider) {
-        console.error("[Compact] Could not resolve provider config for model:", model);
-        return;
-      }
-
-      const taskId = nanoid();
-
-      void apiPost<{ continuedSessionId: string; continuedTaskId: string }>(
-        "/api/compact",
-        {
-          sessionId: chatId,
-          taskId,
-          baseUrl: provider.baseUrl,
-          apiKey: provider.apiKey || undefined,
-          apiKeySource: provider.apiKeySource,
-          apiKeyEnvVar: provider.apiKeyEnvVar,
-          model,
-          agentMode,
-          thinkingEnabled,
-          maxContextTokens: undefined,
-          handoffTriggerThreshold: undefined,
-        }
-      )
-        .then((result) => {
-          // Navigate to the continued session
-          window.location.href = `/chat/${result.continuedSessionId}`;
-        })
-        .catch((error) => {
-          console.error("[Compact] API call failed:", error);
-        });
-    };
-
-    window.addEventListener("coder:command-compact", handler);
-    return () => window.removeEventListener("coder:command-compact", handler);
-  }, [chatId, model, agentMode, thinkingEnabled, resolveProviderForModel]);
+  // ── Compact command handler ──────────────────────────────────────────\n  useEffect(() => {\n    const handler = () => {\n      void apiPost<{ ok: boolean; found: boolean; message: string }>(\n        \"/api/compact\",\n        { taskId: activeTask?.taskId },\n      )\n        .then((result) => {\n          if (result.ok && result.found) {\n            console.log(\"[Compact] Requested for task:\", activeTask?.taskId);\n          } else {\n            console.warn(\"[Compact] No running agent to compact:\", result.message);\n          }\n        })\n        .catch((error) => {\n          console.error(\"[Compact] API call failed:\", error);\n        });\n    };\n\n    window.addEventListener(\"coder:command-compact\", handler);\n    return () => window.removeEventListener(\"coder:command-compact\", handler);\n  }, [activeTask?.taskId]);
 
   // ── /new command handler ────────────────────────────────────────────
   useEffect(() => {
