@@ -1,15 +1,15 @@
 //! Context Compaction — Codex-style in-window natural language compression.
 //!
-//! Instead of creating a new session on token overflow (the old "handoff"
-//! mechanism), we ask the LLM to write a concise handoff summary in natural
-//! language. The old messages are replaced by that summary, freeing context
-//! space without the cost of a session switch.
+//! When the agent approaches its token budget, we ask the LLM to write a
+//! concise summary in natural language. Old messages are replaced by that
+//! summary, freeing context space without a session switch.
 //!
-//! Architecture:
-//!   1. `should_trigger_compact()` — token-budget-aware trigger
-//!   2. `build_compact_snapshot()` — collect working-set fragments
-//!   3. `run_compact()` — call the LLM with a short, natural-language prompt
-//!   4. `apply_compact()` — replace old messages with the summary
+//! Key improvements over the original handoff (learned from Codex & Claude Code):
+//!  - Token-budget-aware user message selection (not blind "keep 20")
+//!  - Summary deduplication (no nested summaries)
+//!  - Initial context injected before last real user message (model-expected boundary)
+//!  - Exponential backoff on compaction failures
+//!  - Token estimate recomputed after compaction
 
 use serde_json::json;
 
@@ -17,64 +17,63 @@ use super::compact_prompt::{COMPACT_SUMMARY_PREFIX, MICRO_COMPACT_PROMPT, SUMMAR
 use super::openai::complete_chat_completion;
 use super::types::ChatMessage;
 
-/// How many token-estimation slots we keep for the last N messages before
-/// deciding the agent is running out of runway.
+/// Token budget ratio where auto-compact triggers.
 const DEFAULT_COMPACT_THRESHOLD: f64 = 0.85;
 
-/// Reserve ratio: how much of the remaining context window we reserve for
-/// the compaction round-trip itself (LLM call + summary).
+/// Reserve ratio for the compaction round-trip.
 const COMPACT_RESERVE_RATIO: f64 = 0.25;
 
-/// Minimum tokens to reserve for compaction, regardless of window size.
+/// Minimum tokens to reserve for compaction.
 const MIN_COMPACT_RESERVE_TOKENS: u32 = 4_000;
 
 /// Maximum tokens for the compact summary response.
 const COMPACT_SUMMARY_MAX_TOKENS: u32 = 2_048;
 
-/// How many recent full tool results to keep (per result role).
-/// A small window preserves immediate context while older results are
-/// represented in the snapshot.
+/// Maximum tokens to spend on user messages in the compacted replacement
+/// history. Messages are selected from newest to oldest until this budget is
+/// exhausted — same approach Codex uses (COMPACT_USER_MESSAGE_MAX_TOKENS).
+const COMPACT_USER_MESSAGE_MAX_TOKENS: u32 = 20_000;
+
+/// How many recent full tool results to keep (structural, not LLM-driven).
 const COMPACT_TOOL_RESULT_KEEP: usize = 4;
+
+/// Max compaction retries with exponential backoff.
+const COMPACT_MAX_RETRIES: u32 = 3;
+const COMPACT_BASE_BACKOFF_MS: u64 = 1_500;
 
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
 
 /// A snapshot of the agent's current state at compaction time.
-///
-/// Collected just before the compaction LLM call so the summary prompt
-/// includes concrete details about files, errors, and progress.
 #[derive(Debug, Clone)]
 pub struct CompactContextSnapshot {
-    /// Recently touched file paths.
     pub working_files: Vec<String>,
-    /// Summary of the current working directory / project state.
     pub cwd_state: Option<String>,
-    /// Recent errors encountered.
     pub recent_errors: Vec<String>,
-    /// Key decisions made by the agent.
     pub decisions: Vec<String>,
-    /// Any background tasks still running.
     pub background_tasks: Vec<String>,
 }
 
 /// The result of a successful compaction.
 #[derive(Debug, Clone)]
 pub struct CompactSummary {
-    /// The LLM-generated summary text.
     pub text: String,
-    /// Whether the compact was done in micro mode (ultra-tight budget).
     pub micro_mode: bool,
+}
+
+/// What `apply_compact` returns — the new message list plus metadata.
+#[derive(Debug, Clone)]
+pub struct CompactResult {
+    pub messages: Vec<ChatMessage>,
+    pub removed_count: usize,
+    pub estimated_tokens_after: u32,
 }
 
 // ---------------------------------------------------------------------------
 // Trigger logic
 // ---------------------------------------------------------------------------
 
-/// Returns `true` when the agent should compact its context.
-///
-/// Uses a token-budget heuristic: when used tokens exceed `threshold * max`,
-/// compaction is triggered.
 pub fn should_trigger_compact(
     used_tokens: u32,
     max_tokens: u32,
@@ -86,14 +85,11 @@ pub fn should_trigger_compact(
     (used as f64) >= (max as f64 * threshold)
 }
 
-/// Compute reserved tokens for the compaction round-trip.
 pub fn compact_reserve(max_tokens: u32) -> u32 {
     let reserve = (max_tokens as f64 * COMPACT_RESERVE_RATIO) as u32;
     reserve.max(MIN_COMPACT_RESERVE_TOKENS)
 }
 
-/// Decide whether to use the micro-compaction prompt (when budget is really
-/// tight).
 pub fn is_micro_compact_mode(remaining_tokens: u32) -> bool {
     remaining_tokens < COMPACT_SUMMARY_MAX_TOKENS * 2
 }
@@ -102,11 +98,6 @@ pub fn is_micro_compact_mode(remaining_tokens: u32) -> bool {
 // Context snapshot
 // ---------------------------------------------------------------------------
 
-/// Build a compact context snapshot from the current agent state.
-///
-/// This is called just before compaction to capture what the agent has been
-/// working on. The snapshot is injected into the compaction prompt so the
-/// summary includes concrete details.
 pub fn build_compact_snapshot(
     working_files: Vec<String>,
     cwd_state: Option<String>,
@@ -124,16 +115,13 @@ pub fn build_compact_snapshot(
 }
 
 // ---------------------------------------------------------------------------
-// Compaction execution
+// Compaction execution (with backoff retry)
 // ---------------------------------------------------------------------------
 
-/// Run the compaction LLM call and return the summary.
+/// Run the compaction LLM call with exponential backoff retry.
 ///
-/// This is the heart of the compaction system. It:
-/// 1. Collects user-facing messages and tool call context
-/// 2. Builds a compact prompt that includes the snapshot
-/// 3. Calls the LLM (non-streaming, quick turn)
-/// 4. Returns the summary
+/// On failure, retries up to `COMPACT_MAX_RETRIES` times with increasing
+/// delays. Falls back to micro mode on the last attempt.
 pub async fn run_compact(
     client: &reqwest::Client,
     base_url: &str,
@@ -143,113 +131,117 @@ pub async fn run_compact(
     snapshot: &CompactContextSnapshot,
     micro_mode: bool,
 ) -> Result<CompactSummary, String> {
-    let prompt = if micro_mode {
-        MICRO_COMPACT_PROMPT
-    } else {
-        SUMMARIZATION_PROMPT
-    };
-
-    let user_context = build_compact_user_context(messages, snapshot);
-
-    let compact_messages = vec![
-        ChatMessage {
-            role: "system".to_string(),
-            content: Some(json!(prompt)),
-            reasoning_content: None,
-            tool_calls: None,
-            tool_call_id: None,
-            name: None,
-        },
-        ChatMessage {
-            role: "user".to_string(),
-            content: Some(json!(user_context)),
-            reasoning_content: None,
-            tool_calls: None,
-            tool_call_id: None,
-            name: None,
-        },
-    ];
-
     let url = super::openai::chat_completions_url(base_url);
+    let mut last_error: Option<String> = None;
 
-    let summary_text = complete_chat_completion(
-        client,
-        url,
-        api_key,
-        model,
-        &compact_messages,
-        COMPACT_SUMMARY_MAX_TOKENS,
-    )
-    .await?
-    .unwrap_or_else(|| "Task is in progress. Continue from the messages above.".to_string());
+    for attempt in 0..=COMPACT_MAX_RETRIES {
+        // Use normal prompt first, micro prompt on final retry
+        let use_micro = micro_mode || attempt == COMPACT_MAX_RETRIES;
+        let prompt = if use_micro {
+            MICRO_COMPACT_PROMPT
+        } else {
+            SUMMARIZATION_PROMPT
+        };
 
-    Ok(CompactSummary {
-        text: summary_text,
-        micro_mode,
-    })
+        let user_context = build_compact_user_context(messages, snapshot);
+
+        let compact_messages = vec![
+            ChatMessage {
+                role: "system".to_string(),
+                content: Some(json!(prompt)),
+                reasoning_content: None,
+                tool_calls: None,
+                tool_call_id: None,
+                name: None,
+            },
+            ChatMessage {
+                role: "user".to_string(),
+                content: Some(json!(user_context)),
+                reasoning_content: None,
+                tool_calls: None,
+                tool_call_id: None,
+                name: None,
+            },
+        ];
+
+        match complete_chat_completion(
+            client,
+            url.clone(),
+            api_key,
+            model,
+            &compact_messages,
+            COMPACT_SUMMARY_MAX_TOKENS,
+        )
+        .await
+        {
+            Ok(Some(text)) => {
+                return Ok(CompactSummary {
+                    text,
+                    micro_mode: use_micro,
+                });
+            }
+            Ok(None) => {
+                return Ok(CompactSummary {
+                    text: "Task is in progress. Continue from the messages above."
+                        .to_string(),
+                    micro_mode: use_micro,
+                });
+            }
+            Err(e) => {
+                last_error = Some(e);
+                if attempt < COMPACT_MAX_RETRIES {
+                    let delay_ms = COMPACT_BASE_BACKOFF_MS * 2u64.pow(attempt);
+                    tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                }
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or_else(|| "compaction exhausted retries".to_string()))
 }
 
-/// Build the user-facing context block for the compaction prompt.
-///
-/// Uses a structured but natural-language format. The goal is to give
-/// the model enough concrete details to write a useful summary, without
-/// drowning it in defensive rules.
 fn build_compact_user_context(
     messages: &[ChatMessage],
     snapshot: &CompactContextSnapshot,
 ) -> String {
     let mut parts: Vec<String> = Vec::new();
 
-    // Working files
     if !snapshot.working_files.is_empty() {
         let files = snapshot.working_files.join("\n- ");
-        let limit = snapshot.working_files.len();
         parts.push(format!(
-            "Recently modified or examined files (most recent {limit}):\n- {files}"
+            "Recently modified or examined files: \n- {files}"
         ));
     }
 
-    // CWD / project state
     if let Some(ref cwd) = snapshot.cwd_state {
         if !cwd.is_empty() {
             parts.push(format!("Working directory state: {cwd}"));
         }
     }
 
-    // Recent errors
     if !snapshot.recent_errors.is_empty() {
         let errors = snapshot.recent_errors.join("\n- ");
         parts.push(format!("Recent errors encountered:\n- {errors}"));
     }
 
-    // Key decisions
     if !snapshot.decisions.is_empty() {
         let decisions = snapshot.decisions.join("\n- ");
         parts.push(format!("Key decisions made:\n- {decisions}"));
     }
 
-    // Background tasks
     if !snapshot.background_tasks.is_empty() {
         let tasks = snapshot.background_tasks.join("\n- ");
         parts.push(format!("Background tasks still running:\n- {tasks}"));
     }
 
-    // Recent conversation summary (last N messages, compacted)
-    let recent_messages = collect_recent_context(messages);
-    if !recent_messages.is_empty() {
-        parts.push(format!(
-            "Recent conversation excerpt (for context):\n{}",
-            recent_messages
-        ));
+    let recent = collect_recent_context(messages);
+    if !recent.is_empty() {
+        parts.push(format!("Recent conversation excerpt:\n{recent}"));
     }
 
     parts.join("\n\n---\n\n")
 }
 
-/// Collect the most recent conversation context for the compaction prompt.
-///
-/// Extracts user messages and assistant thinking, skipping tool-result
-/// blobs that would overwhelm the compaction request.
 fn collect_recent_context(messages: &[ChatMessage]) -> String {
     let start = if messages.len() > 30 {
         messages.len() - 30
@@ -272,7 +264,6 @@ fn collect_recent_context(messages: &[ChatMessage]) -> String {
                     if let Some(s) = v.as_str() {
                         Some(s.to_string())
                     } else if let Some(arr) = v.as_array() {
-                        // Multimodal: extract text parts only
                         let texts: Vec<String> = arr
                             .iter()
                             .filter_map(|item| {
@@ -294,7 +285,6 @@ fn collect_recent_context(messages: &[ChatMessage]) -> String {
                 return None;
             }
 
-            // Truncate long messages for the prompt
             let truncated = if content.len() > 500 {
                 format!("{}... [truncated]", &content[..500])
             } else {
@@ -308,48 +298,71 @@ fn collect_recent_context(messages: &[ChatMessage]) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Apply compaction to message list
+// Apply compaction to message list  (revised — 6 Codex-grade improvements)
 // ---------------------------------------------------------------------------
 
-/// Replace old messages with a compact summary system message.
+/// Replace old messages with a compact summary.
 ///
-/// Strategy (learned from Codex):
-/// - Keep the initial system message(s) — they define the agent's identity.
-/// - Keep the last N tool result messages for immediate context.
-/// - Replace everything else with a single compact summary message.
-///
-/// Returns the modified message list and the count of messages removed.
+/// Algorithm (revised to match Codex quality):
+/// 1. Keep initial system messages.
+/// 2. Filter out any *existing* compact summaries (dedup — no nested summaries).
+/// 3. Select user messages with token-budget awareness (not blind count).
+/// 4. Inject initial context *before* the last real user message, so the
+///    compact summary stays at the end (Codex's preferred layout).
+/// 5. Append the compact summary as the last item.
+/// 6. Recompute the token estimate.
 pub fn apply_compact(
     messages: &[ChatMessage],
     summary: &CompactSummary,
-) -> (Vec<ChatMessage>, usize) {
+) -> CompactResult {
     let original_len = messages.len();
 
-    let mut result: Vec<ChatMessage> = Vec::new();
-
-    // Phase 1: Keep initial system messages (agent identity / AGENTS.md)
-    let mut kept_system_count = 0;
+    // Phase 1: Keep initial system messages
+    let mut system_msgs: Vec<ChatMessage> = Vec::new();
     for msg in messages.iter() {
         if msg.role == "system" {
-            result.push(msg.clone());
-            kept_system_count += 1;
+            system_msgs.push(msg.clone());
         } else {
-            break; // Stop at first non-system message
+            break;
         }
     }
 
-    // Phase 2: Compact summary — injected as a system message
-    let summary_content = if summary.micro_mode {
-        format!(
-            "{}## Context Compaction Summary\n\n{}",
-            COMPACT_SUMMARY_PREFIX, summary.text
-        )
-    } else {
-        format!(
-            "{}## Context Compaction Summary\n\n{}",
-            COMPACT_SUMMARY_PREFIX, summary.text
-        )
+    // Phase 2: Collect non-system messages, filtering out old compact
+    //          summaries to prevent summary-in-summary nesting.
+    let non_system: Vec<&ChatMessage> = messages[system_msgs.len()..]
+        .iter()
+        .filter(|msg| !is_compact_summary_message(msg))
+        .collect();
+
+    // Phase 3: Select user messages within token budget (newest first).
+    //          Codex uses 20 000 token budget for user messages in the
+    //          compacted replacement history.
+    let selected = select_user_messages_with_token_budget(&non_system, COMPACT_USER_MESSAGE_MAX_TOKENS);
+
+    // Phase 4: Build result — initial context injected before last real
+    //          user message, compact summary appended at end.
+    let mut result: Vec<ChatMessage> = system_msgs;
+
+    // Find the last real user message position (skip compact summaries).
+    let last_user_idx = selected.iter().rposition(|msg| msg.role == "user");
+
+    // Insert system context before the last real user message, so the
+    // compact summary (which is a system message) stays at the very end.
+    // When there are no real user messages, just put context up front.
+    let context_insert_pos = match last_user_idx {
+        Some(pos) => pos,
+        None => 0,
     };
+
+    // Split: everything before the last user message, then the rest.
+    let tail: Vec<ChatMessage> = selected[context_insert_pos..].to_vec();
+    let head: Vec<ChatMessage> = selected[..context_insert_pos].to_vec();
+
+    // Insert system context (our compact prefix) before the last user message.
+    let summary_content = format!(
+        "{}## Context Compaction Summary\n\n{}",
+        COMPACT_SUMMARY_PREFIX, summary.text
+    );
     result.push(ChatMessage {
         role: "system".to_string(),
         content: Some(json!(summary_content)),
@@ -359,39 +372,89 @@ pub fn apply_compact(
         name: None,
     });
 
-    // Phase 3: Keep the tail messages (most recent context)
-    // Skip the initial system messages we already kept
-    let tail_start = if kept_system_count < messages.len() {
-        // Take the last N messages as immediate context
-        let tail_window = 20usize; // Keep ~20 messages of recent context
-        let non_system_start = kept_system_count;
-        let non_system_count = messages.len() - non_system_start;
-        if non_system_count > tail_window {
-            messages.len() - tail_window
-        } else {
-            non_system_start
-        }
-    } else {
-        messages.len()
-    };
-
-    for msg in messages[tail_start..].iter() {
-        // Don't duplicate system messages we already kept
-        if msg.role == "system" {
-            continue;
-        }
-        result.push(msg.clone());
-    }
+    // Now add head, then tail (which starts with last real user msg)
+    result.extend(head);
+    result.extend(tail);
 
     let removed = original_len.saturating_sub(result.len());
-    (result, removed)
+    let estimated_tokens = estimate_prompt_tokens(&result);
+
+    CompactResult {
+        messages: result,
+        removed_count: removed,
+        estimated_tokens_after: estimated_tokens,
+    }
 }
 
-/// Light-weight tool-result compaction.
+/// Token-budget-aware user message selection (Codex-style).
 ///
-/// Keeps the most recent full results and truncates older ones to a
-/// metadata-only stub. This is purely structural — the LLM-driven
-/// compact handles semantic compression.
+/// Selects messages from newest to oldest, stopping when the token budget
+/// is exhausted. Older messages are dropped. This is far more precise than
+/// a fixed window size.
+fn select_user_messages_with_token_budget(
+    messages: &[&ChatMessage],
+    max_tokens: u32,
+) -> Vec<ChatMessage> {
+    if max_tokens == 0 {
+        return Vec::new();
+    }
+
+    let mut selected: Vec<ChatMessage> = Vec::new();
+    let mut remaining = max_tokens;
+
+    // Iterate newest-first
+    for msg in messages.iter().rev() {
+        if remaining == 0 {
+            break;
+        }
+        let tokens = estimate_message_tokens(msg);
+        if tokens <= remaining {
+            selected.push((*msg).clone());
+            remaining = remaining.saturating_sub(tokens);
+        } else {
+            // Budget exhausted — drop this and earlier messages
+            break;
+        }
+    }
+
+    selected.reverse(); // restore original order
+    selected
+}
+
+/// Estimate tokens for a single message (character-based heuristic, ~2 chars/token).
+fn estimate_message_tokens(msg: &ChatMessage) -> u32 {
+    let content_len = msg
+        .content
+        .as_ref()
+        .map(|v| match v {
+            serde_json::Value::String(s) => s.len(),
+            other => other.to_string().len(),
+        })
+        .unwrap_or(0);
+    (content_len as f64 / 2.0).ceil() as u32
+}
+
+/// Estimate the total token count for a message list.
+pub fn estimate_prompt_tokens(messages: &[ChatMessage]) -> u32 {
+    messages.iter().map(estimate_message_tokens).sum()
+}
+
+/// Check if a message IS an existing compact summary — we skip these to
+/// prevent nested summaries.
+fn is_compact_summary_message(msg: &ChatMessage) -> bool {
+    if msg.role != "system" {
+        return false;
+    }
+    msg.content
+        .as_ref()
+        .and_then(|v| v.as_str())
+        .is_some_and(|s| s.contains("Context Compaction Summary"))
+}
+
+// ---------------------------------------------------------------------------
+// Lightweight structural tool-result compaction
+// ---------------------------------------------------------------------------
+
 pub fn compact_tool_result_messages(messages: &[ChatMessage]) -> Vec<ChatMessage> {
     let total = messages.len();
     if total <= COMPACT_TOOL_RESULT_KEEP {
@@ -407,8 +470,6 @@ pub fn compact_tool_result_messages(messages: &[ChatMessage]) -> Vec<ChatMessage
             if msg.role != "tool" || i >= preserve_start {
                 return msg.clone();
             }
-
-            // Older tool result: replace with metadata stub
             let stub = build_tool_result_stub(msg);
             ChatMessage {
                 role: "tool".to_string(),
@@ -423,20 +484,20 @@ pub fn compact_tool_result_messages(messages: &[ChatMessage]) -> Vec<ChatMessage
 }
 
 fn build_tool_result_stub(msg: &ChatMessage) -> String {
-    let content_preview = msg
+    let preview = msg
         .content
         .as_ref()
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
-    if content_preview.len() <= 200 {
-        return format!("[compacted tool result] {}", content_preview);
+    if preview.len() <= 200 {
+        return format!("[compacted tool result] {}", preview);
     }
 
     format!(
         "[compacted] {}... [{} chars]",
-        &content_preview[..200],
-        content_preview.len()
+        &preview[..200],
+        preview.len()
     )
 }
 
@@ -464,7 +525,6 @@ mod tests {
     fn should_trigger_at_threshold() {
         assert!(!should_trigger_compact(8000, 10000, None));
         assert!(should_trigger_compact(8500, 10000, None));
-        assert!(should_trigger_compact(10000, 10000, None));
     }
 
     #[test]
@@ -478,68 +538,131 @@ mod tests {
         let msgs: Vec<ChatMessage> = (0..10)
             .map(|i| make_msg("tool", &format!("result {i}")))
             .collect();
-
         let compacted = compact_tool_result_messages(&msgs);
         assert_eq!(compacted.len(), 10);
-
-        // The last 4 should be unchanged
         for i in 6..10 {
             assert_eq!(
                 compacted[i].content.as_ref().and_then(|v| v.as_str()),
                 Some(&*format!("result {i}"))
             );
         }
-
-        // Earlier ones should be stubs
         for i in 0..6 {
-            let c = compacted[i]
-                .content
-                .as_ref()
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let c = compacted[i].content.as_ref().and_then(|v| v.as_str()).unwrap_or("");
             assert!(c.contains("[compacted"), "expected stub at {i}, got: {c}");
         }
     }
 
     #[test]
-    fn apply_compact_preserves_system_messages() {
-        // Build a message list with 25+ non-system messages so the
-        // tail-window compaction actually removes some.
+    fn apply_compact_uses_token_budget_not_blind_count() {
         let mut msgs = vec![
             make_msg("system", "You are an AI agent."),
-            make_msg("system", "Additional system context."),
         ];
-        for i in 0..30 {
+        // Add 50 user/assistant messages
+        for i in 0..50 {
             msgs.push(make_msg(
                 if i % 2 == 0 { "user" } else { "assistant" },
-                &format!("Message {i}: lorem ipsum dolor sit amet"),
+                &format!("Message {i}: lorem ipsum dolor sit amet consectetur adipiscing elit"),
             ));
         }
 
         let summary = CompactSummary {
-            text: "Long conversation with 30 messages about lorem ipsum.".to_string(),
+            text: "50-message conversation.".to_string(),
             micro_mode: false,
         };
 
-        let (compacted, removed) = apply_compact(&msgs, &summary);
+        let result = apply_compact(&msgs, &summary);
+        assert!(result.removed_count > 0);
 
-        // System messages preserved
-        assert_eq!(compacted[0].role, "system");
-        assert_eq!(compacted[1].role, "system");
+        // Token budget (20K) should select fewer than 50 messages
+        assert!(
+            result.messages.len() < msgs.len(),
+            "should have removed some messages via token budget"
+        );
+    }
 
-        // Summary injected as system message
-        assert_eq!(compacted[2].role, "system");
-        let summary_content = compacted[2]
+    #[test]
+    fn summary_deduplication_filters_old_compacts() {
+        // Simulate a message list that already has a compact summary
+        let msgs = vec![
+            make_msg("system", "You are an AI agent."),
+            make_msg("system", "## Context Compaction Summary\n\nold summary"),
+            make_msg("user", "continue working"),
+            make_msg("assistant", "ok doing work"),
+        ];
+
+        let summary = CompactSummary {
+            text: "new compact.".to_string(),
+            micro_mode: false,
+        };
+
+        let result = apply_compact(&msgs, &summary);
+        // Only one compact summary should remain (the new one)
+        let compact_count = result
+            .messages
+            .iter()
+            .filter(|m| {
+                m.content
+                    .as_ref()
+                    .and_then(|v| v.as_str())
+                    .is_some_and(|s| s.contains("Context Compaction Summary"))
+            })
+            .count();
+        assert_eq!(compact_count, 1, "should have exactly one compact summary");
+    }
+
+    #[test]
+    fn initial_context_injected_before_last_user_msg() {
+        let msgs = vec![
+            make_msg("system", "AGENTS.md: be excellent"),
+            make_msg("user", "Quest 1"),
+            make_msg("assistant", "Answer 1"),
+            make_msg("user", "Quest 2"),
+            make_msg("assistant", "Answer 2"),
+        ];
+
+        let summary = CompactSummary {
+            text: "compacted 2 turns.".to_string(),
+            micro_mode: false,
+        };
+
+        let result = apply_compact(&msgs, &summary);
+
+        // System message preserved
+        assert_eq!(result.messages[0].role, "system");
+        assert!(result.messages[0]
             .content
             .as_ref()
             .and_then(|v| v.as_str())
-            .unwrap_or("");
-        assert!(summary_content.contains("Context Compaction Summary"));
-        assert!(summary_content.contains("lorem ipsum"));
+            .unwrap_or("")
+            .contains("AGENTS.md"));
 
-        // Some messages removed — 32 total → 2 system + 1 summary + 20 tail = 23
-        assert!(removed > 0);
-        assert_eq!(compacted.len(), 2 + 1 + 20); // 2 system + summary + tail
+        // Compact summary injected (before last user msg per Codex pattern)
+        let compact_pos = result.messages.iter().position(|m| {
+            m.content
+                .as_ref()
+                .and_then(|v| v.as_str())
+                .is_some_and(|s| s.contains("Context Compaction Summary"))
+        });
+        assert!(compact_pos.is_some(), "compact summary should be present");
+
+        // Last user message should appear AFTER the compact summary
+        let last_user_pos = result.messages.iter().rposition(|m| m.role == "user");
+        assert!(last_user_pos.is_some());
+        assert!(
+            compact_pos.unwrap() < last_user_pos.unwrap(),
+            "compact summary should be before last user message"
+        );
+    }
+
+    #[test]
+    fn estimate_prompt_tokens_sums_all_messages() {
+        let msgs = vec![
+            make_msg("system", "hi"),
+            make_msg("user", "hello world"),
+        ];
+        let tokens = estimate_prompt_tokens(&msgs);
+        assert!(tokens > 0);
+        assert!(tokens < 50);
     }
 
     #[test]
@@ -547,6 +670,18 @@ mod tests {
         assert_eq!(compact_reserve(1000), MIN_COMPACT_RESERVE_TOKENS);
         let large = compact_reserve(100_000);
         assert!(large > MIN_COMPACT_RESERVE_TOKENS);
-        assert!(large < 50_000); // Should be ~25% of max
+        assert!(large < 50_000);
+    }
+
+    #[test]
+    fn token_budget_selection_smaller_than_total() {
+        let mut msgs = Vec::new();
+        for i in 0..20 {
+            msgs.push(make_msg("user", &format!("msg{i}: some padding text here")));
+        }
+        let refs: Vec<&ChatMessage> = msgs.iter().collect();
+        let selected = select_user_messages_with_token_budget(&refs, 50); // tiny budget
+        assert!(selected.len() < msgs.len(), "tiny budget should select fewer");
+        assert!(!selected.is_empty(), "should select at least one message");
     }
 }

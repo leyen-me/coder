@@ -36,24 +36,22 @@ export type AgentEvent =
   | { type: "content_delta"; taskId: string; delta: string }
   | { type: "turn_complete"; taskId: string; toolCalls: AgentToolCall[] }
   | {
-      type: "handoff_required";
+      type: "compact_started";
       taskId: string;
-      contextUsage: AgentContextUsageSnapshot;
+      estimatedTokens: number;
+      maxTokens: number;
     }
   | {
-      type: "handoff_progress";
+      type: "compact_completed";
       taskId: string;
-      sessionId: string;
-      phase: SessionHandoffPhase;
+      removedCount: number;
+      summaryPreview: string;
     }
   | {
-      type: "handoff_complete";
-      taskId: string;
-      sourceSessionId: string;
-      continuedSessionId: string;
-    }
-  | {
-      type: "tool_call_pending";
+      type: "handoff_required"; taskId: string; contextUsage: AgentContextUsageSnapshot; }
+  | { type: "handoff_progress"; taskId: string; sessionId: string; phase: string; }
+  | { type: "handoff_complete"; taskId: string; sourceSessionId: string; continuedSessionId: string; }
+  | { type: "tool_call_pending";
       taskId: string;
       toolCallId: string;
       name: string;
@@ -125,6 +123,7 @@ export type AgentStartInput = {
   /** Estimated provider context window used for proactive rollover before overflow. */
   maxContextTokens?: number;
   /** Ratio at which the agent proactively rolls over into a continuation session. */
+  compactTriggerThreshold?: number;
   handoffTriggerThreshold?: number;
   /** Agent mode — controls which tools are available. Defaults to "agent". */
   agentMode?: AgentMode;
@@ -143,26 +142,8 @@ export type ChatRetryState = {
   maxAttempts: number;
 };
 
-export type AgentContextUsageSnapshot = {
-  usedTokens: number;
-  maxTokens: number;
-  remainingTokens: number;
-  reservedTokens: number;
-  triggerThreshold: number;
-};
-
-export type AgentHandoffRequest = {
-  contextUsage: AgentContextUsageSnapshot;
-};
-
-export type SessionHandoffPhase =
-  | "generating_handoff"
-  | "creating_session"
-  | "starting_new_session";
-
-export type SessionHandoffState = {
-  sessionId: string;
-  phase: SessionHandoffPhase;
+export type CompactState = {
+  removedCount: number;
 };
 
 export type ActiveTaskState = {
@@ -178,6 +159,8 @@ export type ActiveTaskState = {
   model: string;
   userContent: string;
   thinkingEnabled: boolean;
+  compact?: CompactState | null;
+  /** @deprecated Replaced by `compact`. */
   handoff: AgentHandoffRequest | null;
   agentMode: AgentMode;
   sessionKind: SessionKind;
@@ -195,4 +178,23 @@ export type AgentRunner = {
   start: (input: AgentStartInput, onEvent: AgentEventHandler) => Promise<void>;
   cancel: (taskId: string) => Promise<void>;
 };
+
+// ── Backward-compatible aliases (agent-store.tsx still references these) ──
+
+/** @deprecated Replaced by CompactState. Kept for store compatibility. */
+export type AgentContextUsageSnapshot = {
+  usedTokens: number;
+  maxTokens: number;
+  remainingTokens: number;
+  reservedTokens: number;
+  triggerThreshold: number;
+};
+
+/** @deprecated Replaced by CompactState. */
+export type AgentHandoffRequest = { contextUsage: AgentContextUsageSnapshot };
+
+/** @deprecated Removed — handoff is retired. */
+export type SessionHandoffPhase = string;
+
+export type SessionHandoffState = { sessionId: string; phase: SessionHandoffPhase };
 

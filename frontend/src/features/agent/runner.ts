@@ -146,7 +146,7 @@ export async function startAgent(
           requestExtensions: input.requestExtensions ?? null,
           emitAssistantOutput: input.emitAssistantOutput ?? true,
           maxContextTokens: input.maxContextTokens ?? null,
-          handoffTriggerThreshold: input.handoffTriggerThreshold ?? null,
+          compactTriggerThreshold: input.compactTriggerThreshold ?? null,
           agentMode: input.agentMode ?? null,
           thinkingEnabled: input.thinkingEnabled ?? null,
           models: input.models ?? null,
@@ -223,7 +223,7 @@ export async function sendAgentMessage(input: {
   model: string;
   requestExtensions?: Record<string, unknown>;
   maxContextTokens?: number;
-  handoffTriggerThreshold?: number;
+  compactTriggerThreshold?: number;
   agentMode?: string;
   thinkingEnabled?: boolean;
   models?: readonly unknown[];
@@ -247,7 +247,7 @@ export async function sendAgentMessage(input: {
     model: input.model,
     requestExtensions: input.requestExtensions ?? null,
     maxContextTokens: input.maxContextTokens ?? null,
-    handoffTriggerThreshold: input.handoffTriggerThreshold ?? null,
+    compactTriggerThreshold: input.compactTriggerThreshold ?? null,
     agentMode: input.agentMode ?? null,
     thinkingEnabled: input.thinkingEnabled ?? null,
     models: input.models ?? null,
@@ -265,7 +265,7 @@ export async function regenerateAgentMessage(input: {
   model: string;
   requestExtensions?: Record<string, unknown>;
   maxContextTokens?: number;
-  handoffTriggerThreshold?: number;
+  compactTriggerThreshold?: number;
   agentMode?: string;
   thinkingEnabled?: boolean;
   models?: readonly unknown[];
@@ -286,7 +286,7 @@ export async function regenerateAgentMessage(input: {
     model: input.model,
     requestExtensions: input.requestExtensions ?? null,
     maxContextTokens: input.maxContextTokens ?? null,
-    handoffTriggerThreshold: input.handoffTriggerThreshold ?? null,
+    compactTriggerThreshold: input.compactTriggerThreshold ?? null,
     agentMode: input.agentMode ?? null,
     thinkingEnabled: input.thinkingEnabled ?? null,
     models: input.models ?? null,

@@ -7,7 +7,6 @@ import {
   useChatRetryByMessageId,
 } from "@/features/agent/store/agent-store";
 import { cn } from "@/lib/utils";
-import { resolveContinuedSessionIdFromMessages } from "@/features/agent/handoff";
 import type { MessageRecord } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,14 +26,12 @@ import {
   shouldClearScrollPinSuppression,
   shouldFollowStream,
 } from "./message-list-scroll";
+import { CompactSeparator, detectCompactBoundaries } from "./compact-separator";
 import { SystemPromptBlock } from "./system-prompt-block";
-import { HandoffContinuationBanner } from "./handoff-continuation-banner";
-import { HandoffSourceBanner } from "./handoff-source-banner";
 
 type MessageListProps = {
   messages: MessageRecord[];
   sessionTitle?: string;
-  handoffFromSessionId?: string | null;
   systemPrompt?: string | null;
   onSystemPromptExpand?: () => void;
   editingMessageId?: string | null;
@@ -118,7 +115,6 @@ function findAnchorMessageIndex(
 export function MessageList({
   messages,
   sessionTitle,
-  handoffFromSessionId,
   systemPrompt,
   onSystemPromptExpand,
   editingMessageId,
@@ -282,15 +278,8 @@ export function MessageList({
     }, CHAT_SCROLL_RETRY_MS);
   }, [resumeFollowingStream]);
 
-  const handoffContinuedSessionId = useMemo(
-    () =>
-      handoffFromSessionId
-        ? null
-        : resolveContinuedSessionIdFromMessages(messages),
-    [handoffFromSessionId, messages]
-  );
-
-  // Detect the build-from-plan boundary so a visual separator can be
+  const compactBoundaries = useMemo(() => detectCompactBoundaries(messages), [messages]);
+    // Detect the build-from-plan boundary so a visual separator can be
   // inserted between the planning conversation and the build phase.
   const buildBoundaryIndex = useMemo(() => {
     const BUILD_PROMPT_MARKER = "implement the following plan";
@@ -353,8 +342,6 @@ export function MessageList({
   }, [
     shouldVirtualize,
     systemPrompt,
-    handoffFromSessionId,
-    handoffContinuedSessionId,
   ]);
 
   useLayoutEffect(() => {
@@ -519,6 +506,12 @@ export function MessageList({
     scheduleScrollToBottom();
   }, [scheduleScrollToBottom]);
 
+  const renderCompactSeparator = (index: number) => {
+    const boundary = compactBoundaries.find(b => b.messageIndex === index);
+    if (boundary) return <CompactSeparator boundary={boundary} />;
+    return null;
+  };
+
   const renderBuildBoundarySeparator = (index: number) => {
     if (buildBoundaryIndex > 0 && index === buildBoundaryIndex) {
       return (
@@ -539,7 +532,6 @@ export function MessageList({
       <MessageItem
         chatRetry={chatRetryByMessageId.get(message.id) ?? null}
         editingMessageId={editingMessageId}
-        handoffFromSessionId={handoffFromSessionId}
         isStreaming={streamingMessageIds.has(message.id)}
         message={message}
         onEditUserMessage={onEditUserMessage}
@@ -568,11 +560,8 @@ export function MessageList({
               onExpand={onSystemPromptExpand}
             />
           ) : null}
-          {handoffFromSessionId ? (
-            <HandoffContinuationBanner fromSessionId={handoffFromSessionId} />
-          ) : null}
-          {handoffContinuedSessionId ? (
-            <HandoffSourceBanner continuedSessionId={handoffContinuedSessionId} />
+          {compactBoundaries.length > 0 && compactBoundaries[0] ? (
+            <CompactSeparator boundary={compactBoundaries[0]} />
           ) : null}
 
           {shouldVirtualize ? (
@@ -611,6 +600,7 @@ export function MessageList({
                         )}
                       >
                         {renderBuildBoundarySeparator(index)}
+                        {renderCompactSeparator(index)}
                         {renderMessage(message)}
                       </div>
                     </div>
@@ -623,6 +613,7 @@ export function MessageList({
             messages.map((message, index) => (
               <Fragment key={message.id}>
                 {renderBuildBoundarySeparator(index)}
+                {renderCompactSeparator(index)}
                 {renderMessage(message)}
               </Fragment>
             ))

@@ -164,15 +164,15 @@ pub async fn run_agent_loop(
             .await
             {
                 Ok(summary) => {
-                    let (compacted, removed) = apply_compact(&messages, &summary);
+                    let result = apply_compact(&messages, &summary);
                     log::info!(
                         "auto_compact_applied task_id={} removed={} remaining={} micro={}",
                         params.task_id,
-                        removed,
-                        compacted.len(),
+                        result.removed_count,
+                        result.messages.len(),
                         summary.micro_mode
                     );
-                    messages = compacted;
+                    messages = result.messages;
 
                     emit_event(
                         &registry,
@@ -180,7 +180,7 @@ pub async fn run_agent_loop(
                         &params.task_id,
                         AgentEvent::CompactCompleted {
                             task_id: params.task_id.clone(),
-                            removed_count: removed as u32,
+                            removed_count: result.removed_count as u32,
                             summary_preview: summary
                                 .text
                                 .chars()
@@ -211,20 +211,20 @@ pub async fn run_agent_loop(
                     .await
                     {
                         Ok(summary) => {
-                            let (compacted, removed) = apply_compact(&messages, &summary);
+                            let result = apply_compact(&messages, &summary);
                             log::info!(
                                 "auto_compact_retry_succeeded task_id={} removed={}",
                                 params.task_id,
-                                removed
+                                result.removed_count
                             );
-                            messages = compacted;
+                            messages = result.messages;
                             emit_event(
                                 &registry,
                                 &broadcaster,
                                 &params.task_id,
                                 AgentEvent::CompactCompleted {
                                     task_id: params.task_id.clone(),
-                                    removed_count: removed as u32,
+                                    removed_count: result.removed_count as u32,
                                     summary_preview: summary
                                         .text
                                         .chars()
@@ -278,20 +278,20 @@ pub async fn run_agent_loop(
             .await
             {
                 Ok(summary) => {
-                    let (compacted, removed) = apply_compact(&messages, &summary);
+                    let result = apply_compact(&messages, &summary);
                     log::info!(
                         "manual_compact_applied task_id={} removed={}",
                         params.task_id,
-                        removed
+                        result.removed_count
                     );
-                    messages = compacted;
+                    messages = result.messages;
                     emit_event(
                         &registry,
                         &broadcaster,
                         &params.task_id,
                         AgentEvent::CompactCompleted {
                             task_id: params.task_id.clone(),
-                            removed_count: removed as u32,
+                            removed_count: result.removed_count as u32,
                             summary_preview: summary.text.chars().take(200).collect::<String>(),
                         },
                     )?;

@@ -3453,34 +3453,22 @@ mod tests {
     };
     use serde_json::json;
 
-    fn tool_names(agent_mode: Option<&str>, include_handoff_tools: bool) -> Vec<String> {
-        get_tool_definitions(agent_mode, include_handoff_tools)
+    fn tool_names(agent_mode: Option<&str>) -> Vec<String> {
+        get_tool_definitions(agent_mode)
             .into_iter()
             .map(|tool| tool.function.name)
             .collect()
     }
 
     #[test]
-    fn agent_mode_excludes_handoff_tools_by_default() {
-        let names = tool_names(Some("agent"), false);
-        assert!(!names.contains(&"read_prior_tool_output".to_string()));
-    }
-
-    #[test]
-    fn agent_mode_includes_handoff_tools_when_requested() {
-        let names = tool_names(Some("agent"), true);
-        assert!(names.contains(&"read_prior_tool_output".to_string()));
-    }
-
-    #[test]
     fn agent_mode_excludes_disabled_tools() {
-        let names = tool_names(Some("agent"), false);
+        let names = tool_names(Some("agent"));
         assert!(!names.contains(&"replace_lines".to_string()));
     }
 
     #[test]
     fn agent_mode_includes_automation_tools() {
-        let names = tool_names(Some("agent"), false);
+        let names = tool_names(Some("agent"));
         assert!(names.contains(&"list_automations".to_string()));
         assert!(names.contains(&"create_automation".to_string()));
         assert!(names.contains(&"update_automation".to_string()));
@@ -3489,7 +3477,7 @@ mod tests {
 
     #[test]
     fn ask_mode_excludes_automation_tools() {
-        let names = tool_names(Some("ask"), false);
+        let names = tool_names(Some("ask"));
         assert!(!names.contains(&"create_automation".to_string()));
         assert!(!names.contains(&"list_automations".to_string()));
     }
@@ -3553,7 +3541,7 @@ mod tests {
 
     #[test]
     fn agent_mode_excludes_plan_tools() {
-        let names = tool_names(Some("agent"), false);
+        let names = tool_names(Some("agent"));
         assert!(names.contains(&"create_file".to_string()));
         assert!(names.contains(&"shell".to_string()));
         assert!(!names.contains(&"plan_create".to_string()));
@@ -3562,7 +3550,7 @@ mod tests {
 
     #[test]
     fn plan_mode_includes_plan_tools() {
-        let names = tool_names(Some("plan"), false);
+        let names = tool_names(Some("plan"));
         assert!(names.contains(&"plan_create".to_string()));
         assert!(names.contains(&"plan_list".to_string()));
         assert!(!names.contains(&"create_file".to_string()));
@@ -3571,7 +3559,7 @@ mod tests {
 
     #[test]
     fn ask_mode_excludes_plan_and_write_tools() {
-        let names = tool_names(Some("ask"), false);
+        let names = tool_names(Some("ask"));
         assert!(names.contains(&"read_file".to_string()));
         assert!(!names.contains(&"plan_create".to_string()));
         assert!(!names.contains(&"create_file".to_string()));

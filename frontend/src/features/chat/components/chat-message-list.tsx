@@ -5,7 +5,6 @@ import { MessageList } from "./message-list";
 type ChatMessageListProps = {
   messages: MessageRecord[];
   sessionTitle?: string;
-  handoffFromSessionId?: string | null;
   systemPrompt?: string | null;
   onSystemPromptExpand?: () => void;
   editingMessageId?: string | null;
@@ -16,7 +15,7 @@ type ChatMessageListProps = {
 export function ChatMessageList({
   messages,
   sessionTitle,
-  handoffFromSessionId,
+
   systemPrompt,
   onSystemPromptExpand,
   editingMessageId,
@@ -26,8 +25,7 @@ export function ChatMessageList({
   return (
     <MessageList
       editingMessageId={editingMessageId}
-      handoffFromSessionId={handoffFromSessionId}
-      messages={messages}
+          messages={messages}
       onEditUserMessage={onEditUserMessage}
       onRegenerateAssistantMessage={onRegenerateAssistantMessage}
       onSystemPromptExpand={onSystemPromptExpand}
