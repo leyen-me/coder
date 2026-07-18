@@ -552,9 +552,22 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   // Compact command handler
   useEffect(() => {
     const handler = () => {
-      void apiPost("/api/compact", {
-        taskId: activeTask?.taskId,
-      })
+      const taskId = activeTask?.taskId;
+      if (!taskId) return;
+      void apiPost("/api/compact", { taskId })
+        .then((result) => {
+          if (result.ok && result.found) {
+            console.log("[Compact] Requested:", taskId);
+          }
+        })
+        .catch((error) => {
+          console.error("[Compact] Failed:", error);
+        });
+    };
+
+    window.addEventListener("coder:command-compact", handler);
+    return () => window.removeEventListener("coder:command-compact", handler);
+  }, [activeTask?.taskId]);
         .then((result) => {
           if (result.ok && result.found) {
             console.log("[Compact] Requested:", activeTask?.taskId);
