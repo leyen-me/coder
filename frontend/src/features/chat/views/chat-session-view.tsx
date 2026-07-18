@@ -551,11 +551,14 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
   // Compact command handler
   useEffect(() => {
-    const handler = () => {
-      const taskId = activeTask?.taskId;
+        const handler = () => {
+      const provider = resolveProviderForModel(model);
       void apiPost("/api/compact", {
         sessionId: chatId,
-        taskId: taskId ?? undefined,
+        taskId: activeTask?.taskId ?? undefined,
+        baseUrl: provider?.baseUrl,
+        apiKey: provider?.apiKey ?? undefined,
+        model: model,
       })
         .then((result) => {
           console.log("[Compact]", result.message);
@@ -563,12 +566,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         .catch((error) => {
           console.error("[Compact] Failed:", error);
         });
-    };
-
-    window.addEventListener("coder:command-compact", handler);
-    return () => window.removeEventListener("coder:command-compact", handler);
-  }, [activeTask?.taskId]);
-        .then((result) => {
+    };    .then((result) => {
           if (result.ok && result.found) {
             console.log("[Compact] Requested:", activeTask?.taskId);
           }
