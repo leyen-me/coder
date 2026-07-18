@@ -41,16 +41,18 @@ pub async fn handle_compact(
     Json(payload): Json<CompactTriggerRequest>,
 ) -> Json<CompactTriggerResponse> {
     // Mode 1: running agent — signal via registry
+    let mut queued = false;
     if let Some(ref task_id) = payload.task_id {
         if let Ok(mut registry) = state.agent_registry.lock() {
-            if registry.request_compact(task_id) {
-                return Json(CompactTriggerResponse {
-                    ok: true,
-                    compacted: true,
-                    message: format!("Compact queued for task={task_id}."),
-                });
-            }
+            queued = registry.request_compact(task_id);
         }
+    }
+    if queued {
+        return Json(CompactTriggerResponse {
+            ok: true,
+            compacted: true,
+            message: format!("Compact queued for task={}.", payload.task_id.as_deref().unwrap_or("?")),
+        });
     }
 
     // Mode 2: direct compact — read messages, call LLM, write back

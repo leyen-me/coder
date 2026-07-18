@@ -549,36 +549,45 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     ]
   );
 
-  // Compact command handler
+  // ── Handoff command handler ──────────────────────────────────────────
   useEffect(() => {
-        const handler = () => {
+    const handler = () => {
       const provider = resolveProviderForModel(model);
-      void apiPost("/api/compact", {
-        sessionId: chatId,
-        taskId: activeTask?.taskId ?? undefined,
-        baseUrl: provider?.baseUrl,
-        apiKey: provider?.apiKey ?? undefined,
-        model: model,
-      })
+      if (!provider) {
+        console.error("[Compact] Could not resolve provider config for model:", model);
+        return;
+      }
+
+      const taskId = nanoid();
+
+      void apiPost<{ continuedSessionId: string; continuedTaskId: string }>(
+        "/api/compact",
+        {
+          sessionId: chatId,
+          taskId,
+          baseUrl: provider.baseUrl,
+          apiKey: provider.apiKey || undefined,
+          apiKeySource: provider.apiKeySource,
+          apiKeyEnvVar: provider.apiKeyEnvVar,
+          model,
+          agentMode,
+          thinkingEnabled,
+          maxContextTokens: undefined,
+          handoffTriggerThreshold: undefined,
+        }
+      )
         .then((result) => {
-          console.log("[Compact]", result.message);
+          // Navigate to the continued session
+          window.location.href = `/chat/${result.continuedSessionId}`;
         })
         .catch((error) => {
-          console.error("[Compact] Failed:", error);
-        });
-    };    .then((result) => {
-          if (result.ok && result.found) {
-            console.log("[Compact] Requested:", activeTask?.taskId);
-          }
-        })
-        .catch((error) => {
-          console.error("[Compact] Failed:", error);
+          console.error("[Compact] API call failed:", error);
         });
     };
 
     window.addEventListener("coder:command-compact", handler);
     return () => window.removeEventListener("coder:command-compact", handler);
-  }, [activeTask?.taskId]);
+  }, [chatId, model, agentMode, thinkingEnabled, resolveProviderForModel]);
 
   // ── /new command handler ────────────────────────────────────────────
   useEffect(() => {
