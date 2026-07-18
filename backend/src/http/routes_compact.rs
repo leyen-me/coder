@@ -15,6 +15,7 @@ use crate::AppState;
 
 #[derive(Debug, Deserialize)]
 pub struct CompactTriggerRequest {
+    #[serde(alias = "taskId")]
     pub task_id: String,
 }
 
