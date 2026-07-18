@@ -180,7 +180,7 @@ export function ComposerRichInput({
 
       if (item.kind === "command") {
         // Handle built-in commands
-        if (item.command.slug === "handoff") {
+        if (item.command.slug === "compact") {
           // Clear the slash state and optionally trigger handoff
           editor
             .chain()

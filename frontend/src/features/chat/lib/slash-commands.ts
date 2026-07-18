@@ -15,9 +15,9 @@ export const BUILTIN_SLASH_COMMANDS: SlashCommand[] = [
     icon: PlusIcon,
   },
   {
-    slug: "handoff",
-    label: "Handoff",
-    description: "Trigger a context handoff to continue in a new session",
+    slug: "compact",
+    label: "Compact",
+    description: "Manual context compaction — summarize conversation to free token space",
     icon: TerminalIcon,
   },
 ];
