@@ -41,14 +41,16 @@ export function ComposerContextUsage({
   contextUsage,
 }: ComposerContextUsageProps) {
   const { t } = useTranslation();
-  const { maxTokens, usage, usedTokens } = contextUsage;
+  const { maxTokens, usage } = contextUsage;
+  const inputTokens = usage.inputTokens ?? 0;
 
-  if (usedTokens <= 0) {
+  // Only show when there is meaningful input usage data.
+  if (inputTokens <= 0) {
     return null;
   }
 
   return (
-    <Context maxTokens={maxTokens} usage={usage} usedTokens={usedTokens}>
+    <Context maxTokens={maxTokens} usage={usage} usedTokens={inputTokens}>
       <ContextTrigger
         aria-label={t("chat.contextUsageTrigger")}
         className={cn(

@@ -7,8 +7,6 @@ const DEFAULT_AGENT_HANDOFF_THRESHOLD: f64 = 0.85;
 const HANDOFF_RESERVE_RATIO: f64 = 0.25;
 const MIN_HANDOFF_RESERVE_TOKENS: u32 = 1_000;
 const MAX_HANDOFF_RESERVE_TOKENS: u32 = 24_000;
-const MAX_REPORTED_ESTIMATE_RATIO: u32 = 6;
-const MAX_REPORTED_ESTIMATE_DELTA: u32 = 48_000;
 const COMPACTED_TOOL_RESULT_KEEP_COUNT: usize = 4;
 const COMPACTED_TOOL_RESULT_MAX_CHARS: usize = 4_000;
 const IMAGE_TOKEN_ESTIMATE: u32 = 765;
@@ -80,12 +78,21 @@ pub fn estimate_agent_context_usage(
 ) -> AgentContextUsageSnapshot {
     let max_tokens = normalize_positive_integer(max_tokens, DEFAULT_MODEL_CONTEXT_WINDOW);
     let trigger_threshold = normalize_threshold(trigger_threshold, DEFAULT_AGENT_HANDOFF_THRESHOLD);
-    let estimated_tokens = messages
-        .iter()
-        .map(estimate_agent_message_tokens)
-        .sum::<u32>();
-    let used_tokens = normalize_reported_tokens(reported_prompt_tokens, estimated_tokens);
-    let remaining_tokens = max_tokens.saturating_sub(used_tokens);
+
+    // Use the provider-reported prompt tokens as the authoritative input
+    // token count when available. This is the exact input size from the
+    // last API call — far more accurate than any heuristic estimation.
+    let input_tokens = match reported_prompt_tokens {
+        Some(reported) if reported > 0 => reported,
+        _ => {
+            // Fallback: character-based estimation over all messages.
+            // Imperfect, but sufficient for the initial turn before any
+            // API response is available.
+            messages.iter().map(estimate_agent_message_tokens).sum::<u32>()
+        }
+    };
+
+    let remaining_tokens = max_tokens.saturating_sub(input_tokens);
     let reserved_tokens = clamp(
         std::cmp::max(
             (max_tokens as f64 * (1.0 - trigger_threshold)).floor() as u32,
@@ -96,7 +103,7 @@ pub fn estimate_agent_context_usage(
     );
 
     AgentContextUsageSnapshot {
-        used_tokens,
+        used_tokens: input_tokens,
         max_tokens,
         remaining_tokens,
         reserved_tokens,
@@ -183,27 +190,6 @@ fn normalize_threshold(value: Option<f64>, fallback: f64) -> f64 {
     } else {
         fallback
     }
-}
-
-fn normalize_reported_tokens(reported_prompt_tokens: Option<u32>, estimated_tokens: u32) -> u32 {
-    let Some(reported_prompt_tokens) = reported_prompt_tokens else {
-        return estimated_tokens;
-    };
-    if !is_reported_prompt_tokens_plausible(reported_prompt_tokens, estimated_tokens) {
-        return estimated_tokens;
-    }
-    std::cmp::max(reported_prompt_tokens, estimated_tokens)
-}
-
-fn is_reported_prompt_tokens_plausible(reported_prompt_tokens: u32, estimated_tokens: u32) -> bool {
-    if estimated_tokens == 0 {
-        return true;
-    }
-    let max_reasonable_tokens = std::cmp::max(
-        estimated_tokens.saturating_mul(MAX_REPORTED_ESTIMATE_RATIO),
-        estimated_tokens.saturating_add(MAX_REPORTED_ESTIMATE_DELTA),
-    );
-    reported_prompt_tokens <= max_reasonable_tokens
 }
 
 fn estimate_text_tokens(text: &str) -> u32 {
