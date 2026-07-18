@@ -549,7 +549,25 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     ]
   );
 
-  // ── Compact command handler ──────────────────────────────────────────\n  useEffect(() => {\n    const handler = () => {\n      void apiPost<{ ok: boolean; found: boolean; message: string }>(\n        \"/api/compact\",\n        { taskId: activeTask?.taskId },\n      )\n        .then((result) => {\n          if (result.ok && result.found) {\n            console.log(\"[Compact] Requested for task:\", activeTask?.taskId);\n          } else {\n            console.warn(\"[Compact] No running agent to compact:\", result.message);\n          }\n        })\n        .catch((error) => {\n          console.error(\"[Compact] API call failed:\", error);\n        });\n    };\n\n    window.addEventListener(\"coder:command-compact\", handler);\n    return () => window.removeEventListener(\"coder:command-compact\", handler);\n  }, [activeTask?.taskId]);
+  // Compact command handler
+  useEffect(() => {
+    const handler = () => {
+      void apiPost("/api/compact", {
+        taskId: activeTask?.taskId,
+      })
+        .then((result) => {
+          if (result.ok && result.found) {
+            console.log("[Compact] Requested:", activeTask?.taskId);
+          }
+        })
+        .catch((error) => {
+          console.error("[Compact] Failed:", error);
+        });
+    };
+
+    window.addEventListener("coder:command-compact", handler);
+    return () => window.removeEventListener("coder:command-compact", handler);
+  }, [activeTask?.taskId]);
 
   // ── /new command handler ────────────────────────────────────────────
   useEffect(() => {
