@@ -72,7 +72,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             get(routes_mcp::handle_mcp_oauth_callback),
         )
         .route("/api/git_current_branch", post(routes_tool::handle_git_current_branch))
-        .route("/api/handoff_git_snapshot", post(routes_tool::handle_handoff_git_snapshot))
+        .route("/api/git_snapshot", post(routes_tool::handle_git_snapshot))
         .route(
             "/api/validate_workspace_dir",
             post(routes_tool::handle_validate_workspace_dir),

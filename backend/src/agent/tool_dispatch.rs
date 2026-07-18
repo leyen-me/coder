@@ -226,10 +226,7 @@ pub fn is_handoff_only_agent_tool(name: &str) -> bool {
     is_handoff_only_tool(name)
 }
 
-pub fn get_tool_definitions(
-    agent_mode: Option<&str>,
-    include_handoff_tools: bool,
-) -> Vec<AgentToolDefinition> {
+pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition> {
     let mut tools = vec![
         tool_definition(
             "list_dir",
@@ -772,10 +769,6 @@ pub fn get_tool_definitions(
     }
 
     tools.retain(|tool| !is_disabled_agent_tool(&tool.function.name));
-
-    if !include_handoff_tools {
-        tools.retain(|tool| !is_handoff_only_tool(&tool.function.name));
-    }
 
     tools
 }

@@ -23,7 +23,6 @@ pub use types::{
 };
 pub use messages::{
     assemble_agent_messages, build_system_prompt_preview, resolve_agent_tool_definitions,
-    session_includes_handoff_tools,
 };
 pub use stream_log::{agent_diagnostic_file_log, cleanup_agent_log_dirs};
 

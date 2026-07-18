@@ -102,7 +102,7 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
             model: job.model.clone(),
             request_extensions: runtime.request_extensions,
             max_context_tokens: Some(runtime.max_context_tokens),
-            handoff_trigger_threshold: None,
+            compact_trigger_threshold: None,
             agent_mode: Some(match job.agent_mode {
                 super::types::AgentMode::Agent => "agent".to_string(),
                 super::types::AgentMode::Ask => "ask".to_string(),

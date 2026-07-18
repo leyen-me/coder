@@ -372,7 +372,7 @@ pub struct AgentStartParams {
     pub session_id: Option<String>,
     pub emit_assistant_output: Option<bool>,
     pub max_context_tokens: Option<u32>,
-    pub handoff_trigger_threshold: Option<f64>,
+    pub compact_trigger_threshold: Option<f64>,
     pub agent_mode: Option<String>,
     pub thinking_enabled: Option<bool>,
     pub models: Option<Vec<Value>>,
@@ -402,7 +402,7 @@ pub struct AgentSendParams {
     #[serde(default)]
     pub max_context_tokens: Option<u32>,
     #[serde(default)]
-    pub handoff_trigger_threshold: Option<f64>,
+    pub compact_trigger_threshold: Option<f64>,
     #[serde(default)]
     pub agent_mode: Option<String>,
     #[serde(default)]
@@ -427,7 +427,7 @@ pub struct AgentRegenerateParams {
     #[serde(default)]
     pub max_context_tokens: Option<u32>,
     #[serde(default)]
-    pub handoff_trigger_threshold: Option<f64>,
+    pub compact_trigger_threshold: Option<f64>,
     #[serde(default)]
     pub agent_mode: Option<String>,
     #[serde(default)]
@@ -1003,8 +1003,8 @@ pub async fn handle_git_current_branch(
     })?))
 }
 
-/// POST /api/handoff_git_snapshot
-pub async fn handle_handoff_git_snapshot(
+/// POST /api/git_snapshot
+pub async fn handle_git_snapshot(
     State(_state): State<Arc<AppState>>,
     Json(params): Json<GitSnapshotParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -1166,14 +1166,10 @@ pub async fn handle_agent_start(
         }
     };
     let agent_mode = params.agent_mode.clone();
-    let include_handoff_tools = session
-        .as_ref()
-        .is_some_and(agent::session_includes_handoff_tools);
     let tools = {
         let defaults = agent::resolve_agent_tool_definitions(
             &state,
             agent_mode.as_deref(),
-            include_handoff_tools,
             params.tools.clone(),
         )
         .await;
@@ -1214,7 +1210,7 @@ pub async fn handle_agent_start(
         session_id: params.session_id,
         emit_assistant_output: params.emit_assistant_output,
         max_context_tokens: params.max_context_tokens,
-        handoff_trigger_threshold: params.handoff_trigger_threshold,
+        compact_trigger_threshold: params.compact_trigger_threshold,
         agent_mode: params.agent_mode,
         thinking_enabled: params.thinking_enabled,
         models: params.models,
@@ -1354,7 +1350,6 @@ pub async fn start_agent_send_with_task_id(
     let tools = agent::resolve_agent_tool_definitions(
         &state,
         params.agent_mode.as_deref(),
-        agent::session_includes_handoff_tools(&updated_session),
         params.extra_tools.clone(),
     )
     .await;
@@ -1371,7 +1366,7 @@ pub async fn start_agent_send_with_task_id(
         session_id: Some(params.session_id.clone()),
         emit_assistant_output: Some(true),
         max_context_tokens: params.max_context_tokens,
-        handoff_trigger_threshold: params.handoff_trigger_threshold,
+        compact_trigger_threshold: params.compact_trigger_threshold,
         agent_mode: params.agent_mode.clone(),
         thinking_enabled: params.thinking_enabled,
         models: params.models,
@@ -1512,7 +1507,6 @@ pub async fn handle_agent_regenerate(
     let tools = agent::resolve_agent_tool_definitions(
         &state,
         resolved_agent_mode.as_deref(),
-        agent::session_includes_handoff_tools(&updated_session),
         params.extra_tools.clone(),
     )
     .await;
@@ -1529,7 +1523,7 @@ pub async fn handle_agent_regenerate(
         session_id: Some(params.session_id.clone()),
         emit_assistant_output: Some(true),
         max_context_tokens: params.max_context_tokens,
-        handoff_trigger_threshold: params.handoff_trigger_threshold,
+        compact_trigger_threshold: params.compact_trigger_threshold,
         agent_mode: resolved_agent_mode.clone(),
         thinking_enabled: params.thinking_enabled,
         models: params.models,
@@ -1858,7 +1852,7 @@ mod tests {
                     model: "new-model".to_string(),
                     request_extensions: None,
                     max_context_tokens: Some(32000),
-                    handoff_trigger_threshold: Some(0.8),
+                    compact_trigger_threshold: Some(0.8),
                     agent_mode: Some("agent".to_string()),
                     thinking_enabled: Some(false),
                     models: None,
@@ -1958,7 +1952,7 @@ mod tests {
                     model: "regen-model".to_string(),
                     request_extensions: None,
                     max_context_tokens: Some(64000),
-                    handoff_trigger_threshold: Some(0.8),
+                    compact_trigger_threshold: Some(0.8),
                     agent_mode: Some("agent".to_string()),
                     thinking_enabled: Some(false),
                     models: None,

@@ -120,7 +120,7 @@ pub async fn run_agent_loop(
         if should_trigger_compact(
             prompt_estimate,
             max_tokens,
-            params.handoff_trigger_threshold,
+            params.compact_trigger_threshold,
         ) {
             log::info!(
                 "auto_compact_triggered task_id={} estimated_tokens={} max_tokens={}",

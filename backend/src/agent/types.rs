@@ -197,7 +197,7 @@ pub struct AgentStartParams {
     #[serde(default)]
     pub max_context_tokens: Option<u32>,
     #[serde(default)]
-    pub handoff_trigger_threshold: Option<f64>,
+    pub compact_trigger_threshold: Option<f64>,
     #[serde(default)]
     pub agent_mode: Option<String>,
     #[serde(default)]
