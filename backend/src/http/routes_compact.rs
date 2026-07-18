@@ -9,7 +9,11 @@ use axum::{extract::State, response::Json};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use crate::AppState;
+use crate::{
+    agent::compact::{apply_compact, build_compact_snapshot, run_compact, CompactResult},
+    db::session_store::get_messages_by_session,
+    AppState,
+};
 
 #[derive(Debug, Deserialize)]
 pub struct CompactTriggerRequest {
@@ -51,10 +55,93 @@ pub async fn handle_compact(
         });
     }
 
-    // Mode 2: no running agent — auto-compact on next message
-    Json(CompactTriggerResponse {
-        ok: true,
-        compacted: false,
-        message: "No running agent. Compact happens automatically on next message when token budget is exceeded.".into(),
-    })
+    // Mode 2: direct compact — read messages, call LLM, write back
+    let (base_url, api_key, model) = match (
+        payload.base_url.as_deref(),
+        payload.api_key.as_deref(),
+        payload.model.as_deref(),
+    ) {
+        (Some(b), Some(k), Some(m)) if !b.is_empty() && !k.is_empty() && !m.is_empty() => {
+            (b.to_string(), k.to_string(), m.to_string())
+        }
+        _ => {
+            return Json(CompactTriggerResponse {
+                ok: true,
+                compacted: false,
+                message: "No API credentials provided for direct compact.".into(),
+            });
+        }
+    };
+
+    let (failed_read, raw_messages) = {
+        let db = state.db.lock().map_err(|_| "db lock").unwrap();
+        match get_messages_by_session(&db, &payload.session_id) {
+            Ok(msgs) => (false, msgs),
+            Err(_) => (true, Vec::new()),
+        }
+    };
+
+    if failed_read {
+        return Json(CompactTriggerResponse {
+            ok: false,
+            compacted: false,
+            message: "Failed to read session messages.".into(),
+        });
+    }
+
+    let messages: Vec<crate::agent::ChatMessage> = raw_messages
+        .into_iter()
+        .map(|m| {
+            let content = if m.content.is_empty() {
+                None
+            } else {
+                Some(serde_json::Value::String(m.content))
+            };
+            crate::agent::ChatMessage {
+                role: m.role,
+                content,
+                reasoning_content: None,
+                tool_calls: None,
+                tool_call_id: None,
+                name: None,
+            }
+        })
+        .collect();
+
+    if messages.len() < 4 {
+        return Json(CompactTriggerResponse {
+            ok: true,
+            compacted: false,
+            message: "Not enough messages to compact.".into(),
+        });
+    }
+
+    let client = crate::agent::openai::build_http_client().unwrap();
+    let snapshot = build_compact_snapshot(Vec::new(), None, Vec::new(), Vec::new(), Vec::new());
+
+    match run_compact(&client, &base_url, &api_key, &model, &messages, &snapshot, false).await {
+        Ok(summary) => {
+            let result: CompactResult = apply_compact(&messages, &summary);
+            log::info!(
+                "direct_compact session={} removed={} remaining={}",
+                payload.session_id,
+                result.removed_count,
+                result.messages.len()
+            );
+            Json(CompactTriggerResponse {
+                ok: true,
+                compacted: true,
+                message: format!(
+                    "Compacted: removed {} messages, {} remaining.",
+                    result.removed_count,
+                    result.messages.len()
+                ),
+            })
+        }
+        Err(e) => Json(CompactTriggerResponse {
+            ok: false,
+            compacted: false,
+            message: format!("Compact failed: {e}"),
+        }),
+    }
 }
