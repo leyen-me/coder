@@ -560,7 +560,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
       const taskId = nanoid();
 
-      void apiPost<{ continuedSessionId: string; continuedTaskId: string }>(
+      void apiPost<{ ok: boolean; compacted: boolean; message: string }>(
         "/api/compact",
         {
           sessionId: chatId,
@@ -578,7 +578,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       )
         .then((result) => {
           // Navigate to the continued session
-          window.location.href = `/chat/${result.continuedSessionId}`;
+          console.log("[Compact]", result.message);
         })
         .catch((error) => {
           console.error("[Compact] API call failed:", error);
