@@ -1,11 +1,12 @@
 //! HTTP route for manual compact trigger.
 //!
 //! POST /api/compact
-//! Body: { task_id: "..." }
+//! Body: { session_id: "...", task_id?: "..." }
 //!
-//! Sets a flag in AgentRegistry. The agent loop picks it up on the
-//! next cycle and triggers an immediate context compaction regardless
-//! of token budget.
+//! Two modes:
+//! 1. Running agent: sets a flag in AgentRegistry, loop picks it up.
+//! 2. No running agent: compact will happen naturally on next user message
+//!    via auto-compact threshold check.
 
 use axum::{extract::State, response::Json};
 use serde::{Deserialize, Serialize};
@@ -15,14 +16,16 @@ use crate::AppState;
 
 #[derive(Debug, Deserialize)]
 pub struct CompactTriggerRequest {
-    #[serde(alias = "taskId")]
-    pub task_id: String,
+    #[serde(alias = "sessionId")]
+    pub session_id: String,
+    #[serde(default, alias = "taskId")]
+    pub task_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct CompactTriggerResponse {
     pub ok: bool,
-    pub found: bool,
+    pub compacted: bool,
     pub message: String,
 }
 
@@ -30,21 +33,26 @@ pub async fn handle_compact(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<CompactTriggerRequest>,
 ) -> Json<CompactTriggerResponse> {
-    let found = match state.agent_registry.lock() {
-        Ok(mut registry) => registry.request_compact(&payload.task_id),
-        Err(_) => false,
-    };
+    // Mode 1: running agent — signal via registry
+    if let Some(ref task_id) = payload.task_id {
+        if let Ok(mut registry) = state.agent_registry.lock() {
+            if registry.request_compact(task_id) {
+                return Json(CompactTriggerResponse {
+                    ok: true,
+                    compacted: true,
+                    message: format!("Compact queued for task={task_id}."),
+                });
+            }
+        }
+    }
 
+    // Mode 2: no running agent — compact happens on next message
     Json(CompactTriggerResponse {
         ok: true,
-        found,
-        message: if found {
-            format!(
-                "Compact requested for task={}. Agent will compact on next cycle.",
-                payload.task_id
-            )
-        } else {
-            format!("Task {} not found in registry.", payload.task_id)
-        },
+        compacted: false,
+        message: format!(
+            "No running agent for session={}. Compact will happen automatically on next message.",
+            payload.session_id
+        ),
     })
 }

@@ -553,12 +553,12 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   useEffect(() => {
     const handler = () => {
       const taskId = activeTask?.taskId;
-      if (!taskId) return;
-      void apiPost("/api/compact", { taskId })
+      void apiPost("/api/compact", {
+        sessionId: chatId,
+        taskId: taskId ?? undefined,
+      })
         .then((result) => {
-          if (result.ok && result.found) {
-            console.log("[Compact] Requested:", taskId);
-          }
+          console.log("[Compact]", result.message);
         })
         .catch((error) => {
           console.error("[Compact] Failed:", error);
