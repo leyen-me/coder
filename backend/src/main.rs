@@ -1,6 +1,8 @@
 use std::io::{IsTerminal, stdout};
 use std::net::IpAddr;
 
+use std::path::PathBuf;
+
 use clap::{ArgAction, Parser};
 
 use coder_lib::server::{start_server, ServerOptions};
@@ -15,6 +17,10 @@ struct Cli {
     /// Port to listen on (default: 1421 in dev, random in release)
     #[arg(short, long)]
     port: Option<u16>,
+
+    /// Agent workspace directory (default: ~/.coder)
+    #[arg(long)]
+    workspace_dir: Option<PathBuf>,
 
     /// Do not open browser automatically
     #[arg(long)]
@@ -113,7 +119,7 @@ async fn main() {
     let server = start_server(ServerOptions {
         port: cli.port,
         loopback_only: false,
-        workspace_dir: None,
+        workspace_dir: cli.workspace_dir,
     })
     .await
     .expect("Failed to start server");

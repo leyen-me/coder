@@ -5,13 +5,38 @@
 #   2. rust-builder     — Rust 编译 coder 二进制（嵌入前端）
 #   3. runtime          — 最精简运行镜像
 #
-# Usage:
+# ── 最低启动 ──
 #   docker build -t coder .
 #   docker run -p 1421:1421 -v coder-data:/root/.coder coder
 #
-# Options:
-#   docker run -p 8080:1421 coder --port 8080
-#   docker run -e CODER__MODEL=... -e CODER__API_KEY=... coder
+# ── 持久化数据（推荐）──
+#   docker volume create coder-data
+#   docker run \
+#     -p 1421:1421 \
+#     -p 3000-3010:3000-3010 \
+#     -p 5173-5183:5173-5183 \
+#     -p 8000-8010:8000-8010 \
+#     -v coder-data:/root/.coder \
+#     coder
+#
+#   ~/.coder/ 包含: SQLite DB（设置/会话/历史）、logs、skills
+#   挂载后重启容器设置和会话全部保留。
+#
+# ── 自定义端口 ──
+#   docker run -p 8080:1421 -v coder-data:/root/.coder coder --port 8080
+#
+# ── 环境变量配置 ──
+#   docker run \
+#     -e CODER__MODEL=gpt-4 \
+#     -e CODER__API_KEY=sk-... \
+#     -v coder-data:/root/.coder \
+#     coder
+#
+# ── 指定工作目录（默认 ~/.coder，agent 在此读写文件）──
+#   docker run \
+#     -v coder-data:/root/.coder \
+#     -v /host/projects:/workspace \
+#     coder --workspace-dir /workspace
 # ───────────────────────────────────────────────────────
 
 # ========================================================
@@ -80,7 +105,10 @@ COPY --from=rust-builder /app/backend/target/release/coder /usr/local/bin/coder
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:${PORT:-1421}/ || exit 1
 
+# 主服务端口
 EXPOSE 1421
+# Agent 可能启动的 dev server 端口范围 (Vite / Next.js / Python http.server 等)
+EXPOSE 3000-3010 5173-5183 8000-8010
 
 ENTRYPOINT ["coder"]
 CMD ["--port", "1421"]
