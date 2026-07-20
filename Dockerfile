@@ -67,9 +67,12 @@ FROM rust:1-slim-bookworm AS rust-builder
 
 WORKDIR /app
 
-# 编译依赖：gcc 在 rust:1-slim-bookworm 中已包含
+# 编译系统依赖
+# rust:1-slim-bookworm 基础镜像仅含 gcc + libc6-dev，以下为 vendored 依赖所需：
 RUN apt-get update -qq && apt-get install -y -qq \
     pkg-config \
+    make \
+    perl \
     && rm -rf /var/lib/apt/lists/*
 
 # Step 1: 仅复制 Cargo 清单 + 创建虚拟源 → 编译所有依赖（层缓存）
