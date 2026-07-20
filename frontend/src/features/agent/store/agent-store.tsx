@@ -27,6 +27,12 @@ import { isAgentCancellationError } from "../cancellation";
 import { SkillReferenceValidationError } from "@/features/skills/lib/skill-errors";
 import { resolveWorkspaceAwareSkillsBySlugs } from "@/features/skills/lib/resolve-skills";
 import { createStreamingBufferManager } from "../streaming-buffer";
+import {
+  clearAgentEventSeq,
+  readAgentEventSeq,
+  seedAgentEventSeq,
+  shouldApplyAgentEventSeq,
+} from "../event-seq";
 import { fileUIPartsToStoredImages } from "../message-content";
 import type { FileUIPart } from "ai";
 import type { AgentToolDefinition } from "../tools/types";
@@ -159,6 +165,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   >(new Map());
   const streamingListenersRef = useRef(new Set<() => void>());
   const eventChainsRef = useRef(new Map<string, Promise<void>>());
+  const lastEventSeqRef = useRef(new Map<string, number>());
+  const resumeInflightRef = useRef(new Set<string>());
   const taskAbortControllersRef = useRef(new Map<string, AbortController>());
   const handoffStatusesRef = useRef(new Map<string, SessionHandoffState>());
   const terminalOverlayTimersRef = useRef(
@@ -595,6 +603,16 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
   const dispatchAgentEvent = useCallback(
     (taskId: string, assistantMessageId: string, event: AgentEvent) => {
+      if (
+        !shouldApplyAgentEventSeq(
+          lastEventSeqRef.current,
+          taskId,
+          readAgentEventSeq(event),
+        )
+      ) {
+        return;
+      }
+
       const previous = eventChainsRef.current.get(taskId) ?? Promise.resolve();
       const next = previous
         .then(() => handleAgentEvent(event, assistantMessageId))
@@ -612,6 +630,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       if (event.type === "status" && isTerminalStatus(event.status)) {
         void next.finally(() => {
           eventChainsRef.current.delete(taskId);
+          clearAgentEventSeq(lastEventSeqRef.current, taskId);
         });
       }
     },
@@ -654,8 +673,10 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         decisionModel: input.decisionModel,
       };
       tasksRef.current.set(input.taskId, activeTask);
+      taskAbortControllersRef.current.get(input.taskId)?.abort();
       const abortController = new AbortController();
       taskAbortControllersRef.current.set(input.taskId, abortController);
+      seedAgentEventSeq(lastEventSeqRef.current, input.taskId, 0);
       emit();
 
       void resumeAgentStream(
@@ -706,6 +727,14 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         return;
       }
 
+      // React Strict Mode / effect churn can invoke resume twice before the
+      // first await returns — serialize per session.
+      if (resumeInflightRef.current.has(sessionId)) {
+        return;
+      }
+      resumeInflightRef.current.add(sessionId);
+
+      try {
       for (const task of tasksRef.current.values()) {
         if (task.sessionId === sessionId) {
           return;
@@ -717,6 +746,17 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         return;
       }
 
+      // startAgentTask may have claimed this session while we awaited status.
+      // Opening a second SSE would double-apply thinking/content deltas.
+      for (const task of tasksRef.current.values()) {
+        if (task.sessionId === sessionId || task.taskId === status.taskId) {
+          return;
+        }
+      }
+      if (taskAbortControllersRef.current.has(status.taskId)) {
+        return;
+      }
+
       const [session, messages] = await Promise.all([
         getSession(sessionId),
         getMessagesBySession(sessionId),
@@ -725,6 +765,15 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         (message) => message.role === "assistant" && message.taskId === status.taskId,
       );
       if (!assistantMessage) {
+        return;
+      }
+
+      for (const task of tasksRef.current.values()) {
+        if (task.sessionId === sessionId || task.taskId === status.taskId) {
+          return;
+        }
+      }
+      if (taskAbortControllersRef.current.has(status.taskId)) {
         return;
       }
 
@@ -768,8 +817,14 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         toolInvocations: assistantMessage.toolInvocations ?? [],
       });
       tasksRef.current.set(status.taskId, activeTask);
+      taskAbortControllersRef.current.get(status.taskId)?.abort();
       const abortController = new AbortController();
       taskAbortControllersRef.current.set(status.taskId, abortController);
+      seedAgentEventSeq(
+        lastEventSeqRef.current,
+        status.taskId,
+        status.lastSeq ?? 0,
+      );
       emit();
 
       void resumeAgentStream(
@@ -805,6 +860,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           status: "failed",
         });
       });
+      } finally {
+        resumeInflightRef.current.delete(sessionId);
+      }
     },
     [clearSessionHandoffState, dispatchAgentEvent, emit, setSessionHandoffState],
   );

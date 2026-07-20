@@ -30,7 +30,7 @@ export type AgentChatMessage = {
   referencedSkills?: string[];
 };
 
-export type AgentEvent =
+export type AgentEvent = (
   | { type: "status"; taskId: string; status: AgentStatus }
   | { type: "thinking_delta"; taskId: string; delta: string }
   | { type: "content_delta"; taskId: string; delta: string }
@@ -55,10 +55,24 @@ export type AgentEvent =
       anchorAfterMessageId?: string | null;
     }
   | {
-      type: "handoff_required"; taskId: string; contextUsage: AgentContextUsageSnapshot; }
-  | { type: "handoff_progress"; taskId: string; sessionId: string; phase: string; }
-  | { type: "handoff_complete"; taskId: string; sourceSessionId: string; continuedSessionId: string; }
-  | { type: "tool_call_pending";
+      type: "handoff_required";
+      taskId: string;
+      contextUsage: AgentContextUsageSnapshot;
+    }
+  | {
+      type: "handoff_progress";
+      taskId: string;
+      sessionId: string;
+      phase: string;
+    }
+  | {
+      type: "handoff_complete";
+      taskId: string;
+      sourceSessionId: string;
+      continuedSessionId: string;
+    }
+  | {
+      type: "tool_call_pending";
       taskId: string;
       toolCallId: string;
       name: string;
@@ -105,7 +119,11 @@ export type AgentEvent =
       taskId: string;
       attempt: number;
       maxAttempts: number;
-    };
+    }
+) & {
+  /** Monotonic SSE cursor injected by the backend for dedupe. */
+  seq?: number;
+};
 
 export type TokenUsage = {
   promptTokens: number;

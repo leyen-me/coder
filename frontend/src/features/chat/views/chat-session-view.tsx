@@ -188,9 +188,15 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   }, [session?.model]);
 
   useEffect(() => {
+    let cancelled = false;
     void resumeSessionTask(chatId).finally(() => {
-      void refresh();
+      if (!cancelled) {
+        void refresh();
+      }
     });
+    return () => {
+      cancelled = true;
+    };
   }, [chatId, refresh, resumeSessionTask]);
 
   const handleCancelEdit = useCallback(() => {

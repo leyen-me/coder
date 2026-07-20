@@ -12,6 +12,18 @@ function isTerminalStatus(status: string | null | undefined): status is AgentSta
   return status === "completed" || status === "cancelled" || status === "failed";
 }
 
+/** Close any in-flight SSE for this task before opening a replacement. */
+function replaceActiveConnection(
+  taskId: string,
+  connection: AgentSseConnection,
+): void {
+  const previous = activeConnections.get(taskId);
+  if (previous && previous !== connection) {
+    previous.close();
+  }
+  activeConnections.set(taskId, connection);
+}
+
 function createAbortError(taskId: string): Error {
   const error = new Error(`Agent start aborted for task: ${taskId}`);
   error.name = "AbortError";
@@ -109,7 +121,7 @@ export async function startAgent(
       (error) => settle(() => reject(new Error(error))),
       { fromSeq: 0 },
     );
-    activeConnections.set(input.taskId, connection);
+    replaceActiveConnection(input.taskId, connection);
 
     if (options.signal) {
       if (options.signal.aborted) {
@@ -344,7 +356,7 @@ export async function resumeAgentStream(
       (error) => settle(() => reject(new Error(error))),
       { fromSeq: options.fromSeq },
     );
-    activeConnections.set(taskId, connection);
+    replaceActiveConnection(taskId, connection);
 
     if (options.signal) {
       if (options.signal.aborted) {
