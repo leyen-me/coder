@@ -604,6 +604,28 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     return () => window.removeEventListener("coder:command-compact", handler);
   }, [activeTask?.taskId, chatId, refresh]);
 
+  // Only scroll while compact is pending — the spinner sits after the latest
+  // message, so users need to see the bottom. Success/noop/error stay in place.
+  useEffect(() => {
+    if (!compactUi) {
+      return;
+    }
+    if (compactUi.phase !== "loading" && compactUi.phase !== "queued") {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      requestMessageListScrollToBottom();
+      const nodes = document.querySelectorAll(
+        `[data-compact-phase="${compactUi.phase}"]`,
+      );
+      const target = nodes[nodes.length - 1];
+      if (target instanceof HTMLElement) {
+        target.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+    });
+  }, [compactUi]);
+
   useEffect(() => {
     if (!compactUi) {
       return;
