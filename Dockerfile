@@ -22,11 +22,12 @@
 #   ~/.coder/ 包含: SQLite DB（设置/会话/历史）、logs、skills
 #   挂载后重启容器设置和会话全部保留。
 #
-# ── 自定义端口 ──
-#   docker run -p 8080:1421 -v coder-data:/root/.coder coder --port 8080
+# ── 自定义端口（PaaS 会注入 PORT，应用会自动监听）──
+#   docker run -p 8080:8080 -e PORT=8080 -v coder-data:/root/.coder coder
 #
 # ── 环境变量配置 ──
 #   docker run \
+#     -e PORT=1421 \
 #     -e CODER__MODEL=gpt-4 \
 #     -e CODER__API_KEY=sk-... \
 #     -v coder-data:/root/.coder \
@@ -116,13 +117,17 @@ COPY --from=rust-builder /app/backend/target/release/coder /usr/local/bin/coder
 #   docker run -v coder-data:/root/.coder coder
 VOLUME /root/.coder
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-1421}/ || exit 1
+# 默认端口；Zeabur / Railway 等会在运行时覆盖 PORT
+ENV PORT=1421
 
-# 主服务端口
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/ || exit 1
+
+# 仅暴露主服务端口。勿再 EXPOSE 一段端口范围——Zeabur 等平台会据此推断
+# 健康检查端口；多段 EXPOSE 可能导致探测端口与进程监听不一致而被杀死。
+# Agent 临时起的 Vite/Next 等端口请在 docker run 时按需 -p 映射。
 EXPOSE 1421
-# Agent 可能启动的 dev server 端口范围 (Vite / Next.js / Python http.server 等)
-EXPOSE 3000-3010 5173-5183 8000-8010
 
 ENTRYPOINT ["coder"]
-CMD ["--port", "1421"]
+# --no-open：容器内无浏览器；端口由 PORT 环境变量决定（勿写死 --port，否则会盖住 PaaS 注入的 PORT）
+CMD ["--no-open"]

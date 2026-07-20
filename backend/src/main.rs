@@ -14,8 +14,9 @@ use coder_lib::server::{start_server, ServerOptions};
     disable_version_flag = true
 )]
 struct Cli {
-    /// Port to listen on (default: 1421 in dev, random in release)
-    #[arg(short, long)]
+    /// Port to listen on (default: 1421 in dev, random in release).
+    /// Also reads `PORT` for PaaS platforms (Zeabur, Railway, etc.).
+    #[arg(short, long, env = "PORT")]
     port: Option<u16>,
 
     /// Agent workspace directory (default: ~/.coder)
