@@ -47,7 +47,7 @@ FROM node:20-slim AS frontend-builder
 WORKDIR /app
 
 # pnpm 激活
-RUN npm i -g corepack && corepack enable pnpm
+RUN npm i -g pnpm
 
 # 先复制依赖清单，利用 Docker 层缓存
 COPY package.json pnpm-lock.yaml ./
@@ -97,6 +97,7 @@ FROM debian:bookworm-slim
 RUN apt-get update -qq && apt-get install -y -qq \
     ca-certificates \
     git \
+    openssh-client \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
