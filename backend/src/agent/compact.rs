@@ -34,7 +34,57 @@ const COMPACT_SUMMARY_MAX_TOKENS: u32 = 2_048;
 /// Maximum tokens to spend on user messages in the compacted replacement
 /// history. Messages are selected from newest to oldest until this budget is
 /// exhausted — same approach Codex uses (COMPACT_USER_MESSAGE_MAX_TOKENS).
-const COMPACT_USER_MESSAGE_MAX_TOKENS: u32 = 20_000;
+pub const COMPACT_USER_MESSAGE_MAX_TOKENS: u32 = 20_000;
+
+/// Tail budget used when force-compacting in dev/test (keep only recent tail).
+const FORCE_COMPACT_TAIL_TOKEN_BUDGET: u32 = 512;
+
+/// Controls whether `/api/compact` may honor `force: true`.
+pub fn allow_force_compact() -> bool {
+    cfg!(debug_assertions)
+        || std::env::var("CODER_ALLOW_FORCE_COMPACT")
+            .ok()
+            .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "yes"))
+}
+
+pub fn resolve_compact_tail_token_budget(force: bool) -> u32 {
+    if force && allow_force_compact() {
+        return std::env::var("CODER_FORCE_COMPACT_TAIL_TOKEN_BUDGET")
+            .ok()
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(FORCE_COMPACT_TAIL_TOKEN_BUDGET);
+    }
+
+    std::env::var("CODER_COMPACT_TAIL_TOKEN_BUDGET")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(COMPACT_USER_MESSAGE_MAX_TOKENS)
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct CompactPersistOptions {
+    pub max_tail_tokens: u32,
+    pub force: bool,
+}
+
+impl Default for CompactPersistOptions {
+    fn default() -> Self {
+        Self {
+            max_tail_tokens: COMPACT_USER_MESSAGE_MAX_TOKENS,
+            force: false,
+        }
+    }
+}
+
+impl CompactPersistOptions {
+    pub fn for_manual(force: bool) -> Self {
+        let effective_force = force && allow_force_compact();
+        Self {
+            max_tail_tokens: resolve_compact_tail_token_budget(effective_force),
+            force: effective_force,
+        }
+    }
+}
 
 /// How many recent full tool results to keep (structural, not LLM-driven).
 const COMPACT_TOOL_RESULT_KEEP: usize = 4;
@@ -77,6 +127,7 @@ pub fn persist_compact_summary(
     db: &Arc<Mutex<Database>>,
     session_id: Option<&str>,
     summary: &CompactSummary,
+    options: CompactPersistOptions,
 ) -> Result<crate::db::session_store::CompactPersistResult, String> {
     let session_id = session_id
         .map(str::trim)
@@ -89,8 +140,9 @@ pub fn persist_compact_summary(
         &db,
         session_id,
         summary.text.trim(),
-        COMPACT_USER_MESSAGE_MAX_TOKENS,
+        options.max_tail_tokens,
         COMPACT_SUMMARY_PREFIX,
+        options.force,
     )
 }
 
@@ -354,19 +406,26 @@ pub fn apply_compact(
 ) -> CompactResult {
     let original_len = messages.len();
 
-    // Phase 1: Keep initial system messages
+    // Phase 1: Keep leading real system prompts only. Compact summaries that
+    // happen to be system-role must not be treated as sticky prefix context.
     let mut system_msgs: Vec<ChatMessage> = Vec::new();
+    let mut consumed = 0usize;
     for msg in messages.iter() {
-        if msg.role == "system" {
+        if msg.role == "system" && !is_compact_summary_message(msg) {
             system_msgs.push(msg.clone());
+            consumed += 1;
+        } else if msg.role == "system" && is_compact_summary_message(msg) {
+            // Skip old compact markers in the leading stretch; they are
+            // filtered again below when scanning the remainder.
+            consumed += 1;
         } else {
             break;
         }
     }
 
-    // Phase 2: Collect non-system messages, filtering out old compact
+    // Phase 2: Collect remaining messages, filtering out old compact
     //          summaries to prevent summary-in-summary nesting.
-    let non_system: Vec<&ChatMessage> = messages[system_msgs.len()..]
+    let non_system: Vec<&ChatMessage> = messages[consumed..]
         .iter()
         .filter(|msg| !is_compact_summary_message(msg))
         .collect();
@@ -602,11 +661,12 @@ mod tests {
         let mut msgs = vec![
             make_msg("system", "You are an AI agent."),
         ];
-        // Add 50 user/assistant messages
+        // Large messages so the 20k-token user-message budget cannot keep all.
+        let bulky = "lorem ipsum dolor sit amet ".repeat(400);
         for i in 0..50 {
             msgs.push(make_msg(
                 if i % 2 == 0 { "user" } else { "assistant" },
-                &format!("Message {i}: lorem ipsum dolor sit amet consectetur adipiscing elit"),
+                &format!("Message {i}: {bulky}"),
             ));
         }
 

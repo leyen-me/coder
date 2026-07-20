@@ -29,8 +29,11 @@ import {
 import { SystemPromptBlock } from "./system-prompt-block";
 import {
   CompactBoundaryBanner,
-  compactBannerFromUiState,
 } from "./compact-separator";
+import {
+  hasCompactBoundary,
+  resolveCompactBoundaryRenders,
+} from "../lib/resolve-compact-boundary";
 import type { SessionCompactUiState } from "../lib/session-compact-ui-store";
 
 type MessageListProps = {
@@ -141,8 +144,14 @@ export function MessageList({
   const suppressScrollPinUpdatesRef = useRef(false);
   const touchStartYRef = useRef<number | null>(null);
   const sessionId = messages[0]?.sessionId;
+  const timelineMessages = useMemo(
+    () => messages.filter((message) => message.messageKind !== "compact"),
+    [messages],
+  );
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
+  const timelineMessagesRef = useRef(timelineMessages);
+  timelineMessagesRef.current = timelineMessages;
   const scrollViewportRef = useRef(scrollViewport);
   scrollViewportRef.current = scrollViewport;
   const streamingMessageCount = useMemo(
@@ -150,7 +159,19 @@ export function MessageList({
     [messages, streamingMessageIds]
   );
   const isStreaming = streamingMessageCount > 0;
-  const shouldVirtualize = !isStreaming && !compactUi;
+  const compactBoundaries = useMemo(
+    () => resolveCompactBoundaryRenders(messages, compactUi),
+    [compactUi, messages],
+  );
+  const compactBoundaryByMessageId = useMemo(() => {
+    const map = new Map<string, (typeof compactBoundaries)[number]>();
+    for (const boundary of compactBoundaries) {
+      map.set(boundary.beforeMessageId, boundary);
+    }
+    return map;
+  }, [compactBoundaries]);
+  const shouldVirtualize =
+    !isStreaming && !hasCompactBoundary(messages, compactUi);
   const pendingVirtualizationAnchorRef = useRef<number | null>(null);
   const wasStreamingRef = useRef(isStreaming);
 
@@ -180,13 +201,13 @@ export function MessageList({
 
   // Stable callbacks for useVirtualizer options — avoids re-creation on every render.
   const getItemKey = useCallback(
-    (index: number) => messagesRef.current[index]?.id ?? index,
+    (index: number) => timelineMessagesRef.current[index]?.id ?? index,
     []
   );
   const getScrollElement = useCallback(() => scrollViewportRef.current, []);
 
   const rowVirtualizer = useVirtualizer({
-    count: shouldVirtualize ? messages.length : 0,
+    count: shouldVirtualize ? timelineMessages.length : 0,
     estimateSize: ESTIMATED_ITEM_SIZE,
     getItemKey,
     getScrollElement,
@@ -526,48 +547,44 @@ export function MessageList({
     return null;
   };
 
-  const renderCompactOverlayAfter = (messageId: string) => {
-    if (!compactUi || compactUi.anchorAfterMessageId !== messageId) {
+  // Compact is a timeline event: render every real compact slot
+  // (immediately before each first-kept conversation message).
+  const renderCompactBoundaryBefore = (messageId: string) => {
+    const compactBoundary = compactBoundaryByMessageId.get(messageId);
+    if (!compactBoundary) {
       return null;
     }
 
-    const banner = compactBannerFromUiState(compactUi);
-    return <CompactBoundaryBanner {...banner} />;
+    return (
+      <CompactBoundaryBanner
+        descriptionKey={compactBoundary.descriptionKey}
+        phase={compactBoundary.phase}
+        preview={compactBoundary.preview}
+        titleKey={compactBoundary.titleKey}
+        titleParams={compactBoundary.titleParams}
+      />
+    );
   };
 
-  const compactAnchorMatched = useMemo(() => {
-    if (!compactUi) {
-      return false;
+  const renderMessage = (message: MessageRecord) => {
+    if (message.messageKind === "compact") {
+      return null;
     }
-    if (!compactUi.anchorAfterMessageId) {
-      return true;
-    }
-    return messages.some((message) => message.id === compactUi.anchorAfterMessageId);
-  }, [compactUi, messages]);
 
-  const renderCompactOverlayAtStart =
-    compactUi && compactUi.anchorAfterMessageId === null ? (
-      <CompactBoundaryBanner {...compactBannerFromUiState(compactUi)} />
-    ) : null;
-
-  const renderCompactOverlayFallback =
-    compactUi && !compactAnchorMatched ? (
-      <CompactBoundaryBanner {...compactBannerFromUiState(compactUi)} />
-    ) : null;
-
-  const renderMessage = (message: MessageRecord) => (
-    <div data-message-id={message.id}>
-      <MessageItem
-        chatRetry={chatRetryByMessageId.get(message.id) ?? null}
-        editingMessageId={editingMessageId}
-        isStreaming={streamingMessageIds.has(message.id)}
-        message={message}
-        onEditUserMessage={onEditUserMessage}
-        onRegenerateAssistantMessage={onRegenerateAssistantMessage}
-        sessionTitle={sessionTitle}
-      />
-    </div>
-  );
+    return (
+      <div data-message-id={message.id}>
+        <MessageItem
+          chatRetry={chatRetryByMessageId.get(message.id) ?? null}
+          editingMessageId={editingMessageId}
+          isStreaming={streamingMessageIds.has(message.id)}
+          message={message}
+          onEditUserMessage={onEditUserMessage}
+          onRegenerateAssistantMessage={onRegenerateAssistantMessage}
+          sessionTitle={sessionTitle}
+        />
+      </div>
+    );
+  };
 
   const virtualItems = shouldVirtualize ? rowVirtualizer.getVirtualItems() : [];
 
@@ -588,7 +605,6 @@ export function MessageList({
               onExpand={onSystemPromptExpand}
             />
           ) : null}
-          {renderCompactOverlayAtStart}
           {shouldVirtualize ? (
             /* ── Virtualized rendering ── */
             messages.length > 0 ? (
@@ -599,7 +615,7 @@ export function MessageList({
               >
                 {virtualItems.map((virtualItem) => {
                   const index = virtualItem.index;
-                  const message = messages[index];
+                  const message = timelineMessages[index];
                   if (!message) {
                     return null;
                   }
@@ -621,12 +637,12 @@ export function MessageList({
                       <div
                         className={cn(
                           "flex flex-col gap-6",
-                          index < messages.length - 1 ? "pb-6" : null
+                          index < timelineMessages.length - 1 ? "pb-6" : null
                         )}
                       >
                         {renderBuildBoundarySeparator(index)}
+                        {renderCompactBoundaryBefore(message.id)}
                         {renderMessage(message)}
-                        {renderCompactOverlayAfter(message.id)}
                       </div>
                     </div>
                   );
@@ -635,15 +651,14 @@ export function MessageList({
             ) : null
           ) : (
             /* ── Simple (non-virtualized) rendering ── */
-            messages.map((message, index) => (
+            timelineMessages.map((message, index) => (
               <Fragment key={message.id}>
                 {renderBuildBoundarySeparator(index)}
+                {renderCompactBoundaryBefore(message.id)}
                 {renderMessage(message)}
-                {renderCompactOverlayAfter(message.id)}
               </Fragment>
             ))
           )}
-          {renderCompactOverlayFallback}
         </div>
       </ScrollArea>
 

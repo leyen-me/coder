@@ -11,20 +11,19 @@ function conversationMessages(messages: readonly MessageRecord[]): MessageRecord
   return messages.filter((message) => message.messageKind !== "compact");
 }
 
-/**
- * Estimate where a compact boundary will appear: the id of the message
- * immediately before the first kept message after compaction.
- */
-export function estimateCompactAnchorAfterMessageId(
-  messages: readonly MessageRecord[],
-): string | null {
-  const conversation = conversationMessages(messages);
+function selectTailKeepCount(
+  conversation: readonly MessageRecord[],
+  options?: { force?: boolean },
+): number {
   if (conversation.length < 2) {
-    return null;
+    return conversation.length;
   }
 
   let selected = 0;
-  let remaining = COMPACT_TAIL_TOKEN_BUDGET;
+  let remaining =
+    options?.force && import.meta.env.DEV
+      ? 512
+      : COMPACT_TAIL_TOKEN_BUDGET;
 
   for (let index = conversation.length - 1; index >= 0; index -= 1) {
     const message = conversation[index];
@@ -40,12 +39,54 @@ export function estimateCompactAnchorAfterMessageId(
     }
   }
 
-  if (selected === 0 || selected >= conversation.length) {
-    return conversation.at(-1)?.id ?? null;
+  if (
+    options?.force &&
+    import.meta.env.DEV &&
+    conversation.length >= 2 &&
+    (selected === 0 || selected >= conversation.length)
+  ) {
+    return 1;
   }
 
-  const firstKeptIndex = conversation.length - selected;
-  if (firstKeptIndex === 0) {
+  if (selected === 0 || selected >= conversation.length) {
+    return conversation.length;
+  }
+
+  return selected;
+}
+
+/**
+ * The first message in the kept tail — render the compact banner immediately
+ * BEFORE this message (same slot as the loading overlay).
+ */
+export function estimateCompactBoundaryBeforeMessageId(
+  messages: readonly MessageRecord[],
+  options?: { force?: boolean },
+): string | null {
+  const conversation = conversationMessages(messages);
+  if (conversation.length === 0) {
+    return null;
+  }
+
+  const keepCount = selectTailKeepCount(conversation, options);
+  const firstKeptIndex = conversation.length - keepCount;
+  return conversation[firstKeptIndex]?.id ?? null;
+}
+
+/** @deprecated Prefer `estimateCompactBoundaryBeforeMessageId`. */
+export function estimateCompactAnchorAfterMessageId(
+  messages: readonly MessageRecord[],
+): string | null {
+  const conversation = conversationMessages(messages);
+  const boundaryBefore = estimateCompactBoundaryBeforeMessageId(messages);
+  if (!boundaryBefore) {
+    return null;
+  }
+
+  const firstKeptIndex = conversation.findIndex(
+    (message) => message.id === boundaryBefore,
+  );
+  if (firstKeptIndex <= 0) {
     return null;
   }
 

@@ -46,6 +46,8 @@ export type AgentEvent =
       taskId: string;
       removedCount: number;
       summaryPreview: string;
+      firstKeptMessageId?: string | null;
+      compactMessageId?: string | null;
     }
   | {
       type: "handoff_required"; taskId: string; contextUsage: AgentContextUsageSnapshot; }

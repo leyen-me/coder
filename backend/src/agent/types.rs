@@ -164,6 +164,10 @@ pub enum AgentEvent {
         task_id: String,
         removed_count: u32,
         summary_preview: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        first_kept_message_id: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        compact_message_id: Option<String>,
     },
     #[serde(rename = "chat_retry")]
     ChatRetry {

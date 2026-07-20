@@ -42,10 +42,6 @@ import { StreamingMessageContent } from "./streaming-message-content";
 import { UserMessageContent } from "./user-message-content";
 import { HandoffContinuationMessage } from "./handoff-continuation-message";
 import { HandoffSourceMessage } from "./handoff-source-message";
-import {
-  CompactBoundaryBanner,
-  compactPreviewFromContent,
-} from "./compact-separator";
 
 type MessageItemProps = {
   message: MessageRecord;
@@ -302,14 +298,7 @@ export const MessageItem = memo(function MessageItem({
   const handoffMessageKind = resolveHandoffMessageKind(message);
 
   if (message.messageKind === "compact") {
-    return (
-      <CompactBoundaryBanner
-        phase="success"
-        titleKey="chat.compactBoundaryTitle"
-        descriptionKey="chat.compactBoundaryFallback"
-        preview={compactPreviewFromContent(message.content)}
-      />
-    );
+    return null;
   }
 
   if (handoffMessageKind === "handoff_continuation") {

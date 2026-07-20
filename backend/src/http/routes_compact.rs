@@ -1,7 +1,7 @@
 //! HTTP route for manual compact trigger.
 //!
 //! POST /api/compact
-//! Body: { session_id, task_id? }
+//! Body: { session_id, task_id?, force? }
 //!
 //! Running agent: queues via registry (resolved from session_id).
 //! Otherwise: compacts immediately using session + provider settings.
@@ -11,11 +11,17 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
-    agent::compact::{build_compact_snapshot, persist_compact_summary, run_compact},
+    agent::compact::{
+        allow_force_compact, build_compact_snapshot, persist_compact_summary,
+        run_compact, CompactPersistOptions,
+    },
     agent::registry::resolve_api_key,
     db::{
         records::MESSAGE_KIND_COMPACT,
-        session_store::{estimate_compact_anchor_after_message_id, get_messages_by_session, get_session},
+        session_store::{
+            estimate_compact_anchor_after_message_id, get_messages_by_session, get_session,
+            truncate_history_at_latest_compact,
+        },
     },
     scheduled_jobs::resolve_job_runtime,
     AppState,
@@ -27,6 +33,8 @@ pub struct CompactTriggerRequest {
     pub session_id: String,
     #[serde(default, alias = "taskId")]
     pub task_id: Option<String>,
+    #[serde(default)]
+    pub force: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -41,6 +49,8 @@ pub struct CompactTriggerResponse {
     pub remaining_count: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub anchor_after_message_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub first_kept_message_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub compact_message_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -62,6 +72,7 @@ fn queued_response(anchor_after_message_id: Option<String>) -> CompactTriggerRes
         removed_count: None,
         remaining_count: None,
         anchor_after_message_id,
+        first_kept_message_id: None,
         compact_message_id: None,
         summary_preview: None,
     }
@@ -75,6 +86,7 @@ fn error_response(code: &str) -> CompactTriggerResponse {
         removed_count: None,
         remaining_count: None,
         anchor_after_message_id: None,
+        first_kept_message_id: None,
         compact_message_id: None,
         summary_preview: None,
     }
@@ -102,6 +114,8 @@ pub async fn handle_compact(
 
     let anchor_after_message_id = estimate_compact_anchor_after_message_id(&raw_messages);
 
+    let force = payload.force && allow_force_compact();
+
     // Mode 1: running agent — resolve task from session (or explicit task_id) and queue.
     let queued_task_id = {
         let mut registry = match state.agent_registry.lock() {
@@ -115,13 +129,13 @@ pub async fn handle_compact(
             .map(str::trim)
             .filter(|value| !value.is_empty())
         {
-            if registry.request_compact(task_id) {
+            if registry.request_compact(task_id, force) {
                 Some(task_id.to_string())
             } else {
                 None
             }
         } else {
-            registry.request_compact_for_session(session_id)
+            registry.request_compact_for_session(session_id, force)
         }
     };
 
@@ -164,12 +178,16 @@ pub async fn handle_compact(
             removed_count: None,
             remaining_count: None,
             anchor_after_message_id,
+            first_kept_message_id: None,
             compact_message_id: None,
             summary_preview: None,
         });
     }
 
-    let messages: Vec<crate::agent::ChatMessage> = raw_messages
+    // Summarize the current model-visible window (after the latest compact),
+    // not the entire retained chat history.
+    let model_window = truncate_history_at_latest_compact(raw_messages.clone());
+    let messages: Vec<crate::agent::ChatMessage> = model_window
         .iter()
         .filter(|message| message.message_kind.as_deref() != Some(MESSAGE_KIND_COMPACT))
         .map(|m| {
@@ -214,12 +232,15 @@ pub async fn handle_compact(
     {
         Ok(summary) => {
             let summary_preview = summary.text.chars().take(200).collect::<String>();
-            match persist_compact_summary(&state.db, Some(session_id), &summary) {
+            match persist_compact_summary(
+                &state.db,
+                Some(session_id),
+                &summary,
+                CompactPersistOptions::for_manual(force),
+            ) {
                 Ok(result) if result.removed_count > 0 => {
-                    let remaining = raw_messages
-                        .len()
-                        .saturating_sub(result.removed_count)
-                        .saturating_add(1);
+                    let conversation_count = conversation_message_count(&raw_messages);
+                    let remaining = conversation_count.saturating_sub(result.removed_count);
                     log::info!(
                         "direct_compact session={} removed={} remaining={}",
                         session_id,
@@ -233,6 +254,7 @@ pub async fn handle_compact(
                         removed_count: Some(result.removed_count as u32),
                         remaining_count: Some(remaining as u32),
                         anchor_after_message_id: result.anchor_after_message_id,
+                        first_kept_message_id: result.first_kept_message_id,
                         compact_message_id: Some(result.compact_message_id),
                         summary_preview: Some(summary_preview),
                     })
@@ -242,8 +264,9 @@ pub async fn handle_compact(
                     compacted: false,
                     code: "noop_already_fits".to_string(),
                     removed_count: Some(0),
-                    remaining_count: Some(raw_messages.len() as u32),
+                    remaining_count: Some(conversation_message_count(&raw_messages) as u32),
                     anchor_after_message_id,
+                    first_kept_message_id: None,
                     compact_message_id: None,
                     summary_preview: None,
                 }),

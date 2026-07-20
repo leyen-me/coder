@@ -8,7 +8,9 @@ use serde_json::{json, Value};
 use super::types::{AgentToolDefinition, ApiToolCall, ApiToolCallFunction, ChatMessage};
 use crate::db::{
     records::{AgentTodoRecord, MessageImageAttachment, MessageProcessStep, MessageRecord, SessionRecord},
-    session_store::{get_agent_todos_by_session, get_messages_by_session},
+    session_store::{
+        get_agent_todos_by_session, get_messages_by_session, truncate_history_at_latest_compact,
+    },
     Database,
 };
 use crate::tools::{
@@ -44,6 +46,9 @@ pub fn assemble_agent_messages(
         let db = lock_db(&app_state.db)?;
         get_messages_by_session(&db, &session.id)?
     };
+    // Chat history is retained in the DB after compact. Model context only
+    // includes the latest compact marker and everything after it.
+    let history_records = truncate_history_at_latest_compact(history_records);
     let todos = {
         let db = lock_db(&app_state.db)?;
         get_agent_todos_by_session(&db, &session.id)?
@@ -1273,7 +1278,10 @@ mod tests {
 
     use crate::agent::registry::AgentRegistry;
     use crate::db::records::{current_timestamp_ms, AgentTodoRecord, MessageToolInvocation};
-    use crate::db::session_store::{new_message_id, new_session_id, new_todo_id, put_agent_todo, put_message, put_session};
+    use crate::db::session_store::{
+        new_message_id, new_session_id, new_todo_id, put_agent_todo, put_message, put_session,
+        truncate_history_at_latest_compact,
+    };
     use crate::scheduled_jobs::{ActiveRunRegistry, RunLock};
     use crate::tools::{McpRegistry, PageCache, RemoteConnectionPool, ShellRegistry};
     use crate::{agent, db::Database, AppState, SseBroadcaster};
@@ -1668,5 +1676,227 @@ Prefer deterministic test scaffolding.
         let output = compact_description(&input);
         assert!(output.ends_with("..."));
         assert_eq!(output.chars().count(), 220);
+    }
+
+    #[test]
+    fn truncate_history_at_latest_compact_keeps_marker_and_tail() {
+        let records = vec![
+            MessageRecord {
+                id: "old-user".to_string(),
+                session_id: "s".to_string(),
+                role: "user".to_string(),
+                message_kind: None,
+                content: "old".to_string(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: None,
+                error: None,
+                created_at: 1,
+                duration_ms: None,
+                usage: None,
+            },
+            MessageRecord {
+                id: "compact-1".to_string(),
+                session_id: "s".to_string(),
+                role: "assistant".to_string(),
+                message_kind: Some(crate::db::records::MESSAGE_KIND_COMPACT.to_string()),
+                content: "summary-1".to_string(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: Some("mid-user".to_string()),
+                error: None,
+                created_at: 2,
+                duration_ms: None,
+                usage: None,
+            },
+            MessageRecord {
+                id: "mid-user".to_string(),
+                session_id: "s".to_string(),
+                role: "user".to_string(),
+                message_kind: None,
+                content: "mid".to_string(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: None,
+                error: None,
+                created_at: 3,
+                duration_ms: None,
+                usage: None,
+            },
+            MessageRecord {
+                id: "compact-2".to_string(),
+                session_id: "s".to_string(),
+                role: "assistant".to_string(),
+                message_kind: Some(crate::db::records::MESSAGE_KIND_COMPACT.to_string()),
+                content: "summary-2".to_string(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: Some("new-user".to_string()),
+                error: None,
+                created_at: 4,
+                duration_ms: None,
+                usage: None,
+            },
+            MessageRecord {
+                id: "new-user".to_string(),
+                session_id: "s".to_string(),
+                role: "user".to_string(),
+                message_kind: None,
+                content: "new".to_string(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: None,
+                error: None,
+                created_at: 5,
+                duration_ms: None,
+                usage: None,
+            },
+        ];
+
+        let truncated = truncate_history_at_latest_compact(records);
+        assert_eq!(truncated.len(), 2);
+        assert_eq!(truncated[0].id, "compact-2");
+        assert_eq!(truncated[1].id, "new-user");
+    }
+
+    #[test]
+    fn assemble_agent_messages_cuts_at_latest_compact_marker() {
+        let workspace_dir = temp_dir("compact-cut");
+        let state = create_test_state(&workspace_dir);
+        let session = sample_session(&workspace_dir);
+        let db = state.db.lock().expect("db");
+        put_session(&db, &session).expect("put session");
+        put_message(
+            &db,
+            &MessageRecord {
+                id: new_message_id(),
+                session_id: session.id.clone(),
+                role: "user".to_string(),
+                message_kind: None,
+                content: "ancient history".to_string(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: None,
+                error: None,
+                created_at: 100,
+                duration_ms: None,
+                usage: None,
+            },
+            true,
+        )
+        .expect("put ancient");
+        let kept_id = new_message_id();
+        put_message(
+            &db,
+            &MessageRecord {
+                id: new_message_id(),
+                session_id: session.id.clone(),
+                role: "assistant".to_string(),
+                message_kind: Some(crate::db::records::MESSAGE_KIND_COMPACT.to_string()),
+                content: "## Context Compaction Summary\n\ncompacted context".to_string(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: Some(kept_id.clone()),
+                error: None,
+                created_at: 150,
+                duration_ms: None,
+                usage: None,
+            },
+            true,
+        )
+        .expect("put compact");
+        put_message(
+            &db,
+            &MessageRecord {
+                id: kept_id,
+                session_id: session.id.clone(),
+                role: "user".to_string(),
+                message_kind: None,
+                content: "continue from here".to_string(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: None,
+                error: None,
+                created_at: 200,
+                duration_ms: None,
+                usage: None,
+            },
+            true,
+        )
+        .expect("put kept");
+        drop(db);
+
+        let messages = assemble_agent_messages(&state, &session, Some("agent")).expect("assemble");
+        let non_system = messages
+            .iter()
+            .filter(|message| {
+                !(message.role == "system"
+                    && message
+                        .content
+                        .as_ref()
+                        .and_then(Value::as_str)
+                        .is_some_and(|text| {
+                            text.contains("## Environment")
+                                || text.contains("## Session execution policy")
+                                || text.contains("## Current session todo state")
+                        }))
+            })
+            .collect::<Vec<_>>();
+
+        assert!(non_system.iter().any(|message| {
+            message.role == "system"
+                && message
+                    .content
+                    .as_ref()
+                    .and_then(Value::as_str)
+                    .is_some_and(|text| text.contains("compacted context"))
+        }));
+        assert!(non_system.iter().any(|message| {
+            message.role == "user"
+                && message
+                    .content
+                    .as_ref()
+                    .and_then(Value::as_str)
+                    .is_some_and(|text| text.contains("continue from here"))
+        }));
+        assert!(!messages.iter().any(|message| {
+            message
+                .content
+                .as_ref()
+                .and_then(Value::as_str)
+                .is_some_and(|text| text.contains("ancient history"))
+        }));
     }
 }

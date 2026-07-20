@@ -551,16 +551,23 @@ impl AgentRegistry {
     ///
     /// Called by the /api/compact route. The agent loop will pick this up
     /// on its next cycle and trigger a compaction regardless of token budget.
-    pub fn request_compact(&mut self, task_id: &str) -> bool {
+    pub fn request_compact(&mut self, task_id: &str, force: bool) -> bool {
+        if !self.runs.contains_key(task_id) {
+            return false;
+        }
         self.manual_compact_requests
-            .insert(task_id.to_string(), true);
-        self.runs.contains_key(task_id)
+            .insert(task_id.to_string(), force);
+        true
     }
 
     /// Queue a manual compact for the active agent task bound to `session_id`.
-    pub fn request_compact_for_session(&mut self, session_id: &str) -> Option<String> {
+    pub fn request_compact_for_session(
+        &mut self,
+        session_id: &str,
+        force: bool,
+    ) -> Option<String> {
         let task_id = self.get_session_status(session_id)?.task_id;
-        if self.request_compact(&task_id) {
+        if self.request_compact(&task_id, force) {
             Some(task_id)
         } else {
             None
@@ -569,10 +576,10 @@ impl AgentRegistry {
 
     /// Consume a pending manual compact request.
     ///
-    /// Called by the agent loop. Returns true only once per request —
-    /// the flag is cleared on consumption to avoid repeated compactions.
-    pub fn consume_compact_request(&mut self, task_id: &str) -> bool {
-        self.manual_compact_requests.remove(task_id).unwrap_or(false)
+    /// Called by the agent loop. Returns the requested force flag only once per
+    /// request — the flag is cleared on consumption to avoid repeated compactions.
+    pub fn consume_compact_request(&mut self, task_id: &str) -> Option<bool> {
+        self.manual_compact_requests.remove(task_id)
     }
 }
 

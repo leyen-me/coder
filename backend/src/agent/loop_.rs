@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
-use super::compact::{apply_compact, build_compact_snapshot, compact_tool_result_messages, is_micro_compact_mode, persist_compact_summary, run_compact, should_trigger_compact};
+use super::compact::{apply_compact, build_compact_snapshot, compact_tool_result_messages, is_micro_compact_mode, persist_compact_summary, run_compact, should_trigger_compact, CompactPersistOptions};
 use super::decision::{
     build_final_answer_decision_request, build_proxy_continuation_message, request_proxy_decision,
     DecisionResponse,
@@ -18,7 +18,7 @@ use crate::db::{
         current_timestamp_ms, DecisionOptionRecord, DecisionResponseRecord, MessageProcessStep,
         MessageToolInvocation,
     },
-    session_store::{find_assistant_message_by_task_id, get_session},
+    session_store::{find_assistant_message_by_task_id, get_session, CompactPersistResult},
     Database,
 };
 
@@ -173,13 +173,17 @@ pub async fn run_agent_loop(
                         summary.micro_mode
                     );
                     messages = result.messages;
-                    let db_removed = persist_compact_summary(
+                    let persisted = persist_compact_summary(
                         &app_state.db,
                         params.session_id.as_deref(),
                         &summary,
+                        CompactPersistOptions::default(),
                     )
-                    .map(|persisted| persisted.removed_count)
-                    .unwrap_or(0);
+                    .ok();
+                    let db_removed = persisted
+                        .as_ref()
+                        .map(|value| value.removed_count)
+                        .unwrap_or(0);
                     if db_removed == 0 {
                         log::info!(
                             "auto_compact_db_noop task_id={} in_memory_removed={}",
@@ -192,15 +196,12 @@ pub async fn run_agent_loop(
                         &registry,
                         &broadcaster,
                         &params.task_id,
-                        AgentEvent::CompactCompleted {
-                            task_id: params.task_id.clone(),
-                            removed_count: db_removed.max(result.removed_count) as u32,
-                            summary_preview: summary
-                                .text
-                                .chars()
-                                .take(200)
-                                .collect::<String>(),
-                        },
+                        compact_completed_event(
+                            &params.task_id,
+                            &summary.text,
+                            result.removed_count,
+                            persisted.as_ref(),
+                        ),
                     )?;
                 }
                 Err(error) => {
@@ -232,26 +233,23 @@ pub async fn run_agent_loop(
                                 result.removed_count
                             );
                             messages = result.messages;
-                            let db_removed = persist_compact_summary(
+                            let persisted = persist_compact_summary(
                                 &app_state.db,
                                 params.session_id.as_deref(),
                                 &summary,
+                                CompactPersistOptions::default(),
                             )
-                            .map(|persisted| persisted.removed_count)
-                            .unwrap_or(0);
+                            .ok();
                             emit_event(
                                 &registry,
                                 &broadcaster,
                                 &params.task_id,
-                                AgentEvent::CompactCompleted {
-                                    task_id: params.task_id.clone(),
-                                    removed_count: db_removed.max(result.removed_count) as u32,
-                                    summary_preview: summary
-                                        .text
-                                        .chars()
-                                        .take(200)
-                                        .collect::<String>(),
-                                },
+                                compact_completed_event(
+                                    &params.task_id,
+                                    &summary.text,
+                                    result.removed_count,
+                                    persisted.as_ref(),
+                                ),
                             )?;
                         }
                         Err(retry_error) => {
@@ -272,12 +270,16 @@ pub async fn run_agent_loop(
         // loop cycle we consume it and trigger an immediate compaction
         // regardless of token budget. This lets the user manually request
         // a compact via slash command or frontend action.
-        let manual_requested = {
+        let manual_force = {
             let mut reg = registry.lock().map_err(|_| AgentLoopError::Cancelled)?;
             reg.consume_compact_request(&params.task_id)
         };
-        if manual_requested {
-            log::info!("manual_compact_requested task_id={}", params.task_id);
+        if let Some(force) = manual_force {
+            log::info!(
+                "manual_compact_requested task_id={} force={}",
+                params.task_id,
+                force
+            );
 
             let snapshot = build_compact_snapshot(
                 Vec::new(),
@@ -306,22 +308,23 @@ pub async fn run_agent_loop(
                         result.removed_count
                     );
                     messages = result.messages;
-                    let db_removed = persist_compact_summary(
+                    let persisted = persist_compact_summary(
                         &app_state.db,
                         params.session_id.as_deref(),
                         &summary,
+                        CompactPersistOptions::for_manual(force),
                     )
-                    .map(|persisted| persisted.removed_count)
-                    .unwrap_or(0);
+                    .ok();
                     emit_event(
                         &registry,
                         &broadcaster,
                         &params.task_id,
-                        AgentEvent::CompactCompleted {
-                            task_id: params.task_id.clone(),
-                            removed_count: db_removed.max(result.removed_count) as u32,
-                            summary_preview: summary.text.chars().take(200).collect::<String>(),
-                        },
+                        compact_completed_event(
+                            &params.task_id,
+                            &summary.text,
+                            result.removed_count,
+                            persisted.as_ref(),
+                        ),
                     )?;
                 }
                 Err(error) => {
@@ -985,6 +988,37 @@ fn persist_message_snapshot(
         message.duration_ms = Some(duration_ms);
     }
     crate::db::session_store::put_message(&db, &message, false).map_err(AgentLoopError::Other)
+}
+
+fn compact_completed_event(
+    task_id: &str,
+    summary_text: &str,
+    in_memory_removed: usize,
+    persisted: Option<&CompactPersistResult>,
+) -> AgentEvent {
+    let db_removed = persisted.map(|value| value.removed_count).unwrap_or(0);
+    let removed_count = db_removed.max(in_memory_removed) as u32;
+    let (first_kept_message_id, compact_message_id) = match persisted {
+        Some(value) if value.removed_count > 0 => (
+            value.first_kept_message_id.clone(),
+            if value.compact_message_id.is_empty() {
+                None
+            } else {
+                Some(value.compact_message_id.clone())
+            },
+        ),
+        // Persist failed or was a noop — leave placement unset so the UI can
+        // fall back to an estimate instead of inventing a false history point.
+        _ => (None, None),
+    };
+
+    AgentEvent::CompactCompleted {
+        task_id: task_id.to_string(),
+        removed_count,
+        summary_preview: summary_text.chars().take(200).collect::<String>(),
+        first_kept_message_id,
+        compact_message_id,
+    }
 }
 
 fn emit_event(

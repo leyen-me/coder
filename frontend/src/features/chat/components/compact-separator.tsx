@@ -5,7 +5,6 @@ import {
   FoldVerticalIcon,
   LoaderCircleIcon,
 } from "lucide-react";
-import { useState } from "react";
 
 import {
   Collapsible,
@@ -48,7 +47,7 @@ export function compactPreviewFromContent(content: string): string {
       ? content.slice(summaryStart + COMPACT_SUMMARY_MARKER.length)
       : content;
 
-  return previewSource.trim().slice(0, 120);
+  return previewSource.trim();
 }
 
 export function detectCompactBoundaries(
@@ -63,7 +62,7 @@ export function detectCompactBoundaries(
       const text = extractStringContent(msg.content) ?? "";
       return {
         messageIndex: index,
-        preview: compactPreviewFromContent(text),
+        preview: compactPreviewFromContent(text).slice(0, 120),
       };
     })
     .filter((boundary): boundary is CompactBoundary => boundary !== null);
@@ -99,8 +98,8 @@ type CompactBoundaryBannerProps = {
 type PhasePresentation = {
   containerClassName: string;
   iconShellClassName: string;
-  iconSize: "md" | "sm";
   roundedClassName: string;
+  compact: boolean;
 };
 
 function getPhasePresentation(phase: SessionCompactUiPhase): PhasePresentation {
@@ -110,16 +109,16 @@ function getPhasePresentation(phase: SessionCompactUiPhase): PhasePresentation {
         containerClassName:
           "border-destructive/25 bg-destructive/5 dark:bg-destructive/10",
         iconShellClassName: "bg-destructive/10 text-destructive",
-        iconSize: "sm",
         roundedClassName: "rounded-xl",
+        compact: true,
       };
     case "noop":
       return {
         containerClassName:
           "border-border/40 border-dashed bg-muted/15 dark:bg-muted/10",
         iconShellClassName: "bg-muted text-muted-foreground",
-        iconSize: "sm",
         roundedClassName: "rounded-xl",
+        compact: true,
       };
     case "loading":
     case "queued":
@@ -127,8 +126,8 @@ function getPhasePresentation(phase: SessionCompactUiPhase): PhasePresentation {
         containerClassName:
           "border-border/50 bg-muted/25 dark:bg-muted/15",
         iconShellClassName: "bg-muted text-muted-foreground",
-        iconSize: "sm",
         roundedClassName: "rounded-xl",
+        compact: true,
       };
     case "success":
     default:
@@ -136,8 +135,8 @@ function getPhasePresentation(phase: SessionCompactUiPhase): PhasePresentation {
         containerClassName:
           "border-border/60 bg-muted/20 dark:bg-muted/10",
         iconShellClassName: "bg-foreground/5 text-muted-foreground",
-        iconSize: "md",
         roundedClassName: "rounded-2xl",
+        compact: false,
       };
   }
 }
@@ -145,14 +144,14 @@ function getPhasePresentation(phase: SessionCompactUiPhase): PhasePresentation {
 function PhaseIcon({
   phase,
   iconShellClassName,
-  iconSize,
+  compact,
 }: {
   phase: SessionCompactUiPhase;
   iconShellClassName: string;
-  iconSize: "md" | "sm";
+  compact: boolean;
 }) {
-  const shellSize = iconSize === "md" ? "size-8" : "size-7";
-  const glyphSize = iconSize === "md" ? "size-4" : "size-3.5";
+  const shellSize = compact ? "size-7" : "size-8";
+  const glyphSize = compact ? "size-3.5" : "size-4";
 
   return (
     <div
@@ -175,28 +174,23 @@ function PhaseIcon({
   );
 }
 
-function CompactSummaryPreview({ preview }: { preview: string }) {
+function CompactSummaryCollapsible({ preview }: { preview: string }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const trimmed = preview.trim();
 
-  if (!preview.trim()) {
+  if (!trimmed) {
     return null;
   }
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
+    <Collapsible defaultOpen={false}>
       <CollapsibleTrigger className="group inline-flex items-center gap-1 text-muted-foreground text-xs underline-offset-4 hover:text-foreground hover:underline">
-        {open ? t("chat.compactHideSummary") : t("chat.compactViewSummary")}
-        <ChevronDownIcon
-          className={cn(
-            "size-3.5 transition-transform",
-            open ? "rotate-180" : "rotate-0",
-          )}
-        />
+        {t("chat.compactViewSummary")}
+        <ChevronDownIcon className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-2">
-        <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-relaxed">
-          {preview}
+        <p className="whitespace-pre-wrap rounded-xl border border-border/50 bg-background/60 px-3 py-2.5 text-muted-foreground text-sm leading-relaxed dark:bg-background/20">
+          {trimmed}
         </p>
       </CollapsibleContent>
     </Collapsible>
@@ -216,57 +210,45 @@ export function CompactBoundaryBanner({
   const presentation = getPhasePresentation(phase);
   const title = t(titleKey, titleParams);
   const body = description ?? t(descriptionKey, titleParams);
-  const isMilestone = phase === "success";
-
-  if (isMilestone) {
-    return (
-      <div
-        className={cn(
-          "overflow-hidden border px-4 py-3",
-          presentation.roundedClassName,
-          presentation.containerClassName,
-          className,
-        )}
-        data-compact-phase={phase}
-      >
-        <div className="flex items-start gap-3">
-          <PhaseIcon
-            phase={phase}
-            iconShellClassName={presentation.iconShellClassName}
-            iconSize={presentation.iconSize}
-          />
-          <div className="min-w-0 flex-1 space-y-1">
-            <p className="font-medium text-foreground text-sm">{title}</p>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              {body}
-            </p>
-            {preview ? <CompactSummaryPreview preview={preview} /> : null}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div
       className={cn(
-        "overflow-hidden border px-3 py-2.5",
+        "overflow-hidden border",
         presentation.roundedClassName,
         presentation.containerClassName,
+        presentation.compact ? "px-3 py-2.5" : "px-4 py-3",
         className,
       )}
       data-compact-phase={phase}
-      role="status"
+      role={phase === "success" ? undefined : "status"}
     >
-      <div className="flex items-start gap-2.5">
+      <div
+        className={cn(
+          "flex items-start",
+          presentation.compact ? "gap-2.5" : "gap-3",
+        )}
+      >
         <PhaseIcon
           phase={phase}
+          compact={presentation.compact}
           iconShellClassName={presentation.iconShellClassName}
-          iconSize={presentation.iconSize}
         />
-        <div className="min-w-0 flex-1 space-y-0.5">
+        <div
+          className={cn(
+            "min-w-0 flex-1",
+            presentation.compact ? "space-y-0.5" : "space-y-1",
+          )}
+        >
           <p className="font-medium text-foreground text-sm">{title}</p>
-          <p className="text-muted-foreground text-sm leading-relaxed">{body}</p>
+          {body ? (
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              {body}
+            </p>
+          ) : null}
+          {preview && phase === "success" ? (
+            <CompactSummaryCollapsible preview={preview} />
+          ) : null}
         </div>
       </div>
     </div>

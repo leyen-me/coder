@@ -247,7 +247,9 @@ pub fn copy_active_agent_todos(
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompactPersistResult {
     pub compact_message_id: String,
+    /// Kept for API compatibility. Always empty — compact no longer deletes history.
     pub deleted_message_ids: Vec<String>,
+    /// Conversation messages compacted out of the model context (not deleted).
     pub removed_count: usize,
     pub anchor_after_message_id: Option<String>,
     pub first_kept_message_id: Option<String>,
@@ -306,16 +308,31 @@ pub fn estimate_compact_anchor_after_message_id(records: &[MessageRecord]) -> Op
 
 const COMPACT_USER_MESSAGE_MAX_TOKENS: u32 = 20_000;
 
+/// Keep only the latest compact marker and subsequent messages.
+/// Older conversation rows remain in the DB for the UI timeline.
+pub fn truncate_history_at_latest_compact(
+    records: Vec<crate::db::records::MessageRecord>,
+) -> Vec<crate::db::records::MessageRecord> {
+    let latest_compact_idx = records.iter().rposition(|message| {
+        message.message_kind.as_deref() == Some(super::records::MESSAGE_KIND_COMPACT)
+    });
+    match latest_compact_idx {
+        Some(index) => records.into_iter().skip(index).collect(),
+        None => records,
+    }
+}
+
 /// Persist a compaction boundary into the session message timeline.
 ///
-/// Deletes older conversation messages, inserts a compact marker message at the
-/// split point, and removes any previous compact markers in the deleted range.
+/// Inserts a compact marker at the split point. Chat history is never deleted —
+/// only the model prompt assembly truncates at the latest marker.
 pub fn persist_session_compact(
     db: &Database,
     session_id: &str,
     summary_text: &str,
     max_tail_tokens: u32,
     summary_prefix: &str,
+    force: bool,
 ) -> Result<CompactPersistResult, String> {
     let records = get_messages_by_session(db, session_id)?;
     let conversation: Vec<(usize, &MessageRecord)> = records
@@ -328,13 +345,17 @@ pub fn persist_session_compact(
         return Err("Not enough messages to compact.".to_string());
     }
 
-    let keep_count = select_tail_record_count(
+    let mut keep_count = select_tail_record_count(
         &conversation
             .iter()
             .map(|(_, record)| *record)
             .collect::<Vec<_>>(),
         max_tail_tokens,
     );
+
+    if force && conversation.len() >= 2 && keep_count >= conversation.len() {
+        keep_count = 1;
+    }
 
     if keep_count == 0 || keep_count >= conversation.len() {
         return Ok(CompactPersistResult {
@@ -349,8 +370,7 @@ pub fn persist_session_compact(
     let split_conversation_idx = conversation.len() - keep_count;
     let first_kept_index = conversation[split_conversation_idx].0;
     let first_kept = records[first_kept_index].clone();
-    let deleted = records[..first_kept_index].to_vec();
-    if deleted.is_empty() {
+    if split_conversation_idx == 0 {
         return Ok(CompactPersistResult {
             compact_message_id: String::new(),
             deleted_message_ids: Vec::new(),
@@ -360,25 +380,16 @@ pub fn persist_session_compact(
         });
     }
 
-    let anchor_after_message_id = if first_kept_index > 0 {
-        Some(records[first_kept_index - 1].id.clone())
+    let anchor_after = conversation[split_conversation_idx - 1].1;
+    let previous_ts = anchor_after.created_at;
+    let next_ts = first_kept.created_at;
+    let compact_created_at = if next_ts > previous_ts.saturating_add(1) {
+        previous_ts + (next_ts - previous_ts) / 2
     } else {
-        None
+        previous_ts
+            .saturating_add(1)
+            .min(next_ts.saturating_sub(1).max(previous_ts))
     };
-    let compact_created_at = if first_kept_index > 0 {
-        let previous = &records[first_kept_index - 1];
-        if first_kept.created_at > previous.created_at.saturating_add(1) {
-            previous.created_at + (first_kept.created_at - previous.created_at) / 2
-        } else {
-            first_kept.created_at.saturating_sub(1)
-        }
-    } else {
-        first_kept.created_at.saturating_sub(1)
-    };
-
-    for record in &deleted {
-        db.delete(MESSAGES_STORE, &record.id)?;
-    }
 
     let compact_message = MessageRecord {
         id: new_message_id(),
@@ -394,7 +405,7 @@ pub fn persist_session_compact(
         process_steps: None,
         tool_invocations: Vec::new(),
         status: "completed".to_string(),
-        task_id: None,
+        task_id: Some(first_kept.id.clone()),
         error: None,
         created_at: compact_created_at,
         duration_ms: None,
@@ -405,9 +416,9 @@ pub fn persist_session_compact(
 
     Ok(CompactPersistResult {
         compact_message_id: compact_message.id,
-        deleted_message_ids: deleted.into_iter().map(|record| record.id).collect(),
-        removed_count: first_kept_index,
-        anchor_after_message_id,
+        deleted_message_ids: Vec::new(),
+        removed_count: split_conversation_idx,
+        anchor_after_message_id: Some(anchor_after.id.clone()),
         first_kept_message_id: Some(first_kept.id),
     })
 }
@@ -477,7 +488,7 @@ mod compact_persist_tests {
     }
 
     #[test]
-    fn persist_session_compact_deletes_old_messages_and_inserts_marker() {
+    fn persist_session_compact_keeps_history_and_inserts_marker() {
         let coder_dir = std::env::temp_dir().join(format!(
             "coder-compact-persist-{}",
             std::time::SystemTime::now()
@@ -500,10 +511,12 @@ mod compact_persist_tests {
             "summary body",
             20,
             "prefix\n\n",
+            false,
         )
         .expect("persist");
 
         assert_eq!(result.removed_count, 2);
+        assert!(result.deleted_message_ids.is_empty());
         assert!(!result.compact_message_id.is_empty());
         assert_eq!(
             result.anchor_after_message_id.as_deref(),
@@ -511,10 +524,51 @@ mod compact_persist_tests {
         );
 
         let messages = get_messages_by_session(&db, session_id).expect("messages");
+        assert_eq!(messages.len(), 5);
+        assert_eq!(messages[0].content, "first question");
+        assert_eq!(messages[1].content, "first answer");
+        assert_eq!(messages[2].message_kind.as_deref(), Some("compact"));
+        assert!(messages[2].content.contains("summary body"));
+        assert_eq!(messages[3].content, "second question");
+        assert_eq!(messages[4].content, "second answer");
+        assert_eq!(
+            messages[2].task_id.as_deref(),
+            result.first_kept_message_id.as_deref()
+        );
+    }
+
+    #[test]
+    fn persist_session_compact_force_splits_even_when_tail_fits() {
+        let coder_dir = std::env::temp_dir().join(format!(
+            "coder-compact-force-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&coder_dir).expect("temp dir");
+        let db = Database::new(&coder_dir).expect("db");
+        let session_id = "session-compact-force";
+        seed_session(&db, session_id);
+        seed_message(&db, session_id, "user", "short", 100);
+        seed_message(&db, session_id, "assistant", "reply", 101);
+
+        let result = persist_session_compact(
+            &db,
+            session_id,
+            "forced summary",
+            20_000,
+            "prefix\n\n",
+            true,
+        )
+        .expect("persist");
+
+        assert_eq!(result.removed_count, 1);
+        assert!(result.deleted_message_ids.is_empty());
+        let messages = get_messages_by_session(&db, session_id).expect("messages");
         assert_eq!(messages.len(), 3);
-        assert_eq!(messages[0].message_kind.as_deref(), Some("compact"));
-        assert!(messages[0].content.contains("summary body"));
-        assert_eq!(messages[1].content, "second question");
-        assert_eq!(messages[2].content, "second answer");
+        assert_eq!(messages[0].content, "short");
+        assert_eq!(messages[1].message_kind.as_deref(), Some("compact"));
+        assert_eq!(messages[2].content, "reply");
     }
 }
