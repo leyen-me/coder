@@ -356,7 +356,8 @@ pub async fn refine_prompt(
 impl AgentRegistry {
     pub fn cancel(&mut self, task_id: &str) -> Result<(), String> {
         let Some(run) = self.runs.get_mut(task_id) else {
-            return Err(format!("Task not found: {task_id}"));
+            // Idempotent: the run may already have finished and been removed.
+            return Ok(());
         };
 
         if matches!(
@@ -648,5 +649,15 @@ mod tests {
         assert!(is_active_run_status(&AgentStatus::Running));
         assert!(is_active_run_status(&AgentStatus::Cancelling));
         assert!(is_active_run_status(&AgentStatus::Pending));
+    }
+
+    #[test]
+    fn cancel_missing_task_is_idempotent() {
+        let mut registry = AgentRegistry {
+            client: Client::new(),
+            runs: HashMap::new(),
+            manual_compact_requests: HashMap::new(),
+        };
+        assert!(registry.cancel("already-gone").is_ok());
     }
 }

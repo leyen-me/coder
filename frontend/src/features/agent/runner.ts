@@ -180,12 +180,12 @@ export async function startAgent(
 }
 
 export async function cancelAgent(taskId: string): Promise<void> {
-  activeConnections.get(taskId)?.close();
-  activeConnections.delete(taskId);
+  // Keep the SSE connection open so the cancelled terminal status can arrive.
+  // Closing early leaves the UI stuck in "cancelling".
   try {
     await apiPost("/agent/cancel", { taskId });
   } catch {
-    // best effort
+    // best effort — task may already have finished and been removed
   }
 }
 

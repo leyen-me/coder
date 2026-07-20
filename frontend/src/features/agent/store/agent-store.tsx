@@ -49,6 +49,7 @@ import { resolveContextWindowForModel } from "../headless-runner";
 import { buildThinkingRequestExtensions, resolveDefaultThinkingEnabled } from "../thinking-preference";
 import {
   cancelAgent,
+  getAgentStatus,
   getAgentSessionStatus,
   regenerateAgentMessage,
   resumeAgentStream,
@@ -112,6 +113,8 @@ const StreamingOverlaysContext = createContext<
 
 const TERMINAL_STATUS_SETTLE_DELAY_MS = 150;
 const TERMINAL_OVERLAY_CLEAR_DELAY_MS = 320;
+/** If SSE misses the cancelled event after /agent/cancel, force local settle. */
+const CANCEL_STATUS_FALLBACK_MS = 2_000;
 
 type AgentStoreProviderProps = {
   children: ReactNode;
@@ -244,6 +247,32 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
       tasksRef.current.set(taskId, { ...task, chatRetry: null });
       emit();
+    },
+    [emit]
+  );
+
+  /**
+   * Drop stale in-memory tasks for a session when a newer run takes over.
+   * Otherwise getSessionTask may return an old taskId that the backend already
+   * removed — cancel then 400s, while refresh (clean resume) still works.
+   */
+  const retireOtherSessionTasks = useCallback(
+    (sessionId: string, keepTaskId: string) => {
+      let changed = false;
+      for (const [taskId, task] of [...tasksRef.current.entries()]) {
+        if (task.sessionId !== sessionId || taskId === keepTaskId) {
+          continue;
+        }
+        taskAbortControllersRef.current.get(taskId)?.abort();
+        taskAbortControllersRef.current.delete(taskId);
+        clearAgentEventSeq(lastEventSeqRef.current, taskId);
+        eventChainsRef.current.delete(taskId);
+        tasksRef.current.delete(taskId);
+        changed = true;
+      }
+      if (changed) {
+        emit();
+      }
     },
     [emit]
   );
@@ -672,6 +701,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         decisionPolicyVersion: input.decisionPolicyVersion,
         decisionModel: input.decisionModel,
       };
+      retireOtherSessionTasks(input.sessionId, input.taskId);
       tasksRef.current.set(input.taskId, activeTask);
       taskAbortControllersRef.current.get(input.taskId)?.abort();
       const abortController = new AbortController();
@@ -715,10 +745,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         taskId: input.taskId,
       };
     },
-    [
-      dispatchAgentEvent,
-      emit,
-    ]
+    [dispatchAgentEvent, emit, retireOtherSessionTasks]
   );
 
   const resumeSessionTask = useCallback(
@@ -816,6 +843,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         processSteps: assistantMessage.processSteps ?? [],
         toolInvocations: assistantMessage.toolInvocations ?? [],
       });
+      retireOtherSessionTasks(sessionId, status.taskId);
       tasksRef.current.set(status.taskId, activeTask);
       taskAbortControllersRef.current.get(status.taskId)?.abort();
       const abortController = new AbortController();
@@ -864,7 +892,13 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         resumeInflightRef.current.delete(sessionId);
       }
     },
-    [clearSessionHandoffState, dispatchAgentEvent, emit, setSessionHandoffState],
+    [
+      clearSessionHandoffState,
+      dispatchAgentEvent,
+      emit,
+      retireOtherSessionTasks,
+      setSessionHandoffState,
+    ],
   );
 
   const sendMessage = useCallback(
@@ -1133,10 +1167,68 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
       tasksRef.current.set(taskId, { ...task, status: "cancelling" });
       emit();
-      taskAbortControllersRef.current.get(taskId)?.abort();
+
+      // Do not abort the SSE AbortController here. Aborting closes the stream
+      // before the cancelled status can arrive, which leaves the UI stuck.
       await cancelAgent(taskId);
+
+      const stillCancelling = () => {
+        const current = tasksRef.current.get(taskId);
+        return current?.status === "cancelling" ? current : null;
+      };
+
+      // Stale local taskId: backend already dropped this run, but the session
+      // may still have a newer active task (refresh would rediscover it).
+      let remoteStatus = await getAgentStatus(taskId);
+      if (!remoteStatus) {
+        const sessionStatus = await getAgentSessionStatus(task.sessionId);
+        if (
+          sessionStatus?.running &&
+          sessionStatus.taskId &&
+          sessionStatus.taskId !== taskId
+        ) {
+          await cancelAgent(sessionStatus.taskId);
+          remoteStatus = await getAgentStatus(sessionStatus.taskId);
+          const liveTask = tasksRef.current.get(sessionStatus.taskId);
+          if (liveTask && liveTask.status !== "cancelling") {
+            tasksRef.current.set(sessionStatus.taskId, {
+              ...liveTask,
+              status: "cancelling",
+            });
+            emit();
+          }
+        }
+      }
+
+      const pending = stillCancelling();
+      if (!pending) {
+        return;
+      }
+      if (
+        !remoteStatus ||
+        isTerminalStatus(remoteStatus.status as AgentStatus)
+      ) {
+        dispatchAgentEvent(taskId, pending.assistantMessageId, {
+          type: "status",
+          taskId,
+          status: "cancelled",
+        });
+        return;
+      }
+
+      window.setTimeout(() => {
+        const stuck = stillCancelling();
+        if (!stuck) {
+          return;
+        }
+        dispatchAgentEvent(taskId, stuck.assistantMessageId, {
+          type: "status",
+          taskId,
+          status: "cancelled",
+        });
+      }, CANCEL_STATUS_FALLBACK_MS);
     },
-    [emit]
+    [dispatchAgentEvent, emit]
   );
 
   const isSessionRunning = useCallback(
@@ -1160,12 +1252,19 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
   const getSessionTask = useCallback(
     (sessionId: string) => {
+      // Prefer the newest non-terminal task. Map iteration is insertion-ordered,
+      // so the last match is the latest run for this session.
+      let latest: ActiveTaskState | null = null;
       for (const task of activeTasks.values()) {
-        if (task.sessionId === sessionId) {
-          return task;
+        if (task.sessionId !== sessionId) {
+          continue;
         }
+        if (isTerminalStatus(task.status)) {
+          continue;
+        }
+        latest = task;
       }
-      return null;
+      return latest;
     },
     [activeTasks]
   );
