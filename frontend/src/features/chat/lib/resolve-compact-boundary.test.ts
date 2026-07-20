@@ -32,47 +32,65 @@ function message(
 
 describe("resolveCompactBoundaryRenders", () => {
   const oldUser = message({ id: "old-1", role: "user", createdAt: 10 });
+  const kept1 = message({ id: "kept-1", role: "user", createdAt: 20 });
+  const mid = message({ id: "mid-1", role: "assistant", createdAt: 25 });
   const compact1 = message({
     id: "compact-1",
     role: "assistant",
     messageKind: "compact",
     taskId: "kept-1",
     content: "## Context Compaction Summary\n\nfirst",
-    createdAt: 15,
+    createdAt: 26,
   });
-  const kept1 = message({ id: "kept-1", role: "user", createdAt: 20 });
-  const mid = message({ id: "mid-1", role: "assistant", createdAt: 25 });
+  const kept2 = message({ id: "kept-2", role: "user", createdAt: 35 });
+  const last = message({ id: "last-1", role: "assistant", createdAt: 40 });
   const compact2 = message({
     id: "compact-2",
     role: "assistant",
     messageKind: "compact",
     taskId: "kept-2",
     content: "## Context Compaction Summary\n\nsecond",
-    createdAt: 30,
+    createdAt: 41,
   });
-  const kept2 = message({ id: "kept-2", role: "user", createdAt: 35 });
-  const messages = [oldUser, compact1, kept1, mid, compact2, kept2];
+  const messages = [oldUser, kept1, mid, compact1, kept2, last, compact2];
 
-  it("renders every persisted compact at its real first-kept message", () => {
+  it("renders every persisted compact after its real event message", () => {
     const renders = resolveCompactBoundaryRenders(messages, null);
-    expect(renders.map((render) => render.beforeMessageId)).toEqual([
-      "kept-1",
-      "kept-2",
+    expect(renders.map((render) => render.afterMessageId)).toEqual([
+      "mid-1",
+      "last-1",
     ]);
   });
 
-  it("keeps history markers while overlaying a temporary loading tip", () => {
+  it("repairs legacy mid-inserted markers to the end of that compact era", () => {
+    const legacy = [
+      message({ id: "a", role: "user", createdAt: 1 }),
+      message({ id: "b", role: "user", createdAt: 2, content: "没事" }),
+      message({
+        id: "compact-legacy",
+        role: "assistant",
+        messageKind: "compact",
+        taskId: "c",
+        createdAt: 3,
+      }),
+      message({ id: "c", role: "assistant", createdAt: 4, content: "好的" }),
+    ];
+    const renders = resolveCompactBoundaryRenders(legacy, null);
+    expect(renders).toHaveLength(1);
+    expect(renders[0]?.afterMessageId).toBe("c");
+  });
+
+  it("keeps history markers while overlaying a temporary loading tip at the end", () => {
     const loading: SessionCompactUiState = {
       phase: "loading",
-      boundaryBeforeMessageId: "kept-2",
+      boundaryAfterMessageId: "last-1",
       i18nKey: "chat.compactInProgress",
     };
     const renders = resolveCompactBoundaryRenders(messages, loading);
-    expect(renders).toHaveLength(2);
-    expect(renders.find((render) => render.beforeMessageId === "kept-1")?.phase).toBe(
+    expect(renders.find((render) => render.afterMessageId === "mid-1")?.phase).toBe(
       "success",
     );
-    expect(renders.find((render) => render.beforeMessageId === "kept-2")?.phase).toBe(
+    expect(renders.find((render) => render.afterMessageId === "last-1")?.phase).toBe(
       "loading",
     );
   });
@@ -80,38 +98,21 @@ describe("resolveCompactBoundaryRenders", () => {
   it("success ui overlays the matching real event without inventing placement", () => {
     const compactUi: SessionCompactUiState = {
       phase: "success",
-      boundaryBeforeMessageId: "kept-2",
+      boundaryAfterMessageId: "last-1",
       i18nKey: "chat.compactSuccess",
       preview: "second",
     };
     const renders = resolveCompactBoundaryRenders(messages, compactUi);
-    expect(renders.map((render) => render.beforeMessageId)).toEqual([
-      "kept-1",
-      "kept-2",
+    expect(renders.map((render) => render.afterMessageId)).toEqual([
+      "mid-1",
+      "last-1",
     ]);
     expect(renders.at(-1)?.preview).toBe("second");
   });
 
-  it("does not invent a historical success placement without a real compact point", () => {
-    const compactUi: SessionCompactUiState = {
-      phase: "success",
-      boundaryBeforeMessageId: "missing",
-      i18nKey: "chat.compactSuccess",
-    };
-    expect(
-      resolveCompactBoundaryRenders(
-        [
-          message({ id: "a", role: "user", createdAt: 1 }),
-          message({ id: "b", role: "assistant", createdAt: 2 }),
-        ],
-        compactUi,
-      ),
-    ).toEqual([]);
-  });
-
   it("legacy single-render helper returns the latest event", () => {
-    expect(resolveCompactBoundaryRender(messages, null)?.beforeMessageId).toBe(
-      "kept-2",
+    expect(resolveCompactBoundaryRender(messages, null)?.afterMessageId).toBe(
+      "last-1",
     );
   });
 });
@@ -119,30 +120,32 @@ describe("resolveCompactBoundaryRenders", () => {
 describe("compactUiFromApiResponse / compactUiFromAgentCompleted", () => {
   const messages = [
     message({ id: "old", role: "user", createdAt: 1 }),
+    message({ id: "kept-1", role: "user", createdAt: 20 }),
+    message({ id: "last", role: "assistant", createdAt: 30 }),
     message({
       id: "compact-1",
       role: "assistant",
       messageKind: "compact",
       taskId: "kept-1",
-      createdAt: 10,
+      createdAt: 31,
     }),
-    message({ id: "kept-1", role: "user", createdAt: 20 }),
   ];
 
-  it("success from api uses firstKeptMessageId, never an estimate", () => {
+  it("success from api uses anchorAfterMessageId for UI placement", () => {
     const state = compactUiFromApiResponse(messages, {
       ok: true,
       compacted: true,
       code: "compacted",
       removedCount: 1,
-      remainingCount: 1,
+      remainingCount: 2,
       firstKeptMessageId: "kept-1",
       compactMessageId: "compact-1",
+      anchorAfterMessageId: "last",
       summaryPreview: "summary",
     });
     expect(state).toMatchObject({
       phase: "success",
-      boundaryBeforeMessageId: "kept-1",
+      boundaryAfterMessageId: "last",
     });
   });
 
@@ -152,12 +155,13 @@ describe("compactUiFromApiResponse / compactUiFromAgentCompleted", () => {
       summaryPreview: "summary",
       firstKeptMessageId: "kept-1",
       compactMessageId: "compact-1",
+      anchorAfterMessageId: "last",
     });
-    expect(state.boundaryBeforeMessageId).toBe("kept-1");
-    expect(state.i18nParams?.remainingCount).toBe(1);
+    expect(state.boundaryAfterMessageId).toBe("last");
+    expect(state.i18nParams?.remainingCount).toBe(2);
   });
 
-  it("noop remains a temporary tip, not a historical compact event", () => {
+  it("noop remains a temporary tip at the latest message", () => {
     const state = compactUiFromAgentCompleted(
       [
         message({ id: "a", role: "user", createdAt: 1 }),
@@ -169,6 +173,6 @@ describe("compactUiFromApiResponse / compactUiFromAgentCompleted", () => {
       },
     );
     expect(state.phase).toBe("noop");
-    expect(state.boundaryBeforeMessageId).toBeTruthy();
+    expect(state.boundaryAfterMessageId).toBe("b");
   });
 });

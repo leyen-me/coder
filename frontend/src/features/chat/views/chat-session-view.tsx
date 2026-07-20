@@ -54,7 +54,7 @@ import {
   compactUiFromApiResponse,
   type CompactApiResponse,
 } from "../lib/compact-response";
-import { estimateCompactBoundaryBeforeMessageId } from "../lib/estimate-compact-anchor";
+import { estimateCompactEventAfterMessageId } from "../lib/estimate-compact-anchor";
 import {
   setSessionCompactUi,
   useSessionCompactUi,
@@ -566,13 +566,11 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   useEffect(() => {
     const handler = () => {
       const currentMessages = displayMessagesRef.current;
-      const boundaryBeforeMessageId = estimateCompactBoundaryBeforeMessageId(
-        currentMessages,
-        { force: import.meta.env.DEV },
-      );
+      const boundaryAfterMessageId =
+        estimateCompactEventAfterMessageId(currentMessages);
       setSessionCompactUi(chatId, {
         phase: "loading",
-        boundaryBeforeMessageId,
+        boundaryAfterMessageId,
         i18nKey: "chat.compactInProgress",
       });
 
@@ -596,7 +594,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         .catch(() => {
           setSessionCompactUi(chatId, {
             phase: "error",
-            boundaryBeforeMessageId,
+            boundaryAfterMessageId,
             i18nKey: "chat.compactFailed",
           });
         });
@@ -653,6 +651,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         summaryPreview: string;
         firstKeptMessageId?: string | null;
         compactMessageId?: string | null;
+        anchorAfterMessageId?: string | null;
       }>).detail;
       if (!detail || detail.sessionId !== chatId) {
         return;
@@ -677,6 +676,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
                 detail.firstKeptMessageId ?? compactMessage?.taskId ?? null,
               compactMessageId:
                 detail.compactMessageId ?? compactMessage?.id ?? null,
+              anchorAfterMessageId: detail.anchorAfterMessageId ?? null,
             }),
           );
         });

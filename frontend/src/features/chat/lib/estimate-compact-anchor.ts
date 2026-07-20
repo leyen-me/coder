@@ -56,8 +56,18 @@ function selectTailKeepCount(
 }
 
 /**
- * The first message in the kept tail — render the compact banner immediately
- * BEFORE this message (same slot as the loading overlay).
+ * UI event point for a pending compact: immediately AFTER the latest
+ * conversation message (where the user triggered compact).
+ */
+export function estimateCompactEventAfterMessageId(
+  messages: readonly MessageRecord[],
+): string | null {
+  return conversationMessages(messages).at(-1)?.id ?? null;
+}
+
+/**
+ * Model-context cursor: first message in the kept tail.
+ * Not used for UI placement.
  */
 export function estimateCompactBoundaryBeforeMessageId(
   messages: readonly MessageRecord[],
@@ -73,22 +83,9 @@ export function estimateCompactBoundaryBeforeMessageId(
   return conversation[firstKeptIndex]?.id ?? null;
 }
 
-/** @deprecated Prefer `estimateCompactBoundaryBeforeMessageId`. */
+/** @deprecated Prefer `estimateCompactEventAfterMessageId`. */
 export function estimateCompactAnchorAfterMessageId(
   messages: readonly MessageRecord[],
 ): string | null {
-  const conversation = conversationMessages(messages);
-  const boundaryBefore = estimateCompactBoundaryBeforeMessageId(messages);
-  if (!boundaryBefore) {
-    return null;
-  }
-
-  const firstKeptIndex = conversation.findIndex(
-    (message) => message.id === boundaryBefore,
-  );
-  if (firstKeptIndex <= 0) {
-    return null;
-  }
-
-  return conversation[firstKeptIndex - 1]?.id ?? null;
+  return estimateCompactEventAfterMessageId(messages);
 }

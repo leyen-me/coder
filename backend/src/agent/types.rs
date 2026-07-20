@@ -168,6 +168,9 @@ pub enum AgentEvent {
         first_kept_message_id: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         compact_message_id: Option<String>,
+        /// UI event point: render the compact banner after this message.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        anchor_after_message_id: Option<String>,
     },
     #[serde(rename = "chat_retry")]
     ChatRetry {

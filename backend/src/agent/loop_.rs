@@ -998,7 +998,7 @@ fn compact_completed_event(
 ) -> AgentEvent {
     let db_removed = persisted.map(|value| value.removed_count).unwrap_or(0);
     let removed_count = db_removed.max(in_memory_removed) as u32;
-    let (first_kept_message_id, compact_message_id) = match persisted {
+    let (first_kept_message_id, compact_message_id, anchor_after_message_id) = match persisted {
         Some(value) if value.removed_count > 0 => (
             value.first_kept_message_id.clone(),
             if value.compact_message_id.is_empty() {
@@ -1006,10 +1006,11 @@ fn compact_completed_event(
             } else {
                 Some(value.compact_message_id.clone())
             },
+            value.anchor_after_message_id.clone(),
         ),
         // Persist failed or was a noop — leave placement unset so the UI can
         // fall back to an estimate instead of inventing a false history point.
-        _ => (None, None),
+        _ => (None, None, None),
     };
 
     AgentEvent::CompactCompleted {
@@ -1018,6 +1019,7 @@ fn compact_completed_event(
         summary_preview: summary_text.chars().take(200).collect::<String>(),
         first_kept_message_id,
         compact_message_id,
+        anchor_after_message_id,
     }
 }
 

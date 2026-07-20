@@ -166,7 +166,7 @@ export function MessageList({
   const compactBoundaryByMessageId = useMemo(() => {
     const map = new Map<string, (typeof compactBoundaries)[number]>();
     for (const boundary of compactBoundaries) {
-      map.set(boundary.beforeMessageId, boundary);
+      map.set(boundary.afterMessageId, boundary);
     }
     return map;
   }, [compactBoundaries]);
@@ -547,9 +547,8 @@ export function MessageList({
     return null;
   };
 
-  // Compact is a timeline event: render every real compact slot
-  // (immediately before each first-kept conversation message).
-  const renderCompactBoundaryBefore = (messageId: string) => {
+  // Compact is a timeline event: render after the message where compact happened.
+  const renderCompactBoundaryAfter = (messageId: string) => {
     const compactBoundary = compactBoundaryByMessageId.get(messageId);
     if (!compactBoundary) {
       return null;
@@ -641,8 +640,8 @@ export function MessageList({
                         )}
                       >
                         {renderBuildBoundarySeparator(index)}
-                        {renderCompactBoundaryBefore(message.id)}
                         {renderMessage(message)}
+                        {renderCompactBoundaryAfter(message.id)}
                       </div>
                     </div>
                   );
@@ -654,8 +653,8 @@ export function MessageList({
             timelineMessages.map((message, index) => (
               <Fragment key={message.id}>
                 {renderBuildBoundarySeparator(index)}
-                {renderCompactBoundaryBefore(message.id)}
                 {renderMessage(message)}
+                {renderCompactBoundaryAfter(message.id)}
               </Fragment>
             ))
           )}

@@ -1,6 +1,6 @@
 import type { MessageRecord } from "@/lib/db";
 
-import { estimateCompactBoundaryBeforeMessageId } from "./estimate-compact-anchor";
+import { estimateCompactEventAfterMessageId } from "./estimate-compact-anchor";
 import type { SessionCompactUiState } from "./session-compact-ui-store";
 
 export type CompactApiResponse = {
@@ -21,22 +21,26 @@ export type CompactApiRequest = {
   force?: boolean;
 };
 
-function resolvePersistedCompactPlacement(
+function conversationMessages(
+  messages: readonly MessageRecord[],
+): MessageRecord[] {
+  return messages.filter((message) => message.messageKind !== "compact");
+}
+
+function resolveEventAfterMessageId(
   messages: readonly MessageRecord[],
   input: {
-    firstKeptMessageId?: string | null;
+    anchorAfterMessageId?: string | null;
     compactMessageId?: string | null;
   },
 ): string | null {
   if (
-    input.firstKeptMessageId &&
-    messages.some(
-      (message) =>
-        message.id === input.firstKeptMessageId &&
-        message.messageKind !== "compact",
+    input.anchorAfterMessageId &&
+    conversationMessages(messages).some(
+      (message) => message.id === input.anchorAfterMessageId,
     )
   ) {
-    return input.firstKeptMessageId;
+    return input.anchorAfterMessageId;
   }
 
   const compactMessage =
@@ -45,35 +49,21 @@ function resolvePersistedCompactPlacement(
       : undefined) ??
     [...messages].reverse().find((message) => message.messageKind === "compact");
 
-  if (
-    compactMessage?.taskId &&
-    messages.some(
-      (message) =>
-        message.id === compactMessage.taskId &&
-        message.messageKind !== "compact",
-    )
-  ) {
-    return compactMessage.taskId;
+  if (!compactMessage) {
+    return estimateCompactEventAfterMessageId(messages);
   }
 
-  return null;
+  const conversation = conversationMessages(messages);
+  const chronologicalAfter = [...conversation]
+    .reverse()
+    .find((message) => message.createdAt < compactMessage.createdAt);
+  return chronologicalAfter?.id ?? conversation.at(-1)?.id ?? null;
 }
 
-/**
- * Temporary UI placement only — used while compact is pending, or for
- * noop/error tips that must not pretend to be a historical compact event.
- */
 function resolveTemporaryPlacement(
   messages: readonly MessageRecord[],
 ): string | null {
-  return (
-    estimateCompactBoundaryBeforeMessageId(messages, {
-      force: import.meta.env.DEV,
-    }) ??
-    messages.filter((message) => message.messageKind !== "compact").at(-1)
-      ?.id ??
-    null
-  );
+  return estimateCompactEventAfterMessageId(messages);
 }
 
 export function compactUiFromApiResponse(
@@ -84,14 +74,14 @@ export function compactUiFromApiResponse(
     case "queued":
       return {
         phase: "queued",
-        boundaryBeforeMessageId: resolveTemporaryPlacement(messages),
+        boundaryAfterMessageId: resolveTemporaryPlacement(messages),
         i18nKey: "chat.compactQueued",
       };
     case "compacted":
       return {
         phase: "success",
-        boundaryBeforeMessageId: resolvePersistedCompactPlacement(messages, {
-          firstKeptMessageId: response.firstKeptMessageId,
+        boundaryAfterMessageId: resolveEventAfterMessageId(messages, {
+          anchorAfterMessageId: response.anchorAfterMessageId,
           compactMessageId: response.compactMessageId,
         }),
         preview: response.summaryPreview ?? undefined,
@@ -105,19 +95,19 @@ export function compactUiFromApiResponse(
     case "noop_already_fits":
       return {
         phase: "noop",
-        boundaryBeforeMessageId: resolveTemporaryPlacement(messages),
+        boundaryAfterMessageId: resolveTemporaryPlacement(messages),
         i18nKey: "chat.compactNoopAlreadyFits",
       };
     case "not_enough_messages":
       return {
         phase: "noop",
-        boundaryBeforeMessageId: resolveTemporaryPlacement(messages),
+        boundaryAfterMessageId: resolveTemporaryPlacement(messages),
         i18nKey: "chat.compactNoopNotEnoughMessages",
       };
     default:
       return {
         phase: "error",
-        boundaryBeforeMessageId: resolveTemporaryPlacement(messages),
+        boundaryAfterMessageId: resolveTemporaryPlacement(messages),
         i18nKey: "chat.compactFailed",
       };
   }
@@ -130,30 +120,31 @@ export function compactUiFromAgentCompleted(
     summaryPreview: string;
     firstKeptMessageId?: string | null;
     compactMessageId?: string | null;
+    anchorAfterMessageId?: string | null;
   },
 ): SessionCompactUiState {
   if (input.removedCount === 0) {
     return {
       phase: "noop",
-      boundaryBeforeMessageId: resolveTemporaryPlacement(messages),
+      boundaryAfterMessageId: resolveTemporaryPlacement(messages),
       i18nKey: "chat.compactNoopAlreadyFits",
     };
   }
 
   return {
     phase: "success",
-    // Success must land on the real compact event point. Never invent one.
-    boundaryBeforeMessageId: resolvePersistedCompactPlacement(messages, input),
+    boundaryAfterMessageId: resolveEventAfterMessageId(messages, {
+      anchorAfterMessageId: input.anchorAfterMessageId,
+      compactMessageId: input.compactMessageId,
+    }),
     preview: input.summaryPreview,
     removedCount: input.removedCount,
     i18nKey: "chat.compactSuccess",
     i18nParams: {
       removedCount: input.removedCount,
-      // Conversation messages still present in the model context after compact.
       remainingCount: Math.max(
         0,
-        messages.filter((message) => message.messageKind !== "compact").length -
-          input.removedCount,
+        conversationMessages(messages).length - input.removedCount,
       ),
     },
   };

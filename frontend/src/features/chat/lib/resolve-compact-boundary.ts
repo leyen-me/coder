@@ -2,18 +2,24 @@ import type { MessageRecord } from "@/lib/db";
 
 import { compactBannerFromUiState } from "../components/compact-separator";
 import { compactPreviewFromMessage } from "./resolve-persisted-compact";
-import { estimateCompactBoundaryBeforeMessageId } from "./estimate-compact-anchor";
+import { estimateCompactEventAfterMessageId } from "./estimate-compact-anchor";
 import type { SessionCompactUiState } from "./session-compact-ui-store";
 
 export type CompactBoundaryRender = {
-  /** Timeline slot: render the compact event immediately before this message. */
-  beforeMessageId: string;
+  /** Timeline slot: render the compact event immediately after this message. */
+  afterMessageId: string;
   phase: SessionCompactUiState["phase"];
   titleKey: string;
   descriptionKey: string;
   titleParams?: Record<string, string | number>;
   preview?: string;
 };
+
+function conversationMessages(
+  messages: readonly MessageRecord[],
+): MessageRecord[] {
+  return messages.filter((message) => message.messageKind !== "compact");
+}
 
 function isConversationMessage(
   messages: readonly MessageRecord[],
@@ -28,20 +34,44 @@ function isConversationMessage(
   );
 }
 
-function placementForCompactMessage(
+/**
+ * Resolve the UI event point for a persisted compact marker.
+ *
+ * New markers sit after the latest conversation message at compact time.
+ * Legacy mid-inserted markers (first_kept chronologically after the marker)
+ * are repaired to the end of that compact era.
+ */
+function placementAfterCompactMessage(
   messages: readonly MessageRecord[],
   compactMessage: MessageRecord,
 ): string | null {
-  if (isConversationMessage(messages, compactMessage.taskId)) {
-    return compactMessage.taskId;
+  const conversation = conversationMessages(messages);
+  if (conversation.length === 0) {
+    return null;
   }
 
-  const afterCompact = messages.find(
-    (message) =>
-      message.messageKind !== "compact" &&
-      message.createdAt > compactMessage.createdAt,
+  const firstKept = conversation.find(
+    (message) => message.id === compactMessage.taskId,
   );
-  return afterCompact?.id ?? null;
+  const chronologicalAfter = [...conversation]
+    .reverse()
+    .find((message) => message.createdAt < compactMessage.createdAt);
+
+  // Legacy bug: marker was inserted before the kept window.
+  if (firstKept && firstKept.createdAt > compactMessage.createdAt) {
+    const nextCompact = messages.find(
+      (message) =>
+        message.messageKind === "compact" &&
+        message.createdAt > compactMessage.createdAt,
+    );
+    const endBound = nextCompact?.createdAt ?? Number.POSITIVE_INFINITY;
+    return (
+      conversation.filter((message) => message.createdAt < endBound).at(-1)
+        ?.id ?? chronologicalAfter?.id ?? null
+    );
+  }
+
+  return chronologicalAfter?.id ?? conversation.at(-1)?.id ?? null;
 }
 
 function resolvePersistedCompactRenders(
@@ -55,14 +85,17 @@ function resolvePersistedCompactRenders(
       continue;
     }
 
-    const beforeMessageId = placementForCompactMessage(messages, compactMessage);
-    if (!beforeMessageId || seen.has(beforeMessageId)) {
+    const afterMessageId = placementAfterCompactMessage(
+      messages,
+      compactMessage,
+    );
+    if (!afterMessageId || seen.has(afterMessageId)) {
       continue;
     }
 
-    seen.add(beforeMessageId);
+    seen.add(afterMessageId);
     renders.push({
-      beforeMessageId,
+      afterMessageId,
       phase: "success",
       titleKey: "chat.compactBoundaryTitle",
       descriptionKey: "chat.compactBoundaryFallback",
@@ -81,14 +114,7 @@ function resolveTemporaryPlacement(
     return explicit;
   }
 
-  return (
-    estimateCompactBoundaryBeforeMessageId(messages, {
-      force: import.meta.env.DEV,
-    }) ??
-    messages.filter((message) => message.messageKind !== "compact").at(-1)
-      ?.id ??
-    null
-  );
+  return estimateCompactEventAfterMessageId(messages);
 }
 
 function mergeTransientOverPersisted(
@@ -97,7 +123,7 @@ function mergeTransientOverPersisted(
 ): CompactBoundaryRender[] {
   return [
     ...persisted.filter(
-      (render) => render.beforeMessageId !== transient.beforeMessageId,
+      (render) => render.afterMessageId !== transient.afterMessageId,
     ),
     transient,
   ];
@@ -106,8 +132,8 @@ function mergeTransientOverPersisted(
 /**
  * Resolve compact timeline events.
  *
- * - Persisted compact markers always render at their real event points
- * - loading/queued/noop/error may add one temporary tip
+ * - Persisted markers render after their real event message
+ * - loading/queued/noop/error may add one temporary tip at the end
  * - success temporary UI overlays the matching real event point
  */
 export function resolveCompactBoundaryRenders(
@@ -121,19 +147,19 @@ export function resolveCompactBoundaryRenders(
   }
 
   if (compactUi.phase === "success") {
-    const beforeMessageId =
-      (isConversationMessage(messages, compactUi.boundaryBeforeMessageId)
-        ? compactUi.boundaryBeforeMessageId
+    const afterMessageId =
+      (isConversationMessage(messages, compactUi.boundaryAfterMessageId)
+        ? compactUi.boundaryAfterMessageId
         : null) ??
-      persisted.at(-1)?.beforeMessageId ??
+      persisted.at(-1)?.afterMessageId ??
       null;
-    if (!beforeMessageId) {
+    if (!afterMessageId) {
       return persisted;
     }
 
     const banner = compactBannerFromUiState(compactUi);
     return mergeTransientOverPersisted(persisted, {
-      beforeMessageId,
+      afterMessageId,
       phase: banner.phase,
       titleKey: banner.titleKey,
       descriptionKey: banner.descriptionKey,
@@ -142,17 +168,17 @@ export function resolveCompactBoundaryRenders(
     });
   }
 
-  const beforeMessageId = resolveTemporaryPlacement(
+  const afterMessageId = resolveTemporaryPlacement(
     messages,
-    compactUi.boundaryBeforeMessageId,
+    compactUi.boundaryAfterMessageId,
   );
-  if (!beforeMessageId) {
+  if (!afterMessageId) {
     return persisted;
   }
 
   const banner = compactBannerFromUiState(compactUi);
   return mergeTransientOverPersisted(persisted, {
-    beforeMessageId,
+    afterMessageId,
     phase: banner.phase,
     titleKey: banner.titleKey,
     descriptionKey: banner.descriptionKey,

@@ -20,7 +20,7 @@ use crate::{
         records::MESSAGE_KIND_COMPACT,
         session_store::{
             estimate_compact_anchor_after_message_id, get_messages_by_session, get_session,
-            truncate_history_at_latest_compact,
+            model_history_from_latest_compact,
         },
     },
     scheduled_jobs::resolve_job_runtime,
@@ -184,9 +184,8 @@ pub async fn handle_compact(
         });
     }
 
-    // Summarize the current model-visible window (after the latest compact),
-    // not the entire retained chat history.
-    let model_window = truncate_history_at_latest_compact(raw_messages.clone());
+    // Summarize the current model-visible window, not the entire retained history.
+    let model_window = model_history_from_latest_compact(raw_messages.clone());
     let messages: Vec<crate::agent::ChatMessage> = model_window
         .iter()
         .filter(|message| message.message_kind.as_deref() != Some(MESSAGE_KIND_COMPACT))

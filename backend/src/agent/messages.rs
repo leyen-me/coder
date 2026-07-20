@@ -9,7 +9,7 @@ use super::types::{AgentToolDefinition, ApiToolCall, ApiToolCallFunction, ChatMe
 use crate::db::{
     records::{AgentTodoRecord, MessageImageAttachment, MessageProcessStep, MessageRecord, SessionRecord},
     session_store::{
-        get_agent_todos_by_session, get_messages_by_session, truncate_history_at_latest_compact,
+        get_agent_todos_by_session, get_messages_by_session, model_history_from_latest_compact,
     },
     Database,
 };
@@ -47,8 +47,8 @@ pub fn assemble_agent_messages(
         get_messages_by_session(&db, &session.id)?
     };
     // Chat history is retained in the DB after compact. Model context only
-    // includes the latest compact marker and everything after it.
-    let history_records = truncate_history_at_latest_compact(history_records);
+    // includes the latest compact summary plus messages from first_kept onward.
+    let history_records = model_history_from_latest_compact(history_records);
     let todos = {
         let db = lock_db(&app_state.db)?;
         get_agent_todos_by_session(&db, &session.id)?
@@ -1279,8 +1279,8 @@ mod tests {
     use crate::agent::registry::AgentRegistry;
     use crate::db::records::{current_timestamp_ms, AgentTodoRecord, MessageToolInvocation};
     use crate::db::session_store::{
-        new_message_id, new_session_id, new_todo_id, put_agent_todo, put_message, put_session,
-        truncate_history_at_latest_compact,
+        model_history_from_latest_compact, new_message_id, new_session_id, new_todo_id,
+        put_agent_todo, put_message, put_session,
     };
     use crate::scheduled_jobs::{ActiveRunRegistry, RunLock};
     use crate::tools::{McpRegistry, PageCache, RemoteConnectionPool, ShellRegistry};
@@ -1679,7 +1679,7 @@ Prefer deterministic test scaffolding.
     }
 
     #[test]
-    fn truncate_history_at_latest_compact_keeps_marker_and_tail() {
+    fn model_history_from_latest_compact_keeps_summary_and_first_kept_tail() {
         let records = vec![
             MessageRecord {
                 id: "old-user".to_string(),
@@ -1700,29 +1700,29 @@ Prefer deterministic test scaffolding.
                 usage: None,
             },
             MessageRecord {
-                id: "compact-1".to_string(),
+                id: "kept-user".to_string(),
                 session_id: "s".to_string(),
-                role: "assistant".to_string(),
-                message_kind: Some(crate::db::records::MESSAGE_KIND_COMPACT.to_string()),
-                content: "summary-1".to_string(),
+                role: "user".to_string(),
+                message_kind: None,
+                content: "kept".to_string(),
                 images: None,
                 referenced_skills: None,
                 thinking: String::new(),
                 process_steps: None,
                 tool_invocations: Vec::new(),
                 status: "completed".to_string(),
-                task_id: Some("mid-user".to_string()),
+                task_id: None,
                 error: None,
                 created_at: 2,
                 duration_ms: None,
                 usage: None,
             },
             MessageRecord {
-                id: "mid-user".to_string(),
+                id: "tail-assistant".to_string(),
                 session_id: "s".to_string(),
-                role: "user".to_string(),
+                role: "assistant".to_string(),
                 message_kind: None,
-                content: "mid".to_string(),
+                content: "tail".to_string(),
                 images: None,
                 referenced_skills: None,
                 thinking: String::new(),
@@ -1747,36 +1747,22 @@ Prefer deterministic test scaffolding.
                 process_steps: None,
                 tool_invocations: Vec::new(),
                 status: "completed".to_string(),
-                task_id: Some("new-user".to_string()),
+                task_id: Some("kept-user".to_string()),
                 error: None,
                 created_at: 4,
                 duration_ms: None,
                 usage: None,
             },
-            MessageRecord {
-                id: "new-user".to_string(),
-                session_id: "s".to_string(),
-                role: "user".to_string(),
-                message_kind: None,
-                content: "new".to_string(),
-                images: None,
-                referenced_skills: None,
-                thinking: String::new(),
-                process_steps: None,
-                tool_invocations: Vec::new(),
-                status: "completed".to_string(),
-                task_id: None,
-                error: None,
-                created_at: 5,
-                duration_ms: None,
-                usage: None,
-            },
         ];
 
-        let truncated = truncate_history_at_latest_compact(records);
-        assert_eq!(truncated.len(), 2);
-        assert_eq!(truncated[0].id, "compact-2");
-        assert_eq!(truncated[1].id, "new-user");
+        let model = model_history_from_latest_compact(records);
+        assert_eq!(
+            model
+                .iter()
+                .map(|message| message.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["compact-2", "kept-user", "tail-assistant"]
+        );
     }
 
     #[test]
@@ -1813,30 +1799,7 @@ Prefer deterministic test scaffolding.
         put_message(
             &db,
             &MessageRecord {
-                id: new_message_id(),
-                session_id: session.id.clone(),
-                role: "assistant".to_string(),
-                message_kind: Some(crate::db::records::MESSAGE_KIND_COMPACT.to_string()),
-                content: "## Context Compaction Summary\n\ncompacted context".to_string(),
-                images: None,
-                referenced_skills: None,
-                thinking: String::new(),
-                process_steps: None,
-                tool_invocations: Vec::new(),
-                status: "completed".to_string(),
-                task_id: Some(kept_id.clone()),
-                error: None,
-                created_at: 150,
-                duration_ms: None,
-                usage: None,
-            },
-            true,
-        )
-        .expect("put compact");
-        put_message(
-            &db,
-            &MessageRecord {
-                id: kept_id,
+                id: kept_id.clone(),
                 session_id: session.id.clone(),
                 role: "user".to_string(),
                 message_kind: None,
@@ -1856,6 +1819,29 @@ Prefer deterministic test scaffolding.
             true,
         )
         .expect("put kept");
+        put_message(
+            &db,
+            &MessageRecord {
+                id: new_message_id(),
+                session_id: session.id.clone(),
+                role: "assistant".to_string(),
+                message_kind: Some(crate::db::records::MESSAGE_KIND_COMPACT.to_string()),
+                content: "## Context Compaction Summary\n\ncompacted context".to_string(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: Some(kept_id),
+                error: None,
+                created_at: 201,
+                duration_ms: None,
+                usage: None,
+            },
+            true,
+        )
+        .expect("put compact");
         drop(db);
 
         let messages = assemble_agent_messages(&state, &session, Some("agent")).expect("assemble");

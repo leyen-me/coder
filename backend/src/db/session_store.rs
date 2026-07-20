@@ -308,24 +308,54 @@ pub fn estimate_compact_anchor_after_message_id(records: &[MessageRecord]) -> Op
 
 const COMPACT_USER_MESSAGE_MAX_TOKENS: u32 = 20_000;
 
-/// Keep only the latest compact marker and subsequent messages.
-/// Older conversation rows remain in the DB for the UI timeline.
-pub fn truncate_history_at_latest_compact(
+/// Build the model-visible history window from the latest compact marker.
+///
+/// Chat history is fully retained in the DB. The model only receives:
+/// `latest compact summary + conversation messages from first_kept onward`
+/// (skipping any older compact markers).
+pub fn model_history_from_latest_compact(
     records: Vec<crate::db::records::MessageRecord>,
 ) -> Vec<crate::db::records::MessageRecord> {
     let latest_compact_idx = records.iter().rposition(|message| {
         message.message_kind.as_deref() == Some(super::records::MESSAGE_KIND_COMPACT)
     });
-    match latest_compact_idx {
-        Some(index) => records.into_iter().skip(index).collect(),
-        None => records,
+    let Some(compact_idx) = latest_compact_idx else {
+        return records;
+    };
+
+    let first_kept_id = records[compact_idx].task_id.clone();
+    let start_idx = first_kept_id
+        .as_deref()
+        .and_then(|id| {
+            records
+                .iter()
+                .position(|message| message.id == id && message.message_kind.as_deref() != Some(super::records::MESSAGE_KIND_COMPACT))
+        })
+        .unwrap_or(compact_idx);
+
+    let mut result = Vec::with_capacity(records.len().saturating_sub(start_idx).saturating_add(1));
+    result.push(records[compact_idx].clone());
+    for message in records.into_iter().skip(start_idx) {
+        if message.message_kind.as_deref() == Some(super::records::MESSAGE_KIND_COMPACT) {
+            continue;
+        }
+        result.push(message);
     }
+    result
+}
+
+/// @deprecated Prefer `model_history_from_latest_compact`.
+pub fn truncate_history_at_latest_compact(
+    records: Vec<crate::db::records::MessageRecord>,
+) -> Vec<crate::db::records::MessageRecord> {
+    model_history_from_latest_compact(records)
 }
 
 /// Persist a compaction boundary into the session message timeline.
 ///
-/// Inserts a compact marker at the split point. Chat history is never deleted —
-/// only the model prompt assembly truncates at the latest marker.
+/// Inserts a compact marker after the latest conversation message (UI event
+/// point). `task_id` stores `first_kept` for model-context assembly. Chat
+/// history is never deleted.
 pub fn persist_session_compact(
     db: &Database,
     session_id: &str,
@@ -368,8 +398,6 @@ pub fn persist_session_compact(
     }
 
     let split_conversation_idx = conversation.len() - keep_count;
-    let first_kept_index = conversation[split_conversation_idx].0;
-    let first_kept = records[first_kept_index].clone();
     if split_conversation_idx == 0 {
         return Ok(CompactPersistResult {
             compact_message_id: String::new(),
@@ -380,16 +408,9 @@ pub fn persist_session_compact(
         });
     }
 
-    let anchor_after = conversation[split_conversation_idx - 1].1;
-    let previous_ts = anchor_after.created_at;
-    let next_ts = first_kept.created_at;
-    let compact_created_at = if next_ts > previous_ts.saturating_add(1) {
-        previous_ts + (next_ts - previous_ts) / 2
-    } else {
-        previous_ts
-            .saturating_add(1)
-            .min(next_ts.saturating_sub(1).max(previous_ts))
-    };
+    let first_kept = conversation[split_conversation_idx].1.clone();
+    let event_after = conversation[conversation.len() - 1].1;
+    let compact_created_at = event_after.created_at.saturating_add(1);
 
     let compact_message = MessageRecord {
         id: new_message_id(),
@@ -405,8 +426,10 @@ pub fn persist_session_compact(
         process_steps: None,
         tool_invocations: Vec::new(),
         status: "completed".to_string(),
+        // Model-context cursor: first conversation message still sent to the model.
         task_id: Some(first_kept.id.clone()),
         error: None,
+        // UI event point: immediately after the latest conversation message.
         created_at: compact_created_at,
         duration_ms: None,
         usage: None,
@@ -418,7 +441,8 @@ pub fn persist_session_compact(
         compact_message_id: compact_message.id,
         deleted_message_ids: Vec::new(),
         removed_count: split_conversation_idx,
-        anchor_after_message_id: Some(anchor_after.id.clone()),
+        // UI places the banner after this message.
+        anchor_after_message_id: Some(event_after.id.clone()),
         first_kept_message_id: Some(first_kept.id),
     })
 }
@@ -501,9 +525,9 @@ mod compact_persist_tests {
         let session_id = "session-compact";
         seed_session(&db, session_id);
         seed_message(&db, session_id, "user", "first question", 100);
-        let first_answer_id = seed_message(&db, session_id, "assistant", "first answer", 101);
+        seed_message(&db, session_id, "assistant", "first answer", 101);
         seed_message(&db, session_id, "user", "second question", 102);
-        seed_message(&db, session_id, "assistant", "second answer", 103);
+        let last_id = seed_message(&db, session_id, "assistant", "second answer", 103);
 
         let result = persist_session_compact(
             &db,
@@ -520,19 +544,20 @@ mod compact_persist_tests {
         assert!(!result.compact_message_id.is_empty());
         assert_eq!(
             result.anchor_after_message_id.as_deref(),
-            Some(first_answer_id.as_str())
+            Some(last_id.as_str())
         );
 
         let messages = get_messages_by_session(&db, session_id).expect("messages");
         assert_eq!(messages.len(), 5);
         assert_eq!(messages[0].content, "first question");
         assert_eq!(messages[1].content, "first answer");
-        assert_eq!(messages[2].message_kind.as_deref(), Some("compact"));
-        assert!(messages[2].content.contains("summary body"));
-        assert_eq!(messages[3].content, "second question");
-        assert_eq!(messages[4].content, "second answer");
+        assert_eq!(messages[2].content, "second question");
+        assert_eq!(messages[3].content, "second answer");
+        assert_eq!(messages[4].message_kind.as_deref(), Some("compact"));
+        assert!(messages[4].content.contains("summary body"));
+        assert_eq!(messages[4].created_at, 104);
         assert_eq!(
-            messages[2].task_id.as_deref(),
+            messages[4].task_id.as_deref(),
             result.first_kept_message_id.as_deref()
         );
     }
@@ -568,7 +593,99 @@ mod compact_persist_tests {
         let messages = get_messages_by_session(&db, session_id).expect("messages");
         assert_eq!(messages.len(), 3);
         assert_eq!(messages[0].content, "short");
-        assert_eq!(messages[1].message_kind.as_deref(), Some("compact"));
-        assert_eq!(messages[2].content, "reply");
+        assert_eq!(messages[1].content, "reply");
+        assert_eq!(messages[2].message_kind.as_deref(), Some("compact"));
+        assert_eq!(messages[2].created_at, 102);
+        assert_eq!(
+            result.anchor_after_message_id.as_deref(),
+            Some(messages[1].id.as_str())
+        );
+    }
+
+    #[test]
+    fn model_history_from_latest_compact_uses_first_kept_not_timeline_cut() {
+        let records = vec![
+            MessageRecord {
+                id: "old".into(),
+                session_id: "s".into(),
+                role: "user".into(),
+                message_kind: None,
+                content: "old".into(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".into(),
+                task_id: None,
+                error: None,
+                created_at: 1,
+                duration_ms: None,
+                usage: None,
+            },
+            MessageRecord {
+                id: "kept".into(),
+                session_id: "s".into(),
+                role: "user".into(),
+                message_kind: None,
+                content: "kept".into(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".into(),
+                task_id: None,
+                error: None,
+                created_at: 2,
+                duration_ms: None,
+                usage: None,
+            },
+            MessageRecord {
+                id: "tail".into(),
+                session_id: "s".into(),
+                role: "assistant".into(),
+                message_kind: None,
+                content: "tail".into(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".into(),
+                task_id: None,
+                error: None,
+                created_at: 3,
+                duration_ms: None,
+                usage: None,
+            },
+            MessageRecord {
+                id: "compact".into(),
+                session_id: "s".into(),
+                role: "assistant".into(),
+                message_kind: Some(crate::db::records::MESSAGE_KIND_COMPACT.into()),
+                content: "summary".into(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".into(),
+                task_id: Some("kept".into()),
+                error: None,
+                created_at: 4,
+                duration_ms: None,
+                usage: None,
+            },
+        ];
+
+        let model = model_history_from_latest_compact(records);
+        assert_eq!(
+            model
+                .iter()
+                .map(|message| message.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["compact", "kept", "tail"]
+        );
     }
 }

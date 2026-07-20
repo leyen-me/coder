@@ -10,11 +10,11 @@ export type SessionCompactUiPhase =
 export type SessionCompactUiState = {
   phase: SessionCompactUiPhase;
   /**
-   * Compact timeline event slot: render immediately before this conversation
-   * message. For success this must be the real first-kept message after
-   * compaction; for loading/queued/noop/error it may be a temporary estimate.
+   * Compact timeline event slot: render immediately AFTER this conversation
+   * message. Success/persisted must use the real event point (last message at
+   * compact time); loading/queued/noop/error may use a temporary estimate.
    */
-  boundaryBeforeMessageId: string | null;
+  boundaryAfterMessageId: string | null;
   preview?: string;
   removedCount?: number;
   i18nKey: string;

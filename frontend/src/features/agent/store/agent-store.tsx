@@ -326,7 +326,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           const existing = getSessionCompactUi(task.sessionId);
           setSessionCompactUi(task.sessionId, {
             phase: "loading",
-            boundaryBeforeMessageId: existing?.boundaryBeforeMessageId ?? null,
+            boundaryAfterMessageId: existing?.boundaryAfterMessageId ?? null,
             i18nKey: "chat.compactInProgress",
           });
           return;
@@ -342,6 +342,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
                   summaryPreview: event.summaryPreview,
                   firstKeptMessageId: event.firstKeptMessageId ?? null,
                   compactMessageId: event.compactMessageId ?? null,
+                  anchorAfterMessageId: event.anchorAfterMessageId ?? null,
                 },
               }),
             );
