@@ -341,6 +341,8 @@ export const enMessages = {
     compactQueued: "Queued — compaction will run on the next agent loop turn.",
     compactBoundaryTitle: "Context compacted",
     compactBoundaryFallback: "Earlier history was summarized for continuation.",
+    compactViewSummary: "View summary",
+    compactHideSummary: "Hide summary",
     compactSuccess: "Removed {removedCount} older messages, {remainingCount} remain.",
     compactNoopTitle: "Nothing to compact",
     compactNoopAlreadyFits: "Recent messages already fit in the keep window — no older history to remove.",

@@ -1,5 +1,17 @@
-import { LoaderCircleIcon } from "lucide-react";
+import {
+  AlertCircleIcon,
+  ChevronDownIcon,
+  CircleCheckIcon,
+  FoldVerticalIcon,
+  LoaderCircleIcon,
+} from "lucide-react";
+import { useState } from "react";
 
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { cn } from "@/lib/utils";
 
@@ -84,6 +96,113 @@ type CompactBoundaryBannerProps = {
   className?: string;
 };
 
+type PhasePresentation = {
+  containerClassName: string;
+  iconShellClassName: string;
+  iconSize: "md" | "sm";
+  roundedClassName: string;
+};
+
+function getPhasePresentation(phase: SessionCompactUiPhase): PhasePresentation {
+  switch (phase) {
+    case "error":
+      return {
+        containerClassName:
+          "border-destructive/25 bg-destructive/5 dark:bg-destructive/10",
+        iconShellClassName: "bg-destructive/10 text-destructive",
+        iconSize: "sm",
+        roundedClassName: "rounded-xl",
+      };
+    case "noop":
+      return {
+        containerClassName:
+          "border-border/40 border-dashed bg-muted/15 dark:bg-muted/10",
+        iconShellClassName: "bg-muted text-muted-foreground",
+        iconSize: "sm",
+        roundedClassName: "rounded-xl",
+      };
+    case "loading":
+    case "queued":
+      return {
+        containerClassName:
+          "border-border/50 bg-muted/25 dark:bg-muted/15",
+        iconShellClassName: "bg-muted text-muted-foreground",
+        iconSize: "sm",
+        roundedClassName: "rounded-xl",
+      };
+    case "success":
+    default:
+      return {
+        containerClassName:
+          "border-border/60 bg-muted/20 dark:bg-muted/10",
+        iconShellClassName: "bg-foreground/5 text-muted-foreground",
+        iconSize: "md",
+        roundedClassName: "rounded-2xl",
+      };
+  }
+}
+
+function PhaseIcon({
+  phase,
+  iconShellClassName,
+  iconSize,
+}: {
+  phase: SessionCompactUiPhase;
+  iconShellClassName: string;
+  iconSize: "md" | "sm";
+}) {
+  const shellSize = iconSize === "md" ? "size-8" : "size-7";
+  const glyphSize = iconSize === "md" ? "size-4" : "size-3.5";
+
+  return (
+    <div
+      className={cn(
+        "mt-0.5 flex shrink-0 items-center justify-center rounded-full",
+        shellSize,
+        iconShellClassName,
+      )}
+    >
+      {phase === "loading" || phase === "queued" ? (
+        <LoaderCircleIcon className={cn(glyphSize, "animate-spin")} />
+      ) : phase === "error" ? (
+        <AlertCircleIcon className={glyphSize} />
+      ) : phase === "noop" ? (
+        <CircleCheckIcon className={glyphSize} />
+      ) : (
+        <FoldVerticalIcon className={glyphSize} />
+      )}
+    </div>
+  );
+}
+
+function CompactSummaryPreview({ preview }: { preview: string }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+
+  if (!preview.trim()) {
+    return null;
+  }
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="group inline-flex items-center gap-1 text-muted-foreground text-xs underline-offset-4 hover:text-foreground hover:underline">
+        {open ? t("chat.compactHideSummary") : t("chat.compactViewSummary")}
+        <ChevronDownIcon
+          className={cn(
+            "size-3.5 transition-transform",
+            open ? "rotate-180" : "rotate-0",
+          )}
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-2">
+        <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-relaxed">
+          {preview}
+        </p>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 export function CompactBoundaryBanner({
   phase,
   titleKey,
@@ -94,47 +213,62 @@ export function CompactBoundaryBanner({
   className,
 }: CompactBoundaryBannerProps) {
   const { t } = useTranslation();
-  const isPending = phase === "loading" || phase === "queued";
-  const isError = phase === "error";
-  const isNoop = phase === "noop";
+  const presentation = getPhasePresentation(phase);
+  const title = t(titleKey, titleParams);
+  const body = description ?? t(descriptionKey, titleParams);
+  const isMilestone = phase === "success";
+
+  if (isMilestone) {
+    return (
+      <div
+        className={cn(
+          "overflow-hidden border px-4 py-3",
+          presentation.roundedClassName,
+          presentation.containerClassName,
+          className,
+        )}
+        data-compact-phase={phase}
+      >
+        <div className="flex items-start gap-3">
+          <PhaseIcon
+            phase={phase}
+            iconShellClassName={presentation.iconShellClassName}
+            iconSize={presentation.iconSize}
+          />
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="font-medium text-foreground text-sm">{title}</p>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              {body}
+            </p>
+            {preview ? <CompactSummaryPreview preview={preview} /> : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
       className={cn(
-        "flex items-center justify-center gap-2 py-2 my-1",
+        "overflow-hidden border px-3 py-2.5",
+        presentation.roundedClassName,
+        presentation.containerClassName,
         className,
       )}
       data-compact-phase={phase}
+      role="status"
     >
-      <div className="flex-1 border-t border-muted-foreground/20" />
-      <div
-        className={cn(
-          "flex max-w-[80%] flex-col items-center gap-1 rounded-md border px-3 py-1.5 text-xs",
-          isError
-            ? "border-destructive/30 bg-destructive/5 text-destructive"
-            : isNoop
-              ? "border-border/30 bg-muted/30 text-muted-foreground"
-              : "border-border/30 bg-muted/40 text-muted-foreground",
-        )}
-      >
-        <div className="flex items-center gap-1.5">
-          {isPending ? (
-            <LoaderCircleIcon className="size-3.5 shrink-0 animate-spin opacity-70" />
-          ) : null}
-          <span className="font-medium text-[10px] uppercase tracking-wider opacity-70">
-            {t(titleKey, titleParams)}
-          </span>
+      <div className="flex items-start gap-2.5">
+        <PhaseIcon
+          phase={phase}
+          iconShellClassName={presentation.iconShellClassName}
+          iconSize={presentation.iconSize}
+        />
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="font-medium text-foreground text-sm">{title}</p>
+          <p className="text-muted-foreground text-sm leading-relaxed">{body}</p>
         </div>
-        <span className="text-[11px] leading-tight text-center">
-          {description ?? t(descriptionKey, titleParams)}
-        </span>
-        {preview && phase === "success" ? (
-          <span className="text-[11px] leading-tight text-center line-clamp-2 opacity-80">
-            {preview}
-          </span>
-        ) : null}
       </div>
-      <div className="flex-1 border-t border-muted-foreground/20" />
     </div>
   );
 }

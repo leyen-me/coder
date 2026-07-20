@@ -317,6 +317,8 @@ export type Messages = {
     compactQueued: string;
     compactBoundaryTitle: string;
     compactBoundaryFallback: string;
+    compactViewSummary: string;
+    compactHideSummary: string;
     compactSuccess: string;
     compactNoopTitle: string;
     compactNoopAlreadyFits: string;

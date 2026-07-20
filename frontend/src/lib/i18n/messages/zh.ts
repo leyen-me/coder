@@ -330,6 +330,8 @@ export const zhMessages = {
     compactQueued: "已排队，将在下一轮 Agent 循环中压缩上下文。",
     compactBoundaryTitle: "上下文已压缩",
     compactBoundaryFallback: "历史消息已摘要，后续将基于摘要继续。",
+    compactViewSummary: "查看摘要",
+    compactHideSummary: "收起摘要",
     compactSuccess: "已删除 {removedCount} 条旧消息，保留 {remainingCount} 条。",
     compactNoopTitle: "暂无需压缩",
     compactNoopAlreadyFits: "最近的消息已在保留窗口内，没有可删除的旧历史。",
