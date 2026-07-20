@@ -10,6 +10,8 @@ import {
 
 const IMAGE_TOKEN_ESTIMATE = 765;
 const CJK_PATTERN = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g;
+/** Matches backend `COMPACT_USER_MESSAGE_MAX_TOKENS` for first_kept recovery. */
+const COMPACT_TAIL_TOKEN_BUDGET = 20_000;
 
 export type SessionContextUsage = {
   usedTokens: number;
@@ -61,6 +63,15 @@ function estimateMessageUsage(message: MessageRecord): {
   outputTokens: number;
   reasoningTokens: number;
 } {
+  // Compact summaries are injected as system context for the model.
+  if (message.messageKind === "compact") {
+    return {
+      inputTokens: estimateTextTokens(message.content),
+      outputTokens: 0,
+      reasoningTokens: 0,
+    };
+  }
+
   // When the provider returned actual token usage, use it directly.
   if (message.usage && message.role === "assistant") {
     return {
@@ -107,22 +118,119 @@ function estimateMessageUsage(message: MessageRecord): {
   return { inputTokens, outputTokens, reasoningTokens };
 }
 
+function estimateRecordTokensForCompact(record: MessageRecord): number {
+  return Math.ceil(record.content.length / 2);
+}
+
+function recoverFirstKeptStartIndex(
+  messages: readonly MessageRecord[],
+  compactIndex: number
+): number {
+  const compactCreatedAt = messages[compactIndex]?.createdAt ?? 0;
+  const conversation: Array<{ index: number; message: MessageRecord }> = [];
+
+  for (let index = 0; index < compactIndex; index += 1) {
+    const message = messages[index];
+    if (!message || message.messageKind === "compact") {
+      continue;
+    }
+    if (message.createdAt > compactCreatedAt) {
+      continue;
+    }
+    conversation.push({ index, message });
+  }
+
+  if (conversation.length === 0) {
+    return Math.min(compactIndex + 1, messages.length);
+  }
+
+  let selected = 0;
+  let remaining = COMPACT_TAIL_TOKEN_BUDGET;
+  for (let i = conversation.length - 1; i >= 0; i -= 1) {
+    const entry = conversation[i];
+    if (!entry) {
+      continue;
+    }
+    const tokens = estimateRecordTokensForCompact(entry.message);
+    if (tokens <= remaining) {
+      selected += 1;
+      remaining -= tokens;
+    } else {
+      break;
+    }
+  }
+
+  if (selected === 0) {
+    selected = 1;
+  }
+
+  return conversation[conversation.length - selected]?.index ?? 0;
+}
+
+/**
+ * Mirror backend `model_history_from_latest_compact`:
+ * latest compact summary + conversation messages from first_kept onward.
+ */
+export function modelHistoryFromLatestCompact(
+  messages: readonly MessageRecord[]
+): MessageRecord[] {
+  let compactIndex = -1;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.messageKind === "compact") {
+      compactIndex = index;
+      break;
+    }
+  }
+
+  if (compactIndex === -1) {
+    return [...messages];
+  }
+
+  const compactMessage = messages[compactIndex];
+  if (!compactMessage) {
+    return [...messages];
+  }
+
+  const firstKeptId = compactMessage.taskId;
+  let startIndex =
+    firstKeptId == null
+      ? -1
+      : messages.findIndex(
+          (message) =>
+            message.id === firstKeptId && message.messageKind !== "compact"
+        );
+
+  if (startIndex === -1) {
+    startIndex = recoverFirstKeptStartIndex(messages, compactIndex);
+  }
+
+  const result: MessageRecord[] = [compactMessage];
+  for (let index = startIndex; index < messages.length; index += 1) {
+    const message = messages[index];
+    if (!message || message.messageKind === "compact") {
+      continue;
+    }
+    result.push(message);
+  }
+  return result;
+}
+
 function resolveEffectiveMessages(
   messages: readonly MessageRecord[],
   editingMessageId?: string | null
 ): MessageRecord[] {
-  if (!editingMessageId) {
-    return [...messages];
+  let scoped = [...messages];
+
+  if (editingMessageId) {
+    const editIndex = scoped.findIndex(
+      (message) => message.id === editingMessageId
+    );
+    if (editIndex !== -1) {
+      scoped = scoped.slice(0, editIndex + 1);
+    }
   }
 
-  const editIndex = messages.findIndex(
-    (message) => message.id === editingMessageId
-  );
-  if (editIndex === -1) {
-    return [...messages];
-  }
-
-  return messages.slice(0, editIndex + 1);
+  return modelHistoryFromLatestCompact(scoped);
 }
 
 export function estimateSessionContextUsage(input: {
@@ -144,12 +252,26 @@ export function estimateSessionContextUsage(input: {
   const selectedModel = findModelDefinition(input.models, input.modelId);
   const maxTokens = selectedModel?.contextWindow ?? DEFAULT_MODEL_CONTEXT_WINDOW;
 
+  const compactMessage = effectiveMessages.find(
+    (message) => message.messageKind === "compact"
+  );
+  const compactCreatedAt = compactMessage?.createdAt ?? null;
+
   // Find the last assistant message that has provider-reported token usage.
-  // Its prompt_tokens is the actual input token count covering the system prompt
-  // and all messages up to that point.
+  // After compact, only trust checkpoints from messages written after the
+  // marker — earlier promptTokens still include the pre-compact window.
   let lastProviderIndex = -1;
   for (let i = effectiveMessages.length - 1; i >= 0; i--) {
     const msg = effectiveMessages[i];
+    if (msg.messageKind === "compact") {
+      continue;
+    }
+    if (
+      compactCreatedAt != null &&
+      msg.createdAt <= compactCreatedAt
+    ) {
+      continue;
+    }
     if (
       msg.role === "assistant" &&
       msg.usage &&
@@ -177,7 +299,11 @@ export function estimateSessionContextUsage(input: {
     // Messages at or before the checkpoint: use provider completionTokens.
     for (let i = 0; i <= lastProviderIndex; i++) {
       const msg = effectiveMessages[i];
-      if (msg.usage && msg.role === "assistant") {
+      if (
+        msg.messageKind !== "compact" &&
+        msg.usage &&
+        msg.role === "assistant"
+      ) {
         outputTokens += msg.usage.completionTokens;
       }
     }
@@ -191,8 +317,9 @@ export function estimateSessionContextUsage(input: {
       reasoningTokens += est.reasoningTokens;
     }
   } else {
-    // No provider usage snapshot available (e.g. streaming agent, or no
-    // completed turns yet). Fall back to heuristic estimation.
+    // No usable provider usage snapshot (e.g. right after compact, or no
+    // completed turns yet). Fall back to heuristic estimation on the
+    // model-visible window only.
     const breakdown = effectiveMessages.reduce(
       (totals, message) => {
         const usage = estimateMessageUsage(message);

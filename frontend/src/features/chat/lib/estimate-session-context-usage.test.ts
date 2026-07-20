@@ -6,6 +6,7 @@ import { createModelDefinition } from "@/lib/model-provider/model-definition";
 import {
   estimateSessionContextUsage,
   estimateTextTokens,
+  modelHistoryFromLatestCompact,
 } from "./estimate-session-context-usage";
 
 const models = [createModelDefinition("gpt-4o", { contextWindow: 128_000 })];
@@ -217,5 +218,90 @@ describe("estimateSessionContextUsage", () => {
     expect(usage!.usage.inputTokens).toBeGreaterThan(0);
     expect(usage!.usage.outputTokens).toBeGreaterThan(0);
     expect(usage!.usage.reasoningTokens).toBeGreaterThan(0);
+  });
+
+  it("drops pre-compact history from context usage after compact", () => {
+    const bulky = "word ".repeat(2_000);
+    const messages: MessageRecord[] = [
+      createMessage({
+        id: "old-user",
+        role: "user",
+        content: bulky,
+        createdAt: 1,
+      }),
+      createMessage({
+        id: "old-assistant",
+        role: "assistant",
+        content: bulky,
+        usage: { promptTokens: 80_000, completionTokens: 200, totalTokens: 80_200 },
+        createdAt: 2,
+      }),
+      createMessage({
+        id: "kept-user",
+        role: "user",
+        content: "kept short",
+        createdAt: 3,
+      }),
+      createMessage({
+        id: "kept-assistant",
+        role: "assistant",
+        content: "kept reply",
+        createdAt: 4,
+      }),
+      createMessage({
+        id: "compact-1",
+        role: "assistant",
+        messageKind: "compact",
+        content: "## Context Compaction Summary\n\nShort summary.",
+        taskId: "kept-user",
+        createdAt: 5,
+      }),
+    ];
+
+    const before = estimateSessionContextUsage({
+      messages: messages.filter((message) => message.messageKind !== "compact"),
+      modelId: "gpt-4o",
+      models,
+      systemPrompt: "You are helpful.",
+    });
+    const after = estimateSessionContextUsage({
+      messages,
+      modelId: "gpt-4o",
+      models,
+      systemPrompt: "You are helpful.",
+    });
+
+    expect(before).not.toBeNull();
+    expect(after).not.toBeNull();
+    expect(after!.usage.inputTokens).toBeLessThan(before!.usage.inputTokens);
+    // Must not keep using the pre-compact provider checkpoint.
+    expect(after!.usage.inputTokens).toBeLessThan(5_000);
+  });
+});
+
+describe("modelHistoryFromLatestCompact", () => {
+  it("keeps summary plus first_kept tail", () => {
+    const messages = [
+      createMessage({ id: "old", role: "user", content: "old", createdAt: 1 }),
+      createMessage({ id: "kept", role: "user", content: "kept", createdAt: 2 }),
+      createMessage({
+        id: "tail",
+        role: "assistant",
+        content: "tail",
+        createdAt: 3,
+      }),
+      createMessage({
+        id: "compact",
+        role: "assistant",
+        messageKind: "compact",
+        content: "summary",
+        taskId: "kept",
+        createdAt: 4,
+      }),
+    ];
+
+    expect(
+      modelHistoryFromLatestCompact(messages).map((message) => message.id)
+    ).toEqual(["compact", "kept", "tail"]);
   });
 });
