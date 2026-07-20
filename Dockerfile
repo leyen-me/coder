@@ -102,6 +102,11 @@ RUN apt-get update -qq && apt-get install -y -qq \
 
 COPY --from=rust-builder /app/backend/target/release/coder /usr/local/bin/coder
 
+# 声明数据卷：设置、会话、skills、logs 全部持久化
+# 容器重启后自动保留数据，用户可覆盖为命名 volume：
+#   docker run -v coder-data:/root/.coder coder
+VOLUME /root/.coder
+
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:${PORT:-1421}/ || exit 1
 
