@@ -1,11 +1,38 @@
-node_modules
-.git
-.github
-desktop
-backend/target
-frontend/node_modules
-frontend/dist
+# ──────── Dependencies ────────
+node_modules/
+frontend/node_modules/
+desktop/node_modules/
+backend/target/
+
+# ──────── Version control ────────
+.git/
+.gitignore
+.gitattributes
+
+# ──────── CI / CD ────────
+.github/
+
+# ──────── IDE / Editor ────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ──────── OS artifacts ────────
+.DS_Store
+Thumbs.db
+
+# ──────── Build artifacts (local) ────────
+frontend/dist/
+desktop/src-tauri/target/
+desktop/
 *.local
+
+# ──────── Environment secrets ────────
 .env
 .env.*
-.DS_Store
+*.pem
+
+# ──────── Docker ────────
+.dockerignore
