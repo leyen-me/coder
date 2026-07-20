@@ -549,35 +549,17 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     ]
   );
 
-  // ── Handoff command handler ──────────────────────────────────────────
+  // ── Compact command handler ──────────────────────────────────────────
   useEffect(() => {
     const handler = () => {
-      const provider = resolveProviderForModel(model);
-      if (!provider) {
-        console.error("[Compact] Could not resolve provider config for model:", model);
-        return;
-      }
-
-      const taskId = nanoid();
-
       void apiPost<{ ok: boolean; compacted: boolean; message: string }>(
         "/api/compact",
         {
           sessionId: chatId,
-          taskId,
-          baseUrl: provider.baseUrl,
-          apiKey: provider.apiKey || undefined,
-          apiKeySource: provider.apiKeySource,
-          apiKeyEnvVar: provider.apiKeyEnvVar,
-          model,
-          agentMode,
-          thinkingEnabled,
-          maxContextTokens: undefined,
-          handoffTriggerThreshold: undefined,
+          taskId: activeTask?.taskId,
         }
       )
         .then((result) => {
-          // Navigate to the continued session
           console.log("[Compact]", result.message);
         })
         .catch((error) => {
@@ -587,7 +569,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
     window.addEventListener("coder:command-compact", handler);
     return () => window.removeEventListener("coder:command-compact", handler);
-  }, [chatId, model, agentMode, thinkingEnabled, resolveProviderForModel]);
+  }, [activeTask?.taskId, chatId]);
 
   // ── /new command handler ────────────────────────────────────────────
   useEffect(() => {

@@ -557,6 +557,16 @@ impl AgentRegistry {
         self.runs.contains_key(task_id)
     }
 
+    /// Queue a manual compact for the active agent task bound to `session_id`.
+    pub fn request_compact_for_session(&mut self, session_id: &str) -> Option<String> {
+        let task_id = self.get_session_status(session_id)?.task_id;
+        if self.request_compact(&task_id) {
+            Some(task_id)
+        } else {
+            None
+        }
+    }
+
     /// Consume a pending manual compact request.
     ///
     /// Called by the agent loop. Returns true only once per request —
@@ -566,7 +576,7 @@ impl AgentRegistry {
     }
 }
 
-fn resolve_api_key(
+pub(crate) fn resolve_api_key(
     source: &str,
     manual_key: Option<&str>,
     env_var: &str,
