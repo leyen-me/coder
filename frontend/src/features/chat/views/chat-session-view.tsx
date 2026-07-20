@@ -609,24 +609,6 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       return;
     }
 
-    // Prefer the active phase node; if several share it (e.g. success), use the
-    // last one so a later compact does not jump back to the first marker.
-    requestAnimationFrame(() => {
-      const nodes = document.querySelectorAll(
-        `[data-compact-phase="${compactUi.phase}"]`,
-      );
-      const target = nodes[nodes.length - 1];
-      if (target instanceof HTMLElement) {
-        target.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    });
-  }, [compactUi]);
-
-  useEffect(() => {
-    if (!compactUi) {
-      return;
-    }
-
     if (compactUi.phase === "success") {
       const timer = window.setTimeout(() => {
         setSessionCompactUi(chatId, null);
