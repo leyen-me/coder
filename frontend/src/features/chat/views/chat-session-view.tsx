@@ -561,6 +561,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       )
         .then((result) => {
           console.log("[Compact]", result.message);
+          void refresh();
         })
         .catch((error) => {
           console.error("[Compact] API call failed:", error);
@@ -569,7 +570,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
     window.addEventListener("coder:command-compact", handler);
     return () => window.removeEventListener("coder:command-compact", handler);
-  }, [activeTask?.taskId, chatId]);
+  }, [activeTask?.taskId, chatId, refresh]);
 
   // ── /new command handler ────────────────────────────────────────────
   useEffect(() => {

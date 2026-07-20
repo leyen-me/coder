@@ -243,3 +243,225 @@ pub fn copy_active_agent_todos(
     replace_agent_todos(db, target_session_id, &copied)?;
     Ok(copied)
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CompactPersistResult {
+    pub compact_message_id: String,
+    pub deleted_message_ids: Vec<String>,
+    pub removed_count: usize,
+}
+
+fn estimate_record_tokens(record: &MessageRecord) -> u32 {
+    (record.content.len() as f64 / 2.0).ceil() as u32
+}
+
+fn select_tail_record_count(records: &[&MessageRecord], max_tokens: u32) -> usize {
+    if max_tokens == 0 || records.is_empty() {
+        return 0;
+    }
+
+    let mut selected = 0usize;
+    let mut remaining = max_tokens;
+
+    for record in records.iter().rev() {
+        if remaining == 0 {
+            break;
+        }
+        let tokens = estimate_record_tokens(record);
+        if tokens <= remaining {
+            selected += 1;
+            remaining = remaining.saturating_sub(tokens);
+        } else {
+            break;
+        }
+    }
+
+    selected
+}
+
+/// Persist a compaction boundary into the session message timeline.
+///
+/// Deletes older conversation messages, inserts a compact marker message at the
+/// split point, and removes any previous compact markers in the deleted range.
+pub fn persist_session_compact(
+    db: &Database,
+    session_id: &str,
+    summary_text: &str,
+    max_tail_tokens: u32,
+    summary_prefix: &str,
+) -> Result<CompactPersistResult, String> {
+    let records = get_messages_by_session(db, session_id)?;
+    let conversation: Vec<(usize, &MessageRecord)> = records
+        .iter()
+        .enumerate()
+        .filter(|(_, record)| record.message_kind.as_deref() != Some(super::records::MESSAGE_KIND_COMPACT))
+        .collect();
+
+    if conversation.len() < 2 {
+        return Err("Not enough messages to compact.".to_string());
+    }
+
+    let keep_count = select_tail_record_count(
+        &conversation
+            .iter()
+            .map(|(_, record)| *record)
+            .collect::<Vec<_>>(),
+        max_tail_tokens,
+    );
+
+    if keep_count == 0 || keep_count >= conversation.len() {
+        return Ok(CompactPersistResult {
+            compact_message_id: String::new(),
+            deleted_message_ids: Vec::new(),
+            removed_count: 0,
+        });
+    }
+
+    let split_conversation_idx = conversation.len() - keep_count;
+    let first_kept_index = conversation[split_conversation_idx].0;
+    let first_kept = records[first_kept_index].clone();
+    let deleted = records[..first_kept_index].to_vec();
+    if deleted.is_empty() {
+        return Ok(CompactPersistResult {
+            compact_message_id: String::new(),
+            deleted_message_ids: Vec::new(),
+            removed_count: 0,
+        });
+    }
+
+    for record in &deleted {
+        db.delete(MESSAGES_STORE, &record.id)?;
+    }
+
+    let compact_message = MessageRecord {
+        id: new_message_id(),
+        session_id: session_id.to_string(),
+        role: "assistant".to_string(),
+        message_kind: Some(super::records::MESSAGE_KIND_COMPACT.to_string()),
+        content: format!(
+            "{summary_prefix}## Context Compaction Summary\n\n{summary_text}"
+        ),
+        images: None,
+        referenced_skills: None,
+        thinking: String::new(),
+        process_steps: None,
+        tool_invocations: Vec::new(),
+        status: "completed".to_string(),
+        task_id: None,
+        error: None,
+        created_at: first_kept.created_at.saturating_sub(1),
+        duration_ms: None,
+        usage: None,
+    };
+
+    put_message(db, &compact_message, true)?;
+
+    Ok(CompactPersistResult {
+        compact_message_id: compact_message.id,
+        deleted_message_ids: deleted.into_iter().map(|record| record.id).collect(),
+        removed_count: first_kept_index,
+    })
+}
+
+#[cfg(test)]
+mod compact_persist_tests {
+    use super::*;
+    use crate::db::records::SessionRecord;
+    use crate::db::Database;
+
+    fn seed_session(db: &Database, session_id: &str) {
+        let now = current_timestamp_ms();
+        put_session(
+            db,
+            &SessionRecord {
+                id: session_id.to_string(),
+                title: "Test".to_string(),
+                model: "gpt-4".to_string(),
+                provider: "custom".to_string(),
+                workspace_dir: None,
+                session_kind: "standard".to_string(),
+                autonomy_mode: "interactive".to_string(),
+                decision_policy_version: "mvp-v1".to_string(),
+                decision_model: None,
+                parent_session_id: None,
+                handoff_from_session_id: None,
+                handoff_message_id: None,
+                handoff_phase: None,
+                plan_file_name: None,
+                plan_built_at: None,
+                context_usage_snapshot: None,
+                pinned_at: None,
+                created_at: now,
+                updated_at: now,
+            },
+        )
+        .expect("session");
+    }
+
+    fn seed_message(
+        db: &Database,
+        session_id: &str,
+        role: &str,
+        content: &str,
+        created_at: u64,
+    ) -> String {
+        let message = MessageRecord {
+            id: new_message_id(),
+            session_id: session_id.to_string(),
+            role: role.to_string(),
+            message_kind: None,
+            content: content.to_string(),
+            images: None,
+            referenced_skills: None,
+            thinking: String::new(),
+            process_steps: None,
+            tool_invocations: Vec::new(),
+            status: "completed".to_string(),
+            task_id: None,
+            error: None,
+            created_at,
+            duration_ms: None,
+            usage: None,
+        };
+        put_message(db, &message, false).expect("message");
+        message.id
+    }
+
+    #[test]
+    fn persist_session_compact_deletes_old_messages_and_inserts_marker() {
+        let coder_dir = std::env::temp_dir().join(format!(
+            "coder-compact-persist-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&coder_dir).expect("temp dir");
+        let db = Database::new(&coder_dir).expect("db");
+        let session_id = "session-compact";
+        seed_session(&db, session_id);
+        seed_message(&db, session_id, "user", "first question", 100);
+        seed_message(&db, session_id, "assistant", "first answer", 101);
+        seed_message(&db, session_id, "user", "second question", 102);
+        seed_message(&db, session_id, "assistant", "second answer", 103);
+
+        let result = persist_session_compact(
+            &db,
+            session_id,
+            "summary body",
+            20,
+            "prefix\n\n",
+        )
+        .expect("persist");
+
+        assert_eq!(result.removed_count, 2);
+        assert!(!result.compact_message_id.is_empty());
+
+        let messages = get_messages_by_session(&db, session_id).expect("messages");
+        assert_eq!(messages.len(), 3);
+        assert_eq!(messages[0].message_kind.as_deref(), Some("compact"));
+        assert!(messages[0].content.contains("summary body"));
+        assert_eq!(messages[1].content, "second question");
+        assert_eq!(messages[2].content, "second answer");
+    }
+}

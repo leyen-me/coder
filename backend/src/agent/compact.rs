@@ -12,10 +12,12 @@
 //!  - Token estimate recomputed after compaction
 
 use serde_json::json;
+use std::sync::{Arc, Mutex};
 
 use super::compact_prompt::{COMPACT_SUMMARY_PREFIX, MICRO_COMPACT_PROMPT, SUMMARIZATION_PROMPT};
 use super::openai::complete_chat_completion;
 use super::types::ChatMessage;
+use crate::db::{session_store::persist_session_compact, Database};
 
 /// Token budget ratio where auto-compact triggers.
 const DEFAULT_COMPACT_THRESHOLD: f64 = 0.85;
@@ -68,6 +70,28 @@ pub struct CompactResult {
     pub messages: Vec<ChatMessage>,
     pub removed_count: usize,
     pub estimated_tokens_after: u32,
+}
+
+/// Persist a compaction summary into the session message timeline.
+pub fn persist_compact_summary(
+    db: &Arc<Mutex<Database>>,
+    session_id: Option<&str>,
+    summary: &CompactSummary,
+) -> Result<crate::db::session_store::CompactPersistResult, String> {
+    let session_id = session_id
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "session_id is required".to_string())?;
+    let db = db
+        .lock()
+        .map_err(|_| "Database lock poisoned".to_string())?;
+    persist_session_compact(
+        &db,
+        session_id,
+        summary.text.trim(),
+        COMPACT_USER_MESSAGE_MAX_TOKENS,
+        COMPACT_SUMMARY_PREFIX,
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -200,6 +224,19 @@ pub async fn run_compact(
     Err(last_error.unwrap_or_else(|| "compaction exhausted retries".to_string()))
 }
 
+fn truncate_with_ellipsis(text: &str, max_bytes: usize) -> String {
+    if text.len() <= max_bytes {
+        return text.to_string();
+    }
+
+    let mut end = max_bytes;
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+
+    format!("{}... [truncated]", &text[..end])
+}
+
 fn build_compact_user_context(
     messages: &[ChatMessage],
     snapshot: &CompactContextSnapshot,
@@ -286,7 +323,7 @@ fn collect_recent_context(messages: &[ChatMessage]) -> String {
             }
 
             let truncated = if content.len() > 500 {
-                format!("{}... [truncated]", &content[..500])
+                truncate_with_ellipsis(&content, 500)
             } else {
                 content
             };
@@ -496,7 +533,7 @@ fn build_tool_result_stub(msg: &ChatMessage) -> String {
 
     format!(
         "[compacted] {}... [{} chars]",
-        &preview[..200],
+        truncate_with_ellipsis(preview, 200),
         preview.len()
     )
 }
@@ -531,6 +568,14 @@ mod tests {
     fn micro_mode_on_tight_budget() {
         assert!(!is_micro_compact_mode(5000));
         assert!(is_micro_compact_mode(2000));
+    }
+
+    #[test]
+    fn truncate_with_ellipsis_respects_utf8_char_boundaries() {
+        let content = "已提交 `46ed33c`。\n\n---\n\n".repeat(40);
+        let truncated = truncate_with_ellipsis(&content, 500);
+        assert!(truncated.ends_with("... [truncated]"));
+        assert!(truncated.is_char_boundary(truncated.len()));
     }
 
     #[test]

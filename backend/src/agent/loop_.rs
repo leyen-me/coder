@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
-use super::compact::{apply_compact, build_compact_snapshot, compact_tool_result_messages, is_micro_compact_mode, run_compact, should_trigger_compact};
+use super::compact::{apply_compact, build_compact_snapshot, compact_tool_result_messages, is_micro_compact_mode, persist_compact_summary, run_compact, should_trigger_compact};
 use super::decision::{
     build_final_answer_decision_request, build_proxy_continuation_message, request_proxy_decision,
     DecisionResponse,
@@ -173,6 +173,20 @@ pub async fn run_agent_loop(
                         summary.micro_mode
                     );
                     messages = result.messages;
+                    let db_removed = persist_compact_summary(
+                        &app_state.db,
+                        params.session_id.as_deref(),
+                        &summary,
+                    )
+                    .map(|persisted| persisted.removed_count)
+                    .unwrap_or(0);
+                    if db_removed == 0 {
+                        log::info!(
+                            "auto_compact_db_noop task_id={} in_memory_removed={}",
+                            params.task_id,
+                            result.removed_count
+                        );
+                    }
 
                     emit_event(
                         &registry,
@@ -180,7 +194,7 @@ pub async fn run_agent_loop(
                         &params.task_id,
                         AgentEvent::CompactCompleted {
                             task_id: params.task_id.clone(),
-                            removed_count: result.removed_count as u32,
+                            removed_count: db_removed.max(result.removed_count) as u32,
                             summary_preview: summary
                                 .text
                                 .chars()
@@ -218,13 +232,20 @@ pub async fn run_agent_loop(
                                 result.removed_count
                             );
                             messages = result.messages;
+                            let db_removed = persist_compact_summary(
+                                &app_state.db,
+                                params.session_id.as_deref(),
+                                &summary,
+                            )
+                            .map(|persisted| persisted.removed_count)
+                            .unwrap_or(0);
                             emit_event(
                                 &registry,
                                 &broadcaster,
                                 &params.task_id,
                                 AgentEvent::CompactCompleted {
                                     task_id: params.task_id.clone(),
-                                    removed_count: result.removed_count as u32,
+                                    removed_count: db_removed.max(result.removed_count) as u32,
                                     summary_preview: summary
                                         .text
                                         .chars()
@@ -285,13 +306,20 @@ pub async fn run_agent_loop(
                         result.removed_count
                     );
                     messages = result.messages;
+                    let db_removed = persist_compact_summary(
+                        &app_state.db,
+                        params.session_id.as_deref(),
+                        &summary,
+                    )
+                    .map(|persisted| persisted.removed_count)
+                    .unwrap_or(0);
                     emit_event(
                         &registry,
                         &broadcaster,
                         &params.task_id,
                         AgentEvent::CompactCompleted {
                             task_id: params.task_id.clone(),
-                            removed_count: result.removed_count as u32,
+                            removed_count: db_removed.max(result.removed_count) as u32,
                             summary_preview: summary.text.chars().take(200).collect::<String>(),
                         },
                     )?;

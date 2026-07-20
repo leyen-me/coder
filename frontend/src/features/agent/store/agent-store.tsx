@@ -314,6 +314,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           setSessionHandoffState(event.sessionId, event.phase);
           notifyDbChange();
           return;
+        case "compact_completed":
+          notifyDbChange();
+          return;
         case "handoff_complete":
           clearSessionHandoffState(event.sourceSessionId);
           notifyDbChange();

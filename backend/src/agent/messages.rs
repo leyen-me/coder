@@ -248,6 +248,13 @@ fn load_enabled_mcp_servers(app_state: &AppState) -> Result<Vec<McpServerConfig>
 }
 
 fn message_record_to_historical_messages(message: MessageRecord) -> Vec<HistoricalChatMessage> {
+    if message.message_kind.as_deref() == Some(crate::db::records::MESSAGE_KIND_COMPACT) {
+        return vec![HistoricalChatMessage {
+            chat: system_message(message.content),
+            referenced_skills: Vec::new(),
+        }];
+    }
+
     if message.role == "user" {
         return vec![HistoricalChatMessage {
             chat: ChatMessage {

@@ -1,8 +1,7 @@
 //! Context compaction separator — visual divider at compaction boundaries.
 //!
-//! Detects system messages containing "Context Compaction Summary" that the
-//! agent injects when auto-compact or /compact fires, and renders a subtle
-//! separator banner so users can see where old context ends and new begins.
+//! Detects persisted compact marker messages (`messageKind: compact`) and
+//! renders a subtle separator banner at the compaction boundary.
 
 
 export type CompactBoundary = {
@@ -12,25 +11,53 @@ export type CompactBoundary = {
   preview: string;
 };
 
+const COMPACT_SUMMARY_MARKER = "## Context Compaction Summary";
+
+export function isCompactMessage(message: {
+  messageKind?: string | null;
+  role?: string;
+  content?: unknown;
+}): boolean {
+  if (message.messageKind === "compact") {
+    return true;
+  }
+
+  if (message.role !== "system") {
+    return false;
+  }
+
+  const text = extractStringContent(message.content);
+  return Boolean(text?.includes("Context Compaction Summary"));
+}
+
+export function compactPreviewFromContent(content: string): string {
+  const summaryStart = content.indexOf(COMPACT_SUMMARY_MARKER);
+  const previewSource =
+    summaryStart >= 0
+      ? content.slice(summaryStart + COMPACT_SUMMARY_MARKER.length)
+      : content;
+
+  return previewSource.trim().slice(0, 120);
+}
+
 /**
  * Scan a list of messages for compaction boundaries.
  * Returns an array of boundary markers keyed by message index.
  */
 export function detectCompactBoundaries(
-  messages: { role: string; content?: unknown }[],
+  messages: { role: string; content?: unknown; messageKind?: string | null }[],
 ): CompactBoundary[] {
   return messages
     .map((msg, i) => {
-      if (msg.role !== "system") return null;
-      const text = extractStringContent(msg.content);
-      if (!text) return null;
-      if (!text.includes("Context Compaction Summary")) return null;
+      if (!isCompactMessage(msg)) {
+        return null;
+      }
 
-      // Extract the summary text after the header
-      const summaryStart = text.indexOf("Context Compaction Summary");
-      const preview = text.slice(summaryStart + 28).trim().slice(0, 120);
-
-      return { messageIndex: i, preview };
+      const text = extractStringContent(msg.content) ?? "";
+      return {
+        messageIndex: i,
+        preview: compactPreviewFromContent(text),
+      };
     })
     .filter((b): b is CompactBoundary => b !== null);
 }

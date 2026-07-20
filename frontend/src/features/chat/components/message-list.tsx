@@ -26,7 +26,6 @@ import {
   shouldClearScrollPinSuppression,
   shouldFollowStream,
 } from "./message-list-scroll";
-import { CompactSeparator, detectCompactBoundaries } from "./compact-separator";
 import { SystemPromptBlock } from "./system-prompt-block";
 
 type MessageListProps = {
@@ -278,7 +277,6 @@ export function MessageList({
     }, CHAT_SCROLL_RETRY_MS);
   }, [resumeFollowingStream]);
 
-  const compactBoundaries = useMemo(() => detectCompactBoundaries(messages), [messages]);
     // Detect the build-from-plan boundary so a visual separator can be
   // inserted between the planning conversation and the build phase.
   const buildBoundaryIndex = useMemo(() => {
@@ -506,12 +504,6 @@ export function MessageList({
     scheduleScrollToBottom();
   }, [scheduleScrollToBottom]);
 
-  const renderCompactSeparator = (index: number) => {
-    const boundary = compactBoundaries.find(b => b.messageIndex === index);
-    if (boundary) return <CompactSeparator boundary={boundary} />;
-    return null;
-  };
-
   const renderBuildBoundarySeparator = (index: number) => {
     if (buildBoundaryIndex > 0 && index === buildBoundaryIndex) {
       return (
@@ -560,10 +552,6 @@ export function MessageList({
               onExpand={onSystemPromptExpand}
             />
           ) : null}
-          {compactBoundaries.length > 0 && compactBoundaries[0] ? (
-            <CompactSeparator boundary={compactBoundaries[0]} />
-          ) : null}
-
           {shouldVirtualize ? (
             /* ── Virtualized rendering ── */
             messages.length > 0 ? (
@@ -600,7 +588,6 @@ export function MessageList({
                         )}
                       >
                         {renderBuildBoundarySeparator(index)}
-                        {renderCompactSeparator(index)}
                         {renderMessage(message)}
                       </div>
                     </div>
@@ -613,7 +600,6 @@ export function MessageList({
             messages.map((message, index) => (
               <Fragment key={message.id}>
                 {renderBuildBoundarySeparator(index)}
-                {renderCompactSeparator(index)}
                 {renderMessage(message)}
               </Fragment>
             ))

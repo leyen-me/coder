@@ -7,6 +7,8 @@ pub const SESSIONS_STORE: &str = "sessions";
 pub const MESSAGES_STORE: &str = "messages";
 pub const AGENT_TODOS_STORE: &str = "agentTodos";
 
+pub const MESSAGE_KIND_COMPACT: &str = "compact";
+
 pub const DEFAULT_SESSION_KIND: &str = "standard";
 pub const DEFAULT_AUTONOMY_MODE: &str = "interactive";
 pub const DEFAULT_DECISION_POLICY_VERSION: &str = "mvp-v1";

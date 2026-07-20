@@ -42,6 +42,10 @@ import { StreamingMessageContent } from "./streaming-message-content";
 import { UserMessageContent } from "./user-message-content";
 import { HandoffContinuationMessage } from "./handoff-continuation-message";
 import { HandoffSourceMessage } from "./handoff-source-message";
+import {
+  CompactSeparator,
+  compactPreviewFromContent,
+} from "./compact-separator";
 
 type MessageItemProps = {
   message: MessageRecord;
@@ -296,6 +300,17 @@ export const MessageItem = memo(function MessageItem({
   }, [isRegenerating, message, onRegenerateAssistantMessage]);
 
   const handoffMessageKind = resolveHandoffMessageKind(message);
+
+  if (message.messageKind === "compact") {
+    return (
+      <CompactSeparator
+        boundary={{
+          messageIndex: 0,
+          preview: compactPreviewFromContent(message.content),
+        }}
+      />
+    );
+  }
 
   if (handoffMessageKind === "handoff_continuation") {
     return (

@@ -9,7 +9,7 @@ import type { ProviderId } from "@/lib/model-provider/types";
 export type MessageRole = "user" | "assistant";
 
 /** Distinguishes structured artifact messages from regular chat replies. */
-export type MessageKind = "plan" | "handoff" | "handoff_continuation";
+export type MessageKind = "plan" | "handoff" | "handoff_continuation" | "compact";
 
 export type SessionKind = "standard" | "long_task";
 export type SessionAutonomyMode = "interactive" | "unattended";
