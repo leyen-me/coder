@@ -28,6 +28,9 @@ use crate::db::{
 
 const MAX_RETRY_ATTEMPTS: u32 = 3;
 const TOOL_STALL_THRESHOLD: u32 = 3;
+/// Streaming tokens update in-memory state every delta, but SQLite writes are
+/// coalesced so the agent loop is not blocked on a put_message per token.
+const STREAM_PERSIST_MIN_INTERVAL_MS: u64 = 150;
 
 #[derive(Debug)]
 pub enum AgentLoopError {
@@ -781,6 +784,7 @@ async fn run_single_turn_attempt(
     let mut content = String::new();
     let mut reasoning = String::new();
     let mut usage = None;
+    let mut last_stream_persist_ms = 0_u64;
 
     let emit_assistant_output = params.emit_assistant_output.unwrap_or(true);
 
@@ -800,15 +804,11 @@ async fn run_single_turn_attempt(
                     if let Some(state) = persisted_state.as_mut() {
                         state.thinking = reasoning.clone();
                         append_process_text_step(&mut state.process_steps, "reasoning", delta);
-                        let _ = persist_message_snapshot(
+                        maybe_persist_stream_snapshot(
                             db,
                             state,
-                            MessageStatusPatch {
-                                status: Some("streaming"),
-                                error: None,
-                                usage: None,
-                                duration_ms: None,
-                            },
+                            &mut last_stream_persist_ms,
+                            false,
                         );
                     }
                     if emit_assistant_output {
@@ -820,15 +820,11 @@ async fn run_single_turn_attempt(
                     if let Some(state) = persisted_state.as_mut() {
                         state.content = content.clone();
                         append_process_text_step(&mut state.process_steps, "answer", delta);
-                        let _ = persist_message_snapshot(
+                        maybe_persist_stream_snapshot(
                             db,
                             state,
-                            MessageStatusPatch {
-                                status: Some("streaming"),
-                                error: None,
-                                usage: None,
-                                duration_ms: None,
-                            },
+                            &mut last_stream_persist_ms,
+                            false,
                         );
                     }
                     if emit_assistant_output {
@@ -856,6 +852,12 @@ async fn run_single_turn_attempt(
         &params.task_id,
     )
     .await;
+
+    // Flush any coalesced stream tokens before tools / terminal status reads
+    // the persisted assistant row.
+    if let Some(state) = persisted_state.as_mut() {
+        maybe_persist_stream_snapshot(db, state, &mut last_stream_persist_ms, true);
+    }
 
     if cancel_token.is_cancelled() {
         return Err(AgentLoopError::Cancelled);
@@ -1127,6 +1129,32 @@ fn persist_message_snapshot(
         message.duration_ms = Some(duration_ms);
     }
     crate::db::session_store::put_message(&db, &message, false).map_err(AgentLoopError::Other)
+}
+
+fn maybe_persist_stream_snapshot(
+    db: &Arc<Mutex<Database>>,
+    state: &PersistedMessageState,
+    last_persist_ms: &mut u64,
+    force: bool,
+) {
+    let now = current_timestamp_ms();
+    if !force
+        && *last_persist_ms > 0
+        && now.saturating_sub(*last_persist_ms) < STREAM_PERSIST_MIN_INTERVAL_MS
+    {
+        return;
+    }
+    *last_persist_ms = now.max(1);
+    let _ = persist_message_snapshot(
+        db,
+        state,
+        MessageStatusPatch {
+            status: Some("streaming"),
+            error: None,
+            usage: None,
+            duration_ms: None,
+        },
+    );
 }
 
 fn compact_completed_event(

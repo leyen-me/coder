@@ -370,8 +370,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               removedCount: 0,
               preview: "",
             });
-            await streamingBufferRef.current.flush(assistantMessageId);
-            notifyDbChange();
+            // Overlay-only: avoid HTTP session refetch mid-stream.
             return;
           }
           const existing = getSessionCompactUi(task.sessionId);
@@ -399,8 +398,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               preview: event.summaryPreview,
               compactMessageId,
             });
-            await streamingBufferRef.current.flush(assistantMessageId);
-            notifyDbChange();
+            // Overlay-only until the turn settles; refetching here makes
+            // streaming feel laggy under auto-compact.
             return;
           }
           window.dispatchEvent(
