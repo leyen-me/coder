@@ -14,7 +14,8 @@ use crate::db::{
     Database,
 };
 use crate::tools::{
-    agent_get_runtime_environment, resolve_skill_references, McpServerConfig, RuntimeEnvironmentResponse,
+    agent_get_runtime_environment, resolve_available_skill_references, McpServerConfig,
+    RuntimeEnvironmentResponse,
 };
 use crate::AppState;
 
@@ -401,7 +402,9 @@ fn apply_referenced_skills_to_conversation(
             continue;
         }
 
-        let resolved = resolve_skill_references(workspace_dir, &slugs)?;
+        // Soft-resolve so deleting a skill does not break sessions that
+        // still store a historical referenced_skills entry for it.
+        let resolved = resolve_available_skill_references(workspace_dir, &slugs)?;
         if resolved.skills.is_empty() {
             continue;
         }
@@ -1481,6 +1484,56 @@ Prefer deterministic test scaffolding.
         assert!(user_content.contains("Referenced skill: demo-skill"));
         assert!(user_content.contains("Prefer deterministic test scaffolding."));
         assert!(user_content.contains("Please implement the following plan"));
+    }
+
+    #[test]
+    fn assemble_agent_messages_skips_missing_referenced_skills() {
+        let workspace_dir = temp_dir("missing-skill");
+        let state = create_test_state(&workspace_dir);
+        let session = sample_session(&workspace_dir);
+        let db = state.db.lock().expect("db");
+        put_session(&db, &session).expect("put session");
+        put_message(
+            &db,
+            &MessageRecord {
+                id: new_message_id(),
+                session_id: session.id.clone(),
+                role: "user".to_string(),
+                message_kind: None,
+                content: "Continue after the skill was deleted\n/gone-skill".to_string(),
+                images: None,
+                referenced_skills: Some(vec!["gone-skill".to_string()]),
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: None,
+                error: None,
+                created_at: current_timestamp_ms(),
+                duration_ms: None,
+                usage: None,
+            },
+            true,
+        )
+        .expect("put user");
+        drop(db);
+
+        let messages =
+            assemble_agent_messages(&state, &session, Some("agent")).expect("assemble messages");
+        let user_message = messages
+            .iter()
+            .find(|message| message.role == "user")
+            .expect("user message");
+        let user_content = user_message
+            .content
+            .as_ref()
+            .and_then(Value::as_str)
+            .expect("user text");
+        assert_eq!(
+            user_content,
+            "Continue after the skill was deleted\n/gone-skill"
+        );
+        assert!(!user_content.contains("Referenced skill:"));
     }
 
     #[test]

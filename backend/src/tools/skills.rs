@@ -142,15 +142,7 @@ pub fn resolve_skill_references(
     slugs: &[String],
 ) -> Result<ResolveSkillReferencesResult, String> {
     let mut resolved = Vec::new();
-    let mut unique = Vec::new();
-    for slug in slugs {
-        let trimmed = slug.trim();
-        if !trimmed.is_empty() && !unique.iter().any(|existing: &String| existing == trimmed) {
-            unique.push(trimmed.to_string());
-        }
-    }
-
-    for slug in unique {
+    for slug in unique_skill_slugs(slugs) {
         let skill = resolve_skill_reference(workspace_dir, &slug)?
             .ok_or_else(|| format!("Skill not found: {slug}"))?;
         resolved.push(SkillRecord {
@@ -160,6 +152,36 @@ pub fn resolve_skill_references(
     }
 
     Ok(ResolveSkillReferencesResult { skills: resolved })
+}
+
+/// Soft resolve: skip missing/deleted slugs instead of failing the whole batch.
+/// Used when replaying historical messages that may still reference removed skills.
+pub fn resolve_available_skill_references(
+    workspace_dir: Option<&str>,
+    slugs: &[String],
+) -> Result<ResolveSkillReferencesResult, String> {
+    let mut resolved = Vec::new();
+    for slug in unique_skill_slugs(slugs) {
+        if let Some(skill) = resolve_skill_reference(workspace_dir, &slug)? {
+            resolved.push(SkillRecord {
+                summary: skill.summary,
+                content: skill.content,
+            });
+        }
+    }
+
+    Ok(ResolveSkillReferencesResult { skills: resolved })
+}
+
+fn unique_skill_slugs(slugs: &[String]) -> Vec<String> {
+    let mut unique = Vec::new();
+    for slug in slugs {
+        let trimmed = slug.trim();
+        if !trimmed.is_empty() && !unique.iter().any(|existing: &String| existing == trimmed) {
+            unique.push(trimmed.to_string());
+        }
+    }
+    unique
 }
 
 pub fn ensure_skill_roots(workspace_dir: Option<&str>) -> Result<SkillRoots, String> {
