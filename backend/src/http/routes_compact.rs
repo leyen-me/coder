@@ -3,8 +3,8 @@
 //! POST /api/compact
 //! Body: { session_id, task_id?, force? }
 //!
-//! Running agent: queues via registry (resolved from session_id).
-//! Otherwise: compacts immediately using session + provider settings.
+//! Idle session only — returns `agent_running` while an agent is active.
+//! (Mid-turn auto-compact still runs inside the agent loop.)
 
 use axum::{extract::State, response::Json};
 use serde::{Deserialize, Serialize};
@@ -64,20 +64,6 @@ fn conversation_message_count(messages: &[crate::db::records::MessageRecord]) ->
         .count()
 }
 
-fn queued_response(anchor_after_message_id: Option<String>) -> CompactTriggerResponse {
-    CompactTriggerResponse {
-        ok: true,
-        compacted: true,
-        code: "queued".to_string(),
-        removed_count: None,
-        remaining_count: None,
-        anchor_after_message_id,
-        first_kept_message_id: None,
-        compact_message_id: None,
-        summary_preview: None,
-    }
-}
-
 fn error_response(code: &str) -> CompactTriggerResponse {
     CompactTriggerResponse {
         ok: false,
@@ -116,34 +102,21 @@ pub async fn handle_compact(
 
     let force = payload.force && allow_force_compact();
 
-    // Mode 1: running agent — resolve task from session (or explicit task_id) and queue.
-    let queued_task_id = {
-        let mut registry = match state.agent_registry.lock() {
+    // Manual compact is idle-only. While an agent is running/pending/cancelling,
+    // refuse so the user must stop first (auto-compact still runs inside the loop).
+    let agent_running = {
+        let registry = match state.agent_registry.lock() {
             Ok(registry) => registry,
             Err(_) => return Json(error_response("registry_unavailable")),
         };
-
-        if let Some(task_id) = payload
-            .task_id
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-        {
-            if registry.request_compact(task_id, force) {
-                Some(task_id.to_string())
-            } else {
-                None
-            }
-        } else {
-            registry.request_compact_for_session(session_id, force)
-        }
+        registry.get_session_status(session_id).is_some()
     };
 
-    if queued_task_id.is_some() {
-        return Json(queued_response(anchor_after_message_id));
+    if agent_running {
+        return Json(error_response("agent_running"));
     }
 
-    // Mode 2: direct compact — resolve credentials from session + provider settings.
+    // Direct compact — resolve credentials from session + provider settings.
     let session = {
         let db = match state.db.lock() {
             Ok(db) => db,

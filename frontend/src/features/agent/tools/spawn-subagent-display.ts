@@ -29,31 +29,33 @@ export function extractSubAgentOutput(
   output: unknown,
 ): SubAgentOutput | null {
   const envelope = asRecord(output);
-  if (!envelope || envelope.ok !== true) {
+  if (!envelope) {
     return null;
   }
 
-  const data = envelope.data;
-  if (!data || typeof data !== "object") {
-    return null;
-  }
-
-  const record = data as Record<string, unknown>;
-  if (typeof record.task !== "string") {
+  // Prefer the tool_success envelope; also accept bare progressive payloads.
+  const data =
+    envelope.ok === true && asRecord(envelope.data)
+      ? asRecord(envelope.data)
+      : typeof envelope.task === "string"
+        ? envelope
+        : null;
+  if (!data || typeof data.task !== "string") {
     return null;
   }
 
   return {
-    task: record.task,
-    steps: Array.isArray(record.steps)
-      ? (record.steps as SubAgentOutput["steps"])
+    task: data.task,
+    steps: Array.isArray(data.steps)
+      ? (data.steps as SubAgentOutput["steps"])
       : [],
-    summary: typeof record.summary === "string" ? record.summary : "",
-    rounds: typeof record.rounds === "number" ? record.rounds : 0,
-    toolCalls: typeof record.toolCalls === "number" ? record.toolCalls : 0,
+    summary: typeof data.summary === "string" ? data.summary : "",
+    rounds: typeof data.rounds === "number" ? data.rounds : 0,
+    toolCalls: typeof data.toolCalls === "number" ? data.toolCalls : 0,
     tokensUsed:
-      typeof record.tokensUsed === "number" ? record.tokensUsed : undefined,
-    error: typeof record.error === "string" ? record.error : undefined,
+      typeof data.tokensUsed === "number" ? data.tokensUsed : undefined,
+    error: typeof data.error === "string" ? data.error : undefined,
+    content: typeof data.content === "string" ? data.content : undefined,
   };
 }
 

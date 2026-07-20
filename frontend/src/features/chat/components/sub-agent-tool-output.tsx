@@ -3,6 +3,7 @@
 import {
   ChevronDownIcon,
   ChevronRightIcon,
+  FoldVerticalIcon,
   LoaderCircleIcon,
   XCircleIcon,
 } from "lucide-react";
@@ -15,6 +16,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { useTranslation } from "@/lib/i18n/locale-provider";
 
 import type { SubAgentStep } from "@/features/agent/tools/types";
 
@@ -119,6 +121,8 @@ export function SubAgentToolOutput({
 }
 
 function TimelineStep({ step }: { step: SubAgentStep }) {
+  const { t } = useTranslation();
+
   if (step.kind === "reasoning") {
     const text = step.text.trim();
     if (!text) {
@@ -132,6 +136,53 @@ function TimelineStep({ step }: { step: SubAgentStep }) {
         <span className="line-clamp-2 text-xs text-muted-foreground">
           {text}
         </span>
+      </div>
+    );
+  }
+
+  if (step.kind === "compact") {
+    const running = step.state === "running";
+    const removedCount = step.removedCount ?? 0;
+    const label = running
+      ? t("chat.compactInProgressTitle")
+      : removedCount === 0
+        ? t("chat.compactNoopTitle")
+        : t("chat.compactBoundaryTitle");
+    const detail = running
+      ? t("chat.compactInProgress")
+      : removedCount === 0
+        ? t("chat.compactNoopAlreadyFits")
+        : t("chat.compactBoundaryFallback");
+    const preview = step.preview?.trim();
+
+    return (
+      <div className="flex items-start gap-2 py-0.5">
+        <FoldVerticalIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-xs font-medium text-foreground">
+              {label}
+            </span>
+            {!running && removedCount > 0 ? (
+              <span className="shrink-0 text-[11px] text-muted-foreground">
+                {removedCount}
+              </span>
+            ) : null}
+            {running ? (
+              <LoaderCircleIcon className="ml-auto size-3 shrink-0 animate-spin text-muted-foreground" />
+            ) : (
+              <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                {getStateIcon(step.state) ?? "✅"}
+              </span>
+            )}
+          </div>
+          <p className="line-clamp-2 text-xs text-muted-foreground">{detail}</p>
+          {!running && preview ? (
+            <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground/80">
+              {preview}
+            </p>
+          ) : null}
+        </div>
       </div>
     );
   }

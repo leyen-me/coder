@@ -551,6 +551,8 @@ fn build_agent_messages_from_process_steps(
                 }
             }
             MessageProcessStep::Decision { .. } => {}
+            // UI-only mid-turn marker — not part of the model transcript.
+            MessageProcessStep::Compact { .. } => {}
         }
     }
     flush_segment(&mut messages, &mut reasoning, &mut content, None);

@@ -251,9 +251,17 @@ export function createStreamingBufferManager(options: {
 
   const upsertProcessStep = (messageId: string, step: MessageProcessStep) => {
     const buffer = ensureBuffer(messageId);
-    const index = buffer.processSteps.findIndex(
+    let index = buffer.processSteps.findIndex(
       (currentStep) => currentStep.id === step.id
     );
+    // Auto-compact replaces the in-flight running step even when the
+    // completed event carries a new id (compact:<messageId>).
+    if (index === -1 && step.kind === "compact" && step.state !== "running") {
+      index = buffer.processSteps.findIndex(
+        (currentStep) =>
+          currentStep.kind === "compact" && currentStep.state === "running",
+      );
+    }
     if (index === -1) {
       buffer.processSteps.push(step);
     } else {

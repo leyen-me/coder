@@ -158,12 +158,18 @@ pub enum AgentEvent {
         task_id: String,
         estimated_tokens: u32,
         max_tokens: u32,
+        /// `auto` (mid-turn) or `manual` (user/slash). Affects UI placement.
+        #[serde(default = "default_compact_source")]
+        source: String,
     },
     #[serde(rename = "compact_completed")]
     CompactCompleted {
         task_id: String,
         removed_count: u32,
         summary_preview: String,
+        /// `auto` (mid-turn) or `manual` (user/slash). Affects UI placement.
+        #[serde(default = "default_compact_source")]
+        source: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         first_kept_message_id: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -183,6 +189,10 @@ pub enum AgentEvent {
         task_id: String,
         message: String,
     },
+}
+
+fn default_compact_source() -> String {
+    "manual".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

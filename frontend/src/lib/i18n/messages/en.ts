@@ -349,6 +349,7 @@ export const enMessages = {
     compactNoopNotEnoughMessages: "Not enough messages yet to compact.",
     compactFailedTitle: "Compact failed",
     compactFailed: "Context compaction failed. Please try again.",
+    compactBlockedWhileRunning: "Agent is still running — stop it before compacting manually.",
     agentProcess: "Agent process",
     agentToolCalls: "{count} tool calls",
     durationLabel: "took {duration}",

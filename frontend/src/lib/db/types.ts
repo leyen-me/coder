@@ -95,6 +95,14 @@ export type MessageProcessStep =
     }
   | {
       id: string;
+      kind: "compact";
+      state: "running" | "completed" | "error";
+      removedCount?: number;
+      preview?: string;
+      compactMessageId?: string | null;
+    }
+  | {
+      id: string;
       kind: "decision";
       trigger: DecisionTrigger;
       summary: string;

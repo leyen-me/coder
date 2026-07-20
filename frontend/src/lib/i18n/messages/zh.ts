@@ -338,6 +338,7 @@ export const zhMessages = {
     compactNoopNotEnoughMessages: "消息太少，暂时无法压缩。",
     compactFailedTitle: "压缩失败",
     compactFailed: "上下文压缩失败，请稍后重试。",
+    compactBlockedWhileRunning: "Agent 正在运行，请先停止后再手动压缩。",
     agentProcess: "Agent 过程",
     agentToolCalls: "{count} 次工具调用",
     durationLabel: "耗时 {duration}",

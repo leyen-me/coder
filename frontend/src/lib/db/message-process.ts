@@ -35,6 +35,33 @@ function normalizeMessageProcessStep(
     return { id, kind, toolCallId };
   }
 
+  if (kind === "compact") {
+    const state = readString(record, ["state"]);
+    if (
+      state !== "running" &&
+      state !== "completed" &&
+      state !== "error"
+    ) {
+      return null;
+    }
+    const removedCountRaw = record.removedCount ?? record.removed_count;
+    const removedCount =
+      typeof removedCountRaw === "number" && Number.isFinite(removedCountRaw)
+        ? removedCountRaw
+        : undefined;
+    const preview = readString(record, ["preview"]) ?? undefined;
+    const compactMessageId =
+      readString(record, ["compactMessageId", "compact_message_id"]) ?? null;
+    return {
+      id,
+      kind,
+      state,
+      removedCount,
+      preview,
+      compactMessageId,
+    };
+  }
+
   if (kind === "decision") {
     const trigger = readString(record, ["trigger"]);
     const summary = readString(record, ["summary"]);

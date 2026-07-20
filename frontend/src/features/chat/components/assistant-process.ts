@@ -24,6 +24,14 @@ export type AssistantProcessStep =
     }
   | {
       id: string;
+      kind: "compact";
+      state: "running" | "completed" | "error";
+      removedCount?: number;
+      preview?: string;
+      compactMessageId?: string | null;
+    }
+  | {
+      id: string;
       kind: "answer";
       text: string;
       isStreaming: boolean;
@@ -140,6 +148,7 @@ export function shouldShowAssistantProcessTimeline(input: {
     (step) =>
       step.kind === "reasoning" ||
       step.kind === "tool" ||
+      step.kind === "compact" ||
       (step.kind === "decision" &&
         (step.status === "requested" ||
           (step.status === "resolved" && step.response != null)))
@@ -159,7 +168,7 @@ function buildPersistedAssistantProcessSteps(
   );
   const lastTextStepId = [...processSteps]
     .reverse()
-    .find((step) => step.kind !== "tool")?.id;
+    .find((step) => step.kind === "reasoning" || step.kind === "answer")?.id;
 
   const resolvedSteps: AssistantProcessStep[] = [];
   let lastReasoningIndex = -1;
@@ -175,6 +184,18 @@ function buildPersistedAssistantProcessSteps(
           invocation,
         });
       }
+      continue;
+    }
+
+    if (step.kind === "compact") {
+      resolvedSteps.push({
+        id: step.id,
+        kind: "compact",
+        state: step.state,
+        removedCount: step.removedCount,
+        preview: step.preview,
+        compactMessageId: step.compactMessageId,
+      });
       continue;
     }
 

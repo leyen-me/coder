@@ -491,6 +491,60 @@ describe("buildAssistantProcessSteps", () => {
     expect(steps.map((step) => step.kind)).toEqual(["reasoning", "answer"]);
   });
 
+  it("keeps mid-turn auto-compact steps inside the process timeline", () => {
+    const steps = buildAssistantProcessSteps({
+      processSteps: [
+        {
+          id: "tool:call-1",
+          kind: "tool",
+          toolCallId: "call-1",
+        },
+        {
+          id: "compact:compact-1",
+          kind: "compact",
+          state: "completed",
+          removedCount: 3,
+          preview: "Summarized earlier work",
+          compactMessageId: "compact-1",
+        },
+        {
+          id: "tool:call-2",
+          kind: "tool",
+          toolCallId: "call-2",
+        },
+      ],
+      answerText: "",
+      thinkingText: "",
+      isThinkingStreaming: false,
+      showReasoning: true,
+      toolInvocations: [
+        {
+          id: "call-1",
+          name: "read_file",
+          input: {},
+          state: "output-available",
+        },
+        {
+          id: "call-2",
+          name: "grep",
+          input: {},
+          state: "output-available",
+        },
+      ],
+      isAnswerStreaming: false,
+      isMessageStreaming: false,
+    });
+
+    expect(steps.map((step) => step.kind)).toEqual([
+      "tool",
+      "compact",
+      "tool",
+    ]);
+    expect(
+      shouldShowAssistantProcessTimeline({ steps, isPlanMessage: false }),
+    ).toBe(true);
+  });
+
   it("keeps reasoning visible while a no-tool turn is still streaming", () => {
     const steps = buildAssistantProcessSteps({
       answerText: "",

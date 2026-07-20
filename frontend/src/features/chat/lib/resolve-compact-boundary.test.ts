@@ -16,17 +16,15 @@ function message(
   overrides: Partial<MessageRecord> & Pick<MessageRecord, "id" | "role">,
 ): MessageRecord {
   return {
-    id: overrides.id,
     sessionId: "session-1",
-    role: overrides.role,
-    messageKind: overrides.messageKind,
     content: overrides.content ?? overrides.id,
     thinking: "",
     toolInvocations: [],
     status: "completed",
-    taskId: overrides.taskId ?? null,
+    taskId: null,
     error: null,
-    createdAt: overrides.createdAt ?? 1,
+    createdAt: 1,
+    ...overrides,
   };
 }
 
@@ -60,6 +58,26 @@ describe("resolveCompactBoundaryRenders", () => {
       "mid-1",
       "last-1",
     ]);
+  });
+
+  it("skips session banner when auto-compact already has a process-panel step", () => {
+    const midWithStep = message({
+      id: "mid-1",
+      role: "assistant",
+      createdAt: 25,
+      processSteps: [
+        {
+          id: "compact:compact-1",
+          kind: "compact",
+          state: "completed",
+          removedCount: 1,
+          compactMessageId: "compact-1",
+        },
+      ],
+    });
+    const withInline = [oldUser, kept1, midWithStep, compact1, kept2, last, compact2];
+    const renders = resolveCompactBoundaryRenders(withInline, null);
+    expect(renders.map((render) => render.afterMessageId)).toEqual(["last-1"]);
   });
 
   it("repairs legacy mid-inserted markers to the end of that compact era", () => {

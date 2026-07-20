@@ -74,6 +74,21 @@ function placementAfterCompactMessage(
   return chronologicalAfter?.id ?? conversation.at(-1)?.id ?? null;
 }
 
+/** Auto-compact markers that already live as process-panel steps. */
+function hasInlineAutoCompactStep(
+  messages: readonly MessageRecord[],
+  compactMessageId: string,
+): boolean {
+  return messages.some((message) =>
+    (message.processSteps ?? []).some(
+      (step) =>
+        step.kind === "compact" &&
+        (step.compactMessageId === compactMessageId ||
+          step.id === `compact:${compactMessageId}`),
+    ),
+  );
+}
+
 function resolvePersistedCompactRenders(
   messages: readonly MessageRecord[],
 ): CompactBoundaryRender[] {
@@ -82,6 +97,11 @@ function resolvePersistedCompactRenders(
 
   for (const compactMessage of messages) {
     if (compactMessage.messageKind !== "compact") {
+      continue;
+    }
+
+    // Mid-turn auto-compact is shown inside the assistant process panel.
+    if (hasInlineAutoCompactStep(messages, compactMessage.id)) {
       continue;
     }
 

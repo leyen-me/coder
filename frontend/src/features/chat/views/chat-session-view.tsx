@@ -11,6 +11,7 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import { nanoid } from "nanoid";
 import { LoaderCircleIcon } from "lucide-react";
+import { toast } from "sonner";
 
 import { storedImagesToFileUIParts } from "@/features/agent/message-content";
 import { resolveDefaultModel } from "@/features/agent/model-preference";
@@ -565,6 +566,11 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   // ── Compact command handler ──────────────────────────────────────────
   useEffect(() => {
     const handler = () => {
+      if (isRunning) {
+        toast.error(t("chat.compactBlockedWhileRunning"));
+        return;
+      }
+
       const currentMessages = displayMessagesRef.current;
       const boundaryAfterMessageId =
         estimateCompactEventAfterMessageId(currentMessages);
@@ -580,9 +586,13 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         force: import.meta.env.DEV,
       })
         .then(async (result) => {
-          if (result.code === "queued") {
-            await refresh();
-          } else if (result.code === "compacted") {
+          if (result.code === "agent_running") {
+            setSessionCompactUi(chatId, null);
+            toast.error(t("chat.compactBlockedWhileRunning"));
+            return;
+          }
+
+          if (result.code === "compacted") {
             await refresh();
           }
 
@@ -602,7 +612,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
     window.addEventListener("coder:command-compact", handler);
     return () => window.removeEventListener("coder:command-compact", handler);
-  }, [activeTask?.taskId, chatId, refresh]);
+  }, [activeTask?.taskId, chatId, isRunning, refresh, t]);
 
   // Only scroll while compact is pending — the spinner sits after the latest
   // message, so users need to see the bottom. Success/noop/error stay in place.

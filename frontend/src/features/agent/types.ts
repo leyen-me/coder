@@ -40,12 +40,16 @@ export type AgentEvent =
       taskId: string;
       estimatedTokens: number;
       maxTokens: number;
+      /** `auto` mid-turn vs `manual` user/slash. */
+      source?: "auto" | "manual";
     }
   | {
       type: "compact_completed";
       taskId: string;
       removedCount: number;
       summaryPreview: string;
+      /** `auto` mid-turn vs `manual` user/slash. */
+      source?: "auto" | "manual";
       firstKeptMessageId?: string | null;
       compactMessageId?: string | null;
       anchorAfterMessageId?: string | null;

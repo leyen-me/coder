@@ -323,6 +323,20 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           if (!task) {
             return;
           }
+          // Auto-compact renders inside the assistant process panel (tool-like).
+          // Manual compact keeps the session-level separator banner.
+          if (event.source === "auto") {
+            streamingBufferRef.current.upsertProcessStep(assistantMessageId, {
+              id: "compact:auto",
+              kind: "compact",
+              state: "running",
+              removedCount: 0,
+              preview: "",
+            });
+            await streamingBufferRef.current.flush(assistantMessageId);
+            notifyDbChange();
+            return;
+          }
           const existing = getSessionCompactUi(task.sessionId);
           setSessionCompactUi(task.sessionId, {
             phase: "loading",
@@ -333,20 +347,38 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         }
         case "compact_completed": {
           const task = tasksRef.current.get(event.taskId);
-          if (task) {
-            window.dispatchEvent(
-              new CustomEvent("coder:compact-completed", {
-                detail: {
-                  sessionId: task.sessionId,
-                  removedCount: event.removedCount,
-                  summaryPreview: event.summaryPreview,
-                  firstKeptMessageId: event.firstKeptMessageId ?? null,
-                  compactMessageId: event.compactMessageId ?? null,
-                  anchorAfterMessageId: event.anchorAfterMessageId ?? null,
-                },
-              }),
-            );
+          if (!task) {
+            return;
           }
+          if (event.source === "auto") {
+            const compactMessageId = event.compactMessageId ?? null;
+            streamingBufferRef.current.upsertProcessStep(assistantMessageId, {
+              id: compactMessageId
+                ? `compact:${compactMessageId}`
+                : "compact:auto",
+              kind: "compact",
+              state: "completed",
+              removedCount: event.removedCount,
+              preview: event.summaryPreview,
+              compactMessageId,
+            });
+            await streamingBufferRef.current.flush(assistantMessageId);
+            notifyDbChange();
+            return;
+          }
+          window.dispatchEvent(
+            new CustomEvent("coder:compact-completed", {
+              detail: {
+                sessionId: task.sessionId,
+                removedCount: event.removedCount,
+                summaryPreview: event.summaryPreview,
+                source: event.source ?? "manual",
+                firstKeptMessageId: event.firstKeptMessageId ?? null,
+                compactMessageId: event.compactMessageId ?? null,
+                anchorAfterMessageId: event.anchorAfterMessageId ?? null,
+              },
+            }),
+          );
           notifyDbChange();
           return;
         }

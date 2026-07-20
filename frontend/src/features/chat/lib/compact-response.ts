@@ -71,6 +71,12 @@ export function compactUiFromApiResponse(
   response: CompactApiResponse,
 ): SessionCompactUiState {
   switch (response.code) {
+    case "agent_running":
+      return {
+        phase: "error",
+        boundaryAfterMessageId: resolveTemporaryPlacement(messages),
+        i18nKey: "chat.compactBlockedWhileRunning",
+      };
     case "queued":
       return {
         phase: "queued",

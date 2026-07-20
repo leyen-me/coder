@@ -112,6 +112,18 @@ pub enum MessageProcessStep {
         #[serde(alias = "toolCallId")]
         tool_call_id: String,
     },
+    /// Mid-turn auto-compact — rendered inside the assistant process panel.
+    Compact {
+        id: String,
+        /// `running` | `completed` | `error`
+        state: String,
+        #[serde(default, alias = "removedCount")]
+        removed_count: u32,
+        #[serde(default)]
+        preview: String,
+        #[serde(default, skip_serializing_if = "Option::is_none", alias = "compactMessageId")]
+        compact_message_id: Option<String>,
+    },
     Decision {
         id: String,
         trigger: String,

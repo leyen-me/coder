@@ -663,6 +663,24 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
             }),
         ),
         tool_definition(
+            "spawn_subagent",
+            "Spawn a sub-agent to complete an independent sub-task. The sub-agent runs with the same workspace tools and returns a structured report. Use this for delegating focused research, file exploration, or verification tasks. Maximum nesting depth: 3.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "task": string_schema("The task description for the sub-agent. Be specific about what to do and what to report back."),
+                    "context": string_schema("Optional additional context or constraints for the sub-agent."),
+                    "tools": {
+                        "type": "array",
+                        "description": "Optional whitelist of tool names the sub-agent may use. Defaults to all available tools.",
+                        "items": { "type": "string" }
+                    }
+                },
+                "required": ["task"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
             "list_automations",
             "List all scheduled automations with full configuration except run history. Use before create/update/delete to inspect existing jobs and avoid duplicates.",
             json!({
@@ -769,6 +787,9 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
     }
 
     tools.retain(|tool| !is_disabled_agent_tool(&tool.function.name));
+    // Handoff-only tools stay defined for execute/extra_tools, but must not be
+    // advertised in the default mode catalogs.
+    tools.retain(|tool| !is_handoff_only_tool(&tool.function.name));
 
     tools
 }
@@ -2911,6 +2932,66 @@ fn process_subagent_event(
             }
             emit_spawn_subagent_progress(ctx, task, steps, final_content, *tokens_used);
         }
+        super::types::AgentEvent::CompactStarted { .. } => {
+            steps.push(json!({
+                "kind": "compact",
+                "text": "Compacting context…",
+                "state": "running",
+            }));
+            emit_spawn_subagent_progress(ctx, task, steps, final_content, *tokens_used);
+        }
+        super::types::AgentEvent::CompactCompleted {
+            removed_count,
+            summary_preview,
+            ..
+        } => {
+            let text = if removed_count == 0 {
+                "Context already fits — nothing to compact.".to_string()
+            } else {
+                format!("Compacted {removed_count} older messages.")
+            };
+            let mut updated = false;
+            for step in steps.iter_mut().rev() {
+                if step.get("kind").and_then(Value::as_str) == Some("compact")
+                    && step.get("state").and_then(Value::as_str) == Some("running")
+                {
+                    if let Some(state) = step.get_mut("state") {
+                        *state = Value::String("completed".to_string());
+                    }
+                    if let Some(existing) = step.get_mut("text") {
+                        *existing = Value::String(text.clone());
+                    }
+                    if let Some(object) = step.as_object_mut() {
+                        object.insert(
+                            "removedCount".to_string(),
+                            Value::from(removed_count),
+                        );
+                        if !summary_preview.trim().is_empty() {
+                            object.insert(
+                                "preview".to_string(),
+                                Value::String(summary_preview.chars().take(160).collect()),
+                            );
+                        }
+                    }
+                    updated = true;
+                    break;
+                }
+            }
+            if !updated {
+                steps.push(json!({
+                    "kind": "compact",
+                    "text": text,
+                    "state": "completed",
+                    "removedCount": removed_count,
+                    "preview": if summary_preview.trim().is_empty() {
+                        None::<String>
+                    } else {
+                        Some(summary_preview.chars().take(160).collect::<String>())
+                    },
+                }));
+            }
+            emit_spawn_subagent_progress(ctx, task, steps, final_content, *tokens_used);
+        }
         super::types::AgentEvent::Done { usage, .. } => {
             *tokens_used = usage.map(|item| item.total_tokens);
         }
@@ -3169,14 +3250,20 @@ fn emit_spawn_subagent_progress(
         .iter()
         .filter(|step| step.get("kind").and_then(Value::as_str) == Some("tool"))
         .count();
+    // Match the final tool_success envelope so the parent UI can render
+    // progressive steps (including compact) while the child is still running.
     let payload = json!({
-        "task": task,
-        "steps": steps,
-        "summary": "",
-        "rounds": rounds,
-        "toolCalls": tool_calls,
-        "tokensUsed": tokens_used,
-        "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
+        "ok": true,
+        "tool": "spawn_subagent",
+        "data": {
+            "task": task,
+            "steps": steps,
+            "summary": "",
+            "rounds": rounds,
+            "toolCalls": tool_calls,
+            "tokensUsed": tokens_used,
+            "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
+        }
     });
     let event = super::types::AgentEvent::ToolCallFinished {
         task_id: task_id.to_string(),
@@ -3445,13 +3532,15 @@ fn current_timestamp_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        ask_question_timeout_message, build_tool_archive_file_path,
+        all_tool_names, ask_question_timeout_message, build_tool_archive_file_path,
         extract_prior_tool_output_content, get_tool_definitions,
         resolve_ask_question_timeout_ms, sanitize_path_segment, validate_ask_question_args,
         AskQuestionArgs, AskQuestionItem, AskQuestionOption, AutomationIdArgs,
-        CreateAutomationArgs, DEFAULT_ASK_QUESTION_TIMEOUT_MS, UpdateAutomationArgs,
+        CreateAutomationArgs, DISABLED_AGENT_TOOL_NAMES, DEFAULT_ASK_QUESTION_TIMEOUT_MS,
+        HANDOFF_ONLY_TOOL_NAMES, UpdateAutomationArgs,
     };
     use serde_json::json;
+    use std::collections::BTreeSet;
 
     fn tool_names(agent_mode: Option<&str>) -> Vec<String> {
         get_tool_definitions(agent_mode)
@@ -3473,6 +3562,121 @@ mod tests {
         assert!(names.contains(&"create_automation".to_string()));
         assert!(names.contains(&"update_automation".to_string()));
         assert!(names.contains(&"delete_automation".to_string()));
+    }
+
+    #[test]
+    fn agent_mode_includes_spawn_subagent() {
+        let names = tool_names(Some("agent"));
+        assert!(names.contains(&"spawn_subagent".to_string()));
+    }
+
+    #[test]
+    fn ask_and_plan_modes_exclude_spawn_subagent() {
+        assert!(!tool_names(Some("ask")).contains(&"spawn_subagent".to_string()));
+        assert!(!tool_names(Some("plan")).contains(&"spawn_subagent".to_string()));
+    }
+
+    #[test]
+    fn agent_mode_excludes_handoff_only_tools() {
+        let names = tool_names(Some("agent"));
+        assert!(!names.contains(&"read_prior_tool_output".to_string()));
+        assert!(!names.contains(&"replace_lines".to_string()));
+    }
+
+    #[test]
+    fn mode_tool_catalogs_match_expected_allowlists() {
+        let mut agent = tool_names(Some("agent"));
+        let mut ask = tool_names(Some("ask"));
+        let mut plan = tool_names(Some("plan"));
+        agent.sort();
+        ask.sort();
+        plan.sort();
+
+        assert_eq!(
+            agent,
+            vec![
+                "ask_question",
+                "await",
+                "browse_page",
+                "create_automation",
+                "create_file",
+                "delete_automation",
+                "edit_file",
+                "get_workspace_tree",
+                "glob",
+                "grep",
+                "kill_shell",
+                "list_automations",
+                "list_dir",
+                "list_shells",
+                "read_file",
+                "read_shell_logs",
+                "remote_shell",
+                "replace_file",
+                "send_email",
+                "shell",
+                "spawn_subagent",
+                "todo_read",
+                "todo_write",
+                "update_automation",
+                "web_search",
+            ]
+        );
+        assert_eq!(
+            ask,
+            vec![
+                "ask_question",
+                "browse_page",
+                "get_workspace_tree",
+                "glob",
+                "grep",
+                "list_dir",
+                "list_shells",
+                "read_file",
+                "todo_read",
+                "web_search",
+            ]
+        );
+        assert_eq!(
+            plan,
+            vec![
+                "ask_question",
+                "browse_page",
+                "get_workspace_tree",
+                "glob",
+                "grep",
+                "list_dir",
+                "list_shells",
+                "plan_create",
+                "plan_delete",
+                "plan_edit",
+                "plan_list",
+                "plan_read",
+                "plan_update",
+                "read_file",
+                "todo_read",
+                "todo_write",
+                "web_search",
+            ]
+        );
+    }
+
+    #[test]
+    fn every_named_tool_is_exposed_disabled_or_handoff_only() {
+        // Catches tools that exist in all_tool_names()/execute but never reach
+        // any mode catalog (the spawn_subagent regression class).
+        let named: BTreeSet<_> = all_tool_names().into_iter().collect();
+        let mut covered = BTreeSet::new();
+        for mode in [Some("agent"), Some("ask"), Some("plan")] {
+            covered.extend(tool_names(mode));
+        }
+        covered.extend(DISABLED_AGENT_TOOL_NAMES.iter().map(|name| (*name).to_string()));
+        covered.extend(HANDOFF_ONLY_TOOL_NAMES.iter().map(|name| (*name).to_string()));
+
+        assert_eq!(
+            covered, named,
+            "every all_tool_names() entry must appear in a mode catalog, DISABLED, or HANDOFF_ONLY"
+        );
     }
 
     #[test]

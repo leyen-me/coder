@@ -151,8 +151,30 @@ pub async fn run_agent_loop(
                     task_id: params.task_id.clone(),
                     estimated_tokens: prompt_estimate,
                     max_tokens,
+                    source: "auto".to_string(),
                 },
             )?;
+            if let Some(state) = persisted_state.as_mut() {
+                upsert_compact_process_step(
+                    &mut state.process_steps,
+                    CompactProcessStepPatch {
+                        state: "running",
+                        removed_count: 0,
+                        preview: "",
+                        compact_message_id: None,
+                    },
+                );
+                let _ = persist_message_snapshot(
+                    &app_state.db,
+                    state,
+                    MessageStatusPatch {
+                        status: Some("streaming"),
+                        error: None,
+                        usage: None,
+                        duration_ms: None,
+                    },
+                );
+            }
 
             let snapshot = build_compact_snapshot(
                 Vec::new(),  // working_files — populated downstream if needed
@@ -194,13 +216,13 @@ pub async fn run_agent_loop(
                         summary.micro_mode
                     );
                     messages = result.messages;
-                    let persisted = persist_compact_summary(
+                    let persisted = persist_compact_for_task(
                         &app_state.db,
+                        &params.task_id,
                         params.session_id.as_deref(),
                         &summary,
                         persist_options,
-                    )
-                    .ok();
+                    );
                     let db_removed = persisted
                         .as_ref()
                         .map(|value| value.removed_count)
@@ -215,6 +237,30 @@ pub async fn run_agent_loop(
                     last_dev_auto_compact_message_count =
                         count_compactable_messages(&messages);
 
+                    if let Some(state) = persisted_state.as_mut() {
+                        upsert_compact_process_step(
+                            &mut state.process_steps,
+                            CompactProcessStepPatch {
+                                state: "completed",
+                                removed_count: result.removed_count as u32,
+                                preview: &summary.text,
+                                compact_message_id: persisted
+                                    .as_ref()
+                                    .map(|value| value.compact_message_id.as_str())
+                                    .filter(|value| !value.is_empty()),
+                            },
+                        );
+                        let _ = persist_message_snapshot(
+                            &app_state.db,
+                            state,
+                            MessageStatusPatch {
+                                status: Some("streaming"),
+                                error: None,
+                                usage: None,
+                                duration_ms: None,
+                            },
+                        );
+                    }
                     emit_event(
                         &registry,
                         &broadcaster,
@@ -224,6 +270,7 @@ pub async fn run_agent_loop(
                             &summary.text,
                             result.removed_count,
                             persisted.as_ref(),
+                            "auto",
                         ),
                     )?;
                 }
@@ -256,15 +303,39 @@ pub async fn run_agent_loop(
                                 result.removed_count
                             );
                             messages = result.messages;
-                            let persisted = persist_compact_summary(
+                            let persisted = persist_compact_for_task(
                                 &app_state.db,
+                                &params.task_id,
                                 params.session_id.as_deref(),
                                 &summary,
                                 persist_options,
-                            )
-                            .ok();
+                            );
                             last_dev_auto_compact_message_count =
                                 count_compactable_messages(&messages);
+                            if let Some(state) = persisted_state.as_mut() {
+                                upsert_compact_process_step(
+                                    &mut state.process_steps,
+                                    CompactProcessStepPatch {
+                                        state: "completed",
+                                        removed_count: result.removed_count as u32,
+                                        preview: &summary.text,
+                                        compact_message_id: persisted
+                                            .as_ref()
+                                            .map(|value| value.compact_message_id.as_str())
+                                            .filter(|value| !value.is_empty()),
+                                    },
+                                );
+                                let _ = persist_message_snapshot(
+                                    &app_state.db,
+                                    state,
+                                    MessageStatusPatch {
+                                        status: Some("streaming"),
+                                        error: None,
+                                        usage: None,
+                                        duration_ms: None,
+                                    },
+                                );
+                            }
                             emit_event(
                                 &registry,
                                 &broadcaster,
@@ -274,6 +345,7 @@ pub async fn run_agent_loop(
                                     &summary.text,
                                     result.removed_count,
                                     persisted.as_ref(),
+                                    "auto",
                                 ),
                             )?;
                         }
@@ -283,6 +355,27 @@ pub async fn run_agent_loop(
                                 params.task_id,
                                 retry_error
                             );
+                            if let Some(state) = persisted_state.as_mut() {
+                                upsert_compact_process_step(
+                                    &mut state.process_steps,
+                                    CompactProcessStepPatch {
+                                        state: "error",
+                                        removed_count: 0,
+                                        preview: "",
+                                        compact_message_id: None,
+                                    },
+                                );
+                                let _ = persist_message_snapshot(
+                                    &app_state.db,
+                                    state,
+                                    MessageStatusPatch {
+                                        status: Some("streaming"),
+                                        error: None,
+                                        usage: None,
+                                        duration_ms: None,
+                                    },
+                                );
+                            }
                         }
                     }
                 }
@@ -333,13 +426,13 @@ pub async fn run_agent_loop(
                         result.removed_count
                     );
                     messages = result.messages;
-                    let persisted = persist_compact_summary(
+                    let persisted = persist_compact_for_task(
                         &app_state.db,
+                        &params.task_id,
                         params.session_id.as_deref(),
                         &summary,
                         CompactPersistOptions::for_manual(force),
-                    )
-                    .ok();
+                    );
                     emit_event(
                         &registry,
                         &broadcaster,
@@ -349,6 +442,7 @@ pub async fn run_agent_loop(
                             &summary.text,
                             result.removed_count,
                             persisted.as_ref(),
+                            "manual",
                         ),
                     )?;
                 }
@@ -943,6 +1037,26 @@ fn build_assistant_message(turn: &AgentTurnResult) -> ChatMessage {
     }
 }
 
+fn is_subagent_task(task_id: &str) -> bool {
+    task_id.contains("/sub-")
+}
+
+/// Persist compact markers for parent session tasks only.
+/// Subagent compact stays in-memory and surfaces through spawn_subagent steps.
+fn persist_compact_for_task(
+    db: &Arc<Mutex<Database>>,
+    task_id: &str,
+    session_id: Option<&str>,
+    summary: &super::compact::CompactSummary,
+    options: CompactPersistOptions,
+) -> Option<CompactPersistResult> {
+    if is_subagent_task(task_id) {
+        log::info!("compact_persist_skipped_subagent task_id={task_id}");
+        return None;
+    }
+    persist_compact_summary(db, session_id, summary, options).ok()
+}
+
 fn resolve_workspace_dir(
     db: &Arc<Mutex<Database>>,
     session_id: Option<&str>,
@@ -1020,6 +1134,7 @@ fn compact_completed_event(
     summary_text: &str,
     in_memory_removed: usize,
     persisted: Option<&CompactPersistResult>,
+    source: &str,
 ) -> AgentEvent {
     let db_removed = persisted.map(|value| value.removed_count).unwrap_or(0);
     let removed_count = db_removed.max(in_memory_removed) as u32;
@@ -1042,10 +1157,58 @@ fn compact_completed_event(
         task_id: task_id.to_string(),
         removed_count,
         summary_preview: summary_text.chars().take(200).collect::<String>(),
+        source: source.to_string(),
         first_kept_message_id,
         compact_message_id,
         anchor_after_message_id,
     }
+}
+
+struct CompactProcessStepPatch<'a> {
+    state: &'a str,
+    removed_count: u32,
+    preview: &'a str,
+    compact_message_id: Option<&'a str>,
+}
+
+fn upsert_compact_process_step(
+    steps: &mut Vec<MessageProcessStep>,
+    patch: CompactProcessStepPatch<'_>,
+) {
+    let preview: String = patch.preview.chars().take(160).collect();
+    let compact_message_id = patch.compact_message_id.map(str::to_string);
+    let id = compact_message_id
+        .as_deref()
+        .map(|value| format!("compact:{value}"))
+        .unwrap_or_else(|| "compact:auto".to_string());
+
+    if let Some(existing) = steps.iter_mut().rev().find(|step| {
+        matches!(
+            step,
+            MessageProcessStep::Compact { state, .. }
+                if state == "running" || state == "error"
+        ) || matches!(
+            step,
+            MessageProcessStep::Compact { id: existing_id, .. } if existing_id == &id
+        )
+    }) {
+        *existing = MessageProcessStep::Compact {
+            id,
+            state: patch.state.to_string(),
+            removed_count: patch.removed_count,
+            preview,
+            compact_message_id,
+        };
+        return;
+    }
+
+    steps.push(MessageProcessStep::Compact {
+        id,
+        state: patch.state.to_string(),
+        removed_count: patch.removed_count,
+        preview,
+        compact_message_id,
+    });
 }
 
 fn emit_event(

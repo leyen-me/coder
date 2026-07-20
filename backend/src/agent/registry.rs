@@ -129,18 +129,20 @@ fn debug_emit_log(event: &AgentEvent) {
             task_id,
             estimated_tokens,
             max_tokens,
+            source,
         } => {
             agent_stream_log(format!(
-                "emit task_id={task_id} type=compact_started estimated_tokens={estimated_tokens} max_tokens={max_tokens}"
+                "emit task_id={task_id} type=compact_started source={source} estimated_tokens={estimated_tokens} max_tokens={max_tokens}"
             ));
         }
         AgentEvent::CompactCompleted {
             task_id,
             removed_count,
+            source,
             ..
         } => {
             agent_stream_log(format!(
-                "emit task_id={task_id} type=compact_completed removed={removed_count}"
+                "emit task_id={task_id} type=compact_completed source={source} removed={removed_count}"
             ));
         }
         AgentEvent::Error { task_id, message } => {

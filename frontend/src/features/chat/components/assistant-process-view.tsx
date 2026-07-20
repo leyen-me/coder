@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { BotIcon } from "lucide-react";
 
 import type { AssistantProcessStep } from "./assistant-process";
+import { CompactProcessChip } from "./compact-process-chip";
 import { MessageToolItem } from "./message-tool-list";
 import { Spinner } from "@/components/ui/spinner";
 import { StreamingMessageContent } from "./streaming-message-content";
@@ -79,6 +80,17 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
               key={group.id}
               isStreaming={group.isStreaming}
               segments={[{ kind: "text", text: group.text }]}
+            />
+          );
+        }
+
+        if (group.kind === "compact") {
+          return (
+            <CompactProcessChip
+              key={group.id}
+              preview={group.preview}
+              removedCount={group.removedCount}
+              state={group.state}
             />
           );
         }

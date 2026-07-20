@@ -325,6 +325,7 @@ export type Messages = {
     compactNoopNotEnoughMessages: string;
     compactFailedTitle: string;
     compactFailed: string;
+    compactBlockedWhileRunning: string;
     agentProcess: string;
     agentToolCalls: string;
     durationLabel: string;

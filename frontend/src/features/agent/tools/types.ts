@@ -332,11 +332,15 @@ export type SubAgentInput = {
 
 /** A single step recorded by the sub-agent. */
 export type SubAgentStep = {
-  kind: "reasoning" | "tool";
+  kind: "reasoning" | "tool" | "compact";
   text: string;
   toolName?: string;
   toolLabel?: string;
   state?: "pending" | "running" | "completed" | "error";
+  /** Compact summary preview (compact steps only). */
+  preview?: string;
+  /** Messages compacted out of model context (compact steps only). */
+  removedCount?: number;
 };
 
 /** Structured output returned by spawn_subagent. */
