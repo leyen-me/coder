@@ -90,7 +90,12 @@ COPY backend/ backend/
 COPY --from=frontend-builder /app/frontend/dist frontend/dist/
 
 # Step 4: 编译真实二进制（仅重新编译 coder crate，依赖已缓存）
-RUN cd backend && cargo build --release
+# 必须 touch：Docker COPY 会保留主机文件 mtime，往往早于 Step 1 产物；
+# Cargo 主要靠 mtime 判断是否重编，否则会直接复用空壳 `fn main() {}`，
+# 容器启动后立刻以 exit 0 退出（构建成功、运行“失败”）。
+# 参见 https://github.com/rust-lang/cargo/issues/9312
+RUN touch backend/src/main.rs backend/src/lib.rs \
+    && cd backend && cargo build --release
 
 # ========================================================
 # Stage 3 — 运行镜像
