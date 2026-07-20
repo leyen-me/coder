@@ -311,6 +311,18 @@ export type Messages = {
     proxyContinuationLoading: string;
     proxyContinuationHoverTitle: string;
     proxyContinuationNoDetails: string;
+    compactInProgressTitle: string;
+    compactInProgress: string;
+    compactQueuedTitle: string;
+    compactQueued: string;
+    compactBoundaryTitle: string;
+    compactBoundaryFallback: string;
+    compactSuccess: string;
+    compactNoopTitle: string;
+    compactNoopAlreadyFits: string;
+    compactNoopNotEnoughMessages: string;
+    compactFailedTitle: string;
+    compactFailed: string;
     agentProcess: string;
     agentToolCalls: string;
     durationLabel: string;

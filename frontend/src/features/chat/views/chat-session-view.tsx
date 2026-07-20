@@ -49,6 +49,16 @@ import {
   useDisplayMessages,
   useSessionData,
 } from "../hooks/use-session-messages";
+import {
+  compactUiFromAgentCompleted,
+  compactUiFromApiResponse,
+  type CompactApiResponse,
+} from "../lib/compact-response";
+import { estimateCompactAnchorAfterMessageId } from "../lib/estimate-compact-anchor";
+import {
+  setSessionCompactUi,
+  useSessionCompactUi,
+} from "../lib/session-compact-ui-store";
 import { useSessionWorkspaceBinding } from "../hooks/use-session-workspace-binding";
 import { useSystemPrompt } from "../hooks/use-system-prompt";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
@@ -108,6 +118,21 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const effectiveSession = previewSession ?? session;
   const effectiveMessages = previewMessages ?? messages;
   const displayMessages = useDisplayMessages(effectiveMessages);
+  const displayMessagesRef = useRef(displayMessages);
+  displayMessagesRef.current = displayMessages;
+  const compactUi = useSessionCompactUi(chatId);
+  const resolvedCompactUi = useMemo(() => {
+    if (!compactUi) {
+      return null;
+    }
+
+    return {
+      ...compactUi,
+      anchorAfterMessageId:
+        compactUi.anchorAfterMessageId ??
+        estimateCompactAnchorAfterMessageId(displayMessages),
+    };
+  }, [compactUi, displayMessages]);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingQueuedMessageId, setEditingQueuedMessageId] = useState<string | null>(
     null
@@ -552,25 +577,115 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   // ── Compact command handler ──────────────────────────────────────────
   useEffect(() => {
     const handler = () => {
-      void apiPost<{ ok: boolean; compacted: boolean; message: string }>(
-        "/api/compact",
-        {
-          sessionId: chatId,
-          taskId: activeTask?.taskId,
-        }
-      )
-        .then((result) => {
-          console.log("[Compact]", result.message);
-          void refresh();
+      const currentMessages = displayMessagesRef.current;
+      const anchorAfterMessageId =
+        estimateCompactAnchorAfterMessageId(currentMessages);
+      setSessionCompactUi(chatId, {
+        phase: "loading",
+        anchorAfterMessageId,
+        i18nKey: "chat.compactInProgress",
+      });
+
+      void apiPost<CompactApiResponse>("/api/compact", {
+        sessionId: chatId,
+        taskId: activeTask?.taskId,
+      })
+        .then(async (result) => {
+          setSessionCompactUi(
+            chatId,
+            compactUiFromApiResponse(displayMessagesRef.current, result),
+          );
+          if (
+            result.code === "compacted" ||
+            result.code === "queued"
+          ) {
+            await refresh();
+          }
         })
-        .catch((error) => {
-          console.error("[Compact] API call failed:", error);
+        .catch(() => {
+          setSessionCompactUi(chatId, {
+            phase: "error",
+            anchorAfterMessageId,
+            i18nKey: "chat.compactFailed",
+          });
         });
     };
 
     window.addEventListener("coder:command-compact", handler);
     return () => window.removeEventListener("coder:command-compact", handler);
   }, [activeTask?.taskId, chatId, refresh]);
+
+  useEffect(() => {
+    if (!compactUi) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      document
+        .querySelector("[data-compact-phase]")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [compactUi]);
+
+  useEffect(() => {
+    if (!compactUi) {
+      return;
+    }
+
+    if (compactUi.phase === "success") {
+      const hasPersistedMarker = displayMessages.some(
+        (message) => message.messageKind === "compact",
+      );
+      if (hasPersistedMarker) {
+        setSessionCompactUi(chatId, null);
+        return;
+      }
+
+      const timer = window.setTimeout(() => {
+        setSessionCompactUi(chatId, null);
+      }, 8_000);
+      return () => {
+        window.clearTimeout(timer);
+      };
+    }
+
+    if (compactUi.phase !== "noop" && compactUi.phase !== "error") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setSessionCompactUi(chatId, null);
+    }, 8_000);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [chatId, compactUi, displayMessages]);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        sessionId: string;
+        removedCount: number;
+        summaryPreview: string;
+      }>).detail;
+      if (!detail || detail.sessionId !== chatId) {
+        return;
+      }
+
+      setSessionCompactUi(
+        chatId,
+        compactUiFromAgentCompleted(displayMessagesRef.current, {
+          removedCount: detail.removedCount,
+          summaryPreview: detail.summaryPreview,
+        }),
+      );
+      void refresh();
+    };
+
+    window.addEventListener("coder:compact-completed", handler);
+    return () => window.removeEventListener("coder:compact-completed", handler);
+  }, [chatId, refresh]);
 
   // ── /new command handler ────────────────────────────────────────────
   useEffect(() => {
@@ -607,6 +722,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         onRequestStop={requestStopAgent}
       />
       <ChatMessageList
+        compactUi={resolvedCompactUi}
         editingMessageId={editingMessageId}
         handoffFromSessionId={effectiveSession?.handoffFromSessionId}
         messages={displayMessages}

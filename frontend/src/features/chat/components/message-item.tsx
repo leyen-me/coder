@@ -43,7 +43,7 @@ import { UserMessageContent } from "./user-message-content";
 import { HandoffContinuationMessage } from "./handoff-continuation-message";
 import { HandoffSourceMessage } from "./handoff-source-message";
 import {
-  CompactSeparator,
+  CompactBoundaryBanner,
   compactPreviewFromContent,
 } from "./compact-separator";
 
@@ -303,11 +303,11 @@ export const MessageItem = memo(function MessageItem({
 
   if (message.messageKind === "compact") {
     return (
-      <CompactSeparator
-        boundary={{
-          messageIndex: 0,
-          preview: compactPreviewFromContent(message.content),
-        }}
+      <CompactBoundaryBanner
+        phase="success"
+        titleKey="chat.compactBoundaryTitle"
+        descriptionKey="chat.compactBoundaryFallback"
+        preview={compactPreviewFromContent(message.content)}
       />
     );
   }

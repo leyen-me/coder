@@ -249,6 +249,8 @@ pub struct CompactPersistResult {
     pub compact_message_id: String,
     pub deleted_message_ids: Vec<String>,
     pub removed_count: usize,
+    pub anchor_after_message_id: Option<String>,
+    pub first_kept_message_id: Option<String>,
 }
 
 fn estimate_record_tokens(record: &MessageRecord) -> u32 {
@@ -278,6 +280,31 @@ fn select_tail_record_count(records: &[&MessageRecord], max_tokens: u32) -> usiz
 
     selected
 }
+
+pub fn estimate_compact_anchor_after_message_id(records: &[MessageRecord]) -> Option<String> {
+    let conversation: Vec<&MessageRecord> = records
+        .iter()
+        .filter(|record| record.message_kind.as_deref() != Some(super::records::MESSAGE_KIND_COMPACT))
+        .collect();
+
+    if conversation.len() < 2 {
+        return conversation.last().map(|record| record.id.clone());
+    }
+
+    let keep_count = select_tail_record_count(&conversation, COMPACT_USER_MESSAGE_MAX_TOKENS);
+    if keep_count == 0 || keep_count >= conversation.len() {
+        return conversation.last().map(|record| record.id.clone());
+    }
+
+    let first_kept_index = conversation.len() - keep_count;
+    if first_kept_index == 0 {
+        return None;
+    }
+
+    Some(conversation[first_kept_index - 1].id.clone())
+}
+
+const COMPACT_USER_MESSAGE_MAX_TOKENS: u32 = 20_000;
 
 /// Persist a compaction boundary into the session message timeline.
 ///
@@ -314,6 +341,8 @@ pub fn persist_session_compact(
             compact_message_id: String::new(),
             deleted_message_ids: Vec::new(),
             removed_count: 0,
+            anchor_after_message_id: None,
+            first_kept_message_id: None,
         });
     }
 
@@ -326,8 +355,26 @@ pub fn persist_session_compact(
             compact_message_id: String::new(),
             deleted_message_ids: Vec::new(),
             removed_count: 0,
+            anchor_after_message_id: None,
+            first_kept_message_id: None,
         });
     }
+
+    let anchor_after_message_id = if first_kept_index > 0 {
+        Some(records[first_kept_index - 1].id.clone())
+    } else {
+        None
+    };
+    let compact_created_at = if first_kept_index > 0 {
+        let previous = &records[first_kept_index - 1];
+        if first_kept.created_at > previous.created_at.saturating_add(1) {
+            previous.created_at + (first_kept.created_at - previous.created_at) / 2
+        } else {
+            first_kept.created_at.saturating_sub(1)
+        }
+    } else {
+        first_kept.created_at.saturating_sub(1)
+    };
 
     for record in &deleted {
         db.delete(MESSAGES_STORE, &record.id)?;
@@ -349,7 +396,7 @@ pub fn persist_session_compact(
         status: "completed".to_string(),
         task_id: None,
         error: None,
-        created_at: first_kept.created_at.saturating_sub(1),
+        created_at: compact_created_at,
         duration_ms: None,
         usage: None,
     };
@@ -360,6 +407,8 @@ pub fn persist_session_compact(
         compact_message_id: compact_message.id,
         deleted_message_ids: deleted.into_iter().map(|record| record.id).collect(),
         removed_count: first_kept_index,
+        anchor_after_message_id,
+        first_kept_message_id: Some(first_kept.id),
     })
 }
 
@@ -441,7 +490,7 @@ mod compact_persist_tests {
         let session_id = "session-compact";
         seed_session(&db, session_id);
         seed_message(&db, session_id, "user", "first question", 100);
-        seed_message(&db, session_id, "assistant", "first answer", 101);
+        let first_answer_id = seed_message(&db, session_id, "assistant", "first answer", 101);
         seed_message(&db, session_id, "user", "second question", 102);
         seed_message(&db, session_id, "assistant", "second answer", 103);
 
@@ -456,6 +505,10 @@ mod compact_persist_tests {
 
         assert_eq!(result.removed_count, 2);
         assert!(!result.compact_message_id.is_empty());
+        assert_eq!(
+            result.anchor_after_message_id.as_deref(),
+            Some(first_answer_id.as_str())
+        );
 
         let messages = get_messages_by_session(&db, session_id).expect("messages");
         assert_eq!(messages.len(), 3);

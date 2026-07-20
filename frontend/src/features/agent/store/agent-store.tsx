@@ -57,6 +57,10 @@ import type {
   SessionHandoffState,
 } from "../types";
 import { readAgentHandoffThreshold } from "../handoff-settings";
+import {
+  getSessionCompactUi,
+  setSessionCompactUi,
+} from "@/features/chat/lib/session-compact-ui-store";
 import { resolveAgentSessionPolicy } from "../session-policy";
 
 export type StreamingMessageOverlay = {
@@ -314,9 +318,35 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           setSessionHandoffState(event.sessionId, event.phase);
           notifyDbChange();
           return;
-        case "compact_completed":
+        case "compact_started": {
+          const task = tasksRef.current.get(event.taskId);
+          if (!task) {
+            return;
+          }
+          const existing = getSessionCompactUi(task.sessionId);
+          setSessionCompactUi(task.sessionId, {
+            phase: "loading",
+            anchorAfterMessageId: existing?.anchorAfterMessageId ?? null,
+            i18nKey: "chat.compactInProgress",
+          });
+          return;
+        }
+        case "compact_completed": {
+          const task = tasksRef.current.get(event.taskId);
+          if (task) {
+            window.dispatchEvent(
+              new CustomEvent("coder:compact-completed", {
+                detail: {
+                  sessionId: task.sessionId,
+                  removedCount: event.removedCount,
+                  summaryPreview: event.summaryPreview,
+                },
+              }),
+            );
+          }
           notifyDbChange();
           return;
+        }
         case "handoff_complete":
           clearSessionHandoffState(event.sourceSessionId);
           notifyDbChange();

@@ -27,11 +27,17 @@ import {
   shouldFollowStream,
 } from "./message-list-scroll";
 import { SystemPromptBlock } from "./system-prompt-block";
+import {
+  CompactBoundaryBanner,
+  compactBannerFromUiState,
+} from "./compact-separator";
+import type { SessionCompactUiState } from "../lib/session-compact-ui-store";
 
 type MessageListProps = {
   messages: MessageRecord[];
   sessionTitle?: string;
   systemPrompt?: string | null;
+  compactUi?: SessionCompactUiState | null;
   onSystemPromptExpand?: () => void;
   editingMessageId?: string | null;
   onEditUserMessage?: (message: MessageRecord) => void;
@@ -115,6 +121,7 @@ export function MessageList({
   messages,
   sessionTitle,
   systemPrompt,
+  compactUi = null,
   onSystemPromptExpand,
   editingMessageId,
   onEditUserMessage,
@@ -143,7 +150,7 @@ export function MessageList({
     [messages, streamingMessageIds]
   );
   const isStreaming = streamingMessageCount > 0;
-  const shouldVirtualize = !isStreaming;
+  const shouldVirtualize = !isStreaming && !compactUi;
   const pendingVirtualizationAnchorRef = useRef<number | null>(null);
   const wasStreamingRef = useRef(isStreaming);
 
@@ -519,6 +526,35 @@ export function MessageList({
     return null;
   };
 
+  const renderCompactOverlayAfter = (messageId: string) => {
+    if (!compactUi || compactUi.anchorAfterMessageId !== messageId) {
+      return null;
+    }
+
+    const banner = compactBannerFromUiState(compactUi);
+    return <CompactBoundaryBanner {...banner} />;
+  };
+
+  const compactAnchorMatched = useMemo(() => {
+    if (!compactUi) {
+      return false;
+    }
+    if (!compactUi.anchorAfterMessageId) {
+      return true;
+    }
+    return messages.some((message) => message.id === compactUi.anchorAfterMessageId);
+  }, [compactUi, messages]);
+
+  const renderCompactOverlayAtStart =
+    compactUi && compactUi.anchorAfterMessageId === null ? (
+      <CompactBoundaryBanner {...compactBannerFromUiState(compactUi)} />
+    ) : null;
+
+  const renderCompactOverlayFallback =
+    compactUi && !compactAnchorMatched ? (
+      <CompactBoundaryBanner {...compactBannerFromUiState(compactUi)} />
+    ) : null;
+
   const renderMessage = (message: MessageRecord) => (
     <div data-message-id={message.id}>
       <MessageItem
@@ -552,6 +588,7 @@ export function MessageList({
               onExpand={onSystemPromptExpand}
             />
           ) : null}
+          {renderCompactOverlayAtStart}
           {shouldVirtualize ? (
             /* ── Virtualized rendering ── */
             messages.length > 0 ? (
@@ -589,6 +626,7 @@ export function MessageList({
                       >
                         {renderBuildBoundarySeparator(index)}
                         {renderMessage(message)}
+                        {renderCompactOverlayAfter(message.id)}
                       </div>
                     </div>
                   );
@@ -601,9 +639,11 @@ export function MessageList({
               <Fragment key={message.id}>
                 {renderBuildBoundarySeparator(index)}
                 {renderMessage(message)}
+                {renderCompactOverlayAfter(message.id)}
               </Fragment>
             ))
           )}
+          {renderCompactOverlayFallback}
         </div>
       </ScrollArea>
 

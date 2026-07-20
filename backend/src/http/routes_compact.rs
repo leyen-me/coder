@@ -15,7 +15,7 @@ use crate::{
     agent::registry::resolve_api_key,
     db::{
         records::MESSAGE_KIND_COMPACT,
-        session_store::{get_messages_by_session, get_session},
+        session_store::{estimate_compact_anchor_after_message_id, get_messages_by_session, get_session},
     },
     scheduled_jobs::resolve_job_runtime,
     AppState,
@@ -30,10 +30,21 @@ pub struct CompactTriggerRequest {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CompactTriggerResponse {
     pub ok: bool,
     pub compacted: bool,
-    pub message: String,
+    pub code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub removed_count: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remaining_count: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub anchor_after_message_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compact_message_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary_preview: Option<String>,
 }
 
 fn conversation_message_count(messages: &[crate::db::records::MessageRecord]) -> usize {
@@ -43,30 +54,59 @@ fn conversation_message_count(messages: &[crate::db::records::MessageRecord]) ->
         .count()
 }
 
+fn queued_response(anchor_after_message_id: Option<String>) -> CompactTriggerResponse {
+    CompactTriggerResponse {
+        ok: true,
+        compacted: true,
+        code: "queued".to_string(),
+        removed_count: None,
+        remaining_count: None,
+        anchor_after_message_id,
+        compact_message_id: None,
+        summary_preview: None,
+    }
+}
+
+fn error_response(code: &str) -> CompactTriggerResponse {
+    CompactTriggerResponse {
+        ok: false,
+        compacted: false,
+        code: code.to_string(),
+        removed_count: None,
+        remaining_count: None,
+        anchor_after_message_id: None,
+        compact_message_id: None,
+        summary_preview: None,
+    }
+}
+
 pub async fn handle_compact(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<CompactTriggerRequest>,
 ) -> Json<CompactTriggerResponse> {
     let session_id = payload.session_id.trim();
     if session_id.is_empty() {
-        return Json(CompactTriggerResponse {
-            ok: false,
-            compacted: false,
-            message: "session_id is required.".into(),
-        });
+        return Json(error_response("invalid_session"));
     }
+
+    let raw_messages = {
+        let db = match state.db.lock() {
+            Ok(db) => db,
+            Err(_) => return Json(error_response("database_unavailable")),
+        };
+        match get_messages_by_session(&db, session_id) {
+            Ok(msgs) => msgs,
+            Err(_) => return Json(error_response("messages_unavailable")),
+        }
+    };
+
+    let anchor_after_message_id = estimate_compact_anchor_after_message_id(&raw_messages);
 
     // Mode 1: running agent — resolve task from session (or explicit task_id) and queue.
     let queued_task_id = {
         let mut registry = match state.agent_registry.lock() {
             Ok(registry) => registry,
-            Err(_) => {
-                return Json(CompactTriggerResponse {
-                    ok: false,
-                    compacted: false,
-                    message: "Agent registry unavailable.".into(),
-                });
-            }
+            Err(_) => return Json(error_response("registry_unavailable")),
         };
 
         if let Some(task_id) = payload
@@ -85,54 +125,26 @@ pub async fn handle_compact(
         }
     };
 
-    if let Some(task_id) = queued_task_id {
-        return Json(CompactTriggerResponse {
-            ok: true,
-            compacted: true,
-            message: format!("Compact queued for task={task_id}."),
-        });
+    if queued_task_id.is_some() {
+        return Json(queued_response(anchor_after_message_id));
     }
 
     // Mode 2: direct compact — resolve credentials from session + provider settings.
     let session = {
         let db = match state.db.lock() {
             Ok(db) => db,
-            Err(_) => {
-                return Json(CompactTriggerResponse {
-                    ok: false,
-                    compacted: false,
-                    message: "Database unavailable.".into(),
-                });
-            }
+            Err(_) => return Json(error_response("database_unavailable")),
         };
         match get_session(&db, session_id) {
             Ok(Some(session)) => session,
-            Ok(None) => {
-                return Json(CompactTriggerResponse {
-                    ok: false,
-                    compacted: false,
-                    message: format!("Session not found: {session_id}"),
-                });
-            }
-            Err(error) => {
-                return Json(CompactTriggerResponse {
-                    ok: false,
-                    compacted: false,
-                    message: format!("Failed to read session: {error}"),
-                });
-            }
+            Ok(None) => return Json(error_response("session_not_found")),
+            Err(_) => return Json(error_response("session_unavailable")),
         }
     };
 
     let runtime = match resolve_job_runtime(&session.provider, &session.model, false) {
         Ok(runtime) => runtime,
-        Err(error) => {
-            return Json(CompactTriggerResponse {
-                ok: false,
-                compacted: false,
-                message: format!("Failed to resolve provider settings: {error}"),
-            });
-        }
+        Err(_) => return Json(error_response("provider_unavailable")),
     };
 
     let api_key = match resolve_api_key(
@@ -141,48 +153,19 @@ pub async fn handle_compact(
         runtime.api_key_env_var.as_str(),
     ) {
         Ok(api_key) => api_key,
-        Err(error) => {
-            return Json(CompactTriggerResponse {
-                ok: false,
-                compacted: false,
-                message: error,
-            });
-        }
+        Err(_) => return Json(error_response("api_key_unavailable")),
     };
-
-    let base_url = runtime.base_url;
-    let model = session.model;
-
-    let (failed_read, raw_messages) = {
-        let db = match state.db.lock() {
-            Ok(db) => db,
-            Err(_) => {
-                return Json(CompactTriggerResponse {
-                    ok: false,
-                    compacted: false,
-                    message: "Database unavailable.".into(),
-                });
-            }
-        };
-        match get_messages_by_session(&db, session_id) {
-            Ok(msgs) => (false, msgs),
-            Err(_) => (true, Vec::new()),
-        }
-    };
-
-    if failed_read {
-        return Json(CompactTriggerResponse {
-            ok: false,
-            compacted: false,
-            message: "Failed to read session messages.".into(),
-        });
-    }
 
     if conversation_message_count(&raw_messages) < 2 {
         return Json(CompactTriggerResponse {
             ok: true,
             compacted: false,
-            message: "Not enough messages to compact.".into(),
+            code: "not_enough_messages".to_string(),
+            removed_count: None,
+            remaining_count: None,
+            anchor_after_message_id,
+            compact_message_id: None,
+            summary_preview: None,
         });
     }
 
@@ -208,13 +191,7 @@ pub async fn handle_compact(
 
     let client = match crate::agent::openai::build_http_client() {
         Ok(client) => client,
-        Err(error) => {
-            return Json(CompactTriggerResponse {
-                ok: false,
-                compacted: false,
-                message: error,
-            });
-        }
+        Err(_) => return Json(error_response("http_client_unavailable")),
     };
     let snapshot = build_compact_snapshot(
         Vec::new(),
@@ -226,52 +203,53 @@ pub async fn handle_compact(
 
     match run_compact(
         &client,
-        &base_url,
+        &runtime.base_url,
         &api_key,
-        &model,
+        &session.model,
         &messages,
         &snapshot,
         false,
     )
     .await
     {
-        Ok(summary) => match persist_compact_summary(&state.db, Some(session_id), &summary) {
-            Ok(result) if result.removed_count > 0 => {
-                let remaining = raw_messages
-                    .len()
-                    .saturating_sub(result.removed_count)
-                    .saturating_add(1);
-                log::info!(
-                    "direct_compact session={} removed={} remaining={}",
-                    session_id,
-                    result.removed_count,
-                    remaining
-                );
-                Json(CompactTriggerResponse {
-                    ok: true,
-                    compacted: true,
-                    message: format!(
-                        "Compacted: removed {} messages, {} remaining.",
+        Ok(summary) => {
+            let summary_preview = summary.text.chars().take(200).collect::<String>();
+            match persist_compact_summary(&state.db, Some(session_id), &summary) {
+                Ok(result) if result.removed_count > 0 => {
+                    let remaining = raw_messages
+                        .len()
+                        .saturating_sub(result.removed_count)
+                        .saturating_add(1);
+                    log::info!(
+                        "direct_compact session={} removed={} remaining={}",
+                        session_id,
                         result.removed_count,
                         remaining
-                    ),
-                })
+                    );
+                    Json(CompactTriggerResponse {
+                        ok: true,
+                        compacted: true,
+                        code: "compacted".to_string(),
+                        removed_count: Some(result.removed_count as u32),
+                        remaining_count: Some(remaining as u32),
+                        anchor_after_message_id: result.anchor_after_message_id,
+                        compact_message_id: Some(result.compact_message_id),
+                        summary_preview: Some(summary_preview),
+                    })
+                }
+                Ok(_) => Json(CompactTriggerResponse {
+                    ok: true,
+                    compacted: false,
+                    code: "noop_already_fits".to_string(),
+                    removed_count: Some(0),
+                    remaining_count: Some(raw_messages.len() as u32),
+                    anchor_after_message_id,
+                    compact_message_id: None,
+                    summary_preview: None,
+                }),
+                Err(_) => Json(error_response("persist_failed")),
             }
-            Ok(_) => Json(CompactTriggerResponse {
-                ok: true,
-                compacted: false,
-                message: "Not enough history to compact — recent messages already fit.".into(),
-            }),
-            Err(error) => Json(CompactTriggerResponse {
-                ok: false,
-                compacted: false,
-                message: format!("Failed to persist compact: {error}"),
-            }),
-        },
-        Err(e) => Json(CompactTriggerResponse {
-            ok: false,
-            compacted: false,
-            message: format!("Compact failed: {e}"),
-        }),
+        }
+        Err(_) => Json(error_response("compact_failed")),
     }
 }
