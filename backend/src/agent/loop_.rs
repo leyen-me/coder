@@ -3,7 +3,11 @@ use std::sync::{Arc, Mutex};
 use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
-use super::compact::{apply_compact, build_compact_snapshot, compact_tool_result_messages, is_micro_compact_mode, persist_compact_summary, run_compact, should_trigger_compact, CompactPersistOptions};
+use super::compact::{
+    apply_compact, build_compact_snapshot, compact_tool_result_messages,
+    count_compactable_messages, is_micro_compact_mode, persist_compact_summary, run_compact,
+    should_trigger_compact, should_trigger_dev_auto_compact, CompactPersistOptions,
+};
 use super::decision::{
     build_final_answer_decision_request, build_proxy_continuation_message, request_proxy_decision,
     DecisionResponse,
@@ -84,6 +88,8 @@ pub async fn run_agent_loop(
     let mut last_tool_signature: Option<String> = None;
     let mut repeated_tool_signature_count = 0_u32;
     let mut turn_index = 0_u32;
+    // Baseline for CODER_AUTO_COMPACT_EVERY_N_MESSAGES (dev-only cadence).
+    let mut last_dev_auto_compact_message_count = 0usize;
 
     if let Some(state) = persisted_state.as_mut() {
         persist_message_snapshot(
@@ -117,16 +123,24 @@ pub async fn run_agent_loop(
         // continuity within the same window.
         let max_tokens = params.max_context_tokens.unwrap_or(96_000);
         let prompt_estimate = estimate_prompt_size(&messages);
-        if should_trigger_compact(
+        let token_trigger = should_trigger_compact(
             prompt_estimate,
             max_tokens,
             params.compact_trigger_threshold,
-        ) {
+        );
+        let dev_trigger = should_trigger_dev_auto_compact(
+            &messages,
+            last_dev_auto_compact_message_count,
+        );
+        if token_trigger || dev_trigger {
             log::info!(
-                "auto_compact_triggered task_id={} estimated_tokens={} max_tokens={}",
+                "auto_compact_triggered task_id={} estimated_tokens={} max_tokens={} token_trigger={} dev_trigger={} compactable_messages={}",
                 params.task_id,
                 prompt_estimate,
-                max_tokens
+                max_tokens,
+                token_trigger,
+                dev_trigger,
+                count_compactable_messages(&messages)
             );
 
             emit_event(
@@ -151,6 +165,13 @@ pub async fn run_agent_loop(
             let micro = is_micro_compact_mode(
                 max_tokens.saturating_sub(prompt_estimate),
             );
+            // Short-chat DEV cadence needs force persist, otherwise the 20k-token
+            // tail budget treats the whole transcript as "already fits" and noops.
+            let persist_options = if dev_trigger && !token_trigger {
+                CompactPersistOptions::for_manual(true)
+            } else {
+                CompactPersistOptions::default()
+            };
 
             match run_compact(
                 &http_client,
@@ -177,7 +198,7 @@ pub async fn run_agent_loop(
                         &app_state.db,
                         params.session_id.as_deref(),
                         &summary,
-                        CompactPersistOptions::default(),
+                        persist_options,
                     )
                     .ok();
                     let db_removed = persisted
@@ -191,6 +212,8 @@ pub async fn run_agent_loop(
                             result.removed_count
                         );
                     }
+                    last_dev_auto_compact_message_count =
+                        count_compactable_messages(&messages);
 
                     emit_event(
                         &registry,
@@ -237,9 +260,11 @@ pub async fn run_agent_loop(
                                 &app_state.db,
                                 params.session_id.as_deref(),
                                 &summary,
-                                CompactPersistOptions::default(),
+                                persist_options,
                             )
                             .ok();
+                            last_dev_auto_compact_message_count =
+                                count_compactable_messages(&messages);
                             emit_event(
                                 &registry,
                                 &broadcaster,

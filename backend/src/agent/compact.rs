@@ -47,6 +47,52 @@ pub fn allow_force_compact() -> bool {
             .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "yes"))
 }
 
+/// Dev-only auto-compact cadence.
+///
+/// Set `CODER_AUTO_COMPACT_EVERY_N_MESSAGES=2` in a debug build to trigger
+/// auto-compact after every N conversation messages (excluding system /
+/// compact-summary rows). Unset the variable to disable.
+///
+/// Release builds ignore this unless `CODER_ALLOW_DEV_AUTO_COMPACT=1`.
+pub fn dev_auto_compact_every_n_messages() -> Option<usize> {
+    let allowed = cfg!(debug_assertions)
+        || std::env::var("CODER_ALLOW_DEV_AUTO_COMPACT")
+            .ok()
+            .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "yes"));
+    if !allowed {
+        return None;
+    }
+
+    std::env::var("CODER_AUTO_COMPACT_EVERY_N_MESSAGES")
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .filter(|value| *value >= 2)
+}
+
+/// Count messages that participate in the compact trigger window.
+pub fn count_compactable_messages(messages: &[ChatMessage]) -> usize {
+    messages
+        .iter()
+        .filter(|message| message.role != "system" && !is_compact_summary_message(message))
+        .count()
+}
+
+/// Whether the dev cadence says we should compact now.
+///
+/// `baseline` is the conversation size right after the previous compact in
+/// this agent run (0 before the first one), so we don't immediately re-enter
+/// compact on the next loop iteration.
+pub fn should_trigger_dev_auto_compact(
+    messages: &[ChatMessage],
+    baseline: usize,
+) -> bool {
+    let Some(every_n) = dev_auto_compact_every_n_messages() else {
+        return false;
+    };
+    let count = count_compactable_messages(messages);
+    count >= 2 && count >= baseline.saturating_add(every_n)
+}
+
 pub fn resolve_compact_tail_token_budget(force: bool) -> u32 {
     if force && allow_force_compact() {
         return std::env::var("CODER_FORCE_COMPACT_TAIL_TOKEN_BUDGET")
@@ -621,6 +667,18 @@ mod tests {
     fn should_trigger_at_threshold() {
         assert!(!should_trigger_compact(8000, 10000, None));
         assert!(should_trigger_compact(8500, 10000, None));
+    }
+
+    #[test]
+    fn count_compactable_messages_skips_system_and_summaries() {
+        let messages = vec![
+            make_msg("system", "You are an AI agent."),
+            make_msg("system", "## Context Compaction Summary\n\nold"),
+            make_msg("user", "hello"),
+            make_msg("assistant", "hi"),
+            make_msg("user", "again"),
+        ];
+        assert_eq!(count_compactable_messages(&messages), 3);
     }
 
     #[test]
