@@ -48,9 +48,10 @@ pub struct ToolExecutionContext<'a> {
 pub struct SpawnedAgent {
     pub handle_id: String,
     pub task: String,
-    pub join_handle: tokio::task::JoinHandle<Result<ToolResultEnvelope, String>>,
+    pub join_handle: Option<tokio::task::JoinHandle<Result<ToolResultEnvelope, String>>>,
     pub cancel_token: CancellationToken,
     pub started_at: Instant,
+    pub completed_result: Option<Result<ToolResultEnvelope, String>>,
 }
 
 /// Shared store of background sub-agents for parallel spawn/await.
@@ -87,26 +88,61 @@ impl ConcurrentAgentStore {
             SpawnedAgent {
                 handle_id,
                 task,
-                join_handle,
+                join_handle: Some(join_handle),
                 cancel_token,
                 started_at: Instant::now(),
+                completed_result: None,
             },
         );
         Ok(())
     }
 
-    /// Take a spawned agent by handle_id and await its result.
+    /// Take (or re-take) a spawned agent's result by handle_id.
+    ///
+    /// - If the sub-agent has already completed, returns the cached result immediately.
+    /// - If it is still running, waits for completion and caches the result for future calls.
+    /// - The handle remains in the store, so multiple calls with the same handle_id are safe.
     pub async fn take_result(
         &self,
         handle_id: &str,
     ) -> Result<ToolResultEnvelope, String> {
-        let agent = {
+        // Step 1: peek for cached result or extract the JoinHandle (release lock before awaiting).
+        let (handle, cached) = {
             let mut agents = self.agents.lock().await;
-            agents.remove(handle_id).ok_or_else(|| {
+            let agent = agents.get_mut(handle_id).ok_or_else(|| {
                 format!("Sub-agent handle not found: {handle_id}")
-            })?
+            })?;
+            if let Some(ref result) = agent.completed_result {
+                (None, Some(result.clone()))
+            } else {
+                (agent.join_handle.take(), None)
+            }
         };
-        agent.join_handle.await.map_err(|e| format!("Sub-agent task panicked: {e}"))?
+
+        // Return cached result immediately.
+        if let Some(result) = cached {
+            return result;
+        }
+
+        // Await the JoinHandle (mutex lock is released).
+        let result = match handle {
+            Some(h) => h.await.map_err(|e| format!("Sub-agent task panicked: {e}"))?,
+            None => {
+                return Err(
+                    "Sub-agent was already taken but not completed (state inconsistency)".to_string(),
+                )
+            }
+        };
+
+        // Cache the completed result so subsequent take_result calls succeed.
+        {
+            let mut agents = self.agents.lock().await;
+            if let Some(agent) = agents.get_mut(handle_id) {
+                agent.completed_result = Some(result.clone());
+            }
+        }
+
+        result
     }
 
     /// Cancel all running sub-agents.
