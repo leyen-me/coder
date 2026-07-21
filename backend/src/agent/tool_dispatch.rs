@@ -2930,15 +2930,15 @@ async fn execute_spawn_subagent(
         current_timestamp_ms()
     );
 
-    let (_result_tx, result_rx) = tokio::sync::oneshot::channel::<Result<ToolResultEnvelope, String>>();
+    let (result_tx, result_rx) =
+        tokio::sync::oneshot::channel::<Result<ToolResultEnvelope, String>>();
 
     std::thread::spawn(move || {
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .expect("Failed to build sub-agent runtime");
-            let _ = rt.block_on(async move {
-            // Run the child agent in a background task with an isolated broadcaster.
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("Failed to build sub-agent runtime");
+        let _ = rt.block_on(async move {
             let result = super::loop_::run_agent_loop(
                 child_params,
                 child_client,
@@ -2948,9 +2948,8 @@ async fn execute_spawn_subagent(
                 child_app_state,
             )
             .await;
-
-            match result {
-                Ok(()) => Ok::<ToolResultEnvelope, String>(tool_success(
+            let output = match result {
+                Ok(()) => Ok(tool_success(
                     "spawn_subagent",
                     json!({
                         "task": task_str,
@@ -2965,9 +2964,10 @@ async fn execute_spawn_subagent(
                     "subagent_failed",
                     error.to_string(),
                 )),
-            }
-            });
+            };
+            let _ = result_tx.send(output);
         });
+    });
 
     let join_handle: tokio::task::JoinHandle<Result<ToolResultEnvelope, String>> =
         tokio::spawn(async move {
