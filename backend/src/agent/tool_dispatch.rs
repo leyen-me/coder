@@ -3083,6 +3083,7 @@ async fn execute_spawn_subagent(
                 final_error.as_deref(),
             );
 
+            let has_error = final_error.is_some();
             let output = if let Some(error) = final_error {
                 Ok(tool_failure("spawn_subagent", "subagent_failed", error))
             } else {
@@ -3100,6 +3101,52 @@ async fn execute_spawn_subagent(
                 ))
             };
             let _ = result_tx.send(output);
+
+            // Write the final result back to the parent message's invocation output
+            // so that the spawn_subagent tool always shows complete data after refresh.
+            if let Some(tc_id) = tc_id_capture.as_ref() {
+                use crate::db::session_store::{
+                    find_assistant_message_by_task_id, get_message, put_message,
+                };
+                if let Ok(db) = db_for_progress.lock() {
+                    let mut msg = msg_id
+                        .as_ref()
+                        .and_then(|id| get_message(&db, id).ok())
+                        .flatten();
+                    if msg.is_none() {
+                        msg = find_assistant_message_by_task_id(
+                            &db,
+                            session_id.as_deref(),
+                            parent_task_id.as_deref().unwrap_or(""),
+                        )
+                        .ok()
+                        .flatten();
+                    }
+                    if let Some(mut msg) = msg {
+                        for inv in msg.tool_invocations.iter_mut() {
+                            if inv.id == *tc_id {
+                                // Replace __progress-only output with final result data.
+                                // Preserve __progress for continuity; the frontend will
+                                // see task/steps and use the primary render path.
+                                let final_output = json!({
+                                    "task": task_str,
+                                    "steps": steps,
+                                    "summary": summary,
+                                    "rounds": rounds,
+                                    "toolCalls": tc,
+                                    "tokensUsed": tokens_used,
+                                    "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
+                                    "handleId": handle_id,
+                                    "status": if final_error.is_some() { "error" } else { "completed" },
+                                });
+                                inv.output = Some(final_output);
+                                break;
+                            }
+                        }
+                        let _ = put_message(&db, &msg, false);
+                    }
+                }
+            }
         });
     });
 
