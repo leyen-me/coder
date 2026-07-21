@@ -2934,6 +2934,7 @@ async fn execute_spawn_subagent(
         tokio::sync::oneshot::channel::<Result<ToolResultEnvelope, String>>();
 
     let parent_task_id = ctx.task_id.clone();
+    let tool_call_id = ctx.current_tool_call_id.clone();
     let sub_task_id_clone = sub_task_id.clone();
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -2969,18 +2970,29 @@ async fn execute_spawn_subagent(
                         .filter(|s| s.get("kind").and_then(|v| v.as_str()) == Some("tool"))
                         .count();
                     let summary = build_subagent_summary(steps, &task_str, final_content, None);
-                    let progress = json!({
-                        "type": "spawn_subagent_progress",
-                        "taskId": pid,
-                        "task": &task_str,
-                        "steps": steps,
-                        "summary": summary,
-                        "rounds": rounds,
-                        "toolCalls": tc,
-                        "tokensUsed": tokens_used,
+                    let payload = json!({
+                        "ok": true,
+                        "tool": "spawn_subagent",
+                        "data": {
+                            "task": &task_str,
+                            "steps": steps,
+                            "summary": summary,
+                            "rounds": rounds,
+                            "toolCalls": tc,
+                            "tokensUsed": tokens_used,
+                            "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
+                        }
                     });
-                    let event_str = super::loop_::inject_seq_into_event_json(&progress.to_string(), 0);
-                    child_broadcaster.emit(pid, &event_str);
+                    let event = super::types::AgentEvent::ToolCallFinished {
+                        task_id: pid.clone(),
+                        tool_call_id: tool_call_id.clone().unwrap_or_default(),
+                        output: Some(payload),
+                        error_text: None,
+                    };
+                    if let Ok(json_str) = serde_json::to_string(&event) {
+                        let event_str = super::loop_::inject_seq_into_event_json(&json_str, 0);
+                        child_broadcaster.emit(pid, &event_str);
+                    }
                 }
             };
 
