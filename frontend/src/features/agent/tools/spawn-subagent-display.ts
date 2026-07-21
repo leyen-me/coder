@@ -86,12 +86,18 @@ function extractProgressOutput(
     }
     // The __progress array contains AgentEvent-like objects from
     // collect_subagent_event, e.g. {kind:"reasoning", text:"..."}
-    // or {kind:"tool", toolName:"...", ...}.
+    // or {kind:"tool", toolName:"...", state:"completed", ...}.
     const kind = record.kind === "tool" ? ("tool" as const) : ("reasoning" as const);
     const text = typeof record.text === "string" ? record.text
       : typeof record.step === "string" ? record.step
       : String(item);
-    return { kind, text, state: "running" as const };
+    const state =
+      record.state === "completed"
+        ? ("completed" as const)
+        : record.state === "error"
+          ? ("error" as const)
+          : ("running" as const);
+    return { kind, text, state };
   });
 
   return {
