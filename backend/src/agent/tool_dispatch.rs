@@ -2983,6 +2983,7 @@ async fn execute_spawn_subagent(
                             "toolCalls": tc,
                             "tokensUsed": tokens_used,
                             "__progress": steps,
+                            "__progress": steps,
                             "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
                         }
                     });
