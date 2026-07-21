@@ -81,18 +81,17 @@ function extractProgressOutput(
 
   const steps: SubAgentOutput["steps"] = progress.map((item) => {
     const record = asRecord(item);
-    if (!record || typeof record.step !== "string") {
-      return { kind: "reasoning", text: String(item) };
+    if (!record) {
+      return { kind: "reasoning", text: String(item), state: "running" };
     }
-    const rawStatus =
-      typeof record.status === "string" ? record.status : "in_progress";
-    const state =
-      rawStatus === "completed"
-        ? ("completed" as const)
-        : rawStatus === "error"
-          ? ("error" as const)
-          : ("running" as const);
-    return { kind: "reasoning", text: record.step, state };
+    // The __progress array contains AgentEvent-like objects from
+    // collect_subagent_event, e.g. {kind:"reasoning", text:"..."}
+    // or {kind:"tool", toolName:"...", ...}.
+    const kind = record.kind === "tool" ? ("tool" as const) : ("reasoning" as const);
+    const text = typeof record.text === "string" ? record.text
+      : typeof record.step === "string" ? record.step
+      : String(item);
+    return { kind, text, state: "running" as const };
   });
 
   return {
