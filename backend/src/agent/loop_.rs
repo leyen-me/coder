@@ -93,6 +93,7 @@ pub async fn run_agent_loop(
     let mut turn_index = 0_u32;
     // Baseline for CODER_AUTO_COMPACT_EVERY_N_MESSAGES (dev-only cadence).
     let mut last_dev_auto_compact_message_count = 0usize;
+    let concurrent_agents = Arc::new(ConcurrentAgentStore::new(3));
 
     if let Some(state) = persisted_state.as_mut() {
         persist_message_snapshot(
@@ -703,7 +704,7 @@ pub async fn run_agent_loop(
                 page_cache: &app_state.page_cache,
                 broadcaster: Some(broadcaster.clone()),
                 cancel_token: cancel_token.clone(),
-                concurrent_agents: Arc::new(ConcurrentAgentStore::new(3)),
+                concurrent_agents: concurrent_agents.clone(),
             },
             &broadcaster,
             &registry,

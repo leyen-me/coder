@@ -2878,9 +2878,10 @@ async fn execute_spawn_subagent(
         .lock()
         .map_err(|_| "Agent registry lock poisoned".to_string())?
         .http_client();
-    // Use an isolated SseBroadcaster for the child's events so they
-    // do NOT reach the parent's SSE stream.
-    let child_broadcaster = Arc::new(crate::SseBroadcaster::new());
+    // Use the parent's SseBroadcaster so the parent can observe the
+    // sub-agent's progress. Grandchild events (depth >= 2) are naturally
+    // excluded because the tools whitelist does not include spawn_subagent.
+    let child_broadcaster = ctx.app_state.sse_broadcaster.clone();
     let child_cancel = ctx.cancel_token.child_token();
     let child_cancel_for_thread = child_cancel.clone();
     let child_app_state = ctx.app_state.clone();
