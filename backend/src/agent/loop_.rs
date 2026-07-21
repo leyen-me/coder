@@ -805,14 +805,18 @@ async fn run_single_turn_attempt(
             let Some(ref content) = msg.content else {
                 return msg.clone();
             };
-            let Ok(mut value) = serde_json::from_str::<serde_json::Value>(&content.to_string()) else {
+            let content_str = match content {
+                Value::String(s) => s.as_str(),
+                _ => return msg.clone(),
+            };
+            let Ok(mut value) = serde_json::from_str::<serde_json::Value>(content_str) else {
                 return msg.clone();
             };
             if let Some(obj) = value.as_object_mut() {
                 obj.retain(|k, _| !k.starts_with("__"));
             }
             let mut stripped = msg.clone();
-            stripped.content = Some(serde_json::to_value(&value).unwrap_or_else(|_| content.clone()));
+            stripped.content = Some(Value::String(serde_json::to_string(&value).unwrap_or_else(|_| content.to_string())));
             stripped
         })
         .collect::<Vec<_>>();
