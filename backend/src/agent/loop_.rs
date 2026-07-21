@@ -793,12 +793,36 @@ async fn run_single_turn_attempt(
 
     let emit_assistant_output = params.emit_assistant_output.unwrap_or(true);
 
+    // Strip __-prefixed private fields from tool role messages before
+    // sending to the LLM. These fields (e.g. __progress) are for UI /
+    // persistence only and should not be visible to the model.
+    let stripped_messages: Vec<ChatMessage> = messages
+        .iter()
+        .map(|msg| {
+            if msg.role != "tool" {
+                return msg.clone();
+            }
+            let Some(ref content) = msg.content else {
+                return msg.clone();
+            };
+            let Ok(mut value) = serde_json::from_str::<serde_json::Value>(&content.to_string()) else {
+                return msg.clone();
+            };
+            if let Some(obj) = value.as_object_mut() {
+                obj.retain(|k, _| !k.starts_with("__"));
+            }
+            let mut stripped = msg.clone();
+            stripped.content = Some(serde_json::to_value(&value).unwrap_or_else(|_| content.clone()));
+            stripped
+        })
+        .collect::<Vec<_>>();
+
     let result = stream_chat_completion(
         client,
         super::openai::chat_completions_url(&params.base_url),
         params.api_key.as_deref().unwrap_or_default(),
         params.model.as_str(),
-        messages,
+        &stripped_messages,
         Some(tools),
         params.request_extensions.as_ref(),
         cancel_token.clone(),

@@ -2936,12 +2936,15 @@ async fn execute_spawn_subagent(
 
     let parent_task_id = ctx.task_id.clone();
     let tool_call_id = ctx.current_tool_call_id.clone();
+    let progress_message_id = ctx.tool_result_message_id.clone();
     let sub_task_id_clone = sub_task_id.clone();
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("Failed to build sub-agent runtime");
+        let msg_id = progress_message_id.clone();
+            let tc_id_capture = tool_call_id.clone();
         let _ = rt.block_on(async move {
             let rx = child_broadcaster.subscribe(&sub_task_id_clone);
             let mut receiver = rx;
@@ -2988,7 +2991,7 @@ async fn execute_spawn_subagent(
                     });
                     let event = super::types::AgentEvent::ToolCallFinished {
                         task_id: pid.clone(),
-                        tool_call_id: tool_call_id.clone().unwrap_or_default(),
+                        tool_call_id: tc_id_capture.clone().unwrap_or_default(),
                         output: Some(payload),
                         error_text: None,
                     };
@@ -2998,13 +3001,12 @@ async fn execute_spawn_subagent(
                     }
 
                     // Persist __progress to DB so it survives page reloads.
-                    if let Some(msg_id) = progress_message_id.as_ref() {
-                        if let Some(tc_id) = tool_call_id.as_ref() {
+                    if let Some(msg_id) = msg_id.as_ref() {
+                        if let Some(tc_id) = tc_id_capture.as_ref() {
                             use crate::db::session_store::{get_message, put_message};
                             if let Ok(db) = db_for_progress.lock() {
                                 if let Ok(Some(mut msg)) = get_message(&db, msg_id) {
-                                    if let Some(ref mut invocations) = msg.tool_invocations {
-                                        for inv in invocations.iter_mut() {
+                                    for inv in msg.tool_invocations.iter_mut() {
                                             if inv.id == *tc_id {
                                                 if let Some(ref mut output) = inv.output {
                                                     if let Some(obj) = output.as_object_mut() {
@@ -3014,7 +3016,6 @@ async fn execute_spawn_subagent(
                                                 break;
                                             }
                                         }
-                                    }
                                     let _ = put_message(&db, &msg, false);
                                 }
                             }
