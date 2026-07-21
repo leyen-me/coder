@@ -197,14 +197,19 @@ pub async fn execute_tool_call(
         ));
     }
     // Runtime mode enforcement: reject tools not allowed in the current mode.
+    // MCP tools (mcp__*) are dynamically registered by the user and always allowed
+    // in agent mode. Built-in tools are checked against the mode's allowlist.
     if let Some(mode) = ctx.agent_mode.as_deref() {
-        let allowed = tool_names(Some(mode));
-        if !allowed.contains(&name.to_string()) {
-            return Ok(tool_failure(
-                name,
-                "tool_not_allowed_in_mode",
-                format!("Tool `{name}` is not allowed in `{mode}` mode."),
-            ));
+        let is_mcp_tool = name.starts_with("mcp__");
+        if !is_mcp_tool {
+            let allowed = tool_names(Some(mode));
+            if !allowed.contains(&name.to_string()) {
+                return Ok(tool_failure(
+                    name,
+                    "tool_not_allowed_in_mode",
+                    format!("Tool `{name}` is not allowed in `{mode}` mode."),
+                ));
+            }
         }
     }
     let args = parse_args(arguments)?;
