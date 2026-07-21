@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "cd frontend && vite",
     "dev:server": "cd backend && cross-env CARGO_INCREMENTAL=0 cargo run -- --no-open",
-    "dev:server:auto-compact": "cd backend && cross-env CARGO_INCREMENTAL=0 CODER_AUTO_COMPACT_EVERY_N_MESSAGES=4 cargo run -- --no-open",
+    "dev:server:auto-compact": "cd backend && cross-env CARGO_INCREMENTAL=0 CODER_ALLOW_DEV_AUTO_COMPACT=1 CODER_AUTO_COMPACT_EVERY_N_MESSAGES=4 cargo run -- --no-open",
     "dev:desktop": "pnpm --dir desktop tauri dev",
     "build:frontend": "cd frontend && vite build",
     "build:backend": "cd backend && cross-env CARGO_INCREMENTAL=0 cargo build --release",

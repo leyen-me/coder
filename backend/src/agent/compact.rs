@@ -55,10 +55,13 @@ pub fn allow_force_compact() -> bool {
 ///
 /// Release builds ignore this unless `CODER_ALLOW_DEV_AUTO_COMPACT=1`.
 pub fn dev_auto_compact_every_n_messages() -> Option<usize> {
-    let allowed = cfg!(debug_assertions)
-        || std::env::var("CODER_ALLOW_DEV_AUTO_COMPACT")
-            .ok()
-            .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "yes"));
+    // Require explicit opt-in in all builds (debug or release).  Relying on
+    // cfg!(debug_assertions) was brittle: CODER_AUTO_COMPACT_EVERY_N_MESSAGES
+    // could leak from the shell environment and activate auto-compact even
+    // with `dev:server` – exactly what you don't want when testing.
+    let allowed = std::env::var("CODER_ALLOW_DEV_AUTO_COMPACT")
+        .ok()
+        .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "yes"));
     if !allowed {
         return None;
     }
