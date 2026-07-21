@@ -2882,6 +2882,7 @@ async fn execute_spawn_subagent(
     // do NOT reach the parent's SSE stream.
     let child_broadcaster = Arc::new(crate::SseBroadcaster::new());
     let child_cancel = ctx.cancel_token.child_token();
+    let child_cancel_for_thread = child_cancel.clone();
     let child_app_state = ctx.app_state.clone();
     let task_str = task.to_string();
 
@@ -2891,20 +2892,20 @@ async fn execute_spawn_subagent(
         current_timestamp_ms()
     );
 
-    let (result_tx, result_rx) = tokio::sync::oneshot::channel::<Result<ToolResultEnvelope, String>>();
+    let (_result_tx, result_rx) = tokio::sync::oneshot::channel::<Result<ToolResultEnvelope, String>>();
 
     std::thread::spawn(move || {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .expect("Failed to build sub-agent runtime");
-            rt.block_on(async move {
+            let _ = rt.block_on(async move {
             // Run the child agent in a background task with an isolated broadcaster.
             let result = super::loop_::run_agent_loop(
                 child_params,
                 child_client,
                 child_broadcaster,
-                child_cancel,
+                child_cancel_for_thread,
                 child_registry,
                 child_app_state,
             )
