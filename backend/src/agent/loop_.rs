@@ -132,10 +132,12 @@ pub async fn run_agent_loop(
             max_tokens,
             params.compact_trigger_threshold,
         );
-        let dev_trigger = should_trigger_dev_auto_compact(
-            &messages,
-            last_dev_auto_compact_message_count,
-        );
+        // Sub-agents should never trigger dev auto-compact: they start with
+        // very few messages and baseline=0, so auto-compact would fire almost
+        // immediately (e.g. on the first turn). Token-based compaction is still
+        // allowed since it only fires when context genuinely exceeds the limit.
+        let dev_trigger = !is_subagent_task(&params.task_id)
+            && should_trigger_dev_auto_compact(&messages, last_dev_auto_compact_message_count);
         if token_trigger || dev_trigger {
             log::info!(
                 "auto_compact_triggered task_id={} estimated_tokens={} max_tokens={} token_trigger={} dev_trigger={} compactable_messages={}",
