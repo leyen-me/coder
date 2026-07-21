@@ -3146,13 +3146,6 @@ async fn execute_spawn_subagent(
                                 // Preserve __progress for continuity; the frontend will
                                 // see task/steps and use the primary render path.
                                 let final_output = json!({
-                                    "task": task_str,
-                                    "steps": steps,
-                                    "summary": summary,
-                                    "rounds": rounds,
-                                    "toolCalls": tc,
-                                    "tokensUsed": tokens_used,
-                                    "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
                                     "handleId": handle_id.clone(),
                                     "status": if has_error { "error" } else { "completed" },
                                 });
@@ -3181,7 +3174,7 @@ async fn execute_spawn_subagent(
         json!({
             "handleId": register_handle.clone(),
             "status": "running",
-            "__progress": Value::Array(vec![]),
+            "__progress": json!({}),
         }),
     ))
 }

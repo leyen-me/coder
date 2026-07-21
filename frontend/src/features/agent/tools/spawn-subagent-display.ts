@@ -53,18 +53,19 @@ export function extractSubAgentOutput(
     return extractProgressOutput(data);
   }
 
+  const progress = asRecord(data.__progress);
   return {
     task: data.task,
-    steps: Array.isArray(data.steps)
-      ? (data.steps as SubAgentOutput["steps"])
+    steps: Array.isArray(progress?.steps)
+      ? (progress.steps as SubAgentOutput["steps"])
       : [],
-    summary: typeof data.summary === "string" ? data.summary : "",
-    rounds: typeof data.rounds === "number" ? data.rounds : 0,
-    toolCalls: typeof data.toolCalls === "number" ? data.toolCalls : 0,
+    summary: typeof progress?.summary === "string" ? progress.summary : "",
+    rounds: typeof progress?.rounds === "number" ? progress.rounds : 0,
+    toolCalls: typeof progress?.toolCalls === "number" ? progress.toolCalls : 0,
     tokensUsed:
-      typeof data.tokensUsed === "number" ? data.tokensUsed : undefined,
+      typeof progress?.tokensUsed === "number" ? progress.tokensUsed : undefined,
     error: typeof data.error === "string" ? data.error : undefined,
-    content: typeof data.content === "string" ? data.content : undefined,
+    content: typeof progress?.content === "string" ? progress.content : undefined,
   };
 }
 
