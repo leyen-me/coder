@@ -44,29 +44,29 @@ export function extractSubAgentOutput(
     return null;
   }
 
-  if (typeof data.task !== "string") {
-    // Sub-agent is still running or was paused/interrupted.
-    // The data contains __progress (incremental step labels) but no final output.
-    if (!Array.isArray(data.__progress)) {
-      return null;
-    }
-    return extractProgressOutput(data);
+  // All data is in __progress snapshot object: {task, steps, summary, rounds, ...}
+  // data itself has {handleId, status, __progress}
+  const snapshot = asRecord(data.__progress);
+  if (!snapshot) return null;
+
+  const task = typeof snapshot.task === "string" ? snapshot.task.trim() : "";
+  const steps = Array.isArray(snapshot.steps)
+    ? (snapshot.steps as SubAgentOutput["steps"])
+    : [];
+  const summary = typeof snapshot.summary === "string" ? snapshot.summary : "";
+  const rounds = typeof snapshot.rounds === "number" ? snapshot.rounds : 0;
+  const toolCalls = typeof snapshot.toolCalls === "number" ? snapshot.toolCalls : 0;
+  const tokensUsed = typeof snapshot.tokensUsed === "number" ? snapshot.tokensUsed : undefined;
+  const error = typeof data.error === "string" ? data.error : undefined;
+  const content = typeof snapshot.content === "string" ? snapshot.content : undefined;
+
+  if (task) {
+    // Sub-agent has completed or has enough context to show final view.
+    return { task, steps, summary, rounds, toolCalls, tokensUsed, error, content };
   }
 
-  const progress = asRecord(data.__progress);
-  return {
-    task: data.task,
-    steps: Array.isArray(progress?.steps)
-      ? (progress.steps as SubAgentOutput["steps"])
-      : [],
-    summary: typeof progress?.summary === "string" ? progress.summary : "",
-    rounds: typeof progress?.rounds === "number" ? progress.rounds : 0,
-    toolCalls: typeof progress?.toolCalls === "number" ? progress.toolCalls : 0,
-    tokensUsed:
-      typeof progress?.tokensUsed === "number" ? progress.tokensUsed : undefined,
-    error: typeof data.error === "string" ? data.error : undefined,
-    content: typeof progress?.content === "string" ? progress.content : undefined,
-  };
+  // Sub-agent is still running or was paused — show progress steps only.
+  return extractProgressOutput(data);
 }
 
 /**

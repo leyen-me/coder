@@ -2981,6 +2981,8 @@ async fn execute_spawn_subagent(
                         "ok": true,
                         "tool": "spawn_subagent",
                         "data": json!({
+                            "handleId": &handle_id,
+                            "status": "running",
                             "__progress": {
                                 "task": &task_str,
                                 "steps": steps,
