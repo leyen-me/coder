@@ -2933,6 +2933,7 @@ async fn execute_spawn_subagent(
     let (result_tx, result_rx) =
         tokio::sync::oneshot::channel::<Result<ToolResultEnvelope, String>>();
 
+    let parent_task_id = ctx.task_id.clone();
     let sub_task_id_clone = sub_task_id.clone();
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -2946,7 +2947,7 @@ async fn execute_spawn_subagent(
             let agent_future = super::loop_::run_agent_loop(
                 child_params,
                 child_client,
-                child_broadcaster,
+                child_broadcaster.clone(),
                 child_cancel_for_thread,
                 child_registry,
                 child_app_state,
@@ -2956,6 +2957,32 @@ async fn execute_spawn_subagent(
             let mut steps: Vec<Value> = Vec::new();
             let mut final_content = String::new();
             let mut tokens_used: Option<u32> = None;
+
+            let mut emit_progress = |steps: &[Value], final_content: &str, tokens_used: Option<u32>| {
+                if let Some(ref pid) = parent_task_id {
+                    let rounds = steps
+                        .iter()
+                        .filter(|s| s.get("kind").and_then(|v| v.as_str()) == Some("reasoning"))
+                        .count();
+                    let tc = steps
+                        .iter()
+                        .filter(|s| s.get("kind").and_then(|v| v.as_str()) == Some("tool"))
+                        .count();
+                    let summary = build_subagent_summary(steps, &task_str, final_content, None);
+                    let progress = json!({
+                        "type": "spawn_subagent_progress",
+                        "taskId": pid,
+                        "task": &task_str,
+                        "steps": steps,
+                        "summary": summary,
+                        "rounds": rounds,
+                        "toolCalls": tc,
+                        "tokensUsed": tokens_used,
+                    });
+                    let event_str = super::loop_::inject_seq_into_event_json(&progress.to_string(), 0);
+                    child_broadcaster.emit(pid, &event_str);
+                }
+            };
 
             let agent_result = loop {
                 tokio::select! {
