@@ -812,9 +812,10 @@ async fn run_single_turn_attempt(
             let Ok(mut value) = serde_json::from_str::<serde_json::Value>(content_str) else {
                 return msg.clone();
             };
-            if let Some(obj) = value.as_object_mut() {
-                obj.retain(|k, _| !k.starts_with("__"));
-            }
+            // Recursively strip __-prefixed private fields from the entire
+            // tool result value, not just the top level. Fields like data.__progress
+            // must not be visible to the LLM.
+            strip_private_fields(&mut value);
             let mut stripped = msg.clone();
             stripped.content = Some(Value::String(serde_json::to_string(&value).unwrap_or_else(|_| content.to_string())));
             stripped
@@ -1404,5 +1405,25 @@ fn ensure_tool_process_step(steps: &mut Vec<MessageProcessStep>, tool_call_id: &
         id: format!("tool:{tool_call_id}"),
         tool_call_id: tool_call_id.to_string(),
     });
+}
+
+/// Recursively removes all keys prefixed with `__` from a JSON Value.
+/// This ensures private UI-only fields like `__progress` are stripped
+/// regardless of their nesting depth before being sent to the LLM.
+fn strip_private_fields(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(obj) => {
+            obj.retain(|k, _| !k.starts_with("__"));
+            for v in obj.values_mut() {
+                strip_private_fields(v);
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            for v in arr.iter_mut() {
+                strip_private_fields(v);
+            }
+        }
+        _ => {}
+    }
 }
 
