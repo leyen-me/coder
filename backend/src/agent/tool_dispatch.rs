@@ -3136,8 +3136,8 @@ async fn execute_spawn_subagent(
                                     "toolCalls": tc,
                                     "tokensUsed": tokens_used,
                                     "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
-                                    "handleId": handle_id,
-                                    "status": if final_error.is_some() { "error" } else { "completed" },
+                                    "handleId": handle_id.clone(),
+                                    "status": if has_error { "error" } else { "completed" },
                                 });
                                 inv.output = Some(final_output);
                                 break;
