@@ -799,7 +799,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
         tool_definition(
             "await_subagent",
             "Wait for one or more previously spawned sub-agents to complete and return their results. Provide handle_ids array from spawn_subagent calls.",
-            json!({"type": "object", "properties": {"handle_ids": {"type": "array", "items": {"type": "string"}, "description": "Array of handle_ids returned by spawn_subagent calls."}, "block_until_ms": {"type": "integer", "description": "Max wait time in ms for each sub-agent. Defaults to no timeout (wait indefinitely) if not set.", "default": null}}, "required": ["handle_ids"], "additionalProperties": false}),
+            json!({"type": "object", "properties": {"handle_ids": {"type": "array", "items": {"type": "string"}, "description": "Array of handle_ids returned by spawn_subagent calls."}}, "required": ["handle_ids"], "additionalProperties": false}),
         ),
         tool_definition(
             "list_automations",
@@ -2480,7 +2480,6 @@ struct SpawnSubAgentArgs {
 #[derive(Debug, Clone, Deserialize)]
 struct AwaitSubAgentArgs {
     handle_ids: Vec<String>,
-    block_until_ms: Option<u64>,
 }
 
 const MAX_SUBAGENT_DEPTH: usize = 3;
@@ -3201,40 +3200,19 @@ async fn execute_await_subagent(
     // Collect results for all requested handles.
     let mut results: Vec<Value> = Vec::with_capacity(args.handle_ids.len());
     for handle_id in &args.handle_ids {
-        let result = match args.block_until_ms {
-            Some(_ms) => {
-                // Block until the sub-agent completes.
-                match ctx.concurrent_agents.take_result(handle_id).await {
-                    Ok(envelope) => json!({
-                        "handleId": handle_id,
-                        "result": envelope,
-                    }),
-                    Err(error) => json!({
-                        "handleId": handle_id,
-                        "result": {
-                            "ok": false,
-                            "tool": "await_subagent",
-                            "error": { "code": "handle_not_found", "message": error },
-                        },
-                    }),
-                }
-            }
-            None => {
-                match ctx.concurrent_agents.take_result(handle_id).await {
-                    Ok(envelope) => json!({
-                        "handleId": handle_id,
-                        "result": envelope,
-                    }),
-                    Err(error) => json!({
-                        "handleId": handle_id,
-                        "result": {
-                            "ok": false,
-                            "tool": "await_subagent",
-                            "error": { "code": "handle_not_found", "message": error },
-                        },
-                    }),
-                }
-            }
+        let result = match ctx.concurrent_agents.take_result(handle_id).await {
+            Ok(envelope) => json!({
+                "handleId": handle_id,
+                "result": envelope,
+            }),
+            Err(error) => json!({
+                "handleId": handle_id,
+                "result": {
+                    "ok": false,
+                    "tool": "await_subagent",
+                    "error": { "code": "handle_not_found", "message": error },
+                },
+            }),
         };
         results.push(result);
     }
