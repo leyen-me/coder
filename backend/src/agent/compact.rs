@@ -49,11 +49,13 @@ pub fn allow_force_compact() -> bool {
 
 /// Dev-only auto-compact cadence.
 ///
-/// Set `CODER_AUTO_COMPACT_EVERY_N_MESSAGES=2` in a debug build to trigger
-/// auto-compact after every N conversation messages (excluding system /
-/// compact-summary rows). Unset the variable to disable.
+/// Set both `CODER_ALLOW_DEV_AUTO_COMPACT=1` and
+/// `CODER_AUTO_COMPACT_EVERY_N_MESSAGES=N` to trigger auto-compact after
+/// every N conversation messages (excluding system / compact-summary rows).
+/// Unset either variable to disable.
 ///
-/// Release builds ignore this unless `CODER_ALLOW_DEV_AUTO_COMPACT=1`.
+/// This guard applies to **all** builds — debug and release. Use the
+/// `dev:server:auto-compact` npm script to set both variables together.
 pub fn dev_auto_compact_every_n_messages() -> Option<usize> {
     // Require explicit opt-in in all builds (debug or release).  Relying on
     // cfg!(debug_assertions) was brittle: CODER_AUTO_COMPACT_EVERY_N_MESSAGES
