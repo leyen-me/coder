@@ -2983,7 +2983,6 @@ async fn execute_spawn_subagent(
                             "toolCalls": tc,
                             "tokensUsed": tokens_used,
                             "__progress": steps,
-                            "__progress": steps,
                             "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
                         }
                     });
@@ -2996,6 +2995,30 @@ async fn execute_spawn_subagent(
                     if let Ok(json_str) = serde_json::to_string(&event) {
                         let event_str = super::loop_::inject_seq_into_event_json(&json_str, 0);
                         child_broadcaster.emit(pid, &event_str);
+                    }
+
+                    // Persist __progress to DB so it survives page reloads.
+                    if let Some(msg_id) = progress_message_id.as_ref() {
+                        if let Some(tc_id) = tool_call_id.as_ref() {
+                            use crate::db::session_store::{get_message, put_message};
+                            if let Ok(db) = db_for_progress.lock() {
+                                if let Ok(Some(mut msg)) = get_message(&db, msg_id) {
+                                    if let Some(ref mut invocations) = msg.tool_invocations {
+                                        for inv in invocations.iter_mut() {
+                                            if inv.id == *tc_id {
+                                                if let Some(ref mut output) = inv.output {
+                                                    if let Some(obj) = output.as_object_mut() {
+                                                        obj.insert("__progress".to_string(), Value::Array(steps.to_vec()));
+                                                    }
+                                                }
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    let _ = put_message(&db, &msg, false);
+                                }
+                            }
+                        }
                     }
                 }
             };
