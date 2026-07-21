@@ -339,19 +339,22 @@ pub fn tool_names(mode: Option<&str>) -> Vec<String> {
                     n.as_str(),
                     "ask_question"
                         | "await"
+                        | "await_subagent"
                         | "browse_page"
+                        | "get_workspace_tree"
                         | "glob"
                         | "grep"
                         | "list_automations"
                         | "list_dir"
                         | "list_shells"
                         | "read_file"
+                        | "read_prior_tool_output"
+                        | "read_shell_logs"
                         | "search"
                         | "web_search"
                         | "list_skills"
                         | "read_skill"
                         | "todo_read"
-                        | "todo_write"
                 )
             })
             .collect(),
