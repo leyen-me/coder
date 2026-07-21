@@ -13,22 +13,26 @@ use super::workspace_path::{format_error_path, resolve_workspace_write_path, wor
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileModifyResult {
+    /// LLM-visible metadata (compact, low token cost).
     pub path: String,
     pub action: String,
-    pub sha256: String,
-    pub bytes_written: u64,
     pub lines_added: u32,
     pub lines_removed: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub old_content: Option<String>,
-    /// The actual content written to the file (after line-ending normalization).
-    /// Used by the frontend to render a reliable diff without fragile client-side reconstruction.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub new_content: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub backup_path: Option<String>,
+    pub bytes_written: u64,
+    pub replaced: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub warning: Option<String>,
+
+    /// LLM-invisible fields (stripped by strip_private_fields).
+    /// Used only by the frontend for diff rendering and backend validation.
+    #[serde(rename = "__oldContent", skip_serializing_if = "Option::is_none")]
+    pub __old_content: Option<String>,
+    #[serde(rename = "__newContent", skip_serializing_if = "Option::is_none")]
+    pub __new_content: Option<String>,
+    #[serde(rename = "__sha256", skip_serializing_if = "Option::is_none")]
+    pub __sha256: Option<String>,
+    #[serde(rename = "__backupPath", skip_serializing_if = "Option::is_none")]
+    pub __backup_path: Option<String>,
 }
 
 pub struct LoadedTextFile {
@@ -204,14 +208,15 @@ pub fn commit_text_modification(
     Ok(FileModifyResult {
         path: relative_path.to_string(),
         action: action.to_string(),
-        sha256: sha256_hex(&encoded),
         bytes_written: metadata.len(),
         lines_added,
         lines_removed,
-        old_content: Some(loaded.text.clone()),
-        new_content: Some(prepared),
-        backup_path,
+        replaced: true,
         warning,
+        __old_content: Some(loaded.text.clone()),
+        __new_content: Some(prepared),
+        __sha256: Some(sha256_hex(&encoded)),
+        __backup_path: backup_path,
     })
 }
 

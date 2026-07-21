@@ -67,9 +67,13 @@ export function extractFileDiffData(output: unknown): FileDiffData | null {
     path: record.path,
     action: typeof record.action === "string" ? record.action : "unknown",
     oldContent:
-      typeof record.oldContent === "string" ? record.oldContent : undefined,
+      typeof (record as any).__oldContent === "string"
+        ? (record as any).__oldContent
+        : undefined,
     newContent:
-      typeof record.newContent === "string" ? record.newContent : undefined,
+      typeof (record as any).__newContent === "string"
+        ? (record as any).__newContent
+        : undefined,
     linesAdded:
       typeof record.linesAdded === "number" ? record.linesAdded : 0,
     linesRemoved:

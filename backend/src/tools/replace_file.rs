@@ -173,7 +173,7 @@ mod tests {
         )
         .expect("replace");
 
-        assert!(result.backup_path.is_some());
+        assert!(result.__backup_path.is_some());
         assert!(temp.join(".history").exists());
         let _ = fs::remove_dir_all(temp);
     }
