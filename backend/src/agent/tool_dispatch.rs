@@ -3073,6 +3073,7 @@ async fn execute_spawn_subagent(
         json!({
             "handleId": handle_id,
             "status": "running",
+            "__progress": Value::Array(vec![]),
         }),
     ))
 }
