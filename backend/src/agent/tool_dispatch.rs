@@ -196,17 +196,16 @@ pub async fn execute_tool_call(
             format!("Tool `{name}` is temporarily disabled."),
         ));
     }
-    if is_handoff_only_tool(name)
-        && !ctx
-            .available_tools
-            .iter()
-            .any(|tool| tool.function.name == name)
-    {
-        return Ok(tool_failure(
-            name,
-            "tool_not_allowed",
-            format!("Tool `{name}` is only available in handoff continuation sessions."),
-        ));
+    // Runtime mode enforcement: reject tools not allowed in the current mode.
+    if let Some(mode) = ctx.agent_mode.as_deref() {
+        let allowed = tool_names(Some(mode));
+        if !allowed.contains(&name.to_string()) {
+            return Ok(tool_failure(
+                name,
+                "tool_not_allowed_in_mode",
+                format!("Tool `{name}` is not allowed in `{mode}` mode."),
+            ));
+        }
     }
     let args = parse_args(arguments)?;
     if let Some((server_id, tool_name)) = parse_mcp_tool_name(name) {
@@ -323,23 +322,42 @@ const PLAN_TOOL_NAMES: &[&str] = &[
 /// Agent tools kept in code but withheld from the model until re-enabled.
 const DISABLED_AGENT_TOOL_NAMES: &[&str] = &["replace_lines"];
 
-/// Tools exposed only when continuing from a handoff session.
-const HANDOFF_ONLY_TOOL_NAMES: &[&str] = &["read_prior_tool_output"];
-
-fn is_plan_tool(name: &str) -> bool {
-    PLAN_TOOL_NAMES.contains(&name)
-}
-
 fn is_disabled_agent_tool(name: &str) -> bool {
     DISABLED_AGENT_TOOL_NAMES.contains(&name)
 }
 
-fn is_handoff_only_tool(name: &str) -> bool {
-    HANDOFF_ONLY_TOOL_NAMES.contains(&name)
-}
-
-pub fn is_handoff_only_agent_tool(name: &str) -> bool {
-    is_handoff_only_tool(name)
+/// Returns the tool names allowed in the given agent mode (None = agent mode).
+/// Used both for filtering the tool catalog and for runtime enforcement.
+pub fn tool_names(mode: Option<&str>) -> Vec<String> {
+    let mode = mode.unwrap_or("agent");
+    let all = all_tool_names();
+    match mode {
+        "ask" | "plan" => all
+            .into_iter()
+            .filter(|n| {
+                matches!(
+                    n.as_str(),
+                    "ask_question"
+                        | "await"
+                        | "browse_page"
+                        | "glob"
+                        | "grep"
+                        | "list_automations"
+                        | "list_dir"
+                        | "list_shells"
+                        | "read_file"
+                        | "search"
+                        | "send_email"
+                        | "web_search"
+                        | "list_skills"
+                        | "read_skill"
+                        | "todo_read"
+                        | "todo_write"
+                )
+            })
+            .collect(),
+        _ => all,
+    }
 }
 
 pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition> {
@@ -903,14 +921,11 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
         }
         _ => {
             // Plan file tools are exclusive to Plan mode; Agent mode implements directly.
-            tools.retain(|tool| !is_plan_tool(&tool.function.name));
+            tools.retain(|tool| !PLAN_TOOL_NAMES.contains(&tool.function.name.as_str()));
         }
     }
 
     tools.retain(|tool| !is_disabled_agent_tool(&tool.function.name));
-    // Handoff-only tools stay defined for execute/extra_tools, but must not be
-    // advertised in the default mode catalogs.
-    tools.retain(|tool| !is_handoff_only_tool(&tool.function.name));
 
     tools
 }
@@ -3818,7 +3833,7 @@ mod tests {
         resolve_ask_question_timeout_ms, sanitize_path_segment, validate_ask_question_args,
         AskQuestionArgs, AskQuestionItem, AskQuestionOption, AutomationIdArgs,
         CreateAutomationArgs, DISABLED_AGENT_TOOL_NAMES, DEFAULT_ASK_QUESTION_TIMEOUT_MS,
-        HANDOFF_ONLY_TOOL_NAMES, UpdateAutomationArgs,
+        UpdateAutomationArgs,
     };
     use serde_json::json;
     use std::collections::BTreeSet;
@@ -3828,12 +3843,6 @@ mod tests {
             .into_iter()
             .map(|tool| tool.function.name)
             .collect()
-    }
-
-    #[test]
-    fn agent_mode_excludes_disabled_tools() {
-        let names = tool_names(Some("agent"));
-        assert!(!names.contains(&"replace_lines".to_string()));
     }
 
     #[test]
@@ -3858,9 +3867,8 @@ mod tests {
     }
 
     #[test]
-    fn agent_mode_excludes_handoff_only_tools() {
+    fn agent_mode_excludes_disabled_tools() {
         let names = tool_names(Some("agent"));
-        assert!(!names.contains(&"read_prior_tool_output".to_string()));
         assert!(!names.contains(&"replace_lines".to_string()));
     }
 
@@ -3892,6 +3900,7 @@ mod tests {
                 "list_dir",
                 "list_shells",
                 "read_file",
+                "read_prior_tool_output",
                 "read_shell_logs",
                 "remote_shell",
                 "replace_file",
@@ -3953,11 +3962,10 @@ mod tests {
             covered.extend(tool_names(mode));
         }
         covered.extend(DISABLED_AGENT_TOOL_NAMES.iter().map(|name| (*name).to_string()));
-        covered.extend(HANDOFF_ONLY_TOOL_NAMES.iter().map(|name| (*name).to_string()));
 
         assert_eq!(
             covered, named,
-            "every all_tool_names() entry must appear in a mode catalog, DISABLED, or HANDOFF_ONLY"
+            "every all_tool_names() entry must appear in a mode catalog or be DISABLED"
         );
     }
 
