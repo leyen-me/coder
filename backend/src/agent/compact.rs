@@ -271,6 +271,12 @@ pub async fn run_compact(
         };
 
         let user_context = build_compact_user_context(messages, snapshot);
+        // Wrap in a code block to visually separate "content to summarize"
+        // from "instruction to follow", reducing the chance the model
+        // treats it as a new task assignment.
+        let wrapped_context = format!(
+            "Please summarize the following conversation:\n\n```text\n{user_context}\n```"
+        );
 
         let compact_messages = vec![
             ChatMessage {
@@ -283,7 +289,7 @@ pub async fn run_compact(
             },
             ChatMessage {
                 role: "user".to_string(),
-                content: Some(json!(user_context)),
+                content: Some(json!(wrapped_context)),
                 reasoning_content: None,
                 tool_calls: None,
                 tool_call_id: None,
