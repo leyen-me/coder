@@ -2937,6 +2937,7 @@ async fn execute_spawn_subagent(
     let parent_task_id = ctx.task_id.clone();
     let tool_call_id = ctx.current_tool_call_id.clone();
     let progress_message_id = ctx.tool_result_message_id.clone();
+    let session_id = ctx.session_id.clone();
     let sub_task_id_clone = sub_task_id.clone();
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
@@ -3001,25 +3002,40 @@ async fn execute_spawn_subagent(
                     }
 
                     // Persist __progress to DB so it survives page reloads.
-                    if let Some(msg_id) = msg_id.as_ref() {
-                        if let Some(tc_id) = tc_id_capture.as_ref() {
-                            use crate::db::session_store::{get_message, put_message};
-                            if let Ok(db) = db_for_progress.lock() {
-                                if let Ok(Some(mut msg)) = get_message(&db, msg_id) {
-                                    for inv in msg.tool_invocations.iter_mut() {
-                                            if inv.id == *tc_id {
-                                                if let Some(ref mut output) = inv.output {
-                                                    if let Some(obj) = output.as_object_mut() {
-                                                        if let Some(data) = obj.get_mut("data").and_then(|v| v.as_object_mut()) {
-                                                            data.insert("__progress".to_string(), Value::Array(steps.to_vec()));
-                                                        }
-                                                    }
+                    if let Some(tc_id) = tc_id_capture.as_ref() {
+                        use crate::db::session_store::{
+                            find_assistant_message_by_task_id, get_message, put_message,
+                        };
+                        if let Ok(db) = db_for_progress.lock() {
+                            // Try lookup by message_id first; fall back to task_id when the
+                            // message hasn't been persisted yet (first turn in a session).
+                            let mut msg = msg_id
+                                .as_ref()
+                                .and_then(|id| get_message(&db, id).ok())
+                                .flatten();
+                            if msg.is_none() {
+                                msg = find_assistant_message_by_task_id(
+                                    &db,
+                                    session_id.as_deref(),
+                                    pid,
+                                )
+                                .ok()
+                                .flatten();
+                            }
+                            if let Some(mut msg) = msg {
+                                for inv in msg.tool_invocations.iter_mut() {
+                                    if inv.id == *tc_id {
+                                        if let Some(ref mut output) = inv.output {
+                                            if let Some(obj) = output.as_object_mut() {
+                                                if let Some(data) = obj.get_mut("data").and_then(|v| v.as_object_mut()) {
+                                                    data.insert("__progress".to_string(), Value::Array(steps.to_vec()));
                                                 }
-                                                break;
                                             }
                                         }
-                                    let _ = put_message(&db, &msg, false);
+                                        break;
+                                    }
                                 }
+                                let _ = put_message(&db, &msg, false);
                             }
                         }
                     }
