@@ -3,8 +3,19 @@
 import {
   ChevronDownIcon,
   ChevronRightIcon,
+  CheckCheckIcon,
+  CircleXIcon,
+  FileIcon,
+  FilePenLineIcon,
+  FileSearch2Icon,
+  FolderClosedIcon,
   FoldVerticalIcon,
+  GlobeIcon,
   LoaderCircleIcon,
+  MessageSquareMoreIcon,
+  SearchIcon,
+  SquareTerminalIcon,
+  WrenchIcon,
   XCircleIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -104,7 +115,7 @@ export function SubAgentToolOutput({
 
             {/* Summary Card */}
             {data.summary || data.error ? (
-              <div className="mt-3 rounded-sm border border-border/50 bg-background/50 p-2 text-xs text-foreground/80">
+              <div className="mt-3 rounded-md border border-border/70 bg-muted/30 p-2 text-xs text-foreground/80">
                 <span className="font-medium text-foreground">Summary: </span>
                 {data.error ? (
                   <span className="text-destructive">{data.error}</span>
@@ -172,7 +183,7 @@ function TimelineStep({ step }: { step: SubAgentStep }) {
               <LoaderCircleIcon className="ml-auto size-3 shrink-0 animate-spin text-muted-foreground" />
             ) : (
               <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-                {getStateIcon(step.state) ?? "✅"}
+                {getStateIcon(step.state) ?? <CheckCheckIcon className="size-3.5 text-green-600 dark:text-green-500" />}
               </span>
             )}
           </div>
@@ -209,41 +220,44 @@ function TimelineStep({ step }: { step: SubAgentStep }) {
   );
 }
 
-function getToolIcon(toolName?: string): string {
+function getToolIcon(toolName?: string): React.ReactNode {
+  const className = "size-3.5 shrink-0 text-muted-foreground";
   switch (toolName) {
     case "grep":
-      return "🔍";
+      return <SearchIcon className={className} />;
     case "read_file":
-      return "📖";
+      return <FileIcon className={className} />;
     case "edit_file":
     case "replace_file":
     case "create_file":
     case "write_file":
-      return "✏️";
+      return <FilePenLineIcon className={className} />;
     case "shell":
     case "await":
-      return "💻";
+      return <SquareTerminalIcon className={className} />;
     case "web_search":
-      return "🌐";
+      return <GlobeIcon className={className} />;
     case "browse_page":
-      return "🌍";
+      return <GlobeIcon className={className} />;
     case "glob":
-      return "🔎";
+      return <FileSearch2Icon className={className} />;
     case "list_dir":
-      return "📁";
+      return <FolderClosedIcon className={className} />;
     case "spawn_subagent":
-      return "🤖";
+      return <MessageSquareMoreIcon className={className} />;
     default:
-      return "🔧";
+      return <WrenchIcon className={className} />;
   }
 }
 
-function getStateIcon(state?: string): string | null {
+function getStateIcon(state?: string): React.ReactNode | null {
   switch (state) {
     case "completed":
-      return "✅";
+      return (
+        <CheckCheckIcon className="size-3.5 shrink-0 text-green-600 dark:text-green-500" />
+      );
     case "error":
-      return "❌";
+      return <CircleXIcon className="size-3.5 shrink-0 text-destructive" />;
     default:
       return null;
   }
