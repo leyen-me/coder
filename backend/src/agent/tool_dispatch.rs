@@ -2939,6 +2939,7 @@ async fn execute_spawn_subagent(
     let progress_message_id = ctx.tool_result_message_id.clone();
     let sub_task_id_clone = sub_task_id.clone();
     let session_id = ctx.session_id.clone();
+    let register_handle = handle_id.clone();
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -3156,13 +3157,13 @@ async fn execute_spawn_subagent(
         });
 
     ctx.concurrent_agents
-        .register(handle_id.clone(), task.to_string(), join_handle, child_cancel)
+        .register(register_handle.clone(), task.to_string(), join_handle, child_cancel)
         .await?;
 
     Ok(tool_success(
         "spawn_subagent",
         json!({
-            "handleId": handle_id,
+            "handleId": register_handle.clone(),
             "status": "running",
             "__progress": Value::Array(vec![]),
         }),
@@ -3268,6 +3269,7 @@ fn collect_subagent_event(
             steps.push(json!({
                 "kind": "reasoning",
                 "text": delta,
+                "state": "completed",
             }));
         }
         super::types::AgentEvent::ContentDelta { delta, .. } => {
