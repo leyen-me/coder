@@ -3224,9 +3224,10 @@ async fn execute_await_subagent(
                     Err(_) => json!({
                         "handleId": handle_id,
                         "result": {
-                            "ok": false,
+                            "ok": true,
                             "tool": "await_subagent",
-                            "error": { "code": "timeout", "message": format!("Timed out after {ms} ms") },
+                            "status": "timeout",
+                            "message": format!("Sub-agent {handle_id} is still running. Timed out after {ms} ms. Call await_subagent again with the same handle_id to wait for it to complete."),
                         },
                     }),
                 }
