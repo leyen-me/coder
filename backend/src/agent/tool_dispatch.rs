@@ -3523,18 +3523,12 @@ fn build_subagent_summary(steps: &[Value], task: &str, final_content: &str, erro
         return format!("Task \"{task_preview}\" encountered an error: {error}");
     }
 
-    // Extract the last non-empty paragraph from the LLM output.
-    // This avoids including intermediate reasoning fragments in the summary.
-    let last_paragraph = final_content
-        .split('\n')
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .last()
-        .unwrap_or("");
-    if !last_paragraph.is_empty() {
-        return last_paragraph.to_string();
+    // Use the LLM's natural language output as the primary summary.
+    // This is significantly more useful than "Completed task using 5 tool calls..."
+    let trimmed_content = final_content.trim();
+    if !trimmed_content.is_empty() {
+        return trimmed_content.to_string();
     }
-
     // Fallback: programmatic summary when LLM produced no text output.
     let tool_steps: Vec<&Value> = steps
         .iter()
