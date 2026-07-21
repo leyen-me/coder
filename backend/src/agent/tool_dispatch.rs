@@ -2964,7 +2964,7 @@ async fn execute_spawn_subagent(
             let mut final_content = String::new();
             let mut tokens_used: Option<u32> = None;
 
-            let mut emit_progress = |steps: &[Value], final_content: &str, tokens_used: Option<u32>| {
+            let emit_progress = |steps: &[Value], final_content: &str, tokens_used: Option<u32>| {
                 if let Some(ref pid) = parent_task_id {
                     let rounds = steps
                         .iter()
@@ -3030,6 +3030,7 @@ async fn execute_spawn_subagent(
                     received = receiver.recv() => {
                         if let Ok(payload) = received {
                             collect_subagent_event(&payload, &mut steps, &mut final_content, &mut tokens_used);
+                            emit_progress(&steps, &final_content, tokens_used);
                         }
                     }
                 }
