@@ -3145,10 +3145,17 @@ async fn execute_spawn_subagent(
                                 // Replace __progress-only output with final result data.
                                 // Preserve __progress for continuity; the frontend will
                                 // see task/steps and use the primary render path.
-                                let final_output = json!({
-                                    "handleId": handle_id.clone(),
-                                    "status": if has_error { "error" } else { "completed" },
-                                });
+                                // Preserve existing __progress (from emit_progress writes)
+                                // and only update handleId and status for the completed state.
+                                let mut final_output = if let Some(existing) = inv.output.take() {
+                                    existing
+                                } else {
+                                    json!({})
+                                };
+                                if let Some(obj) = final_output.as_object_mut() {
+                                    obj.insert("handleId".to_string(), json!(handle_id.clone()));
+                                    obj.insert("status".to_string(), json!(if has_error { "error" } else { "completed" }));
+                                }
                                 inv.output = Some(final_output);
                                 break;
                             }
