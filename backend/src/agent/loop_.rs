@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use serde_json::{json, Value};
@@ -1151,7 +1152,10 @@ fn persist_message_snapshot(
     message.content = state.content.clone();
     message.thinking = state.thinking.clone();
     message.process_steps = Some(state.process_steps.clone());
-    message.tool_invocations = state.tool_invocations.clone();
+    // Persist tool_invocations from state but preserve __progress
+    // in output.data that may have been written by background progress
+    // emitters (e.g. spawn_subagent) between snapshots.
+    merge_tool_invocations(&mut message.tool_invocations, &state.tool_invocations);
     if let Some(status) = patch.status {
         message.status = status.to_string();
     }
@@ -1163,6 +1167,38 @@ fn persist_message_snapshot(
         message.duration_ms = Some(duration_ms);
     }
     crate::db::session_store::put_message(&db, &message, false).map_err(AgentLoopError::Other)
+}
+
+/// Merges `state_invocations` into `db_invocations` but preserves any
+/// `__progress` field inside `output.data` that exists on the DB side
+/// but is absent from the state (because background progress emitters
+/// write to the DB directly between persist snapshots).
+fn merge_tool_invocations(
+    db_invocations: &mut Vec<MessageToolInvocation>,
+    state_invocations: &[MessageToolInvocation],
+) {
+    // Collect per-invocation __progress from the existing DB record.
+    let mut progress_by_id: HashMap<String, serde_json::Value> = HashMap::new();
+    for inv in db_invocations.iter() {
+        if let Some(output) = inv.output.as_ref().and_then(|o| o.as_object()) {
+            if let Some(data) = output.get("data").and_then(|d| d.as_object()) {
+                if let Some(prog) = data.get("__progress") {
+                    progress_by_id.insert(inv.id.clone(), prog.clone());
+                }
+            }
+        }
+    }
+    *db_invocations = state_invocations.to_vec();
+    // Reapply any preserved __progress into the state's invocations.
+    for inv in db_invocations.iter_mut() {
+        if let Some(prog) = progress_by_id.remove(&inv.id) {
+            if let Some(output) = inv.output.as_mut().and_then(|o| o.as_object_mut()) {
+                if let Some(data) = output.get_mut("data").and_then(|d| d.as_object_mut()) {
+                    data.insert("__progress".to_string(), prog);
+                }
+            }
+        }
+    }
 }
 
 fn maybe_persist_stream_snapshot(

@@ -2937,15 +2937,15 @@ async fn execute_spawn_subagent(
     let parent_task_id = ctx.task_id.clone();
     let tool_call_id = ctx.current_tool_call_id.clone();
     let progress_message_id = ctx.tool_result_message_id.clone();
-    let session_id = ctx.session_id.clone();
     let sub_task_id_clone = sub_task_id.clone();
+    let session_id = ctx.session_id.clone();
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("Failed to build sub-agent runtime");
         let msg_id = progress_message_id.clone();
-            let tc_id_capture = tool_call_id.clone();
+        let tc_id_capture = tool_call_id.clone();
         let _ = rt.block_on(async move {
             let rx = child_broadcaster.subscribe(&sub_task_id_clone);
             let mut receiver = rx;
