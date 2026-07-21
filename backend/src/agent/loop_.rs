@@ -1178,13 +1178,12 @@ fn merge_tool_invocations(
     state_invocations: &[MessageToolInvocation],
 ) {
     // Collect per-invocation __progress from the existing DB record.
+    // __progress lives at output top level (not nested under "data").
     let mut progress_by_id: HashMap<String, serde_json::Value> = HashMap::new();
     for inv in db_invocations.iter() {
         if let Some(output) = inv.output.as_ref().and_then(|o| o.as_object()) {
-            if let Some(data) = output.get("data").and_then(|d| d.as_object()) {
-                if let Some(prog) = data.get("__progress") {
-                    progress_by_id.insert(inv.id.clone(), prog.clone());
-                }
+            if let Some(prog) = output.get("__progress") {
+                progress_by_id.insert(inv.id.clone(), prog.clone());
             }
         }
     }
@@ -1193,9 +1192,7 @@ fn merge_tool_invocations(
     for inv in db_invocations.iter_mut() {
         if let Some(prog) = progress_by_id.remove(&inv.id) {
             if let Some(output) = inv.output.as_mut().and_then(|o| o.as_object_mut()) {
-                if let Some(data) = output.get_mut("data").and_then(|d| d.as_object_mut()) {
-                    data.insert("__progress".to_string(), prog);
-                }
+                output.insert("__progress".to_string(), prog);
             }
         }
     }
