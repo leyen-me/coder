@@ -75,10 +75,10 @@ export function extractSubAgentOutput(
 function extractProgressOutput(
   data: Record<string, unknown>,
 ): SubAgentOutput {
-  const progress: unknown[] = Array.isArray(data.__progress)
-    ? data.__progress
+  const snapshot = asRecord(data.__progress);
+  const progress: unknown[] = Array.isArray(snapshot?.steps)
+    ? snapshot.steps
     : [];
-
   const steps: SubAgentOutput["steps"] = progress.map((item) => {
     const record = asRecord(item);
     if (!record) {

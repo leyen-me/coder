@@ -2987,8 +2987,16 @@ async fn execute_spawn_subagent(
                             "rounds": rounds,
                             "toolCalls": tc,
                             "tokensUsed": tokens_used,
-                            "__progress": steps,
                             "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
+                            "__progress": json!({
+                                "task": &task_str,
+                                "steps": steps,
+                                "summary": &summary,
+                                "rounds": rounds,
+                                "toolCalls": tc,
+                                "tokensUsed": tokens_used,
+                                "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
+                            }),
                         }
                     });
                     let event = super::types::AgentEvent::ToolCallFinished {
@@ -3028,7 +3036,15 @@ async fn execute_spawn_subagent(
                                     if inv.id == *tc_id {
                                         if let Some(ref mut output) = inv.output {
                                             if let Some(obj) = output.as_object_mut() {
-                                                obj.insert("__progress".to_string(), Value::Array(steps.to_vec()));
+                                                obj.insert("__progress".to_string(), json!({
+                                                    "task": &task_str,
+                                                    "steps": steps,
+                                                    "summary": &summary,
+                                                    "rounds": rounds,
+                                                    "toolCalls": tc,
+                                                    "tokensUsed": tokens_used,
+                                                    "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
+                                                }));
                                             }
                                         }
                                         break;
