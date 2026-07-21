@@ -2933,37 +2933,87 @@ async fn execute_spawn_subagent(
     let (result_tx, result_rx) =
         tokio::sync::oneshot::channel::<Result<ToolResultEnvelope, String>>();
 
+    let sub_task_id_clone = sub_task_id.clone();
     std::thread::spawn(move || {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("Failed to build sub-agent runtime");
         let _ = rt.block_on(async move {
-            let result = super::loop_::run_agent_loop(
+            let rx = child_broadcaster.subscribe(&sub_task_id_clone);
+            let mut receiver = rx;
+
+            let agent_future = super::loop_::run_agent_loop(
                 child_params,
                 child_client,
                 child_broadcaster,
                 child_cancel_for_thread,
                 child_registry,
                 child_app_state,
-            )
-            .await;
-            let output = match result {
-                Ok(()) => Ok(tool_success(
+            );
+            tokio::pin!(agent_future);
+
+            let mut steps: Vec<Value> = Vec::new();
+            let mut final_content = String::new();
+            let mut tokens_used: Option<u32> = None;
+
+            let agent_result = loop {
+                tokio::select! {
+                    result = &mut agent_future => break result,
+                    received = receiver.recv() => {
+                        if let Ok(payload) = received {
+                            collect_subagent_event(&payload, &mut steps, &mut final_content, &mut tokens_used);
+                        }
+                    }
+                }
+            };
+
+            // Drain remaining events.
+            loop {
+                match receiver.try_recv() {
+                    Ok(payload) => collect_subagent_event(&payload, &mut steps, &mut final_content, &mut tokens_used),
+                    Err(tokio::sync::broadcast::error::TryRecvError::Empty) => break,
+                    Err(_) => break,
+                }
+            }
+
+            let final_error = match &agent_result {
+                Ok(()) => None,
+                Err(super::loop_::AgentLoopError::Cancelled) => {
+                    Some("Sub-agent was cancelled.".to_string())
+                }
+                Err(e) => Some(e.to_string()),
+            };
+            let rounds = steps
+                .iter()
+                .filter(|s| s.get("kind").and_then(|v| v.as_str()) == Some("reasoning"))
+                .count();
+            let tc = steps
+                .iter()
+                .filter(|s| s.get("kind").and_then(|v| v.as_str()) == Some("tool"))
+                .count();
+            let summary = build_subagent_summary(
+                &steps,
+                &task_str,
+                &final_content,
+                final_error.as_deref(),
+            );
+
+            let output = if let Some(error) = final_error {
+                Ok(tool_failure("spawn_subagent", "subagent_failed", error))
+            } else {
+                Ok(tool_success(
                     "spawn_subagent",
                     json!({
                         "task": task_str,
-                        "summary": "Sub-agent completed successfully.",
+                        "steps": steps,
+                        "summary": summary,
+                        "rounds": rounds,
+                        "toolCalls": tc,
+                        "tokensUsed": tokens_used,
+                        "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
                     }),
-                )),
-                Err(super::loop_::AgentLoopError::Cancelled) => {
-                    Ok(tool_failure("spawn_subagent", "cancelled", "Sub-agent was cancelled."))
-                }
-                Err(error) => Ok(tool_failure(
-                    "spawn_subagent",
-                    "subagent_failed",
-                    error.to_string(),
-                )),
+                ))
             };
             let _ = result_tx.send(output);
         });
@@ -3058,6 +3108,124 @@ async fn execute_await_subagent(
     }
 
     Ok(tool_success("await_subagent", json!({ "results": results })))
+}
+
+fn collect_subagent_event(
+    payload: &str,
+    steps: &mut Vec<Value>,
+    final_content: &mut String,
+    tokens_used: &mut Option<u32>,
+) {
+    let Ok(event) = serde_json::from_str::<super::types::AgentEvent>(payload) else {
+        return;
+    };
+    match event {
+        super::types::AgentEvent::ThinkingDelta { delta, .. } => {
+            if delta.trim().is_empty() {
+                return;
+            }
+            if let Some(last) = steps.last_mut() {
+                if last.get("kind").and_then(Value::as_str) == Some("reasoning") {
+                    if let Some(text) = last.get_mut("text") {
+                        let existing = text.as_str().unwrap_or_default().to_string() + &delta;
+                        *text = Value::String(existing);
+                        return;
+                    }
+                }
+            }
+            steps.push(json!({
+                "kind": "reasoning",
+                "text": delta,
+            }));
+        }
+        super::types::AgentEvent::ContentDelta { delta, .. } => {
+            final_content.push_str(&delta);
+        }
+        super::types::AgentEvent::ToolCallStarted { name, input, .. } => {
+            let label = input
+                .as_object()
+                .map(|record| extract_subagent_tool_label(&name, record))
+                .unwrap_or_default();
+            steps.push(json!({
+                "kind": "tool",
+                "text": name,
+                "toolName": name,
+                "toolLabel": if label.is_empty() { None::<String> } else { Some(label) },
+                "state": "running",
+            }));
+        }
+        super::types::AgentEvent::ToolCallFinished { error_text, .. } => {
+            for step in steps.iter_mut().rev() {
+                if step.get("kind").and_then(Value::as_str) == Some("tool")
+                    && step.get("state").and_then(Value::as_str) == Some("running")
+                {
+                    if let Some(state) = step.get_mut("state") {
+                        *state = Value::String(if error_text.is_some() {
+                            "error".to_string()
+                        } else {
+                            "completed".to_string()
+                        });
+                    }
+                    break;
+                }
+            }
+        }
+        super::types::AgentEvent::CompactStarted { .. } => {
+            steps.push(json!({
+                "kind": "compact",
+                "text": "Compacting context\u{2026}",
+                "state": "running",
+            }));
+        }
+        super::types::AgentEvent::CompactCompleted {
+            removed_count,
+            summary_preview,
+            ..
+        } => {
+            let text = if removed_count == 0 {
+                "Context already fits \u{2014} nothing to compact.".to_string()
+            } else {
+                format!("Compacted {removed_count} older messages.")
+            };
+            let mut updated = false;
+            for step in steps.iter_mut().rev() {
+                if step.get("kind").and_then(Value::as_str) == Some("compact")
+                    && step.get("state").and_then(Value::as_str) == Some("running")
+                {
+                    if let Some(state) = step.get_mut("state") {
+                        *state = Value::String("completed".to_string());
+                    }
+                    if let Some(existing) = step.get_mut("text") {
+                        *existing = Value::String(text.clone());
+                    }
+                    if let Some(object) = step.as_object_mut() {
+                        object.insert("removedCount".to_string(), Value::from(removed_count));
+                        if !summary_preview.trim().is_empty() {
+                            object.insert(
+                                "preview".to_string(),
+                                Value::String(summary_preview.chars().take(160).collect()),
+                            );
+                        }
+                    }
+                    updated = true;
+                    break;
+                }
+            }
+            if !updated {
+                steps.push(json!({
+                    "kind": "compact",
+                    "text": text,
+                    "state": "completed",
+                    "removedCount": removed_count,
+                    "preview": if summary_preview.trim().is_empty() { None::<String> } else { Some(summary_preview.chars().take(160).collect::<String>()) },
+                }));
+            }
+        }
+        super::types::AgentEvent::Done { usage, .. } => {
+            *tokens_used = usage.map(|item| item.total_tokens);
+        }
+        _ => {}
+    }
 }
 
 fn process_subagent_event(
