@@ -347,7 +347,6 @@ pub fn tool_names(mode: Option<&str>) -> Vec<String> {
                         | "list_shells"
                         | "read_file"
                         | "search"
-                        | "send_email"
                         | "web_search"
                         | "list_skills"
                         | "read_skill"
