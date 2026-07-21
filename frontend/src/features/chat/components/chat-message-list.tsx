@@ -9,6 +9,7 @@ type ChatMessageListProps = {
   sessionTitle?: string;
   systemPrompt?: string | null;
   compactUi?: SessionCompactUiState | null;
+  handoffFromSessionId?: string | null;
   onSystemPromptExpand?: () => void;
   editingMessageId?: string | null;
   onEditUserMessage?: (message: MessageRecord) => void;
@@ -20,6 +21,7 @@ export function ChatMessageList({
   sessionTitle,
   systemPrompt,
   compactUi,
+  handoffFromSessionId,
   onSystemPromptExpand,
   editingMessageId,
   onEditUserMessage,
@@ -29,6 +31,7 @@ export function ChatMessageList({
     <MessageList
       compactUi={compactUi}
       editingMessageId={editingMessageId}
+      handoffFromSessionId={handoffFromSessionId}
       messages={messages}
       onEditUserMessage={onEditUserMessage}
       onRegenerateAssistantMessage={onRegenerateAssistantMessage}

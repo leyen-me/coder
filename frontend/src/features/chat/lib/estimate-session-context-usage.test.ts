@@ -273,7 +273,7 @@ describe("estimateSessionContextUsage", () => {
 
     expect(before).not.toBeNull();
     expect(after).not.toBeNull();
-    expect(after!.usage.inputTokens).toBeLessThan(before!.usage.inputTokens);
+    expect(after!.usage.inputTokens).toBeLessThan(before!.usage.inputTokens!);
     // Must not keep using the pre-compact provider checkpoint.
     expect(after!.usage.inputTokens).toBeLessThan(5_000);
   });

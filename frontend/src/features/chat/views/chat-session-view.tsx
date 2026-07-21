@@ -80,7 +80,7 @@ type ChatSessionViewProps = {
 
 export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const { t } = useTranslation();
-  const { allModels, modelProviders, resolveProviderForModel } = useModelProvider();
+  const { allModels, modelProviders } = useModelProvider();
   const {
     sendMessage,
     regenerateMessage,

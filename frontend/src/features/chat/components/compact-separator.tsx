@@ -208,8 +208,8 @@ export function CompactBoundaryBanner({
 }: CompactBoundaryBannerProps) {
   const { t } = useTranslation();
   const presentation = getPhasePresentation(phase);
-  const title = t(titleKey, titleParams);
-  const body = description ?? t(descriptionKey, titleParams);
+  const title = t(titleKey as any, titleParams);
+  const body = description ?? t(descriptionKey as any, titleParams);
 
   return (
     <div

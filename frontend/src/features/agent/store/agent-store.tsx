@@ -63,7 +63,6 @@ import type {
   SessionHandoffPhase,
   SessionHandoffState,
 } from "../types";
-import { readAgentHandoffThreshold } from "../handoff-settings";
 import {
   getSessionCompactUi,
   setSessionCompactUi,
@@ -993,7 +992,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         sessionResolved,
         input.model
       );
-      const handoffTriggerThreshold = readAgentHandoffThreshold();
       const started = await sendAgentMessage({
         sessionId: input.sessionId,
         content: trimmed,
@@ -1012,7 +1010,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           thinkingEnabled,
         }),
         maxContextTokens,
-        handoffTriggerThreshold,
         agentMode: input.agentMode,
         thinkingEnabled,
         extraTools: input.extraTools,
@@ -1105,7 +1102,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         sessionResolved,
         input.model
       );
-      const handoffTriggerThreshold = readAgentHandoffThreshold();
       const started = await regenerateAgentMessage({
         sessionId: input.sessionId,
         assistantMessageId: input.assistantMessageId,
@@ -1121,7 +1117,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           thinkingEnabled,
         }),
         maxContextTokens,
-        handoffTriggerThreshold,
         agentMode: resolvedAgentMode,
         thinkingEnabled,
       });
