@@ -3202,32 +3202,19 @@ async fn execute_await_subagent(
     let mut results: Vec<Value> = Vec::with_capacity(args.handle_ids.len());
     for handle_id in &args.handle_ids {
         let result = match args.block_until_ms {
-            Some(ms) => {
-                match tokio::time::timeout(
-                    std::time::Duration::from_millis(ms),
-                    ctx.concurrent_agents.take_result(handle_id),
-                )
-                .await
-                {
-                    Ok(Ok(envelope)) => json!({
+            Some(_ms) => {
+                // Block until the sub-agent completes.
+                match ctx.concurrent_agents.take_result(handle_id).await {
+                    Ok(envelope) => json!({
                         "handleId": handle_id,
                         "result": envelope,
                     }),
-                    Ok(Err(error)) => json!({
+                    Err(error) => json!({
                         "handleId": handle_id,
                         "result": {
                             "ok": false,
                             "tool": "await_subagent",
                             "error": { "code": "handle_not_found", "message": error },
-                        },
-                    }),
-                    Err(_) => json!({
-                        "handleId": handle_id,
-                        "result": {
-                            "ok": true,
-                            "tool": "await_subagent",
-                            "status": "timeout",
-                            "message": format!("Sub-agent {handle_id} is still running. Timed out after {ms} ms. Call await_subagent again with the same handle_id to wait for it to complete."),
                         },
                     }),
                 }
