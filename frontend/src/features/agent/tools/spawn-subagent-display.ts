@@ -40,8 +40,17 @@ export function extractSubAgentOutput(
       : typeof envelope.task === "string"
         ? envelope
         : null;
-  if (!data || typeof data.task !== "string") {
+  if (!data) {
     return null;
+  }
+
+  if (typeof data.task !== "string") {
+    // Sub-agent is still running or was paused/interrupted.
+    // The data contains __progress (incremental step labels) but no final output.
+    if (!Array.isArray(data.__progress)) {
+      return null;
+    }
+    return extractProgressOutput(data);
   }
 
   return {
@@ -56,6 +65,45 @@ export function extractSubAgentOutput(
       typeof data.tokensUsed === "number" ? data.tokensUsed : undefined,
     error: typeof data.error === "string" ? data.error : undefined,
     content: typeof data.content === "string" ? data.content : undefined,
+  };
+}
+
+/**
+ * Build a SubAgentOutput from an in-progress payload that only has __progress.
+ * Used when the sub-agent was paused/interrupted before producing a final result.
+ */
+function extractProgressOutput(
+  data: Record<string, unknown>,
+): SubAgentOutput {
+  const progress: unknown[] = Array.isArray(data.__progress)
+    ? data.__progress
+    : [];
+
+  const steps: SubAgentOutput["steps"] = progress.map((item) => {
+    const record = asRecord(item);
+    if (!record || typeof record.step !== "string") {
+      return { kind: "reasoning", text: String(item) };
+    }
+    const rawStatus =
+      typeof record.status === "string" ? record.status : "in_progress";
+    const state =
+      rawStatus === "completed"
+        ? ("completed" as const)
+        : rawStatus === "error"
+          ? ("error" as const)
+          : ("running" as const);
+    return { kind: "reasoning", text: record.step, state };
+  });
+
+  return {
+    task: "",
+    steps,
+    summary: "",
+    rounds: 0,
+    toolCalls: 0,
+    tokensUsed: undefined,
+    error: undefined,
+    content: undefined,
   };
 }
 
