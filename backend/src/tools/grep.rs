@@ -26,6 +26,9 @@ enum GrepOutputMode {
     Count,
 }
 
+/// A single matching line from grep results.
+/// If the line exceeds [`MAX_LINE_BYTES`], it is truncated to avoid
+/// bloating the agent context with minified/one-line file contents.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GrepContentMatch {
@@ -36,6 +39,24 @@ pub struct GrepContentMatch {
     pub context_before: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context_after: Option<Vec<String>>,
+    /// Whether `line` was truncated after [`MAX_LINE_BYTES`].
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub line_truncated: bool,
+}
+
+/// Maximum bytes for a single grep match line.
+/// Lines longer than this are truncated to prevent a minified/one-line
+/// file (e.g. bundled JS, WASM glue code) from filling the agent context.
+const MAX_LINE_BYTES: usize = 10 * 1024;
+
+/// Truncate `s` in-place to [`MAX_LINE_BYTES`], returning whether it was truncated.
+fn truncate_line(s: &mut String) -> bool {
+    if s.len() > MAX_LINE_BYTES {
+        s.truncate(MAX_LINE_BYTES);
+        true
+    } else {
+        false
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -239,15 +260,18 @@ pub fn tool_grep(
                             after,
                         );
 
+                        let mut matched_line = normalized_lines
+                            .get(line_number.saturating_sub(1) as usize)
+                            .cloned()
+                            .unwrap_or_default();
+                        let line_truncated = truncate_line(&mut matched_line);
                         content_matches.push(GrepContentMatch {
                             path: relative.clone(),
                             line_number,
-                            line: normalized_lines
-                                .get(line_number.saturating_sub(1) as usize)
-                                .cloned()
-                                .unwrap_or_default(),
+                            line: matched_line,
                             context_before: before_lines,
                             context_after: after_lines,
+                            line_truncated,
                         });
                     }
                     continue;
@@ -270,12 +294,15 @@ pub fn tool_grep(
 
                     let (before_lines, after_lines) =
                         context_lines(&normalized_lines, index, before, after);
+                    let mut matched_line = line.clone();
+                    let line_truncated = truncate_line(&mut matched_line);
                     content_matches.push(GrepContentMatch {
                         path: relative.clone(),
                         line_number: index as u32 + 1,
-                        line: line.clone(),
+                        line: matched_line,
                         context_before: before_lines,
                         context_after: after_lines,
+                        line_truncated,
                     });
                 }
             }
