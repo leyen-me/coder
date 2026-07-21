@@ -705,6 +705,9 @@ pub async fn run_agent_loop(
                 broadcaster: Some(broadcaster.clone()),
                 cancel_token: cancel_token.clone(),
                 concurrent_agents: concurrent_agents.clone(),
+                tool_result_message_id: persisted_state
+                    .as_ref()
+                    .map(|s| s.message_id.clone()),
             },
             &broadcaster,
             &registry,

@@ -42,6 +42,7 @@ pub struct ToolExecutionContext<'a> {
     pub broadcaster: Option<Arc<crate::SseBroadcaster>>,
     pub cancel_token: CancellationToken,
     pub concurrent_agents: Arc<ConcurrentAgentStore>,
+    pub tool_result_message_id: Option<String>,
 }
 
 /// A spawned sub-agent running in the background via `tokio::spawn`.
