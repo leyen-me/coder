@@ -2946,6 +2946,7 @@ async fn execute_spawn_subagent(
             let rx = child_broadcaster.subscribe(&sub_task_id_clone);
             let mut receiver = rx;
 
+            let db_for_progress = child_app_state.db.clone();
             let agent_future = super::loop_::run_agent_loop(
                 child_params,
                 child_client,
@@ -2981,6 +2982,7 @@ async fn execute_spawn_subagent(
                             "rounds": rounds,
                             "toolCalls": tc,
                             "tokensUsed": tokens_used,
+                            "__progress": steps,
                             "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
                         }
                     });
