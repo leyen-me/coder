@@ -2980,15 +2980,8 @@ async fn execute_spawn_subagent(
                     let payload = json!({
                         "ok": true,
                         "tool": "spawn_subagent",
-                        "data": {
-                            "task": &task_str,
-                            "steps": steps,
-                            "summary": summary,
-                            "rounds": rounds,
-                            "toolCalls": tc,
-                            "tokensUsed": tokens_used,
-                            "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
-                            "__progress": json!({
+                        "data": json!({
+                            "__progress": {
                                 "task": &task_str,
                                 "steps": steps,
                                 "summary": &summary,
@@ -2996,8 +2989,8 @@ async fn execute_spawn_subagent(
                                 "toolCalls": tc,
                                 "tokensUsed": tokens_used,
                                 "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
-                            }),
-                        }
+                            },
+                        })
                     });
                     let event = super::types::AgentEvent::ToolCallFinished {
                         task_id: pid.clone(),
