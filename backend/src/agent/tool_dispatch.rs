@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -39,6 +41,81 @@ pub struct ToolExecutionContext<'a> {
     pub page_cache: &'a PageCache,
     pub broadcaster: Option<Arc<crate::SseBroadcaster>>,
     pub cancel_token: CancellationToken,
+    pub concurrent_agents: Arc<ConcurrentAgentStore>,
+}
+
+/// A spawned sub-agent running in the background via `tokio::spawn`.
+pub struct SpawnedAgent {
+    pub handle_id: String,
+    pub task: String,
+    pub join_handle: tokio::task::JoinHandle<Result<ToolResultEnvelope, String>>,
+    pub cancel_token: CancellationToken,
+    pub started_at: Instant,
+}
+
+/// Shared store of background sub-agents for parallel spawn/await.
+pub struct ConcurrentAgentStore {
+    agents: tokio::sync::Mutex<HashMap<String, SpawnedAgent>>,
+    max_concurrent: usize,
+}
+
+impl ConcurrentAgentStore {
+    pub fn new(max_concurrent: usize) -> Self {
+        Self {
+            agents: tokio::sync::Mutex::new(HashMap::new()),
+            max_concurrent,
+        }
+    }
+
+    /// Register a background sub-agent and return its handle_id.
+    pub async fn register(
+        &self,
+        handle_id: String,
+        task: String,
+        join_handle: tokio::task::JoinHandle<Result<ToolResultEnvelope, String>>,
+        cancel_token: CancellationToken,
+    ) -> Result<(), String> {
+        let mut agents = self.agents.lock().await;
+        if agents.len() >= self.max_concurrent {
+            return Err(format!(
+                "Maximum concurrent sub-agents ({}) reached.",
+                self.max_concurrent
+            ));
+        }
+        agents.insert(
+            handle_id.clone(),
+            SpawnedAgent {
+                handle_id,
+                task,
+                join_handle,
+                cancel_token,
+                started_at: Instant::now(),
+            },
+        );
+        Ok(())
+    }
+
+    /// Take a spawned agent by handle_id and await its result.
+    pub async fn take_result(
+        &self,
+        handle_id: &str,
+    ) -> Result<ToolResultEnvelope, String> {
+        let agent = {
+            let mut agents = self.agents.lock().await;
+            agents.remove(handle_id).ok_or_else(|| {
+                format!("Sub-agent handle not found: {handle_id}")
+            })?
+        };
+        agent.join_handle.await.map_err(|e| format!("Sub-agent task panicked: {e}"))?
+    }
+
+    /// Cancel all running sub-agents.
+    pub async fn cancel_all(&self) {
+        let agents = self.agents.lock().await;
+        for (_, agent) in agents.iter() {
+            agent.cancel_token.cancel();
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -126,6 +203,7 @@ pub async fn execute_tool_call(
         "todo_write" => execute_todo_write(args, ctx),
         "ask_question" => execute_ask_question(args, ctx).await,
         "spawn_subagent" => execute_spawn_subagent(args, ctx).await,
+        "await_subagent" => execute_await_subagent(args, ctx).await,
         "read_prior_tool_output" => execute_read_prior_tool_output(args, ctx),
         "send_email" => execute_send_email(args).await,
         "list_automations" => execute_list_automations(ctx),
@@ -183,6 +261,7 @@ pub fn all_tool_names() -> Vec<String> {
         "todo_write",
         "ask_question",
         "spawn_subagent",
+        "await_subagent",
         "read_prior_tool_output",
         "send_email",
         "list_automations",
@@ -679,6 +758,11 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                 "required": ["task"],
                 "additionalProperties": false
             }),
+        ),
+        tool_definition(
+            "await_subagent",
+            "Wait for one or more previously spawned sub-agents to complete and return their results. Provide handle_ids array from spawn_subagent calls.",
+            json!({"type": "object", "properties": {"handle_ids": {"type": "array", "items": {"type": "string"}, "description": "Array of handle_ids returned by spawn_subagent calls."}}, "required": ["handle_ids"], "additionalProperties": false}),
         ),
         tool_definition(
             "list_automations",
@@ -2356,6 +2440,11 @@ struct SpawnSubAgentArgs {
     tools: Option<Vec<String>>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+struct AwaitSubAgentArgs {
+    handle_ids: Vec<String>,
+}
+
 const MAX_SUBAGENT_DEPTH: usize = 3;
 const DEFAULT_ASK_QUESTION_TIMEOUT_MS: u64 = 300_000;
 
@@ -2789,83 +2878,117 @@ async fn execute_spawn_subagent(
         .lock()
         .map_err(|_| "Agent registry lock poisoned".to_string())?
         .http_client();
-    let mut receiver = ctx.app_state.sse_broadcaster.subscribe(&sub_task_id);
-    let child_broadcaster = ctx.app_state.sse_broadcaster.clone();
+    // Use an isolated SseBroadcaster for the child's events so they
+    // do NOT reach the parent's SSE stream.
+    let child_broadcaster = Arc::new(crate::SseBroadcaster::new());
     let child_cancel = ctx.cancel_token.child_token();
     let child_app_state = ctx.app_state.clone();
-    let mut child_future = std::pin::Pin::from(Box::new(async move {
-        super::loop_::run_agent_loop(
-            child_params,
-            child_client,
-            child_broadcaster,
-            child_cancel,
-            child_registry,
-            child_app_state,
-        )
-        .await
-    }));
+    let task_str = task.to_string();
 
-    let mut steps: Vec<Value> = Vec::new();
-    let mut final_content = String::new();
-    let mut tokens_used: Option<u32> = None;
+    let handle_id = format!(
+        "{}-{}",
+        sub_task_id.replace('/', "_"),
+        current_timestamp_ms()
+    );
 
-    let child_result = loop {
-        tokio::select! {
-            result = &mut child_future => {
-                break result;
-            }
-            received = receiver.recv() => {
-                match received {
-                    Ok(payload) => {
-                        process_subagent_event(&payload, ctx, task, &mut steps, &mut final_content, &mut tokens_used);
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
-                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {}
+    let (result_tx, result_rx) = tokio::sync::oneshot::channel::<Result<ToolResultEnvelope, String>>();
+
+    std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("Failed to build sub-agent runtime");
+            rt.block_on(async move {
+            // Run the child agent in a background task with an isolated broadcaster.
+            let result = super::loop_::run_agent_loop(
+                child_params,
+                child_client,
+                child_broadcaster,
+                child_cancel,
+                child_registry,
+                child_app_state,
+            )
+            .await;
+
+            match result {
+                Ok(()) => Ok::<ToolResultEnvelope, String>(tool_success(
+                    "spawn_subagent",
+                    json!({
+                        "task": task_str,
+                        "summary": "Sub-agent completed successfully.",
+                    }),
+                )),
+                Err(super::loop_::AgentLoopError::Cancelled) => {
+                    Ok(tool_failure("spawn_subagent", "cancelled", "Sub-agent was cancelled."))
                 }
+                Err(error) => Ok(tool_failure(
+                    "spawn_subagent",
+                    "subagent_failed",
+                    error.to_string(),
+                )),
             }
-        }
-    };
+            });
+        });
 
-    loop {
-        match receiver.try_recv() {
-            Ok(payload) => process_subagent_event(&payload, ctx, task, &mut steps, &mut final_content, &mut tokens_used),
-            Err(tokio::sync::broadcast::error::TryRecvError::Empty) => break,
-            Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => continue,
-            Err(tokio::sync::broadcast::error::TryRecvError::Closed) => break,
-        }
-    }
+    let join_handle: tokio::task::JoinHandle<Result<ToolResultEnvelope, String>> =
+        tokio::spawn(async move {
+            result_rx.await.map_err(|e| format!("Sub-agent channel closed: {e}"))?
+        });
 
-    let final_error = match child_result {
-        Ok(()) => None,
-        Err(super::loop_::AgentLoopError::Cancelled) => Some("Sub-agent was cancelled.".to_string()),
-        Err(error) => Some(error.to_string()),
-    };
-    let rounds = steps
-        .iter()
-        .filter(|step| step.get("kind").and_then(Value::as_str) == Some("reasoning"))
-        .count();
-    let tool_calls = steps
-        .iter()
-        .filter(|step| step.get("kind").and_then(Value::as_str) == Some("tool"))
-        .count();
-    let summary = build_subagent_summary(&steps, task, &final_content, final_error.as_deref());
-
-    if let Some(error) = final_error {
-        return Ok(tool_failure("spawn_subagent", "subagent_failed", error));
-    }
+    ctx.concurrent_agents
+        .register(handle_id.clone(), task.to_string(), join_handle, child_cancel)
+        .await?;
 
     Ok(tool_success(
         "spawn_subagent",
         json!({
-            "task": task,
-            "steps": steps,
-            "summary": summary,
-            "rounds": rounds,
-            "toolCalls": tool_calls,
-            "tokensUsed": tokens_used,
-            "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
+            "handleId": handle_id,
+            "status": "running",
         }),
     ))
+}
+
+async fn execute_await_subagent(
+    args: Value,
+    ctx: &ToolExecutionContext<'_>,
+) -> Result<ToolResultEnvelope, String> {
+    let args: AwaitSubAgentArgs = match parse_from_value("await_subagent", args) {
+        Ok(value) => value,
+        Err(error) => return Ok(error),
+    };
+
+    if args.handle_ids.is_empty() {
+        return Ok(tool_failure(
+            "await_subagent",
+            "invalid_arguments",
+            "handle_ids must be a non-empty array.",
+        ));
+    }
+
+    // Collect results concurrently for all requested handles.
+    let mut results: Vec<Value> = Vec::with_capacity(args.handle_ids.len());
+    for handle_id in &args.handle_ids {
+        match ctx.concurrent_agents.take_result(handle_id).await {
+            Ok(envelope) => {
+                results.push(json!({
+                    "handleId": handle_id,
+                    "result": envelope,
+                }));
+            }
+            Err(error) => {
+                results.push(json!({
+                    "handleId": handle_id,
+                    "result": {
+                        "ok": false,
+                        "tool": "await_subagent",
+                        "error": { "code": "handle_not_found", "message": error },
+                    },
+                }));
+            }
+        }
+    }
+
+    Ok(tool_success("await_subagent", json!({ "results": results })))
 }
 
 fn process_subagent_event(
@@ -3597,6 +3720,7 @@ mod tests {
             vec![
                 "ask_question",
                 "await",
+                "await_subagent",
                 "browse_page",
                 "create_automation",
                 "create_file",

@@ -14,7 +14,7 @@ use super::decision::{
 };
 use super::openai::stream_chat_completion;
 use super::tool_dispatch::{
-    execute_tool_call, serialize_tool_result, ToolExecutionContext,
+    execute_tool_call, serialize_tool_result, ToolExecutionContext, ConcurrentAgentStore,
 };
 use super::types::{AgentEvent, AgentStartParams, ChatMessage, TokenUsage, ToolCall};
 use crate::db::{
@@ -703,6 +703,7 @@ pub async fn run_agent_loop(
                 page_cache: &app_state.page_cache,
                 broadcaster: Some(broadcaster.clone()),
                 cancel_token: cancel_token.clone(),
+                concurrent_agents: Arc::new(ConcurrentAgentStore::new(3)),
             },
             &broadcaster,
             &registry,
