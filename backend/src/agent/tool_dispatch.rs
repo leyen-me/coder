@@ -3027,9 +3027,7 @@ async fn execute_spawn_subagent(
                                     if inv.id == *tc_id {
                                         if let Some(ref mut output) = inv.output {
                                             if let Some(obj) = output.as_object_mut() {
-                                                if let Some(data) = obj.get_mut("data").and_then(|v| v.as_object_mut()) {
-                                                    data.insert("__progress".to_string(), Value::Array(steps.to_vec()));
-                                                }
+                                                obj.insert("__progress".to_string(), Value::Array(steps.to_vec()));
                                             }
                                         }
                                         break;
