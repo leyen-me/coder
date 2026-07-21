@@ -240,7 +240,6 @@ pub async fn execute_tool_call(
         "ask_question" => execute_ask_question(args, ctx).await,
         "spawn_subagent" => execute_spawn_subagent(args, ctx).await,
         "await_subagent" => execute_await_subagent(args, ctx).await,
-        "read_prior_tool_output" => execute_read_prior_tool_output(args, ctx),
         "send_email" => execute_send_email(args).await,
         "list_automations" => execute_list_automations(ctx),
         "create_automation" => execute_create_automation(args, ctx),
@@ -298,7 +297,6 @@ pub fn all_tool_names() -> Vec<String> {
         "ask_question",
         "spawn_subagent",
         "await_subagent",
-        "read_prior_tool_output",
         "send_email",
         "list_automations",
         "create_automation",
@@ -348,7 +346,6 @@ pub fn tool_names(mode: Option<&str>) -> Vec<String> {
                         | "list_dir"
                         | "list_shells"
                         | "read_file"
-                        | "read_prior_tool_output"
                         | "read_shell_logs"
                         | "search"
                         | "web_search"
@@ -391,20 +388,6 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "respect_gitignore": bool_schema("Whether to refuse reading paths ignored by .gitignore.", Some(true))
                 },
                 "required": ["path"],
-                "additionalProperties": false
-            }),
-        ),
-        tool_definition(
-            "read_prior_tool_output",
-            "Read archived tool output from a previous session handoff instead of re-running the original tool.",
-            json!({
-                "type": "object",
-                "properties": {
-                    "session_id": string_schema("Source session id that owns the tool archive."),
-                    "tool_name": string_schema("Optional tool name filter, such as read_file or shell."),
-                    "path_pattern": string_schema("Optional substring filter matched against the archived target path or query pattern.")
-                },
-                "required": ["session_id"],
                 "additionalProperties": false
             }),
         ),
@@ -1052,39 +1035,6 @@ struct ReadFileArgs {
     respect_gitignore: Option<bool>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct PriorToolOutputSessionRecord {
-    workspace_dir: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct ReadPriorToolOutputArgs {
-    session_id: String,
-    tool_name: Option<String>,
-    path_pattern: Option<String>,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ToolArchiveIndex {
-    entries: Vec<ToolArchiveIndexEntry>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ToolArchiveIndexEntry {
-    session_id: String,
-    message_id: String,
-    invocation_id: String,
-    tool_name: String,
-    created_at: u64,
-    archive_path: String,
-    output_path: Option<String>,
-    relative_target_path: Option<String>,
-    query_pattern: Option<String>,
-}
-
 fn execute_read_file(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
     let args: ReadFileArgs = match parse_from_value("read_file", args) {
         Ok(value) => value,
@@ -1105,286 +1055,6 @@ fn execute_read_file(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<Tool
         Ok(result) => tool_success("read_file", result),
         Err(error) => tool_failure("read_file", "execution_failed", error.to_string()),
     })
-}
-
-fn execute_read_prior_tool_output(
-    args: Value,
-    ctx: &ToolExecutionContext<'_>,
-) -> Result<ToolResultEnvelope, String> {
-    let args: ReadPriorToolOutputArgs = match parse_from_value("read_prior_tool_output", args) {
-        Ok(value) => value,
-        Err(error) => return Ok(error),
-    };
-    let session_id = args.session_id.trim();
-    if session_id.is_empty() {
-        return Ok(tool_failure(
-            "read_prior_tool_output",
-            "invalid_arguments",
-            "session_id is required.",
-        ));
-    }
-
-    let workspace_dir = match read_session_workspace_dir(&ctx.db, session_id) {
-        Ok(Some(value)) => value,
-        Ok(None) => {
-            return Ok(tool_failure(
-                "read_prior_tool_output",
-                "workspace_required",
-                "The source session does not have a workspace directory.",
-            ))
-        }
-        Err(error) => {
-            return Ok(tool_failure(
-                "read_prior_tool_output",
-                "execution_failed",
-                error,
-            ))
-        }
-    };
-
-    let index_path = build_tool_archive_index_path(session_id);
-    let index_content = match read_workspace_text_file(&workspace_dir, &index_path) {
-        Ok(Some(result)) => result.content,
-        Ok(None) => {
-            return Ok(tool_failure(
-                "read_prior_tool_output",
-                "not_found",
-                "No archived tool output was found for that session.",
-            ))
-        }
-        Err(error) => {
-            return Ok(tool_failure(
-                "read_prior_tool_output",
-                "execution_failed",
-                error,
-            ))
-        }
-    };
-
-    let index: ToolArchiveIndex = match serde_json::from_str(&index_content) {
-        Ok(value) => value,
-        Err(error) => {
-            return Ok(tool_failure(
-                "read_prior_tool_output",
-                "execution_failed",
-                format!("Invalid tool archive index: {error}"),
-            ))
-        }
-    };
-    if index.entries.is_empty() {
-        return Ok(tool_failure(
-            "read_prior_tool_output",
-            "not_found",
-            "No archived tool output was found for that session.",
-        ));
-    }
-
-    let tool_name_filter = args
-        .tool_name
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty());
-    let path_pattern_filter = args
-        .path_pattern
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(|value| value.to_lowercase());
-
-    let mut entries = index.entries;
-    entries.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-    let candidate = entries.into_iter().find(|entry| {
-        if let Some(tool_name) = tool_name_filter {
-            if entry.tool_name != tool_name {
-                return false;
-            }
-        }
-        if let Some(pattern) = path_pattern_filter.as_deref() {
-            let haystacks = [
-                entry.relative_target_path.as_deref(),
-                entry.query_pattern.as_deref(),
-                Some(entry.archive_path.as_str()),
-            ];
-            return haystacks.into_iter().flatten().any(|value| {
-                let normalized = value.trim().to_lowercase();
-                !normalized.is_empty() && normalized.contains(pattern)
-            });
-        }
-        true
-    });
-
-    let Some(candidate) = candidate else {
-        return Ok(tool_failure(
-            "read_prior_tool_output",
-            "not_found",
-            "No archived tool output matched the requested filters.",
-        ));
-    };
-
-    let content = if let Some(output_path) = candidate
-        .output_path
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        match read_workspace_text_file(&workspace_dir, output_path) {
-            Ok(Some(result)) => result.content,
-            Ok(None) => {
-                return Ok(tool_failure(
-                    "read_prior_tool_output",
-                    "not_found",
-                    "The archived tool output file could not be read.",
-                ))
-            }
-            Err(error) => {
-                return Ok(tool_failure(
-                    "read_prior_tool_output",
-                    "execution_failed",
-                    error,
-                ))
-            }
-        }
-    } else {
-        let archive_path = build_tool_archive_file_path(
-            session_id,
-            &candidate.message_id,
-            &candidate.tool_name,
-            &candidate.invocation_id,
-        );
-        let archive_content = match read_workspace_text_file(&workspace_dir, &archive_path) {
-            Ok(Some(result)) => result.content,
-            Ok(None) => {
-                return Ok(tool_failure(
-                    "read_prior_tool_output",
-                    "not_found",
-                    "The archived tool output file could not be read.",
-                ))
-            }
-            Err(error) => {
-                return Ok(tool_failure(
-                    "read_prior_tool_output",
-                    "execution_failed",
-                    error,
-                ))
-            }
-        };
-        extract_prior_tool_output_content(&archive_content)
-    };
-
-    Ok(tool_success(
-        "read_prior_tool_output",
-        json!({
-            "sessionId": session_id,
-            "toolName": candidate.tool_name,
-            "archivePath": candidate.archive_path,
-            "outputPath": candidate.output_path,
-            "content": content,
-        }),
-    ))
-}
-
-fn read_session_workspace_dir(
-    db: &Arc<Mutex<Database>>,
-    session_id: &str,
-) -> Result<Option<String>, String> {
-    let db = db.lock().map_err(|_| "Database lock poisoned.".to_string())?;
-    let session = db.get::<PriorToolOutputSessionRecord>("sessions", session_id)?;
-    Ok(session.and_then(|record| {
-        record
-            .workspace_dir
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
-    }))
-}
-
-#[derive(Debug, Clone)]
-struct WorkspaceTextFile {
-    content: String,
-}
-
-fn read_workspace_text_file(
-    workspace_dir: &str,
-    path: &str,
-) -> Result<Option<WorkspaceTextFile>, String> {
-    let mut start_line = 1_u32;
-    let mut content = String::new();
-
-    loop {
-        match tool_read_file(
-            workspace_dir.to_string(),
-            path.to_string(),
-            Some(start_line),
-            Some(1000),
-            Some(false),
-            Some(false),
-        ) {
-            Ok(result) => {
-                content.push_str(&result.content);
-                if !result.truncated || result.end_line >= result.total_lines {
-                    return Ok(Some(WorkspaceTextFile { content }));
-                }
-                content.push('\n');
-                start_line = result.end_line.saturating_add(1);
-            }
-            Err(error) if error.code == "path_not_found" => return Ok(None),
-            Err(error) => return Err(error.to_string()),
-        }
-    }
-}
-
-fn build_tool_archive_index_path(session_id: &str) -> String {
-    format!(".agent/sessions/{session_id}/tool-archive/index.json")
-}
-
-fn build_tool_archive_file_path(
-    session_id: &str,
-    message_id: &str,
-    tool_name: &str,
-    invocation_id: &str,
-) -> String {
-    format!(
-        ".agent/sessions/{session_id}/tool-archive/{}__{}__{}.json",
-        sanitize_path_segment(tool_name),
-        sanitize_path_segment(message_id),
-        sanitize_path_segment(invocation_id)
-    )
-}
-
-fn sanitize_path_segment(value: &str) -> String {
-    let sanitized: String = value
-        .trim()
-        .chars()
-        .map(|ch| match ch {
-            'a'..='z' | 'A'..='Z' | '0'..='9' | '.' | '_' | '-' => ch,
-            _ => '_',
-        })
-        .collect();
-    if sanitized.is_empty() {
-        "unknown".to_string()
-    } else {
-        sanitized
-    }
-}
-
-fn extract_prior_tool_output_content(raw_content: &str) -> String {
-    if let Ok(parsed) = serde_json::from_str::<Value>(raw_content) {
-        if let Some(output) = parsed.get("output") {
-            if output.is_string() {
-                return output.as_str().unwrap_or_default().to_string();
-            }
-            if !output.is_null() {
-                return serde_json::to_string_pretty(output)
-                    .unwrap_or_else(|_| output.to_string());
-            }
-        }
-        if let Some(summary) = parsed.get("summary").and_then(Value::as_str) {
-            let trimmed = summary.trim();
-            if !trimmed.is_empty() {
-                return trimmed.to_string();
-            }
-        }
-    }
-    raw_content.to_string()
 }
 
 #[derive(Deserialize)]
@@ -3830,9 +3500,8 @@ fn current_timestamp_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::{
-        all_tool_names, ask_question_timeout_message, build_tool_archive_file_path,
-        extract_prior_tool_output_content, get_tool_definitions,
-        resolve_ask_question_timeout_ms, sanitize_path_segment, validate_ask_question_args,
+        all_tool_names, ask_question_timeout_message, get_tool_definitions,
+        resolve_ask_question_timeout_ms, validate_ask_question_args,
         AskQuestionArgs, AskQuestionItem, AskQuestionOption, AutomationIdArgs,
         CreateAutomationArgs, DISABLED_AGENT_TOOL_NAMES, DEFAULT_ASK_QUESTION_TIMEOUT_MS,
         UpdateAutomationArgs,
@@ -3902,7 +3571,6 @@ mod tests {
                 "list_dir",
                 "list_shells",
                 "read_file",
-                "read_prior_tool_output",
                 "read_shell_logs",
                 "remote_shell",
                 "replace_file",
@@ -4060,51 +3728,6 @@ mod tests {
         assert!(!names.contains(&"plan_create".to_string()));
         assert!(!names.contains(&"create_file".to_string()));
     }
-    #[test]
-    fn archive_file_path_matches_frontend_naming_scheme() {
-        let path = build_tool_archive_file_path(
-            "session-1",
-            "message 1",
-            "read_file",
-            "call/1",
-        );
-        assert_eq!(
-            path,
-            ".agent/sessions/session-1/tool-archive/read_file__message_1__call_1.json"
-        );
-    }
-
-    #[test]
-    fn extracts_output_payload_from_archived_json() {
-        let content = extract_prior_tool_output_content(
-            r#"{
-              "output": {
-                "ok": true,
-                "tool": "glob",
-                "data": { "matches": ["a.ts"] }
-              },
-              "summary": "glob a.ts"
-            }"#,
-        );
-        assert!(content.contains("\"matches\""));
-        assert!(content.contains("a.ts"));
-    }
-
-    #[test]
-    fn falls_back_to_summary_when_archive_has_no_output() {
-        let content = extract_prior_tool_output_content(
-            r#"{
-              "summary": "shell npm test"
-            }"#,
-        );
-        assert_eq!(content, "shell npm test");
-    }
-
-    #[test]
-    fn sanitize_path_segment_replaces_unsupported_characters() {
-        assert_eq!(sanitize_path_segment("call/1 test"), "call_1_test");
-    }
-
     #[test]
     fn ask_question_timeout_message_mentions_user_may_be_away() {
         let message = ask_question_timeout_message(30_000);
