@@ -97,7 +97,13 @@ function extractProgressOutput(
         : record.state === "error"
           ? ("error" as const)
           : ("running" as const);
-    return { kind, text, state };
+    return {
+      kind,
+      text,
+      state,
+      toolName: typeof record.toolName === "string" ? record.toolName : undefined,
+      toolLabel: typeof record.toolLabel === "string" ? record.toolLabel : undefined,
+    };
   });
 
   return {
