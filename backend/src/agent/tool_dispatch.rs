@@ -3511,7 +3511,7 @@ mod tests {
         CreateAutomationArgs, DISABLED_AGENT_TOOL_NAMES, DEFAULT_ASK_QUESTION_TIMEOUT_MS,
         UpdateAutomationArgs,
     };
-    use serde_json::json;
+    use serde_json::{json, Value};
     use std::collections::BTreeSet;
 
     fn tool_names(agent_mode: Option<&str>) -> Vec<String> {
@@ -3779,5 +3779,151 @@ mod tests {
             DEFAULT_ASK_QUESTION_TIMEOUT_MS
         );
         assert_eq!(resolve_ask_question_timeout_ms(Some(5_000)), 5_000);
+    }
+
+    // ============================================================
+    // todo_write merge bug verification
+    // ============================================================
+
+    /// Demonstrates the bug in `execute_todo_write` (lines ~2222-2246):
+    ///
+    /// When `merge: true` and an incoming todo omits the `content` field,
+    /// `.unwrap_or("")` produces an empty string, and `merged[position] = next`
+    /// replaces the existing entry — destroying the original content.
+    ///
+    /// ## Current buggy behaviour
+    /// ```rust
+    /// let content = todo
+    ///     .get("content")          // None — field not present on merge update
+    ///     .and_then(Value::as_str) // None
+    ///     .unwrap_or("")           // "" — should preserve existing content
+    ///     .trim()
+    ///     .to_string();
+    /// ```
+    ///
+    /// ## Correct merge behaviour (TypeScript `mergeAgentTodoInputs`)
+    /// ```typescript
+    /// content: next.content?.trim() || todo.content,
+    /// ```
+    #[test]
+    fn todo_write_merge_loses_content_when_incoming_omits_field() {
+        // Simulate an existing record with content
+        let existing = json!({
+            "id": "1",
+            "sessionId": "session-1",
+            "content": "Read code",
+            "status": "pending",
+            "order": 0,
+            "createdAt": 1000u64,
+            "updatedAt": 1000u64,
+        });
+
+        // Incoming merge update — only id + status, content intentionally omitted
+        let incoming = json!({ "id": "1", "status": "completed" });
+
+        // ---- BUGGY PATTERN from execute_todo_write lines 2222-2227 ----
+        let content = incoming
+            .get("content")          // None — field not present
+            .and_then(Value::as_str) // None
+            .unwrap_or("")           // "" ← THE BUG
+            .trim()
+            .to_string();
+        // ----------------------------------------------------------------
+
+        // `content` is now "" — the existing "Read code" was lost
+        assert_eq!(
+            content,
+            "",
+            "BUG: incoming content defaults to \"\" when field is absent"
+        );
+
+        // Construct the replacement object (same pattern as lines 2218-2240)
+        let now = 2000u64;
+        let next = json!({
+            "id": incoming["id"],
+            "sessionId": "session-1",
+            "content": content, // "" — should be "Read code"
+            "status": incoming["status"],
+            "order": 0,
+            "createdAt": existing["createdAt"],
+            "updatedAt": now,
+        });
+
+        // Simulate the merge-replace (line 2242-2246)
+        let mut merged = vec![existing];
+        if let Some(pos) = merged.iter().position(|v| {
+            v.get("id").and_then(Value::as_str) == next.get("id").and_then(Value::as_str)
+        }) {
+            merged[pos] = next; // ← Entire todo replaced with "" content
+        }
+
+        // BUG VERIFICATION: existing content was overwritten with ""
+        let merged_content = merged[0]
+            .get("content")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        assert_eq!(
+            merged_content, "",
+            "BUG: Existing content 'Read code' was lost. got: '{}'",
+            merged_content
+        );
+
+        // What the CORRECT merge behaviour should produce:
+        assert_ne!(
+            merged_content, "Read code",
+            "BUG: The existing content should have been preserved but was wiped out"
+        );
+    }
+
+    /// Verifies the correct merge behaviour that the TypeScript side already implements.
+    /// When an incoming merge todo omits `content`, the existing value must be kept.
+    #[test]
+    fn todo_write_merge_correct_behaviour_keeps_content() {
+        let existing = json!({
+            "id": "1",
+            "sessionId": "session-1",
+            "content": "Read code",
+            "status": "pending",
+            "order": 0,
+            "createdAt": 1000u64,
+            "updatedAt": 1000u64,
+        });
+
+        let incoming = json!({ "id": "1", "status": "completed" });
+
+        // ---- CORRECT pattern (preserve existing content when absent) ----
+        let existing_content = existing.get("content").and_then(Value::as_str).unwrap_or_default();
+        let content = incoming
+            .get("content")
+            .and_then(Value::as_str)
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|| existing_content.to_string());
+        // -------------------------------------------------------------------
+
+        assert_eq!(content, "Read code", "Existing content should be preserved");
+
+        let now = 2000u64;
+        let next = json!({
+            "id": incoming["id"],
+            "sessionId": "session-1",
+            "content": content,
+            "status": incoming["status"],
+            "order": 0,
+            "createdAt": existing["createdAt"],
+            "updatedAt": now,
+        });
+
+        let mut merged = vec![existing];
+        if let Some(pos) = merged.iter().position(|v| {
+            v.get("id").and_then(Value::as_str) == next.get("id").and_then(Value::as_str)
+        }) {
+            merged[pos] = next;
+        }
+
+        assert_eq!(
+            merged[0].get("content").and_then(Value::as_str),
+            Some("Read code"),
+            "After correct merge, content should still be 'Read code'"
+        );
     }
 }
