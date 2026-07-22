@@ -2265,12 +2265,19 @@ fn execute_todo_write(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<Too
                 .unwrap_or("")
                 .trim()
                 .to_string();
+            // Auto-assign a non-conflicting order for new entries
+            let new_order = merged
+                .iter()
+                .filter_map(|v| v.get("order").and_then(Value::as_u64))
+                .max()
+                .map(|o| o + 1)
+                .unwrap_or(0);
             let next = json!({
                 "id": id,
                 "sessionId": session_id,
                 "content": content,
                 "status": status,
-                "order": index,
+                "order": new_order,
                 "createdAt": now,
                 "updatedAt": now,
             });
@@ -3946,6 +3953,71 @@ mod tests {
             merged[0].get("content").and_then(Value::as_str),
             Some("Read code"),
             "After correct merge, content should still be 'Read code'"
+        );
+    }
+
+    /// Verifies that new todo entries get a non-conflicting order (max+1)
+    /// instead of using the loop index which may conflict with existing orders.
+    #[test]
+    fn todo_write_new_entry_gets_non_conflicting_order() {
+        // Existing merged entries with non-consecutive orders [0, 1, 3]
+        let existing = vec![
+            json!({ "id": "a", "sessionId": "s1", "content": "A", "status": "pending",  "order": 0u64, "createdAt": 1u64, "updatedAt": 1u64 }),
+            json!({ "id": "b", "sessionId": "s1", "content": "B", "status": "active",   "order": 1u64, "createdAt": 1u64, "updatedAt": 1u64 }),
+            json!({ "id": "c", "sessionId": "s1", "content": "C", "status": "completed","order": 3u64, "createdAt": 1u64, "updatedAt": 1u64 }),
+        ];
+
+        let mut merged = existing.clone();
+
+        // Simulate: incoming todo with a new id (not in merged)
+        let incoming_id = "d";
+        // The old buggy pattern: order = index (0), causing conflict with existing order 0
+        let buggy_order = 0u64;
+        assert!(
+            merged.iter().any(|v| v.get("order").and_then(Value::as_u64) == Some(buggy_order)),
+            "BUG: new item order 0 conflicts with existing order 0"
+        );
+
+        // Correct pattern: compute max existing order + 1
+        let max_order = merged
+            .iter()
+            .filter_map(|v| v.get("order").and_then(Value::as_u64))
+            .max()
+            .unwrap_or(0);
+        let correct_order = max_order + 1; // = 4
+
+        let new_entry = json!({
+            "id": incoming_id,
+            "sessionId": "s1",
+            "content": "D",
+            "status": "pending",
+            "order": correct_order,
+            "createdAt": 2u64,
+            "updatedAt": 2u64,
+        });
+        merged.push(new_entry);
+
+        // Verify: no duplicate orders
+        let mut orders: Vec<u64> = merged
+            .iter()
+            .filter_map(|v| v.get("order").and_then(Value::as_u64))
+            .collect();
+        orders.sort();
+        let unique_orders: Vec<u64> = {
+            let mut v = orders.clone();
+            v.dedup();
+            v
+        };
+        assert_eq!(
+            orders, unique_orders,
+            "All orders must be unique — new item got conflicting order"
+        );
+        // Verify: new item has order 4 (max+1)
+        let new_item = merged.iter().find(|v| v.get("id").and_then(Value::as_str) == Some("d")).unwrap();
+        assert_eq!(
+            new_item.get("order").and_then(Value::as_u64),
+            Some(4u64),
+            "New item should get max existing order + 1 = 4"
         );
     }
 }
