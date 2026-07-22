@@ -3,6 +3,7 @@ import {
   TODO_WRITE_TOOL_NAME,
 } from "./definitions";
 import type { TodoSnapshotItem } from "./types";
+import { sortTodosByOrder } from "@/lib/db/agent-todos";
 
 export function getTodoChipLabel(
   toolName: string,
@@ -84,9 +85,7 @@ function extractTodoData(
       ? (record.removed as string[])
       : undefined,
     todos: Array.isArray(record.todos)
-      ? (record.todos as TodoSnapshotItem[]).sort(
-          (a, b) => (a.order ?? 0) - (b.order ?? 0)
-        )
+      ? sortTodosByOrder(record.todos as TodoSnapshotItem[])
       : [],
     total: typeof record.total === "number" ? record.total : 0,
     active: typeof record.active === "number" ? record.active : 0,

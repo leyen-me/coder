@@ -58,14 +58,18 @@ export function normalizeAgentTodoRecord(
   };
 }
 
+export function sortTodosByOrder<T extends { order?: number }>(
+  todos: T[]
+): T[] {
+  return [...todos].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
+
 export async function getAgentTodosBySession(
   sessionId: string
 ): Promise<AgentTodoRecord[]> {
   const db = await getDb();
   const items = await db.getAllFromIndex<AgentTodoRecord>(AGENT_TODOS_STORE, "by-sessionId", sessionId);
-  return items
-    .map(normalizeAgentTodoRecord)
-    .sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
+  return sortTodosByOrder(items.map(normalizeAgentTodoRecord));
 }
 
 export async function clearAgentTodosBySession(
