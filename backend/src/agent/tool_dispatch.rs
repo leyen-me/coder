@@ -2129,7 +2129,20 @@ fn execute_todo_read(ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelop
             .and_then(Value::as_i64)
             .unwrap_or_default()
     });
-    Ok(tool_success("todo_read", json!({ "sessionId": session_id, "todos": todos })))
+    Ok(tool_success(
+        "todo_read",
+        json!({
+            "sessionId": session_id,
+            "todos": todos,
+            "total": todos.len(),
+            "active": todos.iter()
+                .filter(|t| t.get("status").and_then(Value::as_str) == Some("in_progress"))
+                .count(),
+            "completed": todos.iter()
+                .filter(|t| t.get("status").and_then(Value::as_str) == Some("completed"))
+                .count(),
+        }),
+    ))
 }
 
 #[derive(Deserialize)]
@@ -2297,9 +2310,26 @@ fn execute_todo_write(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<Too
         }
     }
 
+    let total = merged.len();
+    let active = merged
+        .iter()
+        .filter(|t| t.get("status").and_then(Value::as_str) == Some("in_progress"))
+        .count();
+    let completed = merged
+        .iter()
+        .filter(|t| t.get("status").and_then(Value::as_str) == Some("completed"))
+        .count();
+
     Ok(tool_success(
         "todo_write",
-        json!({ "sessionId": session_id, "todos": merged, "merge": args.merge }),
+        json!({
+            "sessionId": session_id,
+            "todos": merged,
+            "merge": args.merge,
+            "total": total,
+            "active": active,
+            "completed": completed,
+        }),
     ))
 }
 
