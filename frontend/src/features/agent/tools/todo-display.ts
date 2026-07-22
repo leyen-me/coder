@@ -84,7 +84,9 @@ function extractTodoData(
       ? (record.removed as string[])
       : undefined,
     todos: Array.isArray(record.todos)
-      ? (record.todos as TodoSnapshotItem[])
+      ? (record.todos as TodoSnapshotItem[]).sort(
+          (a, b) => (a.order ?? 0) - (b.order ?? 0)
+        )
       : [],
     total: typeof record.total === "number" ? record.total : 0,
     active: typeof record.active === "number" ? record.active : 0,

@@ -267,6 +267,7 @@ export type TodoSnapshotItem = {
   id: string;
   content: string;
   status: "pending" | "in_progress" | "completed" | "cancelled";
+  order?: number;
 };
 
 export type WorkspaceTreeData = {
