@@ -350,13 +350,21 @@ pub fn tool_names(mode: Option<&str>) -> Vec<String> {
                         | "list_automations"
                         | "list_dir"
                         | "list_shells"
+                        | "plan_create"
+                        | "plan_read"
+                        | "plan_update"
+                        | "plan_edit"
+                        | "plan_delete"
+                        | "plan_list"
                         | "read_file"
                         | "read_shell_logs"
                         | "search"
+                        | "spawn_subagent"
+                        | "todo_read"
+                        | "todo_write"
                         | "web_search"
                         | "list_skills"
                         | "read_skill"
-                        | "todo_read"
                 )
             })
             .collect(),
