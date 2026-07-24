@@ -2,8 +2,6 @@ use chrono::{Datelike, Local, TimeZone, Timelike};
 
 use super::types::{JobRunRecord, RunStatus, ScheduledJobRecord, STALE_RUN_MS};
 
-const CATCH_UP_WINDOW_MS: i64 = 7 * 24 * 60 * 60 * 1000;
-
 #[derive(Clone, Debug)]
 struct CronField {
     allowed: Vec<bool>,
@@ -179,18 +177,19 @@ pub fn is_job_due(job: &ScheduledJobRecord, now_ms: i64) -> bool {
         return false;
     };
 
-    let reference = last_finished_run_at(job).unwrap_or(job.created_at);
-    let mut candidate = align_to_next_minute(reference.max(now_ms - CATCH_UP_WINDOW_MS));
-    let last_now_minute = align_to_minute(now_ms);
+    let current_minute = align_to_minute(now_ms);
 
-    while candidate <= last_now_minute {
-        if schedule.matches(candidate) {
-            return true;
-        }
-        candidate += 60_000;
+    // Only check if the cron matches the current minute — no catch-up.
+    // If the scheduled time has already passed, it is simply skipped.
+    if !schedule.matches(current_minute) {
+        return false;
     }
 
-    false
+    // Avoid re-running if already executed within this minute window.
+    let already_ran = last_finished_run_at(job)
+        .is_some_and(|last| last >= current_minute);
+
+    !already_ran
 }
 
 pub fn is_blocking_running_run(run: &JobRunRecord, now_ms: i64) -> bool {
@@ -214,15 +213,6 @@ fn last_finished_run_at(job: &ScheduledJobRecord) -> Option<i64> {
 
 fn align_to_minute(timestamp_ms: i64) -> i64 {
     timestamp_ms - timestamp_ms.rem_euclid(60_000)
-}
-
-fn align_to_next_minute(timestamp_ms: i64) -> i64 {
-    let aligned = align_to_minute(timestamp_ms);
-    if aligned == timestamp_ms {
-        timestamp_ms + 60_000
-    } else {
-        aligned + 60_000
-    }
 }
 
 #[cfg(test)]
