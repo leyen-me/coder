@@ -43,7 +43,6 @@ import {
 import { useComposerThinking } from "../hooks/use-composer-thinking";
 import {
   estimateSessionContextUsage,
-  type SessionContextUsage,
 } from "../lib/estimate-session-context-usage";
 import {
   useDisplayMessages,

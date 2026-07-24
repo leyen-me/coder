@@ -13,12 +13,10 @@ import {
   deriveSessionTitle,
   getMessagesBySession,
   getSession,
-  updateSession,
   updateSessionTitle,
   type MessageRecord,
 } from "@/lib/db";
 import { notifyDbChange } from "@/lib/db/subscriptions";
-import { paths } from "@/app/paths";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
 
@@ -134,20 +132,6 @@ function resolveThinkingEnabledForRequest(
 ): boolean {
   const model = findModelDefinition(resolved.models, modelId);
   return thinkingEnabled ?? resolveDefaultThinkingEnabled(model);
-}
-
-function navigateToSession(sessionId: string): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  const nextPath = paths.chat(sessionId);
-  if (window.location.pathname === nextPath) {
-    return;
-  }
-
-  window.history.pushState(window.history.state, "", nextPath);
-  window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
 export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
