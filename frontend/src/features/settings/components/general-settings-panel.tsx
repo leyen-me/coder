@@ -1,13 +1,12 @@
 import { useState } from "react";
 
 import {
-  formatAgentHandoffThresholdPercent,
-  MAX_AGENT_HANDOFF_THRESHOLD,
-  MIN_AGENT_HANDOFF_THRESHOLD,
-  readAgentHandoffThreshold,
-  writeAgentHandoffThreshold,
-  normalizeAgentHandoffThreshold,
-} from "@/features/agent/handoff-settings";
+  formatSessionThresholdPercent,
+  MAX_AGENT_SESSION_THRESHOLD,
+  MIN_AGENT_SESSION_THRESHOLD,
+  readAgentSessionThreshold,
+  writeAgentSessionThreshold,
+} from "@/features/agent/session-settings";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { LOCALE_VALUES } from "@/lib/i18n/constants";
 import { useLocale } from "@/lib/i18n/locale-provider";
@@ -17,8 +16,8 @@ import { SettingSelect } from "./setting-select";
 
 export function GeneralSettingsPanel() {
   const { locale, setLocale, t } = useLocale();
-  const [handoffThresholdInput, setHandoffThresholdInput] = useState(() =>
-    formatAgentHandoffThresholdPercent(readAgentHandoffThreshold())
+  const [sessionThresholdInput, setSessionThresholdInput] = useState(() =>
+    formatSessionThresholdPercent(readAgentSessionThreshold())
   );
 
   const localeOptions = LOCALE_VALUES.map((value) => ({
@@ -26,21 +25,24 @@ export function GeneralSettingsPanel() {
     label: t(`locale.${value}`),
   }));
 
-  const minPercent = MIN_AGENT_HANDOFF_THRESHOLD * 100;
-  const maxPercent = MAX_AGENT_HANDOFF_THRESHOLD * 100;
+  const minPercent = MIN_AGENT_SESSION_THRESHOLD * 100;
+  const maxPercent = MAX_AGENT_SESSION_THRESHOLD * 100;
 
-  const commitHandoffThreshold = (raw: string) => {
+  const commitSessionThreshold = (raw: string) => {
     const parsed = Number.parseFloat(raw);
     if (!Number.isFinite(parsed)) {
-      setHandoffThresholdInput(
-        formatAgentHandoffThresholdPercent(readAgentHandoffThreshold())
+      setSessionThresholdInput(
+        formatSessionThresholdPercent(readAgentSessionThreshold())
       );
       return;
     }
 
-    const normalized = normalizeAgentHandoffThreshold(parsed / 100);
-    writeAgentHandoffThreshold(normalized);
-    setHandoffThresholdInput(formatAgentHandoffThresholdPercent(normalized));
+    const normalized = Math.min(
+      Math.max(parsed / 100, MIN_AGENT_SESSION_THRESHOLD),
+      MAX_AGENT_SESSION_THRESHOLD
+    );
+    writeAgentSessionThreshold(normalized);
+    setSessionThresholdInput(formatSessionThresholdPercent(normalized));
   };
 
   return (
@@ -59,8 +61,8 @@ export function GeneralSettingsPanel() {
       />
 
       <SettingRow
-        label={t("settings.general.contextHandoffThresholdLabel")}
-        description={t("settings.general.contextHandoffThresholdDescription")}
+        label={t("settings.general.contextSessionThresholdLabel")}
+        description={t("settings.general.contextSessionThresholdDescription")}
         control={
           <InputGroup className="w-28">
             <InputGroupInput
@@ -68,10 +70,10 @@ export function GeneralSettingsPanel() {
               min={minPercent}
               max={maxPercent}
               step={1}
-              value={handoffThresholdInput}
-              onChange={(event) => setHandoffThresholdInput(event.target.value)}
-              onBlur={(event) => commitHandoffThreshold(event.target.value)}
-              aria-label={t("settings.general.contextHandoffThresholdAriaLabel")}
+              value={sessionThresholdInput}
+              onChange={(event) => setSessionThresholdInput(event.target.value)}
+              onBlur={(event) => commitSessionThreshold(event.target.value)}
+              aria-label={t("settings.general.contextSessionThresholdAriaLabel")}
               inputMode="numeric"
             />
             <InputGroupAddon align="inline-end">

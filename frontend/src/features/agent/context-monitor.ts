@@ -1,17 +1,17 @@
 import { estimateTextTokens } from "@/features/chat/lib/estimate-session-context-usage";
 import { DEFAULT_MODEL_CONTEXT_WINDOW } from "@/lib/model-provider/model-definition";
 import {
-  DEFAULT_AGENT_HANDOFF_THRESHOLD,
-  MAX_AGENT_HANDOFF_THRESHOLD,
-  MIN_AGENT_HANDOFF_THRESHOLD,
-} from "./handoff-settings";
+  DEFAULT_AGENT_SESSION_THRESHOLD,
+  MAX_AGENT_SESSION_THRESHOLD,
+  MIN_AGENT_SESSION_THRESHOLD,
+} from "./session-settings";
 
 import type { AgentChatMessage } from "./types";
 
 const IMAGE_TOKEN_ESTIMATE = 765;
-const HANDOFF_RESERVE_RATIO = 0.25;
-const MIN_HANDOFF_RESERVE_TOKENS = 1_000;
-const MAX_HANDOFF_RESERVE_TOKENS = 24_000;
+const SESSION_RESERVE_RATIO = 0.25;
+const MIN_SESSION_RESERVE_TOKENS = 1_000;
+const MAX_SESSION_RESERVE_TOKENS = 24_000;
 const MAX_REPORTED_ESTIMATE_RATIO = 6;
 const MAX_REPORTED_ESTIMATE_DELTA = 48_000;
 
@@ -55,7 +55,7 @@ export function estimateAgentContextUsage(input: {
   );
   const triggerThreshold = normalizeThreshold(
     input.triggerThreshold,
-    DEFAULT_AGENT_HANDOFF_THRESHOLD
+    DEFAULT_AGENT_SESSION_THRESHOLD
   );
   const estimatedTokens = input.messages.reduce(
     (total, message) => total + estimateAgentMessageTokens(message),
@@ -69,10 +69,10 @@ export function estimateAgentContextUsage(input: {
   const reservedTokens = clamp(
     Math.max(
       Math.floor(maxTokens * (1 - triggerThreshold)),
-      Math.floor(maxTokens * HANDOFF_RESERVE_RATIO)
+      Math.floor(maxTokens * SESSION_RESERVE_RATIO)
     ),
-    MIN_HANDOFF_RESERVE_TOKENS,
-    Math.min(MAX_HANDOFF_RESERVE_TOKENS, maxTokens)
+    MIN_SESSION_RESERVE_TOKENS,
+    Math.min(MAX_SESSION_RESERVE_TOKENS, maxTokens)
   );
 
   return {
@@ -268,8 +268,8 @@ function normalizeThreshold(value: number | undefined, fallback: number): number
   }
   return clamp(
     value,
-    MIN_AGENT_HANDOFF_THRESHOLD,
-    MAX_AGENT_HANDOFF_THRESHOLD
+    MIN_AGENT_SESSION_THRESHOLD,
+    MAX_AGENT_SESSION_THRESHOLD
   );
 }
 
@@ -278,8 +278,8 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export const agentContextMonitorConfig = {
-  defaultThreshold: DEFAULT_AGENT_HANDOFF_THRESHOLD,
-  reserveRatio: HANDOFF_RESERVE_RATIO,
-  minReserveTokens: MIN_HANDOFF_RESERVE_TOKENS,
-  maxReserveTokens: MAX_HANDOFF_RESERVE_TOKENS,
+  defaultThreshold: DEFAULT_AGENT_SESSION_THRESHOLD,
+  reserveRatio: SESSION_RESERVE_RATIO,
+  minReserveTokens: MIN_SESSION_RESERVE_TOKENS,
+  maxReserveTokens: MAX_SESSION_RESERVE_TOKENS,
 } as const;
