@@ -33,7 +33,7 @@ describe("normalizeSessionRecord", () => {
         remainingTokens: 900,
         reservedTokens: 250,
         triggerThreshold: 0.8,
-        source: "handoff",
+        source: "session",
         updatedAt: 123,
       },
     } as never);
@@ -44,7 +44,7 @@ describe("normalizeSessionRecord", () => {
       remainingTokens: 900,
       reservedTokens: 250,
       triggerThreshold: 0.8,
-      source: "handoff",
+      source: "session",
       updatedAt: 123,
     });
   });

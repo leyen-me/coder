@@ -60,8 +60,6 @@ import type {
   AgentEvent,
   AgentMode,
   AgentStatus,
-  SessionHandoffPhase,
-  SessionHandoffState,
 } from "../types";
 import {
   getSessionCompactUi,
@@ -78,10 +76,8 @@ export type StreamingMessageOverlay = {
 
 type AgentStoreValue = {
   activeTasks: ReadonlyMap<string, ActiveTaskState>;
-  handoffSessionIds: ReadonlySet<string>;
   isSessionRunning: (sessionId: string) => boolean;
   getSessionTask: (sessionId: string) => ActiveTaskState | null;
-  getSessionHandoffState: (sessionId: string) => SessionHandoffState | null;
   sendMessage: (input: {
     sessionId: string;
     content: string;
@@ -160,7 +156,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   resolvedRef.current = resolved;
   const tasksRef = useRef(new Map<string, ActiveTaskState>());
   const snapshotRef = useRef<ReadonlyMap<string, ActiveTaskState>>(new Map());
-  const handoffSnapshotRef = useRef<ReadonlySet<string>>(new Set());
   const listenersRef = useRef(new Set<() => void>());
   const streamingSnapshotRef = useRef<
     ReadonlyMap<string, StreamingMessageOverlay>
@@ -170,7 +165,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const lastEventSeqRef = useRef(new Map<string, number>());
   const resumeInflightRef = useRef(new Set<string>());
   const taskAbortControllersRef = useRef(new Map<string, AbortController>());
-  const handoffStatusesRef = useRef(new Map<string, SessionHandoffState>());
   const terminalOverlayTimersRef = useRef(
     new Map<string, ReturnType<typeof setTimeout>>()
   );
@@ -203,21 +197,14 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
   const emit = useCallback(() => {
     snapshotRef.current = new Map(tasksRef.current);
-    handoffSnapshotRef.current = new Set(handoffStatusesRef.current.keys());
     for (const listener of listenersRef.current) {
       listener();
     }
   }, []);
 
   const getSnapshot = useCallback(() => snapshotRef.current, []);
-  const getHandoffSnapshot = useCallback(() => handoffSnapshotRef.current, []);
 
   const activeTasks = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-  const handoffSessionIds = useSyncExternalStore(
-    subscribe,
-    getHandoffSnapshot,
-    getHandoffSnapshot
-  );
 
   const subscribeStreaming = useCallback((listener: () => void) => {
     streamingListenersRef.current.add(listener);
@@ -276,25 +263,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     [emit]
   );
 
-  const setSessionHandoffState = useCallback(
-    (sessionId: string, phase: SessionHandoffPhase) => {
-      handoffStatusesRef.current.set(sessionId, { sessionId, phase });
-      emit();
-    },
-    [emit]
-  );
-
-  const clearSessionHandoffState = useCallback(
-    (sessionId: string) => {
-      if (!handoffStatusesRef.current.has(sessionId)) {
-        return;
-      }
-      handoffStatusesRef.current.delete(sessionId);
-      emit();
-    },
-    [emit]
-  );
-
   const handleAgentEvent = useCallback(
     async (event: AgentEvent, assistantMessageId: string) => {
       switch (event.type) {
@@ -328,32 +296,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           }
           return;
         }
-        case "handoff_required": {
-          const task = tasksRef.current.get(event.taskId);
-          if (!task) {
-            return;
-          }
-          const snapshot = {
-            ...event.contextUsage,
-            source: "handoff" as const,
-            updatedAt: Date.now(),
-          };
-          tasksRef.current.set(event.taskId, {
-            ...task,
-            handoff: {
-              contextUsage: event.contextUsage,
-            },
-          });
-          await updateSession(task.sessionId, {
-            contextUsageSnapshot: snapshot,
-          });
-          emit();
-          return;
-        }
-        case "handoff_progress":
-          setSessionHandoffState(event.sessionId, event.phase);
-          notifyDbChange();
-          return;
+
         case "compact_started": {
           const task = tasksRef.current.get(event.taskId);
           if (!task) {
@@ -417,11 +360,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           notifyDbChange();
           return;
         }
-        case "handoff_complete":
-          clearSessionHandoffState(event.sourceSessionId);
-          notifyDbChange();
-          navigateToSession(event.continuedSessionId);
-          return;
+
         case "decision_requested":
           streamingBufferRef.current.upsertProcessStep(assistantMessageId, {
             id: event.decisionId,
@@ -625,7 +564,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         }
       }
     },
-    [clearSessionHandoffState, clearTaskChatRetry, emit, setSessionHandoffState]
+    [clearTaskChatRetry, emit]
   );
 
   const dispatchAgentEvent = useCallback(
@@ -692,7 +631,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         model: input.model,
         userContent: input.userContent,
         thinkingEnabled: input.thinkingEnabled,
-        handoff: null,
         agentMode: input.agentMode ?? "agent",
         sessionKind: input.sessionKind,
         autonomyMode: input.autonomyMode,
@@ -822,7 +760,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               findModelDefinition(resolvedRef.current.models, model)
             )
           : true,
-        handoff: null,
         agentMode: assistantMessage.messageKind === "plan" ? "plan" : "agent",
         sessionKind: session?.sessionKind ?? "standard",
         autonomyMode:
@@ -830,11 +767,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         decisionPolicyVersion: session?.decisionPolicyVersion ?? "v1",
         decisionModel: session?.decisionModel ?? null,
       };
-      if (session?.handoffPhase) {
-        setSessionHandoffState(sessionId, session.handoffPhase);
-      } else {
-        clearSessionHandoffState(sessionId);
-      }
       streamingBufferRef.current.hydrate(assistantMessage.id, {
         content: assistantMessage.content,
         thinking: assistantMessage.thinking,
@@ -891,11 +823,9 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       }
     },
     [
-      clearSessionHandoffState,
       dispatchAgentEvent,
       emit,
       retireOtherSessionTasks,
-      setSessionHandoffState,
     ],
   );
 
@@ -1227,9 +1157,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
   const isSessionRunning = useCallback(
     (sessionId: string) => {
-      if (handoffStatusesRef.current.has(sessionId)) {
-        return true;
-      }
       for (const task of activeTasks.values()) {
         if (task.sessionId === sessionId && isActiveAgentTask(task.status)) {
           return true;
@@ -1239,10 +1166,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     },
     [activeTasks]
   );
-
-  const getSessionHandoffState = useCallback((sessionId: string) => {
-    return handoffStatusesRef.current.get(sessionId) ?? null;
-  }, []);
 
   const getSessionTask = useCallback(
     (sessionId: string) => {
@@ -1266,10 +1189,8 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
   const value = useMemo(
     () => ({
       activeTasks,
-      handoffSessionIds,
       isSessionRunning,
       getSessionTask,
-      getSessionHandoffState,
       sendMessage,
       regenerateMessage,
       cancelTask,
@@ -1277,9 +1198,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
     }),
     [
       activeTasks,
-      handoffSessionIds,
       cancelTask,
-      getSessionHandoffState,
       getSessionTask,
       isSessionRunning,
       regenerateMessage,
@@ -1313,17 +1232,17 @@ export function useStreamingMessageOverlays(): ReadonlyMap<
 }
 
 export function useRunningSessionIds(): ReadonlySet<string> {
-  const { activeTasks, handoffSessionIds } = useAgentStore();
+  const { activeTasks } = useAgentStore();
 
   return useMemo(() => {
-    const ids = new Set(handoffSessionIds);
+    const ids = new Set<string>();
     for (const task of activeTasks.values()) {
       if (isActiveAgentTask(task.status)) {
         ids.add(task.sessionId);
       }
     }
     return ids;
-  }, [activeTasks, handoffSessionIds]);
+  }, [activeTasks]);
 }
 
 export function useActiveStreamingMessageIds(): ReadonlySet<string> {

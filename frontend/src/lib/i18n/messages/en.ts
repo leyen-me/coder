@@ -157,7 +157,7 @@ export const enMessages = {
     skillNoResults: "No enabled skills found",
     slashCommandsHeading: "Commands",
     slashSkillsHeading: "Skills",
-    slashHandoffDescription: "Trigger a context handoff to continue in a new session",
+    slashHandoffDescription: "Trigger a context transition to continue in a new session",
     removeSkillReference: "Remove skill reference",
     skillNotFound: "Skill /{slug} was not found.",
     attachmentErrorAccept:
@@ -233,33 +233,6 @@ export const enMessages = {
     queueWaitingWithAttachments: "Waiting to send, with {count} attachment(s)",
     queueAttachmentOnly: "Attachment-only message",
     chatRetrying: "Retrying (attempt {attempt} of {maxAttempts})…",
-    handoffGenerating:
-      "Context budget is nearly full. Generating a handoff document…",
-    handoffCreatingSession:
-      "Handoff document is ready. Creating a continuation session…",
-    handoffStartingNewSession:
-      "Continuation session created. Starting the next unattended run…",
-    handoffArtifactTitle: "Session handoff",
-    handoffArtifactSubtitle: "Context rollover document",
-    handoffMetadataSourceSession: "Source session",
-    handoffMetadataContextBudget: "Context budget",
-    handoffMetadataGeneratedAt: "Generated at",
-    handoffContinuationSummary: "Automatic continuation started",
-    handoffContinuationDescription:
-      "The previous session handed off its working state after nearing the context budget. The agent received the handoff below and continued.",
-    handoffContinuationBannerTitle: "Continuation session",
-    handoffContinuationBannerDescription:
-      "This session was created automatically from a context handoff. Open the source session to review the full history.",
-    handoffSourceBannerTitle: "Handed off to a continuation session",
-    handoffSourceBannerDescription:
-      "This session reached its context budget and created a handoff document. Work continues in the continuation session.",
-    handoffSourceSummary: "Work continued in a new session",
-    handoffSourceDescription:
-      "The handoff document below captures the working state. Open the continuation session to see what happened next.",
-    handoffViewSourceSession: "View source session",
-    handoffViewSourceSessionNamed: "View source session: {title}",
-    handoffViewContinuationSession: "View continuation session",
-    handoffViewContinuationSessionNamed: "View continuation session: {title}",
     todoListTitle: "Task progress",
     todoExpand: "Expand todo list",
     todoCollapse: "Collapse todo list",
@@ -387,9 +360,9 @@ export const enMessages = {
       languageLabel: "Language",
       languageDescription: "Choose the interface language",
       languageAriaLabel: "Language",
-      contextHandoffThresholdLabel: "Context handoff threshold",
-      contextHandoffThresholdDescription: "Default 80%",
-      contextHandoffThresholdAriaLabel: "Context handoff threshold",
+      contextSessionThresholdLabel: "Context session threshold",
+      contextSessionThresholdDescription: "Default 80%",
+      contextSessionThresholdAriaLabel: "Context session threshold",
     },
     appearance: {
       themeLabel: "Theme",

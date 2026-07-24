@@ -181,7 +181,7 @@ export function ComposerRichInput({
       if (item.kind === "command") {
         // Handle built-in commands
         if (item.command.slug === "compact") {
-          // Clear the slash state and optionally trigger handoff
+          // Clear the slash state and optionally trigger session transition
           editor
             .chain()
             .focus()
@@ -196,7 +196,7 @@ export function ComposerRichInput({
           setSlashMention(null);
           updateSelectedIndex(0);
 
-          // Emit a custom event so the parent can handle the handoff
+          // Emit a custom event so the parent can handle the session transition
           window.dispatchEvent(
             new CustomEvent("coder:command-compact", {
               detail: {},

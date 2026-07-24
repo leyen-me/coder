@@ -116,11 +116,11 @@ pub async fn run_agent_loop(
 
         messages = compact_tool_result_messages(&messages);
 
-        // ── Auto-compact check (replaces the old session-handoff mechanism) ──
+        // ── Auto-compact check (replaces the old session rollover mechanism) ──
         //
         // When estimated token usage exceeds the threshold we compact in-place:
         //  1. Take a snapshot of the current working context
-        //  2. Ask the LLM to write a concise handoff summary (natural language)
+        //  2. Ask the LLM to write a concise summary (natural language)
         //  3. Replace old messages with the summary + recent tail
         //  4. Continue the loop with the compacted message list
         //

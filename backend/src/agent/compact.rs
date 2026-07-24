@@ -4,7 +4,7 @@
 //! concise summary in natural language. Old messages are replaced by that
 //! summary, freeing context space without a session switch.
 //!
-//! Key improvements over the original handoff (learned from Codex & Claude Code):
+//! Key improvements over the original session rollover mechanism (learned from Codex & Claude Code):
 //!  - Token-budget-aware user message selection (not blind "keep 20")
 //!  - Summary deduplication (no nested summaries)
 //!  - Initial context injected before last real user message (model-expected boundary)

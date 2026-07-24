@@ -41,7 +41,6 @@ type MessageListProps = {
   sessionTitle?: string;
   systemPrompt?: string | null;
   compactUi?: SessionCompactUiState | null;
-  handoffFromSessionId?: string | null;
   onSystemPromptExpand?: () => void;
   editingMessageId?: string | null;
   onEditUserMessage?: (message: MessageRecord) => void;
@@ -126,7 +125,6 @@ export function MessageList({
   sessionTitle,
   systemPrompt,
   compactUi = null,
-  handoffFromSessionId,
   onSystemPromptExpand,
   editingMessageId,
   onEditUserMessage,
@@ -335,8 +333,7 @@ export function MessageList({
     );
   }, []);
 
-  // System prompt and handoff banners sit above the virtual list in the same
-  // scroll viewport. scrollMargin tells the virtualizer where the list starts.
+  // System prompt sits above the virtual list in the same scroll viewport. scrollMargin tells the virtualizer where the list starts.
   useLayoutEffect(() => {
     if (!shouldVirtualize) {
       setVirtualListScrollMargin(0);
@@ -577,7 +574,6 @@ export function MessageList({
         <MessageItem
           chatRetry={chatRetryByMessageId.get(message.id) ?? null}
           editingMessageId={editingMessageId}
-          handoffFromSessionId={handoffFromSessionId}
           isStreaming={streamingMessageIds.has(message.id)}
           message={message}
           onEditUserMessage={onEditUserMessage}

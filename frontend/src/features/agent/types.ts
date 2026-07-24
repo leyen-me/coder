@@ -54,29 +54,7 @@ export type AgentEvent = (
       compactMessageId?: string | null;
       anchorAfterMessageId?: string | null;
     }
-  | {
-      type: "handoff_required";
-      taskId: string;
-      contextUsage: AgentContextUsageSnapshot;
-    }
-  | {
-      type: "handoff_progress";
-      taskId: string;
-      sessionId: string;
-      phase: string;
-    }
-  | {
-      type: "handoff_complete";
-      taskId: string;
-      sourceSessionId: string;
-      continuedSessionId: string;
-    }
-  | {
-      type: "tool_call_pending";
-      taskId: string;
-      toolCallId: string;
-      name: string;
-    }
+  | { type: "tool_call_pending"; taskId: string; toolCallId: string; name: string }
   | {
       type: "tool_call_started";
       taskId: string;
@@ -149,7 +127,6 @@ export type AgentStartInput = {
   maxContextTokens?: number;
   /** Ratio at which the agent proactively rolls over into a continuation session. */
   compactTriggerThreshold?: number;
-  handoffTriggerThreshold?: number;
   /** Agent mode — controls which tools are available. Defaults to "agent". */
   agentMode?: AgentMode;
   /** Whether deep thinking is enabled for this run. */
@@ -185,8 +162,6 @@ export type ActiveTaskState = {
   userContent: string;
   thinkingEnabled: boolean;
   compact?: CompactState | null;
-  /** @deprecated Replaced by `compact`. */
-  handoff: AgentHandoffRequest | null;
   agentMode: AgentMode;
   sessionKind: SessionKind;
   autonomyMode: SessionAutonomyMode;
@@ -203,23 +178,4 @@ export type AgentRunner = {
   start: (input: AgentStartInput, onEvent: AgentEventHandler) => Promise<void>;
   cancel: (taskId: string) => Promise<void>;
 };
-
-// ── Backward-compatible aliases (agent-store.tsx still references these) ──
-
-/** @deprecated Replaced by CompactState. Kept for store compatibility. */
-export type AgentContextUsageSnapshot = {
-  usedTokens: number;
-  maxTokens: number;
-  remainingTokens: number;
-  reservedTokens: number;
-  triggerThreshold: number;
-};
-
-/** @deprecated Replaced by CompactState. */
-export type AgentHandoffRequest = { contextUsage: AgentContextUsageSnapshot };
-
-/** @deprecated Removed — handoff is retired. */
-export type SessionHandoffPhase = string;
-
-export type SessionHandoffState = { sessionId: string; phase: SessionHandoffPhase };
 

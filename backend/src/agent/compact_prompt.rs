@@ -14,7 +14,7 @@
 /// This is deliberately minimal. Codex proves that a short, clear prompt
 /// produces better summaries than a long, defensive one. The model knows best
 /// what the next LLM needs to continue the work.
-pub const SUMMARIZATION_PROMPT: &str = r#"You are performing a CONTEXT CHECKPOINT COMPACTION. Create a handoff summary for another LLM that will resume the task.
+pub const SUMMARIZATION_PROMPT: &str = r#"You are performing a CONTEXT CHECKPOINT COMPACTION. Create a summary for another LLM that will resume the task.
 
 Include:
 - Current progress and key decisions made

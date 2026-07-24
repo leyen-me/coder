@@ -9,14 +9,10 @@ import type { ProviderId } from "@/lib/model-provider/types";
 export type MessageRole = "user" | "assistant";
 
 /** Distinguishes structured artifact messages from regular chat replies. */
-export type MessageKind = "plan" | "handoff" | "handoff_continuation" | "compact";
+export type MessageKind = "plan" | "compact";
 
 export type SessionKind = "standard" | "long_task";
 export type SessionAutonomyMode = "interactive" | "unattended";
-export type SessionHandoffPhase =
-  | "generating_handoff"
-  | "creating_session"
-  | "starting_new_session";
 
 export const DEFAULT_SESSION_KIND: SessionKind = "standard";
 export const DEFAULT_SESSION_AUTONOMY_MODE: SessionAutonomyMode = "interactive";
@@ -28,7 +24,7 @@ export type SessionContextUsageSnapshot = {
   remainingTokens: number;
   reservedTokens: number;
   triggerThreshold: number;
-  source: "handoff";
+  source: "session";
   updatedAt: number;
 };
 
@@ -52,9 +48,6 @@ export type SessionRecord = {
   decisionPolicyVersion: string;
   decisionModel?: string | null;
   parentSessionId?: string | null;
-  handoffFromSessionId?: string | null;
-  handoffMessageId?: string | null;
-  handoffPhase?: SessionHandoffPhase | null;
   /** Name of the .plan/ file bound to this session, if any. */
   planFileName?: string | null;
   /** Timestamp (ms) when the plan was built/executed. null/undefined means not yet built. */
@@ -126,7 +119,7 @@ export type MessageRecord = {
   id: string;
   sessionId: string;
   role: MessageRole;
-  /** When set, marks structured plan/handoff artifact messages. */
+  /** When set, marks structured artifact messages. */
   messageKind?: MessageKind;
   content: string;
   /** User-uploaded images only; empty for assistant messages. */

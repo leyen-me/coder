@@ -3689,7 +3689,7 @@ mod tests {
     }
 
     #[test]
-    fn every_named_tool_is_exposed_disabled_or_handoff_only() {
+    fn every_named_tool_is_exposed_disabled_or_compact_only() {
         // Catches tools that exist in all_tool_names()/execute but never reach
         // any mode catalog (the spawn_subagent regression class).
         let named: BTreeSet<_> = all_tool_names().into_iter().collect();
