@@ -38,9 +38,6 @@ pub struct SessionRecord {
     pub decision_policy_version: String,
     pub decision_model: Option<String>,
     pub parent_session_id: Option<String>,
-    pub handoff_from_session_id: Option<String>,
-    pub handoff_message_id: Option<String>,
-    pub handoff_phase: Option<String>,
     pub plan_file_name: Option<String>,
     pub plan_built_at: Option<u64>,
     pub context_usage_snapshot: Option<SessionContextUsageSnapshot>,
@@ -70,9 +67,6 @@ impl SessionRecord {
         };
         self.decision_model = normalize_optional_string(self.decision_model);
         self.parent_session_id = normalize_optional_string(self.parent_session_id);
-        self.handoff_from_session_id = normalize_optional_string(self.handoff_from_session_id);
-        self.handoff_message_id = normalize_optional_string(self.handoff_message_id);
-        self.handoff_phase = normalize_optional_string(self.handoff_phase);
         self.plan_file_name = normalize_optional_string(self.plan_file_name);
         self
     }
