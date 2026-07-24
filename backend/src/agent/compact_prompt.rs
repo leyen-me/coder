@@ -1,13 +1,11 @@
-//! Compact prompt templates — Codex-style natural language summarisation.
+//! Compact prompt templates — natural language summarisation for context compaction.
 //!
-//! The compact system replaces the old heavy-weight handoff mechanism with a
-//! lightweight LLM-driven context compaction. When the agent's working context
-//! approaches the token budget limit, we ask the model itself to write a concise
-//! handoff summary in natural language. The old messages are then replaced by
-//! that summary, freeing context space without creating a new session.
+//! When the agent's working context approaches the token budget limit, we ask the
+//! model to write a concise summary in natural language. The old messages are then
+//! replaced by that summary, freeing context space without creating a new session.
 //!
-//! Design principles (learned from Codex & Claude Code):
-//! - Trust the LLM's natural language capabilities — a 10-line prompt is enough.
+//! Design principles:
+//! - Trust the LLM's natural language capabilities — a short prompt is enough.
 //! - The summary should read like a colleague's sticky note, not a database record.
 //! - No structured rules, no JSON schemas, no defensive checklists.
 
