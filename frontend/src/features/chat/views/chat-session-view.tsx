@@ -10,7 +10,6 @@ import {
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { nanoid } from "nanoid";
-import { LoaderCircleIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { storedImagesToFileUIParts } from "@/features/agent/message-content";
@@ -65,14 +64,6 @@ import { useSystemPrompt } from "../hooks/use-system-prompt";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
 import type { MessageRecord } from "@/lib/db";
 import { updateSession } from "@/lib/db/sessions";
-import {
-  buildHandoffPreviewMessages,
-  buildHandoffPreviewSessionPatch,
-  getHandoffPreviewHint,
-  getHandoffPreviewMode,
-  getHandoffPreviewProgressPhase,
-} from "../lib/handoff/mock-handoff-preview";
-import { HandoffPreviewBanner } from "../components/handoff-preview-banner";
 
 type ChatSessionViewProps = {
   chatId: string;
@@ -86,39 +77,13 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     regenerateMessage,
     cancelTask,
     getSessionTask,
-    getSessionHandoffState,
     isSessionRunning,
     resumeSessionTask,
   } = useAgentStore();
   const location = useLocation();
   const navigate = useNavigate();
-  const handoffPreviewMode = getHandoffPreviewMode();
   const { session, messages, isLoading, refresh } = useSessionData(chatId);
-  const previewMessages = useMemo(() => {
-    if (!handoffPreviewMode || handoffPreviewMode === "progress") {
-      return null;
-    }
-
-    return buildHandoffPreviewMessages({
-      mode: handoffPreviewMode,
-      sessionId: chatId,
-    });
-  }, [chatId, handoffPreviewMode]);
-  const previewSession = useMemo(() => {
-    if (!handoffPreviewMode || !session) {
-      return session;
-    }
-
-    const patch = buildHandoffPreviewSessionPatch({
-      mode: handoffPreviewMode,
-      session,
-    });
-
-    return patch ? { ...session, ...patch } : session;
-  }, [handoffPreviewMode, session]);
-  const effectiveSession = previewSession ?? session;
-  const effectiveMessages = previewMessages ?? messages;
-  const displayMessages = useDisplayMessages(effectiveMessages);
+  const displayMessages = useDisplayMessages(messages);
   const displayMessagesRef = useRef(displayMessages);
   displayMessagesRef.current = displayMessages;
   const compactUi = useSessionCompactUi(chatId);
@@ -157,11 +122,11 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   }, [chatId, locationState?.hideWorkspaceControls]);
 
   const canEditWorkspace =
-    effectiveMessages.length === 0 &&
+    messages.length === 0 &&
     !workspaceBarDismissed &&
     !isSessionRunning(chatId);
   const workspaceBinding = useSessionWorkspaceBinding({
-    session: effectiveSession,
+    session,
     canEdit: canEditWorkspace,
   });
   const gitControls = useWorkspaceGitControls({
@@ -175,10 +140,9 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   );
 
   const activeTask = getSessionTask(chatId);
-  const handoffState = getSessionHandoffState(chatId);
   const isRunning = isSessionRunning(chatId) || isSubmitting || isBuildPending;
   const deferredContextMessages = useDeferredValue(
-    activeTask ? effectiveMessages : displayMessages
+    activeTask ? messages : displayMessages
   );
 
   useEffect(() => {
@@ -306,7 +270,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         return;
       }
 
-      const isFirstMessage = effectiveMessages.length === 0;
+      const isFirstMessage = messages.length === 0;
       if (isFirstMessage) {
         setWorkspaceBarDismissed(true);
       }
@@ -317,7 +281,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         const resolved = await resolvePlanContentForBuild(
           workspaceBinding.workspaceDir,
           planContent,
-          effectiveSession?.planFileName ?? null
+          session?.planFileName ?? null
         );
         await sendMessage({
           sessionId: chatId,
@@ -343,8 +307,8 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     },
     [
       chatId,
-      effectiveMessages.length,
-      effectiveSession?.planFileName,
+      messages.length,
+      session?.planFileName,
       isRunning,
       model,
       sendMessage,
@@ -376,7 +340,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         return;
       }
 
-      const isFirstMessage = effectiveMessages.length === 0 && !editingMessageId;
+      const isFirstMessage = messages.length === 0 && !editingMessageId;
       if (isFirstMessage) {
         setWorkspaceBarDismissed(true);
       }
@@ -413,7 +377,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
     [
       editingMessageId,
       editingQueuedMessageId,
-      effectiveMessages.length,
+      messages.length,
       isRunning,
       sendPayload,
     ]
@@ -491,65 +455,8 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   const workspaceName = workspaceBinding.workspaceDir
     ? getWorkspaceDisplayName(workspaceBinding.workspaceDir)
     : null;
-  const handoffStatus = useMemo(() => {
-    if (handoffPreviewMode === "progress") {
-      const phase = getHandoffPreviewProgressPhase();
-      switch (phase) {
-        case "generating_handoff":
-          return {
-            label: t("chat.handoffGenerating"),
-            step: 1,
-          };
-        case "creating_session":
-          return {
-            label: t("chat.handoffCreatingSession"),
-            step: 2,
-          };
-        case "starting_new_session":
-          return {
-            label: t("chat.handoffStartingNewSession"),
-            step: 3,
-          };
-      }
-    }
-
-    if (!handoffState) {
-      return null;
-    }
-
-    switch (handoffState.phase) {
-      case "generating_handoff":
-        return {
-          label: t("chat.handoffGenerating"),
-          step: 1,
-        };
-      case "creating_session":
-        return {
-          label: t("chat.handoffCreatingSession"),
-          step: 2,
-        };
-      case "starting_new_session":
-        return {
-          label: t("chat.handoffStartingNewSession"),
-          step: 3,
-        };
-      default:
-        return null;
-    }
-  }, [handoffPreviewMode, handoffState, t]);
-
   const contextUsage = useMemo(
     () => {
-      const liveHandoffUsage = activeTask?.handoff?.contextUsage;
-      if (liveHandoffUsage) {
-        return createDisplayContextUsage(liveHandoffUsage);
-      }
-
-      const persistedHandoffUsage = effectiveSession?.contextUsageSnapshot;
-      if (persistedHandoffUsage) {
-        return createDisplayContextUsage(persistedHandoffUsage);
-      }
-
       return estimateSessionContextUsage({
         messages: deferredContextMessages,
         systemPrompt,
@@ -559,10 +466,9 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       });
     },
     [
-      activeTask?.handoff?.contextUsage,
       deferredContextMessages,
       editingMessageId,
-      effectiveSession?.contextUsageSnapshot,
+      session?.contextUsageSnapshot,
       model,
       allModels,
       systemPrompt,
@@ -742,15 +648,12 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
 
   const chatContent = (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      {handoffPreviewMode ? (
-        <HandoffPreviewBanner hint={getHandoffPreviewHint(handoffPreviewMode)} />
-      ) : null}
       <ChatHotkeyActions
         chatId={chatId}
         editingMessageId={editingMessageId}
         editingQueuedMessageId={editingQueuedMessageId}
         isRunning={isRunning}
-        messages={effectiveMessages}
+        messages={messages}
         onCancelEdit={handleCancelEdit}
         onEditUserMessage={handleEditUserMessage}
         onRegenerateAssistantMessage={handleRegenerateAssistantMessage}
@@ -759,14 +662,13 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
       <ChatMessageList
         compactUi={compactUi}
         editingMessageId={editingMessageId}
-        handoffFromSessionId={effectiveSession?.handoffFromSessionId}
         messages={displayMessages}
         onEditUserMessage={handleEditUserMessage}
         onRegenerateAssistantMessage={handleRegenerateAssistantMessage}
         onSystemPromptExpand={() => {
           void refreshSystemPrompt();
         }}
-        sessionTitle={effectiveSession?.title}
+        sessionTitle={session?.title}
         systemPrompt={systemPrompt}
       />
 
@@ -784,19 +686,6 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
               onConfirm={confirmStopAgent}
               onDismiss={dismissStopConfirm}
             />
-          ) : null}
-          {handoffStatus ? (
-            <div className="mb-2 overflow-hidden rounded-2xl border bg-muted/40 px-3 py-2.5 dark:bg-muted/20">
-              <div className="flex items-center gap-2">
-                <LoaderCircleIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
-                <p className="min-w-0 flex-1 text-foreground text-sm">
-                  {handoffStatus.label}
-                </p>
-                <span className="shrink-0 tabular-nums text-muted-foreground text-xs">
-                  {handoffStatus.step}/3
-                </span>
-              </div>
-            </div>
           ) : null}
           {!isLoading && session != null && session.id === chatId ? (
           <PlanSheet
@@ -839,8 +728,8 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             contextUsage={contextUsage}
             agentMode={agentMode}
             onAgentModeChange={setAgentMode}
-            planBuiltAt={effectiveSession?.planBuiltAt ?? null}
-            sessionKind={effectiveSession?.sessionKind ?? "standard"}
+            planBuiltAt={session?.planBuiltAt ?? null}
+            sessionKind={session?.sessionKind ?? "standard"}
           />
         </div>
       </div>
@@ -848,34 +737,4 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
   );
 
   return chatContent;
-}
-
-function createDisplayContextUsage(input: {
-  usedTokens: number;
-  maxTokens: number;
-  remainingTokens: number;
-  reservedTokens: number;
-  triggerThreshold: number;
-}): SessionContextUsage {
-  return {
-    modelId: "handoff",
-    maxTokens: input.maxTokens,
-    usedTokens: input.usedTokens,
-    usage: {
-      inputTokens: input.usedTokens,
-      outputTokens: 0,
-      reasoningTokens: 0,
-      cachedInputTokens: 0,
-      totalTokens: input.usedTokens,
-      inputTokenDetails: {
-        noCacheTokens: input.usedTokens,
-        cacheReadTokens: 0,
-        cacheWriteTokens: 0,
-      },
-      outputTokenDetails: {
-        textTokens: 0,
-        reasoningTokens: 0,
-      },
-    },
-  };
 }
