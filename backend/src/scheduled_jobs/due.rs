@@ -219,6 +219,34 @@ fn align_to_minute(timestamp_ms: i64) -> i64 {
 mod tests {
     use super::{is_job_due, parse_schedule};
     use crate::scheduled_jobs::types::{AgentMode, JobRunRecord, RunStatus, ScheduledJobRecord};
+    use chrono::{Datelike, Local, TimeZone};
+
+    fn local_ts(hour: u32, minute: u32) -> i64 {
+        let now = Local::now();
+        Local
+            .with_ymd_and_hms(now.year(), now.month(), now.day(), hour, minute, 0)
+            .unwrap()
+            .timestamp_millis()
+    }
+
+    fn make_job(cron_expression: &str, runs: Vec<JobRunRecord>) -> ScheduledJobRecord {
+        ScheduledJobRecord {
+            id: "test".into(),
+            name: "test-job".into(),
+            description: String::new(),
+            cron_expression: cron_expression.into(),
+            prompt: "hello".into(),
+            workspace_dir: None,
+            model: "m".into(),
+            provider: "deepseek".into(),
+            agent_mode: AgentMode::Ask,
+            thinking_enabled: false,
+            enabled: true,
+            runs,
+            created_at: local_ts(8, 0),
+            updated_at: local_ts(8, 0),
+        }
+    }
 
     #[test]
     fn normalize_five_field_unix_cron() {
@@ -259,5 +287,107 @@ mod tests {
         };
 
         assert!(is_job_due(&job, 1_783_233_828_852));
+    }
+
+    #[test]
+    fn expired_daily_cron_does_not_catch_up() {
+        // cron at 09:00, now is 20:00 (already passed) → should NOT execute
+        let job = make_job(
+            "0 9 * * *",
+            vec![JobRunRecord {
+                id: "run-1".into(),
+                task_id: "task-1".into(),
+                session_id: "session-1".into(),
+                started_at: local_ts(8, 55) - 60_000,
+                completed_at: Some(local_ts(8, 55)),
+                summary: "done".into(),
+                status: RunStatus::Completed,
+            }],
+        );
+        assert!(!is_job_due(&job, local_ts(20, 0) + 1000));
+    }
+
+    #[test]
+    fn current_minute_matches_exact_cron() {
+        let job = make_job("30 9 * * *", vec![]);
+        assert!(is_job_due(&job, local_ts(9, 30) + 1000));
+    }
+
+    #[test]
+    fn already_ran_this_minute_skipped() {
+        let minute_ts = local_ts(9, 0);
+        let job = make_job(
+            "* * * * *",
+            vec![JobRunRecord {
+                id: "run-1".into(),
+                task_id: "task-1".into(),
+                session_id: "session-1".into(),
+                started_at: minute_ts,
+                completed_at: Some(minute_ts + 5_000),
+                summary: "done".into(),
+                status: RunStatus::Completed,
+            }],
+        );
+        // Same minute, 15s later → should be skipped
+        assert!(!is_job_due(&job, minute_ts + 15_000));
+    }
+
+    #[test]
+    fn different_minute_of_exact_cron_not_due() {
+        let job = make_job("30 9 * * *", vec![]);
+        assert!(!is_job_due(&job, local_ts(9, 31) + 1000));
+    }
+
+    #[test]
+    fn no_previous_run_first_time_match() {
+        // First run ever, cron matches current minute → should execute
+        let job = make_job("0 14 * * *", vec![]);
+        assert!(is_job_due(&job, local_ts(14, 0) + 1000));
+    }
+
+    #[test]
+    fn empty_cron_expression_not_due() {
+        let job = make_job("", vec![]);
+        assert!(!is_job_due(&job, local_ts(14, 30) + 1000));
+    }
+
+    #[test]
+    fn stale_running_run_does_not_block() {
+        let now_ms = local_ts(14, 0) + 1000;
+        let stale_start = now_ms - 2 * 60 * 60 * 1000 - 60_000; // >2h ago, stale
+        let job = make_job(
+            "0 14 * * *",
+            vec![JobRunRecord {
+                id: "run-stale".into(),
+                task_id: "task-stale".into(),
+                session_id: "session-stale".into(),
+                started_at: stale_start,
+                completed_at: None, // still running → stale
+                summary: "".into(),
+                status: RunStatus::Running,
+            }],
+        );
+        // Stale run >2h old should not block execution
+        assert!(is_job_due(&job, now_ms));
+    }
+
+    #[test]
+    fn active_running_run_blocks_execution() {
+        let now_ms = local_ts(14, 0) + 1000;
+        let recent_start = now_ms - 60_000; // started 1 min ago → active
+        let job = make_job(
+            "0 14 * * *",
+            vec![JobRunRecord {
+                id: "run-active".into(),
+                task_id: "task-active".into(),
+                session_id: "session-active".into(),
+                started_at: recent_start,
+                completed_at: None,
+                summary: "".into(),
+                status: RunStatus::Running,
+            }],
+        );
+        // Active running run should block
+        assert!(!is_job_due(&job, now_ms));
     }
 }
