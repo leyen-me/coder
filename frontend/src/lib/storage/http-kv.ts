@@ -12,7 +12,7 @@ export function createHttpKvStore(): SyncKVStore & { ready: () => Promise<void> 
 
   async function load(): Promise<void> {
     try {
-      const settings = await apiGet<Record<string, string>>("/settings/get");
+      const settings = await apiGet<Record<string, string>>("/api/settings/get");
       for (const [key, value] of Object.entries(settings)) {
         cache.set(key, String(value));
       }
@@ -29,7 +29,7 @@ export function createHttpKvStore(): SyncKVStore & { ready: () => Promise<void> 
     setItem(key: string, value: string): void {
       const previous = cache.has(key) ? cache.get(key)! : null;
       cache.set(key, value);
-      void apiPost("/settings/set", { key, value }).catch((error: unknown) => {
+      void apiPost("/api/settings/set", { key, value }).catch((error: unknown) => {
         if (previous === null) {
           cache.delete(key);
         } else {
@@ -42,7 +42,7 @@ export function createHttpKvStore(): SyncKVStore & { ready: () => Promise<void> 
     removeItem(key: string): void {
       const previous = cache.has(key) ? cache.get(key)! : null;
       cache.delete(key);
-      void apiPost("/settings/delete", { key }).catch((error: unknown) => {
+      void apiPost("/api/settings/delete", { key }).catch((error: unknown) => {
         if (previous !== null) {
           cache.set(key, previous);
         }

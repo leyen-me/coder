@@ -43,7 +43,7 @@ function buildIndexes(
 
 export class HttpStoreBackend implements StoreBackend {
   async get<T>(storeName: string, key: string): Promise<T | undefined> {
-    const result = await apiPost<T | null>("/db/get", {
+    const result = await apiPost<T | null>("/api/db/get", {
       store: storeName,
       id: key,
     });
@@ -51,7 +51,7 @@ export class HttpStoreBackend implements StoreBackend {
   }
 
   async getAll<T>(storeName: string): Promise<T[]> {
-    const result = await apiPost<unknown[]>("/db/get_all", {
+    const result = await apiPost<unknown[]>("/api/db/get_all", {
       store: storeName,
     });
     return (result ?? []) as T[];
@@ -67,7 +67,7 @@ export class HttpStoreBackend implements StoreBackend {
     };
     const keyField = KEY_FIELDS[storeName] ?? "id";
     const id = String((value as Record<string, unknown>)[keyField] ?? value.id ?? "");
-    await apiPost("/db/put", {
+    await apiPost("/api/db/put", {
       store: storeName,
       id,
       value,
@@ -76,7 +76,7 @@ export class HttpStoreBackend implements StoreBackend {
   }
 
   async delete(storeName: string, key: string): Promise<void> {
-    await apiPost("/db/delete", { store: storeName, id: key });
+    await apiPost("/api/db/delete", { store: storeName, id: key });
   }
 
   async getAllFromIndex<T>(
@@ -84,7 +84,7 @@ export class HttpStoreBackend implements StoreBackend {
     indexName: string,
     value?: unknown,
   ): Promise<T[]> {
-    const result = await apiPost<T[]>("/db/get_all_from_index", {
+    const result = await apiPost<T[]>("/api/db/get_all_from_index", {
       store: storeName,
       index_name: indexName,
       index_value: value ?? null,
@@ -93,13 +93,13 @@ export class HttpStoreBackend implements StoreBackend {
   }
 
   async count(storeName: string): Promise<number> {
-    const result = await apiPost<{ count: number }>("/db/count", {
+    const result = await apiPost<{ count: number }>("/api/db/count", {
       store: storeName,
     });
     return result.count;
   }
 
   async clear(storeName: string): Promise<void> {
-    await apiPost("/db/clear", { store: storeName });
+    await apiPost("/api/db/clear", { store: storeName });
   }
 }
