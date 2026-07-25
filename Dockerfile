@@ -3,7 +3,7 @@
 # Multi-stage build from source:
 #   1. frontend-builder — Vite + React → frontend/dist/
 #   2. rust-builder     — Rust 编译 coder 二进制（嵌入前端）
-#   3. runtime          — 最精简运行镜像
+#   3. runtime          — 包含 Node + Rust 环境的运行镜像
 #
 # ── 最低启动 ──
 #   docker build -t coder .
@@ -93,7 +93,7 @@ COPY --from=frontend-builder /app/frontend/dist frontend/dist/
 # Step 4: 编译真实二进制（仅重新编译 coder crate，依赖已缓存）
 # 必须 touch：Docker COPY 会保留主机文件 mtime，往往早于 Step 1 产物；
 # Cargo 主要靠 mtime 判断是否重编，否则会直接复用空壳 `fn main() {}`，
-# 容器启动后立刻以 exit 0 退出（构建成功、运行“失败”）。
+# 容器启动后立刻以 exit 0 退出（构建成功、运行"失败"）。
 # 参见 https://github.com/rust-lang/cargo/issues/9312
 RUN touch backend/src/main.rs backend/src/lib.rs \
     && cd backend && cargo build --release
@@ -103,14 +103,38 @@ RUN touch backend/src/main.rs backend/src/lib.rs \
 # ========================================================
 FROM debian:bookworm-slim
 
+# ── 安装 Node.js ───────────────────────────────────────
+# 使用官方 NodeSource 仓库安装 LTS 版本，运行时 agent 可能需要的 node/npm/pnpm 俱全
 RUN apt-get update -qq && apt-get install -y -qq \
     ca-certificates \
-    git \
-    openssh-client \
     curl \
+    git \
+    gnupg \
+    openssh-client \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y -qq nodejs \
+    && npm i -g pnpm \
+    && apt-get remove -y gnupg \
     && rm -rf /var/lib/apt/lists/*
 
+# ── 安装 Rust ──────────────────────────────────────────
+# rustup 安装 rustc、cargo 及标准库，保持与构建阶段一致的版本
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+RUN curl -fsSL https://sh.rustup.rs -o /tmp/rustup-init.sh \
+    && sh /tmp/rustup-init.sh -y --profile minimal \
+    && rm /tmp/rustup-init.sh \
+    && rustup --version && cargo --version && rustc --version
+
+# ── 验证 all tools ────────────────────────────────────
+RUN node --version && npm --version && pnpm --version \
+    && rustc --version && cargo --version
+
+# ── 复制编译好的二进制 ─────────────────────────────────
 COPY --from=rust-builder /app/backend/target/release/coder /usr/local/bin/coder
+
+# ── 运行时配置 ─────────────────────────────────────────
 
 # 声明数据卷：设置、会话、skills、logs 全部持久化
 # 容器重启后自动保留数据，用户可覆盖为命名 volume：
