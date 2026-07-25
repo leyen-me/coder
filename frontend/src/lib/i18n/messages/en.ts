@@ -157,7 +157,6 @@ export const enMessages = {
     skillNoResults: "No enabled skills found",
     slashCommandsHeading: "Commands",
     slashSkillsHeading: "Skills",
-    slashHandoffDescription: "Trigger a context transition to continue in a new session",
     removeSkillReference: "Remove skill reference",
     skillNotFound: "Skill /{slug} was not found.",
     attachmentErrorAccept:

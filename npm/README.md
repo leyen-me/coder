@@ -22,7 +22,7 @@ Installing `@leyen/coder` automatically pulls the correct platform binary (`darw
 
 - Multi-turn AI agent with tools: files, shell, remote SSH, Git, web search, email
 - Monaco editor, Markdown rendering (Shiki, Mermaid, KaTeX), skills system
-- Context-aware session handoff, plan mode, bilingual UI (English / 中文)
+- Context-aware session compaction, plan mode, bilingual UI (English / 中文)
 
 ## Requirements
 

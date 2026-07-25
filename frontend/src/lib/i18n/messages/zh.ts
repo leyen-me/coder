@@ -156,7 +156,6 @@ export const zhMessages = {
     skillNoResults: "没有已启用的技能",
     slashCommandsHeading: "命令",
     slashSkillsHeading: "技能",
-    slashHandoffDescription: "触发上下文切换，在新会话中继续工作",
     removeSkillReference: "移除技能引用",
     skillNotFound: "未找到技能 /{slug}。",
     attachmentErrorAccept: "当前仅支持图片文件。非图片文件请直接输入路径，或先将文件放入工作区后再引用",

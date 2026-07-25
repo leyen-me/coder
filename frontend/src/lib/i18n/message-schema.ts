@@ -151,7 +151,6 @@ export type Messages = {
     skillNoResults: string;
     slashCommandsHeading: string;
     slashSkillsHeading: string;
-    slashHandoffDescription: string;
     removeSkillReference: string;
     skillNotFound: string;
     attachmentErrorAccept: string;

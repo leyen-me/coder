@@ -1268,7 +1268,7 @@ export const SPAWN_SUBAGENT_TOOL: AgentToolDefinition = {
 export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   LIST_DIR_TOOL,
   READ_FILE_TOOL,
-  // READ_PRIOR_TOOL_OUTPUT_TOOL — compact summary from prior session; see HANDOFF_ONLY_TOOL_NAMES in backend.
+  // READ_PRIOR_TOOL_OUTPUT_TOOL — compact summary from prior session
   CREATE_FILE_TOOL,
   REPLACE_FILE_TOOL,
   EDIT_FILE_TOOL,

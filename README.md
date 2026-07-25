@@ -34,7 +34,7 @@
 
 At its core, Coder runs an **autonomous agent loop** — the AI can read and write files, execute shell commands (locally and over SSH), search the web, browse pages, send emails, manage git repositories, and orchestrate complex multi-step workflows — all without leaving your local environment.
 
-Beyond interactive chat, Coder supports **context-aware session handoff** for long-running tasks, a customizable **skills system**, and **multi-provider AI model** support through any OpenAI-compatible API.
+Beyond interactive chat, Coder supports a customizable **skills system**, and **multi-provider AI model** support through any OpenAI-compatible API.
 
 ---
 
@@ -45,7 +45,7 @@ Beyond interactive chat, Coder supports **context-aware session handoff** for lo
 | Capability | Description |
 |---|---|
 | **Multi-turn Agent Loop** | Autonomous reasoning with tool calling, retry logic with exponential backoff, cancellation, and real-time streaming output via SSE. |
-| **Context Monitoring & Handoff** | Intelligent token budget tracking with automatic session handoff — when context runs low, Coder generates a structured summary and seamlessly continues in a fresh session. |
+| **Context Monitoring** | Intelligent token budget tracking with automatic session compaction — when context runs low, Coder generates a structured summary and seamlessly continues in a fresh session. |
 | **Reasoning & Thinking** | Full support for model reasoning traces (extended thinking), displayed as collapsible sections in the chat UI. |
 | **Decision Engine** | Policy-based decision prompts that guide agent behavior with configurable rules and constraints. |
 | **Prompt Refinement** | Optional AI-powered prompt optimization before sending — rewrites vague requests into clear, actionable instructions. |
@@ -122,7 +122,7 @@ Beyond interactive chat, Coder supports **context-aware session handoff** for lo
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐  │
 │  │ Session      │  │ Tool         │  │ Page                     │  │
 │  │ Persistence  │  │ Implementations│ │ Cache                    │  │
-│  │ & Handoff    │  │ (fs, git, web,│  │                          │  │
+│  │              │  │ (fs, git, web,│  │                          │  │
 │  │              │  │   mail, …)    │  │                          │  │
 │  └──────────────┘  └──────────────┘  └──────────────────────────┘  │
 │         │                                                           │
@@ -209,7 +209,7 @@ The CLI downloads the platform-specific binary and starts the local server, open
 │   │   │   ├── markdown/              # Markdown renderer with Shiki/Mermaid/KaTeX
 │   │   │   └── ui/                    # shadcn/ui component library
 │   │   ├── features/                  # Feature modules
-│   │   │   ├── agent/                 # Agent loop, tools, context monitoring, handoff
+│   │   │   ├── agent/                 # Agent loop, tools, context monitoring
 │   │   │   ├── chat/                  # Chat session, composer, message list, hooks
 │   │   │   ├── history/               # Session history page
 │   │   │   ├── keyboard-shortcuts/    # Keyboard shortcut system
