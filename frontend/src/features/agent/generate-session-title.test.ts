@@ -68,7 +68,7 @@ describe("applyGeneratedSessionTitle env API keys", () => {
       userMessage: "Fix login bug",
     });
 
-    expect(apiPost).toHaveBeenCalledWith("/agent/generate_title", {
+    expect(apiPost).toHaveBeenCalledWith("/api/agent/generate_title", {
       baseUrl: "https://api.example.com/v1",
       apiKey: null,
       apiKeySource: "env",

@@ -109,7 +109,7 @@ describe("startAgent", () => {
     connection.ready.resolve();
     await flushMicrotasks();
     expect(apiPostMock).toHaveBeenCalledWith(
-      "/agent/start",
+      "/api/agent/start",
       expect.objectContaining({
         taskId: "task-1",
         model: "gpt-test",
@@ -180,7 +180,7 @@ describe("startAgent", () => {
 
     await runPromise;
 
-    expect(apiPostMock).toHaveBeenNthCalledWith(2, "/agent/status", {
+    expect(apiPostMock).toHaveBeenNthCalledWith(2, "/api/agent/status", {
       taskId: "task-3",
     });
     expect(events).toEqual([

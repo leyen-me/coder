@@ -65,7 +65,7 @@ async function requestSessionTitle(
   }
 
   try {
-    const rawTitle = await apiPost<string | null>("/agent/generate_title", {
+    const rawTitle = await apiPost<string | null>("/api/agent/generate_title", {
       baseUrl: input.baseUrl,
       apiKey: input.apiKey.trim() || null,
       apiKeySource: input.apiKeySource,

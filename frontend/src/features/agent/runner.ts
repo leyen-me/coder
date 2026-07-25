@@ -145,7 +145,7 @@ export async function startAgent(
         if (options.signal?.aborted) {
           throw createAbortError(input.taskId);
         }
-        await apiPost("/agent/start", {
+        await apiPost("/api/agent/start", {
           taskId: input.taskId,
           sessionId: input.sessionId ?? null,
           baseUrl: input.baseUrl,
@@ -183,7 +183,7 @@ export async function cancelAgent(taskId: string): Promise<void> {
   // Keep the SSE connection open so the cancelled terminal status can arrive.
   // Closing early leaves the UI stuck in "cancelling".
   try {
-    await apiPost("/agent/cancel", { taskId });
+    await apiPost("/api/agent/cancel", { taskId });
   } catch {
     // best effort — task may already have finished and been removed
   }
@@ -193,7 +193,7 @@ export async function getAgentStatus(
   taskId: string,
 ): Promise<{ taskId: string; status: string; lastSeq?: number | null } | null> {
   try {
-    return await apiPost("/agent/status", { taskId });
+    return await apiPost("/api/agent/status", { taskId });
   } catch {
     return null;
   }

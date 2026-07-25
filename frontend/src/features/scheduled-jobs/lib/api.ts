@@ -53,7 +53,7 @@ export type UpdateScheduledJobInput = Partial<
 
 export async function listScheduledJobs(): Promise<ScheduledJobRecord[]> {
   const result = await apiPost<{ items: ScheduledJobRecord[] }>(
-    "/scheduled-jobs/list"
+    "/api/scheduled-jobs/list"
   );
   return result.items ?? [];
 }
@@ -61,36 +61,36 @@ export async function listScheduledJobs(): Promise<ScheduledJobRecord[]> {
 export async function createScheduledJob(
   input: CreateScheduledJobInput
 ): Promise<ScheduledJobRecord> {
-  return apiPost<ScheduledJobRecord>("/scheduled-jobs/create", input);
+  return apiPost<ScheduledJobRecord>("/api/scheduled-jobs/create", input);
 }
 
 export async function updateScheduledJob(
   id: string,
   patch: UpdateScheduledJobInput
 ): Promise<ScheduledJobRecord> {
-  return apiPost<ScheduledJobRecord>("/scheduled-jobs/update", { id, ...patch });
+  return apiPost<ScheduledJobRecord>("/api/scheduled-jobs/update", { id, ...patch });
 }
 
 export async function deleteScheduledJob(id: string): Promise<void> {
-  await apiPost("/scheduled-jobs/delete", { id });
+  await apiPost("/api/scheduled-jobs/delete", { id });
 }
 
 export async function toggleScheduledJob(
   id: string,
   enabled: boolean
 ): Promise<ScheduledJobRecord> {
-  return apiPost<ScheduledJobRecord>("/scheduled-jobs/toggle", { id, enabled });
+  return apiPost<ScheduledJobRecord>("/api/scheduled-jobs/toggle", { id, enabled });
 }
 
 export async function runScheduledJobNow(
   id: string
 ): Promise<"started" | "already_running"> {
-  const result = await apiPost<{ status: string }>("/scheduled-jobs/run", { id });
+  const result = await apiPost<{ status: string }>("/api/scheduled-jobs/run", { id });
   return result.status === "already_running" ? "already_running" : "started";
 }
 
 export async function listRunningScheduledJobIds(): Promise<string[]> {
-  const result = await apiPost<{ ids: string[] }>("/scheduled-jobs/running");
+  const result = await apiPost<{ ids: string[] }>("/api/scheduled-jobs/running");
   return result.ids ?? [];
 }
 
@@ -103,7 +103,7 @@ export type ActiveScheduledRun = {
 
 export async function listActiveScheduledRuns(): Promise<ActiveScheduledRun[]> {
   const result = await apiPost<{ items: ActiveScheduledRun[] }>(
-    "/scheduled-jobs/active-runs"
+    "/api/scheduled-jobs/active-runs"
   );
   return result.items ?? [];
 }
@@ -114,7 +114,7 @@ export async function cancelScheduledJobRun(input: {
   jobId?: string;
 }): Promise<{ cancelled: boolean }> {
   const result = await apiPost<{ ok: boolean; cancelled: boolean }>(
-    "/scheduled-jobs/cancel",
+    "/api/scheduled-jobs/cancel",
     {
       taskId: input.taskId,
       sessionId: input.sessionId,

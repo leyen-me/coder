@@ -148,7 +148,7 @@ export function connectAgentSse(
 
   void (async () => {
     try {
-      const url = new URL(`/sse/events/${encodeURIComponent(taskId)}`, window.location.origin);
+      const url = new URL(`/api/sse/events/${encodeURIComponent(taskId)}`, window.location.origin);
       if (typeof options.fromSeq === "number" && Number.isFinite(options.fromSeq)) {
         url.searchParams.set("from_seq", String(options.fromSeq));
       }
@@ -255,7 +255,7 @@ export function connectShellSse(
 
   void (async () => {
     try {
-      const response = await fetch(`/sse/shell/${shellId}`, {
+      const response = await fetch(`/api/sse/shell/${shellId}`, {
         signal: controller.signal,
       });
 
