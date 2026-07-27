@@ -1,7 +1,7 @@
 # SubAgent 架构重构 — 交接文档
 
 > 日期: 2026-07-27
-> 状态: P0 核心架构完成, 有一个未解决的 race condition bug
+> 状态: P0 全部修复并**已通过用户运行时验证** (2026-07-27); 进入 P1 (UI 完善) 阶段
 > 前一个 session 的对话已完成, 本文档供下一个 session 继续
 
 ---
@@ -272,18 +272,18 @@ await_subagent 工具调用
 
 ## 6. 后续工作
 
-### 6.1 P0 剩余 (必须先解决)
+### 6.1 P0 (已完成并验证 ✅)
 
-1. **修复 race condition — `RecvError::Closed` 回退 DB 终态 (代码已提交, 待运行验证)** — §3.3, commit `7021934`
-2. **修复刷新回退 running — 父 loop 持久化覆盖 (代码已提交, 待运行验证)** — §3.5, commit 见 §2.1 最新 (`merge_tool_invocations` 保留终态 `status`)
-3. **修复关浏览器重开后续跑卡 running — 前端 reconcile + 后端 session status DB 兜底 (代码已提交, 待运行验证)** — §3.6, commit 见 §2.1 最新
-4. **验证 (必须用户回归确认才算修复)**:
+> 2026-07-27 用户运行时回归确认三个修复均通过 (运行中 Label ✓ / 刷新保持 ✓ / 关浏览器重开续跑 ✓)。
+
+1. **修复 race condition — `RecvError::Closed` 回退 DB 终态 (已验证)** — §3.3, commit `7021934`
+2. **修复刷新回退 running — 父 loop 持久化覆盖 (已验证)** — §3.5, commit `d43c304` (`merge_tool_invocations` 保留终态 `status`)
+3. **修复关浏览器重开后续跑卡 running — 前端 reconcile + 后端 session status DB 兜底 (已验证)** — §3.6, commit `60ad35f`
+4. **验证覆盖项 (均已通过)**:
    - 运行中: 转圈停止后显示 ✓ (completed), await_subagent 返回 status=completed
-   - **刷新后: Label 保持 ✓, 不再回退 running** (§3.5 专门验证项)
-   - **关浏览器重开续跑** (§3.6 专门验证项):
-     - 场景 A: 派生子 agent → 关浏览器 → 等子完成 → 重开父 session → Label 直接 ✓
-     - 场景 B: 派生子 agent → 关浏览器 → 重开父 session (子还在跑, 转圈) → 等子完成 → Label 自动翻 ✓ (无需手动刷新)
-   - 重点测试: 子 agent 跑完后**过几秒再**调 await_subagent (最容易触发 subscribe-after-emit race 的场景)
+   - 刷新后: Label 保持 ✓, 不再回退 running
+   - 关浏览器重开续跑 (场景 A 直接 ✓ / 场景 B 自动翻 ✓)
+   - 重点: 子 agent 跑完后过几秒再调 await_subagent (subscribe-after-emit race)
 
 ### 6.2 P1 (UI 完善)
 
@@ -321,5 +321,5 @@ await_subagent 工具调用
 ## 7. AGENTS.md 合规性
 
 - **遵循**: 工程质量达到开源标准; 复用现有 `start_agent_send_with_task_id`; 工具签名不变
-- **偏离**: P0 尚未完全可用 (race condition 未解决); 死代码留到 P2 清理
-- **Git commits**: 已创建 6 个 commit, 代码已保存
+- **偏离**: 无 (P0 三个修复均已完成且用户验证通过); 死代码留到 P2 清理
+- **Git commits**: 已创建 9+ 个 commit (含 P0 三修复 + 文档), 代码已保存
