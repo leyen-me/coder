@@ -352,16 +352,20 @@ await_subagent 工具调用
 
 ### 6.3 P2 (清理)
 
-6. **删除后端死代码** (9 个 warning):
-   - `collect_subagent_event` (tool_dispatch.rs:~2900)
-   - `build_subagent_summary` (tool_dispatch.rs:~3180)
-   - `build_subagent_system_prompt` (tool_dispatch.rs:~3010)
-   - `subagent_context_depth` (tool_dispatch.rs:~3150)
-   - `extract_subagent_tool_label` (tool_dispatch.rs:~3155)
-   - `truncate_label` (tool_dispatch.rs:~3175)
-   - `build_project_overview` (tool_dispatch.rs:~3075)
-   - `MAX_SUBAGENT_DEPTH` 常量 (tool_dispatch.rs:~2173)
-   - `SpawnSubAgentArgs.context` 字段
+6. **清理后端死代码** (9 个 warning) — ✅ **已完成 (2026-07-27)**
+   - **决策原则**: 属于被"面板方案"取代的旧实现 → 删除; 属于对外 API 契约 / 设计意图（后续可能启用）→ `#[allow(dead_code)]` + 注释保留。
+   - **删除** (共 343 行死代码集群, 无外部调用者, 被面板方案取代; 文件 `backend/src/agent/tool_dispatch.rs`):
+     - `collect_subagent_event` — 旧 subagent 事件收集
+     - `build_subagent_system_prompt` — 旧 system prompt 构建
+     - `build_project_overview` — 旧项目概览构建
+     - `subagent_context_depth` — 旧嵌套深度统计
+     - `extract_subagent_tool_label` — 仅被 `collect_subagent_event` 调用
+     - `truncate_label` — 仅被 `extract_subagent_tool_label` 调用
+     - `build_subagent_summary` — 旧摘要构建
+   - **保留 + `#[allow(dead_code)]`** (设计意图 / 对外契约, 文件 `backend/src/agent/tool_dispatch.rs`):
+     - `SpawnSubAgentArgs.context` 字段 — `spawn_subagent` 工具 schema (`get_tool_definitions`) 已文档化为可选参数, 但上下文注入尚未接入子 session; 保留以维持 API 契约, 注释说明"尚未接入"
+     - `MAX_SUBAGENT_DEPTH` 常量 — 对应 spawn schema 中 "Maximum nesting depth: 3"; 当前嵌套被禁用 (Q6), 暂未强制; 保留以避免魔法数字漂移, 注释说明保留原因
+   - **验证**: `cargo check` (backend) 已确认该文件零警告 (9 个 dead_code warning 全部清除)
 7. **删除前端死代码**:
    - `frontend/src/features/chat/components/sub-agent-tool-output.tsx` (整文件)
    - `frontend/src/features/agent/tools/spawn-subagent-display.ts` (整文件)
@@ -375,5 +379,5 @@ await_subagent 工具调用
 ## 7. AGENTS.md 合规性
 
 - **遵循**: 工程质量达到开源标准; 复用现有 `start_agent_send_with_task_id`; 工具签名不变
-- **偏离**: 无 (P0 三个修复均已完成且用户验证通过); 死代码留到 P2 清理
+- **偏离**: 无 (P0 三个修复均已完成且用户验证通过); 后端死代码已清理 (P2 item 6 已完成, 2026-07-27), 前端死代码仍待 P2 item 7
 - **Git commits**: 已创建 9+ 个 commit (含 P0 三修复 + 文档), 代码已保存
