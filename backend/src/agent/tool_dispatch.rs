@@ -2712,9 +2712,11 @@ async fn execute_await_subagent(
                 // (more reliable than the background watcher, because this runs
                 // inside the parent agent loop while SSE is still connected).
                 emit_spawn_subagent_status_update(
-                    &ctx.app_state.sse_broadcaster,
+                    &ctx.app_state,
                     ctx.task_id.as_deref(),
+                    ctx.session_id.as_deref(),
                     agent.spawn_tool_call_id.as_deref(),
+                    ctx.tool_result_message_id.as_deref(),
                     &agent.session_id,
                     &agent.handle_id,
                     &status,
@@ -2727,9 +2729,11 @@ async fn execute_await_subagent(
                 let _ = crate::agent::cancel::cancel_session_and_children(&ctx.app_state, &parent_session_id).await;
                 // Also emit a cancelled status update to the spawn_subagent invocation.
                 emit_spawn_subagent_status_update(
-                    &ctx.app_state.sse_broadcaster,
+                    &ctx.app_state,
                     ctx.task_id.as_deref(),
+                    ctx.session_id.as_deref(),
                     agent.spawn_tool_call_id.as_deref(),
+                    ctx.tool_result_message_id.as_deref(),
                     &agent.session_id,
                     &agent.handle_id,
                     "cancelled",
@@ -2766,14 +2770,55 @@ async fn execute_await_subagent(
 ///
 /// DB persistence is handled by the background spawn_completion_watcher
 /// (backup path for when LLM doesn't call await_subagent).
+/// Update the parent's spawn_subagent invocation output status: persists to
+/// DB (survives page reload) AND emits a ToolCallFinished event (real-time
+/// frontend update). Called from execute_await_subagent (primary path).
 fn emit_spawn_subagent_status_update(
-    broadcaster: &crate::SseBroadcaster,
+    app_state: &Arc<crate::AppState>,
     parent_task_id: Option<&str>,
+    parent_session_id: Option<&str>,
     spawn_tool_call_id: Option<&str>,
+    parent_message_id: Option<&str>,
     child_session_id: &str,
     handle_id: &str,
     status: &str,
 ) {
+    // 1. Persist to DB so the status survives page reload.
+    if let Some(tool_call_id) = spawn_tool_call_id {
+        let db_guard = app_state.db.lock().ok();
+        if let Some(db) = db_guard {
+            let mut msg = parent_message_id
+                .and_then(|id| crate::db::session_store::get_message(&db, id).ok())
+                .flatten();
+            if msg.is_none() {
+                msg = crate::db::session_store::find_assistant_message_by_task_id(
+                    &db,
+                    parent_session_id,
+                    parent_task_id.unwrap_or(""),
+                )
+                .ok()
+                .flatten();
+            }
+            if let Some(mut msg) = msg {
+                for inv in msg.tool_invocations.iter_mut() {
+                    if inv.id == tool_call_id {
+                        if let Some(ref mut output) = inv.output {
+                            if let Some(obj) = output.as_object_mut() {
+                                obj.insert(
+                                    "status".to_string(),
+                                    Value::String(status.to_string()),
+                                );
+                            }
+                        }
+                        break;
+                    }
+                }
+                let _ = crate::db::session_store::put_message(&db, &msg, false);
+            }
+        }
+    }
+
+    // 2. Emit ToolCallFinished event for real-time frontend update.
     if let (Some(parent_task_id), Some(tool_call_id)) = (parent_task_id, spawn_tool_call_id) {
         let payload = json!({
             "ok": true,
@@ -2792,7 +2837,7 @@ fn emit_spawn_subagent_status_update(
         };
         if let Ok(json_str) = serde_json::to_string(&event) {
             let event_str = super::loop_::inject_seq_into_event_json(&json_str, 0);
-            broadcaster.emit(parent_task_id, &event_str);
+            app_state.sse_broadcaster.emit(parent_task_id, &event_str);
         }
     }
 }
