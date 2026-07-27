@@ -243,11 +243,16 @@ pub async fn run_agent_loop(
                         count_compactable_messages(&messages);
 
                     if let Some(state) = persisted_state.as_mut() {
+                        let effective_removed = persisted
+                            .as_ref()
+                            .map(|value| value.removed_count)
+                            .unwrap_or(0)
+                            .max(result.removed_count);
                         upsert_compact_process_step(
                             &mut state.process_steps,
                             CompactProcessStepPatch {
                                 state: "completed",
-                                removed_count: result.removed_count as u32,
+                                removed_count: effective_removed as u32,
                                 preview: &summary.text,
                                 compact_message_id: persisted
                                     .as_ref()
@@ -318,11 +323,16 @@ pub async fn run_agent_loop(
                             last_dev_auto_compact_message_count =
                                 count_compactable_messages(&messages);
                             if let Some(state) = persisted_state.as_mut() {
+                                let effective_removed = persisted
+                                    .as_ref()
+                                    .map(|value| value.removed_count)
+                                    .unwrap_or(0)
+                                    .max(result.removed_count);
                                 upsert_compact_process_step(
                                     &mut state.process_steps,
                                     CompactProcessStepPatch {
                                         state: "completed",
-                                        removed_count: result.removed_count as u32,
+                                        removed_count: effective_removed as u32,
                                         preview: &summary.text,
                                         compact_message_id: persisted
                                             .as_ref()
