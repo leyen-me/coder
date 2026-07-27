@@ -46,6 +46,7 @@
 | `1283ad3` | 诊断日志: wait_for_child_done + emit_spawn_status |
 | `2ecc97a` | 延迟 unregister 2 秒修复 race (无效, 详见 §3.2) |
 | `7021934` | **fix: DB 终态回退修复 race** (Closed → 读 DB assistant message status, 真正的修复) |
+| `d43c304` | fix: merge_tool_invocations 保留 background emitter 写入的终态 status (修复刷新回退 running) |
 
 ### 2.2 新建文件
 
@@ -126,6 +127,28 @@ assistant message `status` 写为 `completed`/`failed`/`cancelled` (registry.rs:
 | `backend/src/agent/tool_dispatch.rs` | ~3024 | `wait_for_child_done_with_receiver(...)` — `Closed` 走 DB 回退 |
 | `backend/src/agent/tool_dispatch.rs` | ~2707 | `execute_await_subagent` 调用点传入 session_id |
 | `backend/src/agent/tool_dispatch.rs` | ~2895 | `spawn_completion_watcher` 调用点传入 app_state/session_id/task_id |
+
+### 3.5 刷新后 Label 仍回退 "running" 的根因与修复 (用户回归发现)
+
+**现象** (用户验证 §3.3 修复后): 运行中实时状态已正确 (Label 显示 ✓, 日志 `subagent_wait_done status=completed via DB`),
+但**页面刷新后 Label 又回到转圈 (running)**。
+
+**根因 — 父 agent loop 的回合末持久化覆盖了我们的 DB 写入 (两个写者竞争)**:
+1. `emit_spawn_subagent_status_update` 在读到的 DB message 上把 `output.status` 改为 `"completed"` 并 `put_message` (正确写入, 日志 `found invocation, persisting to DB`)。
+2. 但父 agent loop 在回合结束 (`agent_task_completed`, 比上面的写入**晚约 2 秒**) 调用
+   `persist_message_snapshot` → `merge_tool_invocations`, 该函数**用 loop 内存里的 `state.tool_invocations`
+   整体替换 DB 的 invocation** (loop_.rs 旧 `*db_invocations = state_invocations.to_vec()`), 而 loop 内存里
+   spawn_subagent 的 `output.status` 永远是初始的 `"running"` (loop 自己从不更新它, 只有 background emitter 写 DB)。
+   → 把我们刚写的 `"completed"` 覆盖回 `"running"`, 刷新即读到 `"running"`。
+3. 现有 `merge_tool_invocations` 只保留 DB 侧的 `__progress` 字段, 漏掉了 `status`, 所以这个终态被丢。
+
+**修复** (commit 见 §2.1 最新, 改 `backend/src/agent/loop_.rs` 的 `merge_tool_invocations`):
+- 收集 DB 侧每个 invocation 的 background-writable 字段: `__progress` (原有) + `status` (新增)。
+- 仅当 DB `status` 为终态 (`completed`/`cancelled`/`failed`) 且 loop 内存侧**不是**终态时才回写 (避免把已正确的终态降级为旧值)。
+- 这样父 loop 回合末 `persist_message_snapshot` 时, spawn_subagent 的 `output.status` 会被保留为 DB 里的 `"completed"`,
+  刷新后前端读到 `completed`, Label 显示 ✓。
+
+**验证 (待用户回归)**: 子 agent 跑完 → 等父 session 也跑完 → **刷新页面** → Label 应保持 ✓ (不再回退 running)。
 
 ---
 
@@ -221,8 +244,11 @@ await_subagent 工具调用
 
 ### 6.1 P0 剩余 (必须先解决)
 
-1. **修复 race condition (代码已提交, 待运行验证)** — 采用 §3.3 的 DB 终态回退方案 (commit `7021934`)
-2. **验证 (必须用户回归确认才算修复)**: 转圈停止后显示 ✓ (completed), 刷新后保持 ✓, await_subagent 返回 status=completed
+1. **修复 race condition — `RecvError::Closed` 回退 DB 终态 (代码已提交, 待运行验证)** — §3.3, commit `7021934`
+2. **修复刷新回退 running — 父 loop 持久化覆盖 (代码已提交, 待运行验证)** — §3.5, commit 见 §2.1 最新 (`merge_tool_invocations` 保留终态 `status`)
+3. **验证 (必须用户回归确认才算修复)**:
+   - 运行中: 转圈停止后显示 ✓ (completed), await_subagent 返回 status=completed
+   - **刷新后: Label 保持 ✓, 不再回退 running** (§3.5 专门验证项)
    - 重点测试: 子 agent 跑完后**过几秒再**调 await_subagent (最容易触发 subscribe-after-emit race 的场景)
 
 ### 6.2 P1 (UI 完善)
