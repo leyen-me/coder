@@ -1,8 +1,7 @@
-import { useNavigate } from "react-router-dom";
 import { Check, Loader2, X } from "lucide-react";
 
-import { paths } from "@/app/paths";
 import { cn } from "@/lib/utils";
+import { useSubAgentPanel } from "../store/sub-agent-panel-store";
 
 interface SubAgentLabelProps {
   output: unknown;
@@ -59,15 +58,14 @@ function extractSubAgentData(
  *
  * After the refactor, a SubAgent IS a normal Session. The parent message's
  * tool invocation output carries `{ sessionId, status }` (wrapped in a
- * ToolResultEnvelope). Clicking the Label navigates to the child session's
- * detail page (Tab view in P1; for P0 it reuses the existing
- * `/chat/:sessionId` route).
+ * ToolResultEnvelope). Clicking the Label opens the child session in the
+ * right-hand SubAgent panel (P1), keeping the parent conversation visible.
  *
  * Legacy data (pre-refactor, with `__progress` field) is rendered as a
  * degraded "history record" notice instead of erroring (Q4).
  */
 export function SubAgentLabel({ output, input, errorText }: SubAgentLabelProps) {
-  const navigate = useNavigate();
+  const { openChild } = useSubAgentPanel();
   const data = extractSubAgentData(output);
 
   // Q4: legacy format (pre-refactor) — show degraded message, don't error.
@@ -89,7 +87,7 @@ export function SubAgentLabel({ output, input, errorText }: SubAgentLabelProps) 
 
   const handleOpen = () => {
     if (sessionId) {
-      navigate(paths.chat(sessionId));
+      openChild(sessionId);
     }
   };
 
