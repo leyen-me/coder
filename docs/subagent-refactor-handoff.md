@@ -292,53 +292,63 @@ await_subagent 工具调用
 
 #### 6.2.0 P1 三项范围
 
-3. **顶部 Tab 栏组件** `frontend/src/features/chat/components/session-tabs.tsx` (新建)
-   - Tab 显示: 标题 + 状态指示器 (running/✓/✗) + 关闭按钮
-   - 点击侧边栏 session → 在当前激活 Tab 打开 (不新开)
-   - 点击子 agent Label → 新开一个 Tab
-   - 关闭父 Tab → 级联关闭其所有子 Tab
-   - 最大 Tab 数限制 (建议 8~10, 超出给提示)
-4. **Tab 与路由联动** — Tab 状态与 `/chat/:sessionId` 路由双向同步
+> **⚠️ 方案转向 (2026-07-27, 用户决策):** 原 P1 的"顶部 Tab 栏"方案被放弃。
+> 用户认为 Tab 栏"维护复杂 + 无隔离", 改为**右侧 SubAgent 面板** —— 点击子 agent Label
+> 在右侧面板内打开该子 session (父视图保持可见), 而非整页跳转或 Tab 切换。
+> 经核查: 鉴权为后端 session cookie (`HttpOnly; Secure; SameSite=Lax`), 同源 iframe 自动带 cookie,
+> 故即便用 iframe 也无需额外登录处理; 但本代码已按 `sessionId` 隔离会话, 故最终选**直接嵌
+> `<ChatSessionView>`**(最简, 隔离度足够), 不用 iframe。原 Q1 (顶部 Tab 栏) 与本节旧 Tab 设计作废。
+
+3. **右侧 SubAgent 面板组件** `frontend/src/features/chat/components/sub-agent-panel.tsx` (新建)
+   - 右侧定宽面板 (`w-[440px]`), 头部含已开子会话切换器 (标题 chip + 关闭按钮)
+   - 主体渲染 `<ChatSessionView chatId={activeChildId} key={activeChildId}/>` (独立实例, 按 sessionId 隔离)
+   - 点击子 agent Label → `openChild(sessionId)` 在面板打开 (不再整页 navigate)
+   - 关闭某子会话 → 从 openChildIds 移除; 关闭 active 则回退到最近打开的子会话
+   - 切换父会话 (侧边栏/搜索) → `chat-page` effect `reset()` 清空面板
+4. **极简面板状态 store** `frontend/src/features/chat/store/sub-agent-panel-store.tsx` (新建, React Context)
+   - `openChildIds / activeChildId / openChild / closeChild / setActiveChild / reset`
+   - 仅跟踪"哪些子会话在面板打开 + 哪个激活", **不**做路由同步 / 级联 DB 查询 / 最大数强制 (远比 Tab store 简单)
+   - Provider 挂在 `chat-page.tsx` 内 (包裹 ChatSessionView + SubAgentPanel), 无需改 app-shell
 5. **旧格式 output 降级渲染完善** (Q4) — 兼容重构前旧 session 的 output 结构, 纯健壮性, 可独立小步做
+   - `sub-agent-label.tsx` 已对 `__progress` 旧字段降级; P1 加固了字符串化 payload 等异常形态
 
 #### 6.2.1 动手前必读的关键文件
 
 | 文件 | 作用 | 与 P1 的关系 |
 |---|---|---|
-| `frontend/src/features/chat/pages/chat-page.tsx` | 路由页, `useParams<{chatId}>()` → `ChatSessionView key={chatId}` | **现状: 单 session 单路由**。Tab 栏要在此之上叠加多 Tab 状态 |
-| `frontend/src/features/chat/views/chat-session-view.tsx` | 单个 session 视图 (含 `AgentTodoList`, `useSessionData`) | 每个 Tab 对应一个此组件实例; reconcile 已在 `useSessionData` 内按 `sessionId` 作用域隔离, 多实例安全 |
-| `frontend/src/features/chat/components/sub-agent-label.tsx` | 子 agent Label, 现 `navigate(paths.chat(sessionId))` (line 92), 注释 line 63 预留 "Tab view in P1" | P1 要改成"新开 Tab"而非整页跳转 |
-| `frontend/src/app/paths.ts` | `chat: (id) => /chat/${id}` | Tab↔路由联动的 URL 约定 |
-| `frontend/src/features/agent/store/agent-store.tsx` | `resumeSessionTask` (line 671) 续跑父 session | **每个 ChatSessionView 实例自带 chatId → useSessionData → resume**, 子 session 作为 Tab 打开时也应自动续跑, 需确认 |
-| `frontend/src/lib/db/sessions.ts` (~132 `listSessions`) | 按 `parentSessionId` 过滤 | **级联关闭子 Tab** 的关系来源: 子 session 存了 `parentSessionId` |
-| `frontend/src/features/chat/hooks/use-session-messages.ts` | `useSessionData` (含 §3.6 的 spawn reconcile, line 321-413) | **不要破坏**: reconcile 依赖 `sessionId` prop, 多 Tab 各实例独立运行, 已安全 |
+| `frontend/src/features/chat/pages/chat-page.tsx` | 路由页, `useParams<{chatId}>()` → `ChatSessionView` | P1: 用 `SubAgentPanelProvider` 包裹, `ChatSessionView` 与 `SubAgentPanel` 并排 (flex); `chatId` 变化 `reset()` 清空面板 |
+| `frontend/src/features/chat/views/chat-session-view.tsx` | 单个 session 视图 (含 `AgentTodoList`, `useSessionData`, `resumeSessionTask`) | 面板内再挂一个实例即独立子会话视图; 按 `sessionId` 隔离, 多实例安全 |
+| `frontend/src/features/chat/components/sub-agent-label.tsx` | 子 agent Label | P1: `handleOpen` 改 `useSubAgentPanel().openChild(sessionId)` (不再整页 navigate) |
+| `frontend/src/features/chat/components/sub-agent-panel.tsx` | **新建** 右侧面板 | P1 核心组件 |
+| `frontend/src/features/chat/store/sub-agent-panel-store.tsx` | **新建** 极简 Context | `openChildIds/activeChildId/openChild/closeChild/setActiveChild/reset` |
+| `frontend/src/features/agent/store/agent-store.tsx` | `resumeSessionTask` (line 671) | 每个 `ChatSessionView` 实例自带 chatId → resume; 子会话在面板内也自动续跑 |
+| `frontend/src/lib/db/sessions.ts` (`getSession`) | 读 session 标题 | 面板 child tab 显示标题用 |
+| `frontend/src/features/chat/hooks/use-session-messages.ts` | `useSessionData` (§3.6 spawn reconcile) | **不要破坏**: 面板内子会话实例各自按 sessionId 轮询, 已安全 |
 
-#### 6.2.2 现状事实 (已侦查, 下一 session 不必重探)
+#### 6.2.2 现状事实 (已侦查/已实现, 下一 session 不必重探)
 
-- 路由模型是 **`/chat/:sessionId` 单 session**, 无全局多 Tab 状态。当前点 Label = 整页 `navigate` 到子 session。
-- `useSessionData` 的 spawn reconcile (§3.6) 用 `useEffect` 依赖 `[sessionId, isLoading, refresh]`, **按 sessionId 作用域隔离** → 多 Tab 并发挂载时每个实例各自轮询自己的子 session, 不冲突。
-- 子 session 通过 `parentSessionId` 关联父 (cancel 级联已用)。
-- 前端目前**没有** session-tab 组件 (仅 automations 里有无关的 `FilterTab`)。
+- 路由仍是 `/chat/:sessionId` 单 session; P1 不动 router。
+- 鉴权为后端 session cookie (`auth.rs:55` `HttpOnly; Secure; SameSite=Lax`); 同源 iframe 自动带 cookie (localhost/https 可用, LAN IP over http 同主程序一样失效)。本方案未用 iframe, 此点仅作背景。
+- `useSessionData` 的 spawn reconcile (§3.6) 按 `sessionId` 作用域隔离 → 面板内子会话实例独立轮询自己 session, 不冲突, 勿破坏。
+- 子会话通过 `parentSessionId` 关联父 (cancel 级联已用); 面板用内存 `openChildIds` 跟踪, 无需查 DB。
+- Q4 旧格式 `__progress` 降级已在 `sub-agent-label.tsx` 实现, P1 已加固字符串化 payload。
 
-#### 6.2.3 设计决策点 (下一 session 需先定)
+#### 6.2.3 设计决策 (已定, 2026-07-27)
 
-1. **Tab 状态放哪?**
-   - 方案 A (推荐): 新增轻量全局 store (如 `useTabStore` / zustand 或 React context), 维护 `openTabs: {sessionId, title, status}[]` + `activeTabId`。URL 仍只反映 `activeTabId` (`/chat/:activeTabId`)。其余 Tab 保留在内存, 不进 URL。→ 最简单, 符合"单路由"现状。
-   - 方案 B: 多 Tab 全进 URL (如 `/chat?tabs=a,b,c&active=a`)。复杂, 需改 router, **不推荐**除非产品要求可分享多 Tab 链接。
-2. **关闭父 Tab 级联关子**: 关 `parentId` 时, 从 `openTabs` 移除所有 `parentSessionId === parentId` 的 Tab。用 `sessions.ts` 的 `listSessions(parentSessionId)` 取子列表。
-3. **状态指示器来源**: 复用 `useSessionData` 已加载的 session 状态 / `getAgentSessionStatus`; 子 session 的 spawn reconcile 已保证 DB 权威, Tab 上的状态直接读对应 session 的 `useSessionData`。
-4. **最大 Tab 数**: 超出的策略 (拒绝新开 / 关最旧) 需定; 建议先"拒绝新开 + toast 提示"。
+1. **面板内子视图渲染方式**: 直接嵌 `<ChatSessionView chatId={childId}/>` (路线 B, 最简)。理由: 本代码已按 `sessionId` 隔离, iframe 仅多一层运行时隔离而不必要; 且 iframe 需新增 `?embed=1` bare 布局 + 双份 app 启动 + IndexedDB 同源共享。
+2. **面板状态存储**: 极简 React Context (`sub-agent-panel-store.tsx`), 无路由同步 / 无级联 DB 查询 / 无最大数强制。Provider 挂在 `chat-page.tsx` 内 (包裹 ChatSessionView + SubAgentPanel), 不改 app-shell。
+3. **父↔面板关系**: 切父会话 (`chatId` 变) → chat-page effect `reset()` 清空面板; 点子 Label → `openChild` 加入面板并激活; 父视图始终保留可见。
+4. **级联关闭**: 不需要 (子会话不能嵌套 spawn, Q6); 关闭某子会话仅从 `openChildIds` 移除。
 
 #### 6.2.4 验证 (P1 完成后, 用户回归才算数)
 
-- 打开 2+ 个 session (含派生的子 session) → 顶部出现多个 Tab, 标题/状态正确
-- 点侧边栏另一 session → 在当前 Tab 切换, 不新增 Tab
-- 点子 agent Label → 新开一个 Tab 并激活
-- 关父 Tab → 其子 Tab 一并关闭
-- 刷新页面 → 当前激活 Tab 还原 (其余 Tab 是否还原取决于方案 A/B; 方案 A 仅还原激活 Tab 可接受, 但需在文档说明)
-- 子 session 在 Tab 中运行时关浏览器重开 → 该 Tab 仍能续跑/还原 (依赖 §3.6, 不要破坏)
+- 派生子 agent → 右侧面板出现子会话, 父视图仍可见; 子运行转圈 → 完成翻 ✓
+- 面板内可在多个已开子会话间切换; 关闭某子会话即从面板移除
+- 切到别的父会话 (侧边栏/搜索) → 面板清空
+- 子会话在面板内运行时关浏览器重开 → 续跑/还原 (依赖 §3.6, 勿破坏)
+- 子会话在面板内可正常发消息交互 (ChatSessionView 自带 composer)
 
-> 注意: P1 改动 app shell + 路由, 回归成本高。建议**先方案 A 做最小可用 Tab 栏**, 不动 router; 验证通过再考虑方案 B。P1-5 (Q4 降级渲染) 可独立于 Tab 栏单独提交。
+> 注意: P1 仅改 chat-page + 新建面板/store + 改 sub-agent-label, 不动 router / app shell / 后端。回归成本低于 Tab 方案。Q4 降级加固已随 P1 提交 (或独立 commit)。
 
 ### 6.3 P2 (清理)
 
