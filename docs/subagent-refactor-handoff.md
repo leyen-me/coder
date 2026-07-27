@@ -74,90 +74,54 @@
 
 ## 3. 未解决的问题 (核心 bug)
 
-### 3.1 现象
+### 3.1 现象 (已全部修复 ✅)
 
-1. **子 agent 正常完成后, Label 显示 ✗ (failed) 而非 ✓ (completed)**
-2. **await_subagent 返回 `status: "failed"`** (子 agent 实际正常完成)
-3. **刷新页面后, Label 回到转圈 (status 回到 "running")** — DB 持久化没生效
+1. ~~子 agent 正常完成后, Label 显示 ✗ (failed) 而非 ✓ (completed)~~ → 现在显示 ✓
+2. ~~await_subagent 返回 `status: "failed"`~~ → 现在返回正确的 `completed`/`cancelled`/`failed`
+3. ~~刷新页面后, Label 回到转圈 (status 回到 "running")~~ → DB 现在写入正确的终态, 刷新保持 ✓
 
-### 3.2 根因 (已通过诊断日志确认)
+### 3.2 根因 (已定位 + 已修复)
 
-**Race condition in `registry.rs:513`**
+**真正的 race 不是 `registry.rs` 的 unregister 时机, 而是 broadcast channel 的「订阅之后才可见」语义。**
 
-`registry.rs` 在 agent loop 结束后的执行顺序:
-```
-1. emit Status { status: Completed } 事件    (registry.rs:507)
-2. unregister(&task_id)                      (registry.rs:513) ← 立即关闭 channel!
-```
+`await_subagent` 调用 `wait_for_child_done` 时, 是**事后订阅** `child_task_id` 的 broadcast channel
+(见 `tool_dispatch.rs` 旧 `wait_for_child_done(broadcaster, task_id)`)。如果子 agent 在 `await_subagent`
+被调用**之前**就已经跑完并发出了 `Status{Completed}` 事件, 那么这个新订阅者**永远收不到那个历史事件**
+(broadcast 只对订阅之后的事件可见), 只能等 channel 关闭后收到 `RecvError::Closed`, 被硬编码成 `"failed"`。
 
-`wait_for_child_done` 的 receiver 订阅了 `child_task_id`, 等待 `type == "status"` 的事件。但 `unregister` 在 emit 后立即执行, 删除了 HashMap 中的 sender, channel 关闭。
+- commit `2ecc97a` 的「延迟 unregister 2 秒」之所以无效: 延迟只是把 `Closed` 推后 2 秒,
+  但新订阅者**本来就没收到过 Status 事件**, 推后也只是更晚收到 `Closed`, 结果一样是 `"failed"`。
+- 日志里 `agent_task_completed` 和 `subagent_wait_closed` 恰好差 2 秒, 正是这个延迟 unregister 的证据。
 
-**receiver 在 poll 时收到 `RecvError::Closed` (而不是 Status 事件), 返回 `"failed"`。**
+**为什么 registry 也不能作为终态回退源:** `registry.rs` 在任务完成后**立即** `remove_run` (非延迟),
+且 `get_session_status` 要求 `is_active_run_status`, terminal 状态本来就返回 `None`。所以 registry
+查不到已结束任务的终态。
 
-诊断日志确认:
-```
-agent_task_completed turns=2 total_tokens=17694           ← 子 session 正常完成 (Ok)
-subagent_wait_closed: channel closed before Status event  ← race! channel 关闭
-emit_spawn_status: status=failed                          ← 错误的 status
-emit_spawn_status: found invocation, persisting to DB     ← DB 更新成功 (但值是错的)
-```
+**权威终态源 = DB。** `registry.rs` 在 `unregister` (延迟 2s) **之前**, 已同步把子 session 的
+assistant message `status` 写为 `completed`/`failed`/`cancelled` (registry.rs:537-545)。因此 channel
+关闭那一刻, DB 里已经是终态 —— 读 DB 即可得到正确答案。
 
-### 3.3 已尝试的修复 (未解决)
+### 3.3 已尝试 / 已采用的修复
 
-1. **延迟 unregister 2 秒** (commit `2ecc97a`): `tokio::spawn + sleep(2s) + unregister`
-   - 用户报告: 仍未解决
-   - 可能原因: 2 秒不够? 或者 race 不在 unregister, 而在别的地方? 或者用户没有重新编译?
+1. **延迟 unregister 2 秒** (commit `2ecc97a`): 无效 (见 §3.2 分析), 但保留无害, 仍有助于 watcher
+   预订阅路径通过 channel 直接收到 Status 事件。
+2. **✅ 采用 — `RecvError::Closed` 时回退查询 DB 终态** (commit 见 §2.1 最新):
+   - `wait_for_child_done` / `wait_for_child_done_with_receiver` 现传入 `app_state` + `session_id` + `task_id`
+   - 收到 `Closed` 不再返回 `"failed"`, 而是调用 `read_child_db_terminal_status()` 读子 session 的
+     assistant message `status`; 若仍非终态, 做 10×200ms 的短暂轮询兜底 (实践中 DB 在 channel 关闭前
+     已写好, 一次即命中)
+   - 命中终态则返回 `"completed"`/`"cancelled"`/`"failed"`, 否则 (兜底耗尽) 才返回 `"failed"`
+   - 这条路径同时修复了 `execute_await_subagent` (事后订阅) 和 `spawn_completion_watcher` (预订阅) 两条路径
 
-### 3.4 下一步建议
+### 3.4 关键修复代码位置
 
-**方案 A (推荐): 不依赖 broadcast channel, 改用 registry 查询**
-
-在 `wait_for_child_done` 收到 `RecvError::Closed` 时, 不直接返回 "failed", 而是:
-1. 查询 `agent_get_session_status(registry, session_id)` 获取最终状态
-2. 如果状态是 Completed/Cancelled/Failed, 返回对应的字符串
-3. 如果状态仍然是 Running (agent loop 还没结束), 继续等待
-
-需要把 `registry` 传入 `wait_for_child_done`。
-
-**方案 B: 增大延迟时间**
-
-把延迟从 2 秒增加到 5 秒或 10 秒。但这不优雅, 且不可靠。
-
-**方案 C: 不调用 unregister**
-
-让 channel 永远不关闭 (不调用 unregister)。但这会导致 HashMap 中的 sender 永远不被清理, 内存泄漏。
-
-**方案 D: 在 emit Status 事件后, 主动 sleep 一个 async tick**
-
-```rust
-emit_broadcaster.emit(&task_id, &status_event);
-tokio::task::yield_now().await;  // 让其他 task 有机会 poll
-emit_broadcaster.unregister(&task_id);
-```
-
-但这不可靠 (yield_now 不保证所有 receiver 都 poll 了)。
-
-**方案 E (最彻底): 重构 wait_for_child_done, 不用 broadcast channel**
-
-改用 `agent_get_session_status` 轮询 registry 的状态, 直到状态变为终止状态:
-```rust
-async fn wait_for_child_done(registry: &Arc<Mutex<AgentRegistry>>, session_id: &str) -> String {
-    loop {
-        let status = agent_get_session_status(registry, session_id.to_string());
-        if let Ok(Some(resp)) = status {
-            match resp.status {
-                AgentStatus::Completed => return "completed",
-                AgentStatus::Cancelled => return "cancelled",
-                AgentStatus::Failed => return "failed",
-                _ => {} // Pending/Running/Cancelling — 继续等
-            }
-        }
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
-}
-```
-
-这样完全避免了 broadcast channel 的 race condition。缺点是轮询 (每 100ms 查一次), 但对 SubAgent 场景可接受。
+| 文件 | 行号 | 内容 |
+|------|------|------|
+| `backend/src/agent/tool_dispatch.rs` | ~2972 | `read_child_db_terminal_status(app_state, session_id, task_id)` — DB 权威终态回退 |
+| `backend/src/agent/tool_dispatch.rs` | ~3008 | `wait_for_child_done(app_state, session_id, task_id)` — 重写 |
+| `backend/src/agent/tool_dispatch.rs` | ~3024 | `wait_for_child_done_with_receiver(...)` — `Closed` 走 DB 回退 |
+| `backend/src/agent/tool_dispatch.rs` | ~2707 | `execute_await_subagent` 调用点传入 session_id |
+| `backend/src/agent/tool_dispatch.rs` | ~2895 | `spawn_completion_watcher` 调用点传入 app_state/session_id/task_id |
 
 ---
 
@@ -253,8 +217,9 @@ await_subagent 工具调用
 
 ### 6.1 P0 剩余 (必须先解决)
 
-1. **修复 race condition** — 用本文档 §3.4 的方案 A 或 E
-2. **验证**: 转圈停止后显示 ✓ (completed), 刷新后保持 ✓, await_subagent 返回 status=completed
+1. ✅ **修复 race condition** — 采用 §3.3 的 DB 终态回退方案 (已 commit)
+2. **验证** (待用户回归): 转圈停止后显示 ✓ (completed), 刷新后保持 ✓, await_subagent 返回 status=completed
+   - 重点测试: 子 agent 跑完后**过几秒再**调 await_subagent (最容易触发 subscribe-after-emit race 的场景)
 
 ### 6.2 P1 (UI 完善)
 

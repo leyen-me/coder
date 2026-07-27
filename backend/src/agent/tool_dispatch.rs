@@ -2704,7 +2704,7 @@ async fn execute_await_subagent(
         // Q9: select! between child completion and parent cancel.
         let outcome = tokio::select! {
             // Branch A: child session Done (natural completion OR user manually stopped child)
-            status = wait_for_child_done(&ctx.app_state.sse_broadcaster, &agent.task_id) => {
+            status = wait_for_child_done(&ctx.app_state, &agent.session_id, &agent.task_id) => {
                 // Q2: read child's last assistant message as summary.
                 let summary = read_last_assistant_message(&ctx.app_state.db, &agent.session_id);
                 // Update the parent's spawn_subagent invocation output so the
@@ -2876,7 +2876,7 @@ fn emit_spawn_subagent_status_update(
 fn spawn_completion_watcher(
     app_state: Arc<crate::AppState>,
     child_session_id: String,
-    _child_task_id: String,
+    child_task_id: String,
     handle_id: String,
     parent_task_id: Option<String>,
     parent_tool_call_id: Option<String>,
@@ -2892,7 +2892,13 @@ fn spawn_completion_watcher(
         // Uses the pre-subscribed receiver to avoid missing the Done event
         // (race condition fix: subscribe happens before spawn_session returns).
         let mut receiver = receiver;
-        let status = wait_for_child_done_with_receiver(&mut receiver).await;
+        let status = wait_for_child_done_with_receiver(
+            &app_state,
+            &child_session_id,
+            &child_task_id,
+            &mut receiver,
+        )
+        .await;
 
         // 1. Update the parent message's invocation output (persisted to DB
         //    so it survives page reload).
@@ -2969,20 +2975,58 @@ fn spawn_completion_watcher(
     });
 }
 
+/// Authoritative terminal status of a child session, read from the DB.
+///
+/// The broadcast channel is unreliable for detecting completion: a receiver
+/// that subscribes AFTER the child already emitted its Terminal `Status` event
+/// (e.g. `await_subagent` is called once the child has long finished) will
+/// never observe that historical event — it only sees `RecvError::Closed` once
+/// the channel is unregistered. By the time the channel closes, the child's
+/// agent loop has already persisted the terminal status onto its assistant
+/// message record (`registry.rs` writes it synchronously, *before* the
+/// delayed `unregister`). So the DB is the source of truth for completion.
+fn read_child_db_terminal_status(
+    db: &Arc<Mutex<Database>>,
+    session_id: &str,
+    task_id: &str,
+) -> Option<String> {
+    let guard = db.lock().ok()?;
+    let msg = crate::db::session_store::find_assistant_message_by_task_id(
+        &guard,
+        Some(session_id),
+        task_id,
+    )
+    .ok()??;
+    match msg.status.as_str() {
+        "completed" => Some("completed".to_string()),
+        "failed" => Some("failed".to_string()),
+        "cancelled" => Some("cancelled".to_string()),
+        _ => None,
+    }
+}
+
 /// Wait for a child session's terminal status event via SSE.
 /// Returns "completed", "cancelled", or "failed".
+///
+/// On `RecvError::Closed` (channel unregistered before/sub-after we observed
+/// the Status event), falls back to the DB-persisted terminal status rather
+/// than blindly reporting "failed" — this is the core race-condition fix.
 async fn wait_for_child_done(
-    broadcaster: &crate::SseBroadcaster,
+    app_state: &Arc<crate::AppState>,
+    session_id: &str,
     task_id: &str,
 ) -> String {
-    let mut receiver = broadcaster.subscribe(task_id);
-    wait_for_child_done_with_receiver(&mut receiver).await
+    let mut receiver = app_state.sse_broadcaster.subscribe(task_id);
+    wait_for_child_done_with_receiver(app_state, session_id, task_id, &mut receiver).await
 }
 
 /// Same as wait_for_child_done but accepts a pre-subscribed receiver.
 /// Used by spawn_completion_watcher to avoid the race where subscribe happens
 /// after the child already emitted its Done event.
 async fn wait_for_child_done_with_receiver(
+    app_state: &Arc<crate::AppState>,
+    session_id: &str,
+    task_id: &str,
     receiver: &mut tokio::sync::broadcast::Receiver<String>,
 ) -> String {
     loop {
@@ -2990,20 +3034,47 @@ async fn wait_for_child_done_with_receiver(
             Ok(payload) => {
                 if let Some(status) = terminal_status_from_payload(&payload) {
                     log::info!(
-                        "subagent_wait_done status={} via Status event",
-                        status
+                        "subagent_wait_done status={} via Status event (task_id={})",
+                        status,
+                        task_id
                     );
                     return status;
                 }
             }
             Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                log::warn!("subagent_wait_lagged n={}", n);
+                log::warn!("subagent_wait_lagged task_id={} n={}", task_id, n);
                 continue;
             }
             Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                // Channel closed (unregister raced ahead, OR we subscribed after
+                // the child already emitted its Status event). The authoritative
+                // terminal status is already in the DB — poll it briefly.
                 log::warn!(
-                    "subagent_wait_closed: channel closed before Status event \
-                     (likely unregister in registry.rs:513 raced ahead)"
+                    "subagent_wait_closed: channel closed (task_id={}); falling back to DB status",
+                    task_id
+                );
+                for attempt in 0..10 {
+                    if let Some(status) =
+                        read_child_db_terminal_status(&app_state.db, session_id, task_id)
+                    {
+                        log::info!(
+                            "subagent_wait_done status={} via DB (task_id={})",
+                            status,
+                            task_id
+                        );
+                        return status;
+                    }
+                    // DB not yet terminal — wait a tick and retry (defensive;
+                    // in practice the DB write happens before channel close).
+                    let _ = attempt;
+                    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                }
+                // Nothing terminal in DB after the budget — give up safely.
+                // Returning "failed" is preferable to spinning forever; this
+                // branch should be unreachable in normal operation.
+                log::warn!(
+                    "subagent_wait_closed: no terminal status in DB after retries (task_id={}); returning failed",
+                    task_id
                 );
                 return "failed".to_string();
             }
