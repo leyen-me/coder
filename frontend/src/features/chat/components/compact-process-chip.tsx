@@ -99,7 +99,7 @@ export function CompactProcessChip({
           <div className="mt-2 space-y-2 border-l-2 border-muted pl-3 text-xs text-muted-foreground">
             <p>{detail}</p>
             {previewText ? (
-              <p className="whitespace-pre-wrap wrap-break-word">{previewText}</p>
+              <p className="whitespace-pre-wrap break-words">{previewText}</p>
             ) : null}
           </div>
         </CollapsibleContent>

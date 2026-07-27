@@ -1251,7 +1251,7 @@ fn compact_completed_event(
     AgentEvent::CompactCompleted {
         task_id: task_id.to_string(),
         removed_count,
-        summary_preview: summary_text.chars().take(200).collect::<String>(),
+        summary_preview: summary_text.to_string(),
         source: source.to_string(),
         first_kept_message_id,
         compact_message_id,

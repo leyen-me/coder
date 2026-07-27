@@ -3068,7 +3068,7 @@ fn collect_subagent_event(
                         if !summary_preview.trim().is_empty() {
                             object.insert(
                                 "preview".to_string(),
-                                Value::String(summary_preview.chars().take(160).collect()),
+                                Value::String(summary_preview.clone()),
                             );
                         }
                     }
@@ -3082,7 +3082,7 @@ fn collect_subagent_event(
                     "text": text,
                     "state": "completed",
                     "removedCount": removed_count,
-                    "preview": if summary_preview.trim().is_empty() { None::<String> } else { Some(summary_preview.chars().take(160).collect::<String>()) },
+                    "preview": if summary_preview.trim().is_empty() { None::<String> } else { Some(summary_preview.clone()) },
                 }));
             }
         }
