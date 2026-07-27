@@ -57,6 +57,10 @@ pub struct SpawnedAgent {
     pub task: String,
     pub session_id: String,
     pub task_id: String,
+    /// The tool_call_id of the parent's spawn_subagent invocation. Used by
+    /// await_subagent to emit a status update back to that invocation so the
+    /// frontend Label stops spinning.
+    pub spawn_tool_call_id: Option<String>,
     pub started_at: Instant,
 }
 
@@ -85,6 +89,7 @@ impl ConcurrentAgentStore {
         task: String,
         session_id: String,
         task_id: String,
+        spawn_tool_call_id: Option<String>,
     ) -> Result<(), String> {
         let mut agents = self.agents.lock().await;
         if agents.len() >= self.max_concurrent {
@@ -100,6 +105,7 @@ impl ConcurrentAgentStore {
                 task,
                 session_id,
                 task_id,
+                spawn_tool_call_id,
                 started_at: Instant::now(),
             },
         );
@@ -2619,19 +2625,26 @@ async fn execute_spawn_subagent(
     .await?;
 
     // Track the handle so await_subagent can find the child session/task.
+    // Pass spawn_tool_call_id so await_subagent can emit status updates back
+    // to the parent's spawn_subagent invocation (stops the Label spinner).
     ctx.concurrent_agents
         .register(
             handle_id.clone(),
             task.to_string(),
             spawn_result.session_id.clone(),
             spawn_result.task_id.clone(),
+            ctx.current_tool_call_id.clone(),
         )
         .await?;
 
     // Spawn a background watcher that updates the parent message's invocation
     // output (status: running → completed/cancelled/failed) when the child
-    // session finishes. Without this, the Label would spin forever even after
-    // the child is done, because spawn_subagent returns immediately.
+    // session finishes. This is a BACKUP for when await_subagent is not called
+    // — the primary update path is in execute_await_subagent itself.
+    //
+    // Subscribe BEFORE spawning the watcher to avoid missing the Done event
+    // if the child finishes very quickly (race condition fix).
+    let watcher_receiver = ctx.app_state.sse_broadcaster.subscribe(&spawn_result.task_id);
     spawn_completion_watcher(
         ctx.app_state.clone(),
         spawn_result.session_id.clone(),
@@ -2641,6 +2654,7 @@ async fn execute_spawn_subagent(
         ctx.current_tool_call_id.clone(),
         ctx.tool_result_message_id.clone(),
         ctx.session_id.clone(),
+        watcher_receiver,
     );
 
     // Return immediately (non-blocking). LLM calls await_subagent to wait.
@@ -2693,12 +2707,33 @@ async fn execute_await_subagent(
             status = wait_for_child_done(&ctx.app_state.sse_broadcaster, &agent.task_id) => {
                 // Q2: read child's last assistant message as summary.
                 let summary = read_last_assistant_message(&ctx.app_state.db, &agent.session_id);
+                // Update the parent's spawn_subagent invocation output so the
+                // frontend Label stops spinning. This is the PRIMARY update path
+                // (more reliable than the background watcher, because this runs
+                // inside the parent agent loop while SSE is still connected).
+                emit_spawn_subagent_status_update(
+                    &ctx.app_state.sse_broadcaster,
+                    ctx.task_id.as_deref(),
+                    agent.spawn_tool_call_id.as_deref(),
+                    &agent.session_id,
+                    &agent.handle_id,
+                    &status,
+                );
                 (agent.session_id.clone(), status, summary)
             }
             // Branch B: parent cancel_token (user stopped parent)
             _ = ctx.cancel_token.cancelled() => {
                 // Cascade cancel all child sessions, then return cancelled.
                 let _ = crate::agent::cancel::cancel_session_and_children(&ctx.app_state, &parent_session_id).await;
+                // Also emit a cancelled status update to the spawn_subagent invocation.
+                emit_spawn_subagent_status_update(
+                    &ctx.app_state.sse_broadcaster,
+                    ctx.task_id.as_deref(),
+                    agent.spawn_tool_call_id.as_deref(),
+                    &agent.session_id,
+                    &agent.handle_id,
+                    "cancelled",
+                );
                 (agent.session_id.clone(), "cancelled".to_string(), None)
             }
         };
@@ -2724,6 +2759,44 @@ async fn execute_await_subagent(
     Ok(tool_success("await_subagent", json!({ "results": results })))
 }
 
+/// Emit a ToolCallFinished event to update the parent's spawn_subagent
+/// invocation output status. Called from execute_await_subagent to ensure
+/// the frontend Label stops spinning (primary update path — runs inside
+/// the parent agent loop while SSE is still connected).
+///
+/// DB persistence is handled by the background spawn_completion_watcher
+/// (backup path for when LLM doesn't call await_subagent).
+fn emit_spawn_subagent_status_update(
+    broadcaster: &crate::SseBroadcaster,
+    parent_task_id: Option<&str>,
+    spawn_tool_call_id: Option<&str>,
+    child_session_id: &str,
+    handle_id: &str,
+    status: &str,
+) {
+    if let (Some(parent_task_id), Some(tool_call_id)) = (parent_task_id, spawn_tool_call_id) {
+        let payload = json!({
+            "ok": true,
+            "tool": "spawn_subagent",
+            "data": {
+                "handleId": handle_id,
+                "sessionId": child_session_id,
+                "status": status,
+            }
+        });
+        let event = super::types::AgentEvent::ToolCallFinished {
+            task_id: parent_task_id.to_string(),
+            tool_call_id: tool_call_id.to_string(),
+            output: Some(payload),
+            error_text: None,
+        };
+        if let Ok(json_str) = serde_json::to_string(&event) {
+            let event_str = super::loop_::inject_seq_into_event_json(&json_str, 0);
+            broadcaster.emit(parent_task_id, &event_str);
+        }
+    }
+}
+
 /// Background watcher: waits for the child session to finish, then updates
 /// the parent message's tool_invocation output status (running → terminal)
 /// and emits a ToolCallFinished event to the parent task_id so the frontend
@@ -2734,19 +2807,23 @@ async fn execute_await_subagent(
 fn spawn_completion_watcher(
     app_state: Arc<crate::AppState>,
     child_session_id: String,
-    child_task_id: String,
+    _child_task_id: String,
     handle_id: String,
     parent_task_id: Option<String>,
     parent_tool_call_id: Option<String>,
     parent_message_id: Option<String>,
     parent_session_id: Option<String>,
+    receiver: tokio::sync::broadcast::Receiver<String>,
 ) {
     let broadcaster = app_state.sse_broadcaster.clone();
     let db = app_state.db.clone();
 
     tokio::spawn(async move {
         // Wait for the child session to reach a terminal state.
-        let status = wait_for_child_done(&broadcaster, &child_task_id).await;
+        // Uses the pre-subscribed receiver to avoid missing the Done event
+        // (race condition fix: subscribe happens before spawn_session returns).
+        let mut receiver = receiver;
+        let status = wait_for_child_done_with_receiver(&mut receiver).await;
 
         // 1. Update the parent message's invocation output (persisted to DB
         //    so it survives page reload).
@@ -2830,6 +2907,15 @@ async fn wait_for_child_done(
     task_id: &str,
 ) -> String {
     let mut receiver = broadcaster.subscribe(task_id);
+    wait_for_child_done_with_receiver(&mut receiver).await
+}
+
+/// Same as wait_for_child_done but accepts a pre-subscribed receiver.
+/// Used by spawn_completion_watcher to avoid the race where subscribe happens
+/// after the child already emitted its Done event.
+async fn wait_for_child_done_with_receiver(
+    receiver: &mut tokio::sync::broadcast::Receiver<String>,
+) -> String {
     loop {
         match receiver.recv().await {
             Ok(payload) => {

@@ -107,7 +107,9 @@ export function SubAgentLabel({ output, input, errorText }: SubAgentLabelProps) 
     >
       {status === "running" && <Loader2 className="h-3 w-3 animate-spin" />}
       {status === "completed" && <Check className="h-3 w-3 text-green-500" />}
-      {(status === "error" || status === "cancelled") && (
+      {(status === "error" ||
+        status === "cancelled" ||
+        status === "failed") && (
         <X className="h-3 w-3 text-red-500" />
       )}
       <span className="max-w-[240px] truncate">{task}</span>
