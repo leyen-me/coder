@@ -711,6 +711,7 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
           {readOnly ? (
             <SubAgentInfoBar
               model={activeTask?.model ?? model}
+              models={allModels}
               agentMode={activeTask?.agentMode ?? "agent"}
               thinkingEnabled={activeTask?.thinkingEnabled ?? thinkingEnabled}
               sessionKind={session?.sessionKind}

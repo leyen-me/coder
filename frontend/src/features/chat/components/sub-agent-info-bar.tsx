@@ -1,12 +1,31 @@
-import { Pause } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+  BotIcon,
+  BrainIcon,
+  ClipboardListIcon,
+  FileQuestionIcon,
+  SquareIcon,
+  ZapIcon,
+} from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import {
+  composerFooterControlActiveClassName,
+} from "@/components/ai-elements/composer-footer-control";
+import { ComposerContextUsage } from "./composer-context-usage";
 import type { AgentMode } from "@/features/agent/types";
+import {
+  findModelDefinition,
+  getModelDisplayName,
+  type ModelDefinition,
+} from "@/lib/model-provider/model-definition";
 import type { SessionAutonomyMode, SessionKind } from "@/lib/db";
 import type { SessionContextUsage } from "../lib/estimate-session-context-usage";
 import { cn } from "@/lib/utils";
 
 type SubAgentInfoBarProps = {
   model: string;
+  models?: readonly ModelDefinition[];
   agentMode: AgentMode;
   thinkingEnabled: boolean;
   sessionKind?: SessionKind;
@@ -22,29 +41,57 @@ const AGENT_MODE_LABEL: Record<AgentMode, string> = {
   plan: "计划",
 };
 
-function InfoChip({
-  label,
-  value,
+function resolveAgentModeIcon(agentMode: AgentMode) {
+  if (agentMode === "agent") {
+    return BotIcon;
+  }
+  if (agentMode === "plan") {
+    return ClipboardListIcon;
+  }
+  return FileQuestionIcon;
+}
+
+function resolveModelLabel(
+  model: string,
+  models?: readonly ModelDefinition[],
+): string {
+  if (!models) {
+    return model;
+  }
+  const definition = findModelDefinition(models, model);
+  return definition ? getModelDisplayName(definition) : model;
+}
+
+/**
+ * Read-only pill that mirrors the shape/color of `ComposerFooterControls`
+ * (rounded-xl, muted-foreground text, accent fill when active) but without the
+ * interactive hover, so it does not look clickable.
+ */
+const READONLY_PILL_CLASS =
+  "inline-flex h-8 min-h-8 shrink-0 items-center gap-1.5 rounded-xl border-none bg-transparent px-2.5 py-0 text-sm font-medium shadow-none transition-colors";
+
+function ReadonlyPill({
+  icon: Icon,
   active,
+  children,
 }: {
-  label: string;
-  value: string;
+  icon?: typeof BotIcon;
   active?: boolean;
+  children: ReactNode;
 }) {
   return (
-    <div className="flex min-w-[64px] flex-col gap-0.5 rounded-md border border-border bg-muted/40 px-2 py-1">
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      <span
-        className={cn(
-          "truncate text-xs font-medium",
-          active ? "text-foreground" : "text-muted-foreground",
-        )}
-      >
-        {value}
-      </span>
-    </div>
+    <span
+      className={cn(
+        READONLY_PILL_CLASS,
+        active
+          ? composerFooterControlActiveClassName
+          : "text-muted-foreground",
+      )}
+      data-state={active ? "on" : "off"}
+    >
+      {Icon ? <Icon className="size-3.5 shrink-0" /> : null}
+      <span className="truncate">{children}</span>
+    </span>
   );
 }
 
@@ -52,10 +99,11 @@ function InfoChip({
  * Read-only replacement for the composer at the bottom of a SubAgent panel.
  * It only surfaces live info about the child session — no text input, so the
  * user cannot send a new prompt. A pause/stop button is offered while the
- * child is running.
+ * child is running. The visual language matches the parent composer footer.
  */
 export function SubAgentInfoBar({
   model,
+  models,
   agentMode,
   thinkingEnabled,
   sessionKind,
@@ -64,61 +112,42 @@ export function SubAgentInfoBar({
   isRunning,
   onStop,
 }: SubAgentInfoBarProps) {
-  const percent =
-    contextUsage && contextUsage.maxTokens > 0
-      ? Math.min(
-          100,
-          Math.round((contextUsage.usedTokens / contextUsage.maxTokens) * 100),
-        )
-      : null;
+  const ModeIcon = resolveAgentModeIcon(agentMode);
+  const modelLabel = resolveModelLabel(model, models);
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
-      <InfoChip label="模式" value={AGENT_MODE_LABEL[agentMode] ?? agentMode} />
-      <InfoChip label="模型" value={model} />
-      <InfoChip
-        label="深度思考"
-        value={thinkingEnabled ? "开启" : "关闭"}
-        active={thinkingEnabled}
-      />
-      <InfoChip
-        label="长任务"
-        value={sessionKind === "long_task" ? "是" : "否"}
-        active={sessionKind === "long_task"}
-      />
-      {autonomyMode === "unattended" ? (
-        <InfoChip label="自治" value="自主" active />
-      ) : null}
-      <div className="flex min-w-[96px] flex-1 flex-col gap-1">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            上下文进度
-          </span>
-          {percent != null && (
-            <span className="text-[10px] tabular-nums text-muted-foreground">
-              {percent}%
-            </span>
-          )}
-        </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-primary transition-[width]"
-            style={{ width: `${percent ?? 0}%` }}
-          />
-        </div>
+    <div className="flex items-center gap-1.5">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+        <ReadonlyPill icon={ModeIcon}>{AGENT_MODE_LABEL[agentMode] ?? agentMode}</ReadonlyPill>
+        {sessionKind === "long_task" ? (
+          <ReadonlyPill icon={ClipboardListIcon} active>
+            长任务
+          </ReadonlyPill>
+        ) : null}
+        <ReadonlyPill>{modelLabel}</ReadonlyPill>
+        <ReadonlyPill icon={BrainIcon} active={thinkingEnabled}>
+          深度思考
+        </ReadonlyPill>
+        {autonomyMode === "unattended" ? (
+          <ReadonlyPill icon={ZapIcon} active>
+            自主
+          </ReadonlyPill>
+        ) : null}
+        {contextUsage ? <ComposerContextUsage contextUsage={contextUsage} /> : null}
       </div>
       {isRunning && onStop ? (
-        <button
+        <Button
           type="button"
+          variant="destructive"
+          size="sm"
           onClick={onStop}
-          title="停止子 agent 运行"
-          className="flex shrink-0 items-center gap-1 rounded-md bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/20"
+          className="shrink-0"
         >
-          <Pause className="h-3.5 w-3.5" />
+          <SquareIcon className="size-4" />
           暂停
-        </button>
+        </Button>
       ) : (
-        <span className="shrink-0 rounded-md bg-muted px-3 py-1.5 text-xs text-muted-foreground">
+        <span className="shrink-0 rounded-xl px-2.5 py-0 text-sm font-medium text-muted-foreground">
           {isRunning ? "运行中" : "已结束"}
         </span>
       )}
