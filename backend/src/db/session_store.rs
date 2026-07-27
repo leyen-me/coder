@@ -21,10 +21,19 @@ pub fn new_todo_id() -> String {
 }
 
 pub fn session_indexes(session: &SessionRecord) -> Vec<IndexEntry> {
-    vec![IndexEntry {
+    let mut indexes = vec![IndexEntry {
         name: "by-updatedAt".to_string(),
         value: session.updated_at.to_string(),
-    }]
+    }];
+    // SubAgent sessions carry parent_session_id; index them so sidebar
+    // filtering and cascading cancel can look them up by parent.
+    if let Some(ref parent) = session.parent_session_id {
+        indexes.push(IndexEntry {
+            name: "by-parentSessionId".to_string(),
+            value: parent.clone(),
+        });
+    }
+    indexes
 }
 
 pub fn message_indexes(message: &MessageRecord) -> Vec<IndexEntry> {
@@ -56,6 +65,24 @@ pub fn todo_indexes(todo: &AgentTodoRecord) -> Vec<IndexEntry> {
 pub fn get_session(db: &Database, session_id: &str) -> Result<Option<SessionRecord>, String> {
     db.get::<SessionRecord>(SESSIONS_STORE, session_id)
         .map(|value| value.map(SessionRecord::normalize))
+}
+
+/// List all sessions whose `parent_session_id` equals the given parent.
+/// Used by cascading cancel (`cancel_session_and_children`) and could be
+/// used by sidebar filtering if the backend ever serves the session list.
+pub fn list_sessions_by_parent(
+    db: &Database,
+    parent_session_id: &str,
+) -> Result<Vec<SessionRecord>, String> {
+    let sessions = db.get_all_from_index::<SessionRecord>(
+        SESSIONS_STORE,
+        "by-parentSessionId",
+        Some(parent_session_id),
+    )?;
+    Ok(sessions
+        .into_iter()
+        .map(SessionRecord::normalize)
+        .collect::<Vec<_>>())
 }
 
 pub fn put_session(db: &Database, session: &SessionRecord) -> Result<(), String> {

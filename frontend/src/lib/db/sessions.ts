@@ -132,7 +132,10 @@ export async function touchSession(sessionId: string): Promise<void> {
 export async function listSessions(limit: number | null = null): Promise<SessionRecord[]> {
   const db = await getDb();
   const sessions = await db.getAllFromIndex<SessionRecord>(SESSIONS_STORE, "by-updatedAt");
-  const sorted = sortSessionsPinnedFirst(sessions).map((session) => normalizeSessionRecord(session));
+  // Q5: SubAgent sessions (parentSessionId != null) are hidden from the
+  // sidebar and search — they are only reachable via the SubAgent Label.
+  const visible = sessions.filter((session) => !session.parentSessionId);
+  const sorted = sortSessionsPinnedFirst(visible).map((session) => normalizeSessionRecord(session));
   return limit !== null ? sorted.slice(0, limit) : sorted;
 }
 

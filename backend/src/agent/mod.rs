@@ -1,4 +1,5 @@
 pub mod ask_question;
+pub mod cancel;
 pub mod compact;
 pub mod compact_prompt;
 pub mod context;
@@ -8,6 +9,7 @@ pub mod loop_;
 pub mod messages;
 pub mod openai;
 pub mod registry;
+pub mod spawn;
 pub mod tool_dispatch;
 mod stream_log;
 mod types;

@@ -1563,10 +1563,28 @@ pub async fn handle_agent_cancel(
     State(state): State<Arc<AppState>>,
     Json(params): Json<AgentCancelParams>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
+    // Cancel the current task.
     let _ = state.ask_question_registry.cancel(&params.task_id, "Cancelled");
     agent::agent_cancel(&state.agent_registry, params.task_id.clone())
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    let _ = shell_kill_by_task(&state.shell_registry, params.task_id);
+    let _ = shell_kill_by_task(&state.shell_registry, params.task_id.clone());
+
+    // Q9: cascade cancel child sessions (SubAgent). Find the session_id from
+    // the task_id via the assistant message, then cancel the whole subtree.
+    let session_id = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database lock poisoned".to_string()))?;
+        crate::db::session_store::find_assistant_message_by_task_id(&db, None, &params.task_id)
+            .ok()
+            .flatten()
+            .map(|m| m.session_id)
+    };
+    if let Some(session_id) = session_id {
+        let _ = crate::agent::cancel::cancel_session_and_children(&state, &session_id).await;
+    }
+
     Ok(Json(serde_json::to_value(serde_json::json!({"ok": true})).map_err(
         |e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
     )?))

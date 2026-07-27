@@ -45,17 +45,26 @@ pub struct ToolExecutionContext<'a> {
     pub tool_result_message_id: Option<String>,
 }
 
-/// A spawned sub-agent running in the background via `tokio::spawn`.
+/// A spawned sub-agent tracked by handle_id.
+///
+/// After the refactor, a SubAgent **is** a normal Session: it has its own
+/// `session_id` and `task_id`, runs through the standard agent loop, and is
+/// observed via its own SSE channel. The store no longer holds a JoinHandle
+/// or cancel_token — cancellation goes through `cancel::cancel_session_and_children`.
+#[derive(Clone, Debug)]
 pub struct SpawnedAgent {
     pub handle_id: String,
     pub task: String,
-    pub join_handle: Option<tokio::task::JoinHandle<Result<ToolResultEnvelope, String>>>,
-    pub cancel_token: CancellationToken,
+    pub session_id: String,
+    pub task_id: String,
     pub started_at: Instant,
-    pub completed_result: Option<Result<ToolResultEnvelope, String>>,
 }
 
 /// Shared store of background sub-agents for parallel spawn/await.
+///
+/// After the refactor, this store only tracks the {handle_id → session/task}
+/// mapping. Waiting for completion is done in `execute_await_subagent` via
+/// SSE subscription + `tokio::select!`, not by awaiting a JoinHandle.
 pub struct ConcurrentAgentStore {
     agents: tokio::sync::Mutex<HashMap<String, SpawnedAgent>>,
     max_concurrent: usize,
@@ -74,8 +83,8 @@ impl ConcurrentAgentStore {
         &self,
         handle_id: String,
         task: String,
-        join_handle: tokio::task::JoinHandle<Result<ToolResultEnvelope, String>>,
-        cancel_token: CancellationToken,
+        session_id: String,
+        task_id: String,
     ) -> Result<(), String> {
         let mut agents = self.agents.lock().await;
         if agents.len() >= self.max_concurrent {
@@ -89,68 +98,34 @@ impl ConcurrentAgentStore {
             SpawnedAgent {
                 handle_id,
                 task,
-                join_handle: Some(join_handle),
-                cancel_token,
+                session_id,
+                task_id,
                 started_at: Instant::now(),
-                completed_result: None,
             },
         );
         Ok(())
     }
 
-    /// Take (or re-take) a spawned agent's result by handle_id.
-    ///
-    /// - If the sub-agent has already completed, returns the cached result immediately.
-    /// - If it is still running, waits for completion and caches the result for future calls.
-    /// - The handle remains in the store, so multiple calls with the same handle_id are safe.
-    pub async fn take_result(
-        &self,
-        handle_id: &str,
-    ) -> Result<ToolResultEnvelope, String> {
-        // Step 1: peek for cached result or extract the JoinHandle (release lock before awaiting).
-        let (handle, cached) = {
-            let mut agents = self.agents.lock().await;
-            let agent = agents.get_mut(handle_id).ok_or_else(|| {
-                format!("Sub-agent handle not found: {handle_id}")
-            })?;
-            if let Some(ref result) = agent.completed_result {
-                (None, Some(result.clone()))
-            } else {
-                (agent.join_handle.take(), None)
-            }
-        };
-
-        // Return cached result immediately.
-        if let Some(result) = cached {
-            return result;
-        }
-
-        // Await the JoinHandle (mutex lock is released).
-        let result = match handle {
-            Some(h) => h.await.map_err(|e| format!("Sub-agent task panicked: {e}"))?,
-            None => {
-                return Err(
-                    "Sub-agent was already taken but not completed (state inconsistency)".to_string(),
-                )
-            }
-        };
-
-        // Cache the completed result so subsequent take_result calls succeed.
-        {
-            let mut agents = self.agents.lock().await;
-            if let Some(agent) = agents.get_mut(handle_id) {
-                agent.completed_result = Some(result.clone());
-            }
-        }
-
-        result
+    /// Look up a spawned agent by handle_id (used by `execute_await_subagent`
+    /// to obtain the child `session_id` + `task_id` for SSE subscription).
+    pub async fn get(&self, handle_id: &str) -> Option<SpawnedAgent> {
+        let agents = self.agents.lock().await;
+        agents.get(handle_id).cloned()
     }
 
-    /// Cancel all running sub-agents.
-    pub async fn cancel_all(&self) {
+    /// Remove a handle after `execute_await_subagent` has consumed it.
+    pub async fn remove(&self, handle_id: &str) {
+        let mut agents = self.agents.lock().await;
+        agents.remove(handle_id);
+    }
+
+    /// Cancel all registered sub-agents by cascading cancel on their sessions.
+    /// Called when the parent agent loop exits (e.g. parent cancelled).
+    pub async fn cancel_all(&self, state: &Arc<crate::AppState>) {
         let agents = self.agents.lock().await;
         for (_, agent) in agents.iter() {
-            agent.cancel_token.cancel();
+            let _ =
+                crate::agent::cancel::cancel_session_and_children(state, &agent.session_id).await;
         }
     }
 }
@@ -2600,27 +2575,12 @@ async fn execute_spawn_subagent(
         ));
     }
 
-    let current_depth = subagent_context_depth(ctx.task_id.as_deref());
-    if current_depth >= MAX_SUBAGENT_DEPTH {
-        return Ok(tool_failure(
-            "spawn_subagent",
-            "max_depth_exceeded",
-            format!(
-                "Maximum nesting depth ({MAX_SUBAGENT_DEPTH}) exceeded. Cannot spawn sub-agent at depth {}.",
-                current_depth + 1
-            ),
-        ));
-    }
-
-    let sub_task_id = format!(
-        "{}/sub-{}",
-        ctx.task_id.as_deref().unwrap_or("root"),
-        current_timestamp_ms()
-    );
+    // Q6: forbid nesting. Exclude spawn_subagent AND await_subagent from the
+    // child's toolset — a SubAgent cannot spawn or await its own sub-agents.
     let allowed_tools: Vec<AgentToolDefinition> = ctx
         .available_tools
         .iter()
-        .filter(|tool| tool.function.name != "spawn_subagent")
+        .filter(|tool| tool.function.name != "spawn_subagent" && tool.function.name != "await_subagent")
         .filter(|tool| {
             args.tools.as_ref().map(|requested| {
                 requested.iter().any(|name| name == &tool.function.name)
@@ -2629,309 +2589,69 @@ async fn execute_spawn_subagent(
         .cloned()
         .collect();
 
-    let system_prompt = build_subagent_system_prompt(
-        task,
-        args.context.as_deref(),
-        args.tools.as_deref(),
-        current_depth,
-        MAX_SUBAGENT_DEPTH,
-        ctx.workspace_dir.as_deref(),
-    );
-    let messages = vec![
-        super::types::ChatMessage {
-            role: "system".to_string(),
-            content: Some(Value::String(system_prompt)),
-            reasoning_content: None,
-            tool_calls: None,
-            tool_call_id: None,
-            name: None,
+    let parent = &ctx.parent_start_params;
+    let handle_id = format!("sub-{}", current_timestamp_ms());
+
+    // Spawn the child as a normal Session via the unified entry point.
+    // No thread::spawn, no separate runtime, no event compression — the child
+    // runs through the standard agent loop and persists its own messages.
+    let spawn_result = crate::agent::spawn::spawn_session(
+        ctx.app_state.clone(),
+        crate::agent::spawn::SpawnSessionOptions {
+            parent_session_id: ctx.session_id.clone(),
+            task: task.to_string(),
+            model: parent.model.clone(),
+            workspace_dir: ctx.workspace_dir.clone(),
+            base_url: parent.base_url.clone(),
+            api_key: parent.api_key.clone(),
+            api_key_source: Some(parent.api_key_source.clone()),
+            api_key_env_var: Some(parent.api_key_env_var.clone()),
+            request_extensions: parent.request_extensions.clone(),
+            max_context_tokens: parent.max_context_tokens,
+            agent_mode: Some("agent".to_string()),
+            thinking_enabled: parent.thinking_enabled,
+            extra_tools: Some(allowed_tools),
+            autonomy_mode: parent.autonomy_mode.clone(),
+            decision_policy_version: parent.decision_policy_version.clone(),
+            decision_model: parent.decision_model.clone(),
         },
-        super::types::ChatMessage {
-            role: "user".to_string(),
-            content: Some(Value::String(task.to_string())),
-            reasoning_content: None,
-            tool_calls: None,
-            tool_call_id: None,
-            name: None,
-        },
-    ];
+    )
+    .await?;
 
-    let mut child_params = ctx.parent_start_params.clone();
-    child_params.task_id = sub_task_id.clone();
-    child_params.messages = messages;
-    child_params.tools = Some(allowed_tools);
-    child_params.agent_mode = Some("agent".to_string());
-    child_params.emit_assistant_output = Some(true);
-
-    let child_registry = Arc::new(Mutex::new(super::registry::AgentRegistry::new()?));
-    let child_client = child_registry
-        .lock()
-        .map_err(|_| "Agent registry lock poisoned".to_string())?
-        .http_client();
-    // Use the parent's SseBroadcaster so the parent can observe the
-    // sub-agent's progress. Grandchild events (depth >= 2) are naturally
-    // excluded because the tools whitelist does not include spawn_subagent.
-    let child_broadcaster = ctx.app_state.sse_broadcaster.clone();
-    let child_cancel = ctx.cancel_token.child_token();
-    let child_cancel_for_thread = child_cancel.clone();
-    let child_app_state = ctx.app_state.clone();
-    let task_str = task.to_string();
-
-    let handle_id = format!(
-        "{}-{}",
-        sub_task_id.replace('/', "_"),
-        current_timestamp_ms()
-    );
-
-    let (result_tx, result_rx) =
-        tokio::sync::oneshot::channel::<Result<ToolResultEnvelope, String>>();
-
-    let parent_task_id = ctx.task_id.clone();
-    let tool_call_id = ctx.current_tool_call_id.clone();
-    let progress_message_id = ctx.tool_result_message_id.clone();
-    let sub_task_id_clone = sub_task_id.clone();
-    let session_id = ctx.session_id.clone();
-    let register_handle = handle_id.clone();
-    std::thread::spawn(move || {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("Failed to build sub-agent runtime");
-        let msg_id = progress_message_id.clone();
-        let tc_id_capture = tool_call_id.clone();
-        let _ = rt.block_on(async move {
-            let rx = child_broadcaster.subscribe(&sub_task_id_clone);
-            let mut receiver = rx;
-
-            let db_for_progress = child_app_state.db.clone();
-            let agent_future = super::loop_::run_agent_loop(
-                child_params,
-                child_client,
-                child_broadcaster.clone(),
-                child_cancel_for_thread,
-                child_registry,
-                child_app_state,
-            );
-            tokio::pin!(agent_future);
-
-            let mut steps: Vec<Value> = Vec::new();
-            let mut final_content = String::new();
-            let mut tokens_used: Option<u32> = None;
-
-            let emit_progress = |steps: &[Value], final_content: &str, tokens_used: Option<u32>| {
-                if let Some(ref pid) = parent_task_id {
-                    let rounds = steps
-                        .iter()
-                        .filter(|s| s.get("kind").and_then(|v| v.as_str()) == Some("reasoning"))
-                        .count();
-                    let tc = steps
-                        .iter()
-                        .filter(|s| s.get("kind").and_then(|v| v.as_str()) == Some("tool"))
-                        .count();
-                    let summary = build_subagent_summary(steps, &task_str, final_content, None);
-                    let payload = json!({
-                        "ok": true,
-                        "tool": "spawn_subagent",
-                        "data": json!({
-                            "handleId": &handle_id,
-                            "status": "running",
-                            "__progress": {
-                                "task": &task_str,
-                                "steps": steps,
-                                "summary": &summary,
-                                "rounds": rounds,
-                                "toolCalls": tc,
-                                "tokensUsed": tokens_used,
-                                "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
-                            },
-                        })
-                    });
-                    let event = super::types::AgentEvent::ToolCallFinished {
-                        task_id: pid.clone(),
-                        tool_call_id: tc_id_capture.clone().unwrap_or_default(),
-                        output: Some(payload),
-                        error_text: None,
-                    };
-                    if let Ok(json_str) = serde_json::to_string(&event) {
-                        let event_str = super::loop_::inject_seq_into_event_json(&json_str, 0);
-                        child_broadcaster.emit(pid, &event_str);
-                    }
-
-                    // Persist __progress to DB so it survives page reloads.
-                    if let Some(tc_id) = tc_id_capture.as_ref() {
-                        use crate::db::session_store::{
-                            find_assistant_message_by_task_id, get_message, put_message,
-                        };
-                        if let Ok(db) = db_for_progress.lock() {
-                            // Try lookup by message_id first; fall back to task_id when the
-                            // message hasn't been persisted yet (first turn in a session).
-                            let mut msg = msg_id
-                                .as_ref()
-                                .and_then(|id| get_message(&db, id).ok())
-                                .flatten();
-                            if msg.is_none() {
-                                msg = find_assistant_message_by_task_id(
-                                    &db,
-                                    session_id.as_deref(),
-                                    pid,
-                                )
-                                .ok()
-                                .flatten();
-                            }
-                            if let Some(mut msg) = msg {
-                                for inv in msg.tool_invocations.iter_mut() {
-                                    if inv.id == *tc_id {
-                                        if let Some(ref mut output) = inv.output {
-                                            if let Some(obj) = output.as_object_mut() {
-                                                obj.insert("__progress".to_string(), json!({
-                                                    "task": &task_str,
-                                                    "steps": steps,
-                                                    "summary": &summary,
-                                                    "rounds": rounds,
-                                                    "toolCalls": tc,
-                                                    "tokensUsed": tokens_used,
-                                                    "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
-                                                }));
-                                            }
-                                        }
-                                        break;
-                                    }
-                                }
-                                let _ = put_message(&db, &msg, false);
-                            }
-                        }
-                    }
-                }
-            };
-
-            let agent_result = loop {
-                tokio::select! {
-                    result = &mut agent_future => break result,
-                    received = receiver.recv() => {
-                        if let Ok(payload) = received {
-                            collect_subagent_event(&payload, &mut steps, &mut final_content, &mut tokens_used);
-                            emit_progress(&steps, &final_content, tokens_used);
-                        }
-                    }
-                }
-            };
-
-            // Drain remaining events.
-            loop {
-                match receiver.try_recv() {
-                    Ok(payload) => collect_subagent_event(&payload, &mut steps, &mut final_content, &mut tokens_used),
-                    Err(tokio::sync::broadcast::error::TryRecvError::Empty) => break,
-                    Err(_) => break,
-                }
-            }
-                                emit_progress(&steps, &final_content, tokens_used);
-
-            let final_error = match &agent_result {
-                Ok(()) => None,
-                Err(super::loop_::AgentLoopError::Cancelled) => {
-                    Some("Sub-agent was cancelled.".to_string())
-                }
-                Err(e) => Some(e.to_string()),
-            };
-            let rounds = steps
-                .iter()
-                .filter(|s| s.get("kind").and_then(|v| v.as_str()) == Some("reasoning"))
-                .count();
-            let tc = steps
-                .iter()
-                .filter(|s| s.get("kind").and_then(|v| v.as_str()) == Some("tool"))
-                .count();
-            let summary = build_subagent_summary(
-                &steps,
-                &task_str,
-                &final_content,
-                final_error.as_deref(),
-            );
-
-            let has_error = final_error.is_some();
-            let output = if let Some(error) = final_error {
-                Ok(tool_failure("spawn_subagent", "subagent_failed", error))
-            } else {
-                Ok(tool_success(
-                    "spawn_subagent",
-                    json!({
-                        "task": task_str,
-                        "steps": steps,
-                        "summary": summary,
-                        "rounds": rounds,
-                        "toolCalls": tc,
-                        "tokensUsed": tokens_used,
-                        "content": if final_content.trim().is_empty() { None::<String> } else { Some(final_content.trim().to_string()) },
-                    }),
-                ))
-            };
-            let _ = result_tx.send(output);
-
-            // Write the final result back to the parent message's invocation output
-            // so that the spawn_subagent tool always shows complete data after refresh.
-            if let Some(tc_id) = tc_id_capture.as_ref() {
-                use crate::db::session_store::{
-                    find_assistant_message_by_task_id, get_message, put_message,
-                };
-                if let Ok(db) = db_for_progress.lock() {
-                    let mut msg = msg_id
-                        .as_ref()
-                        .and_then(|id| get_message(&db, id).ok())
-                        .flatten();
-                    if msg.is_none() {
-                        msg = find_assistant_message_by_task_id(
-                            &db,
-                            session_id.as_deref(),
-                            parent_task_id.as_deref().unwrap_or(""),
-                        )
-                        .ok()
-                        .flatten();
-                    }
-                    if let Some(mut msg) = msg {
-                        for inv in msg.tool_invocations.iter_mut() {
-                            if inv.id == *tc_id {
-                                // Replace __progress-only output with final result data.
-                                // Preserve __progress for continuity; the frontend will
-                                // see task/steps and use the primary render path.
-                                // Preserve existing __progress (from emit_progress writes)
-                                // and only update handleId and status for the completed state.
-                                let mut final_output = if let Some(existing) = inv.output.take() {
-                                    existing
-                                } else {
-                                    json!({})
-                                };
-                                if let Some(obj) = final_output.as_object_mut() {
-                                    obj.insert("handleId".to_string(), json!(handle_id.clone()));
-                                    obj.insert("status".to_string(), json!(if has_error { "error" } else { "completed" }));
-                                }
-                                inv.output = Some(final_output);
-                                break;
-                            }
-                        }
-                        let _ = put_message(&db, &msg, false);
-                    }
-                }
-            }
-        });
-    });
-
-    let join_handle: tokio::task::JoinHandle<Result<ToolResultEnvelope, String>> =
-        tokio::spawn(async move {
-            result_rx.await.map_err(|e| format!("Sub-agent channel closed: {e}"))?
-        });
-
+    // Track the handle so await_subagent can find the child session/task.
     ctx.concurrent_agents
-        .register(register_handle.clone(), task.to_string(), join_handle, child_cancel)
+        .register(
+            handle_id.clone(),
+            task.to_string(),
+            spawn_result.session_id.clone(),
+            spawn_result.task_id.clone(),
+        )
         .await?;
 
-    Ok(tool_success(
+    // Spawn a background watcher that updates the parent message's invocation
+    // output (status: running → completed/cancelled/failed) when the child
+    // session finishes. Without this, the Label would spin forever even after
+    // the child is done, because spawn_subagent returns immediately.
+    spawn_completion_watcher(
+        ctx.app_state.clone(),
+        spawn_result.session_id.clone(),
+        spawn_result.task_id.clone(),
+        handle_id.clone(),
+        ctx.task_id.clone(),
+        ctx.current_tool_call_id.clone(),
+        ctx.tool_result_message_id.clone(),
+        ctx.session_id.clone(),
+    );
+
+    // Return immediately (non-blocking). LLM calls await_subagent to wait.
+    return Ok(tool_success(
         "spawn_subagent",
         json!({
-            "handleId": register_handle.clone(),
+            "handleId": handle_id,
+            "sessionId": spawn_result.session_id,
             "status": "running",
-            "__progress": json!({}),
         }),
-    ))
+    ));
 }
 
 async fn execute_await_subagent(
@@ -2951,27 +2671,211 @@ async fn execute_await_subagent(
         ));
     }
 
-    // Collect results for all requested handles.
+    let parent_session_id = ctx.session_id.clone().unwrap_or_default();
+
     let mut results: Vec<Value> = Vec::with_capacity(args.handle_ids.len());
     for handle_id in &args.handle_ids {
-        let result = match ctx.concurrent_agents.take_result(handle_id).await {
-            Ok(envelope) => json!({
-                "handleId": handle_id,
-                "result": envelope,
-            }),
-            Err(error) => json!({
+        let Some(agent) = ctx.concurrent_agents.get(handle_id).await else {
+            results.push(json!({
                 "handleId": handle_id,
                 "result": {
                     "ok": false,
                     "tool": "await_subagent",
-                    "error": { "code": "handle_not_found", "message": error },
+                    "error": { "code": "handle_not_found", "message": format!("Sub-agent handle not found: {handle_id}") },
                 },
-            }),
+            }));
+            continue;
         };
-        results.push(result);
+
+        // Q9: select! between child completion and parent cancel.
+        let outcome = tokio::select! {
+            // Branch A: child session Done (natural completion OR user manually stopped child)
+            status = wait_for_child_done(&ctx.app_state.sse_broadcaster, &agent.task_id) => {
+                // Q2: read child's last assistant message as summary.
+                let summary = read_last_assistant_message(&ctx.app_state.db, &agent.session_id);
+                (agent.session_id.clone(), status, summary)
+            }
+            // Branch B: parent cancel_token (user stopped parent)
+            _ = ctx.cancel_token.cancelled() => {
+                // Cascade cancel all child sessions, then return cancelled.
+                let _ = crate::agent::cancel::cancel_session_and_children(&ctx.app_state, &parent_session_id).await;
+                (agent.session_id.clone(), "cancelled".to_string(), None)
+            }
+        };
+
+        // Remove the handle after consumption.
+        ctx.concurrent_agents.remove(handle_id).await;
+
+        let (session_id, status, summary) = outcome;
+        results.push(json!({
+            "handleId": handle_id,
+            "result": {
+                "ok": true,
+                "tool": "await_subagent",
+                "data": {
+                    "sessionId": session_id,
+                    "status": status,
+                    "summary": summary,
+                },
+            },
+        }));
     }
 
     Ok(tool_success("await_subagent", json!({ "results": results })))
+}
+
+/// Background watcher: waits for the child session to finish, then updates
+/// the parent message's tool_invocation output status (running → terminal)
+/// and emits a ToolCallFinished event to the parent task_id so the frontend
+/// Label stops spinning without requiring a page reload.
+///
+/// This runs as an independent tokio task — it survives the parent agent loop
+/// continuing to other work. It does NOT block the parent.
+fn spawn_completion_watcher(
+    app_state: Arc<crate::AppState>,
+    child_session_id: String,
+    child_task_id: String,
+    handle_id: String,
+    parent_task_id: Option<String>,
+    parent_tool_call_id: Option<String>,
+    parent_message_id: Option<String>,
+    parent_session_id: Option<String>,
+) {
+    let broadcaster = app_state.sse_broadcaster.clone();
+    let db = app_state.db.clone();
+
+    tokio::spawn(async move {
+        // Wait for the child session to reach a terminal state.
+        let status = wait_for_child_done(&broadcaster, &child_task_id).await;
+
+        // 1. Update the parent message's invocation output (persisted to DB
+        //    so it survives page reload).
+        if let Some(tool_call_id) = parent_tool_call_id.as_deref() {
+            let maybe_msg = {
+                let db_guard = db.lock().ok();
+                if let Some(db) = db_guard {
+                    let mut msg = parent_message_id
+                        .as_deref()
+                        .and_then(|id| crate::db::session_store::get_message(&db, id).ok())
+                        .flatten();
+                    if msg.is_none() {
+                        msg = crate::db::session_store::find_assistant_message_by_task_id(
+                            &db,
+                            parent_session_id.as_deref(),
+                            parent_task_id.as_deref().unwrap_or(""),
+                        )
+                        .ok()
+                        .flatten();
+                    }
+                    msg
+                } else {
+                    None
+                }
+            };
+
+            if let Some(mut msg) = maybe_msg {
+                let mut changed = false;
+                for inv in msg.tool_invocations.iter_mut() {
+                    if inv.id == tool_call_id {
+                        if let Some(ref mut output) = inv.output {
+                            if let Some(obj) = output.as_object_mut() {
+                                obj.insert(
+                                    "status".to_string(),
+                                    Value::String(status.clone()),
+                                );
+                                changed = true;
+                            }
+                        }
+                        break;
+                    }
+                }
+                if changed {
+                    if let Ok(db) = db.lock() {
+                        let _ = crate::db::session_store::put_message(&db, &msg, false);
+                    }
+                }
+            }
+        }
+
+        // 2. Emit a ToolCallFinished event to the parent task_id so the
+        //    frontend refreshes the Label in real time.
+        if let Some(parent_task_id) = parent_task_id.as_deref() {
+            let payload = json!({
+                "ok": true,
+                "tool": "spawn_subagent",
+                "data": {
+                    "handleId": handle_id,
+                    "sessionId": child_session_id,
+                    "status": status,
+                }
+            });
+            let event = super::types::AgentEvent::ToolCallFinished {
+                task_id: parent_task_id.to_string(),
+                tool_call_id: parent_tool_call_id.clone().unwrap_or_default(),
+                output: Some(payload),
+                error_text: None,
+            };
+            if let Ok(json_str) = serde_json::to_string(&event) {
+                let event_str = super::loop_::inject_seq_into_event_json(&json_str, 0);
+                broadcaster.emit(parent_task_id, &event_str);
+            }
+        }
+    });
+}
+
+/// Wait for a child session's terminal status event via SSE.
+/// Returns "completed", "cancelled", or "failed".
+async fn wait_for_child_done(
+    broadcaster: &crate::SseBroadcaster,
+    task_id: &str,
+) -> String {
+    let mut receiver = broadcaster.subscribe(task_id);
+    loop {
+        match receiver.recv().await {
+            Ok(payload) => {
+                if let Some(status) = terminal_status_from_payload(&payload) {
+                    return status;
+                }
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                return "failed".to_string();
+            }
+        }
+    }
+}
+
+/// Parse a SSE payload and return the terminal status string if it's a status event.
+fn terminal_status_from_payload(payload: &str) -> Option<String> {
+    let parsed: serde_json::Value = serde_json::from_str(payload).ok()?;
+    if parsed.get("type").and_then(serde_json::Value::as_str) != Some("status") {
+        return None;
+    }
+    let status = parsed.get("status").and_then(serde_json::Value::as_str)?;
+    match status {
+        "Completed" => Some("completed".to_string()),
+        "Cancelled" => Some("cancelled".to_string()),
+        "Failed" => Some("failed".to_string()),
+        _ => None,
+    }
+}
+
+/// Read the last assistant message from a session as a summary (Q2).
+/// Skips compact markers — only real assistant content is returned.
+fn read_last_assistant_message(
+    db: &Arc<Mutex<crate::db::Database>>,
+    session_id: &str,
+) -> Option<String> {
+    let Ok(db) = db.lock() else { return None };
+    let Ok(messages) = crate::db::session_store::get_messages_by_session(&db, session_id) else {
+        return None;
+    };
+    messages
+        .iter()
+        .rev()
+        .find(|m| m.role == "assistant" && m.message_kind.as_deref() != Some("compact"))
+        .map(|m| m.content.clone())
+        .filter(|c| !c.trim().is_empty())
 }
 
 fn collect_subagent_event(

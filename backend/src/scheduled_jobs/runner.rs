@@ -3,11 +3,7 @@ use std::time::Duration;
 
 use tokio::sync::broadcast;
 
-use crate::db::{
-    records::{current_timestamp_ms, SessionRecord},
-    session_store::{get_message, new_session_id, put_session},
-};
-use crate::http::routes_tool::{start_agent_send_with_task_id, AgentSendParams};
+use crate::db::session_store::get_message;
 use crate::AppState;
 
 use super::active_runs::ActiveScheduledRun;
@@ -39,36 +35,54 @@ pub async fn run_job_by_id(state: Arc<AppState>, job_id: &str) -> Result<bool, S
 
 async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<(), String> {
     let runtime = resolve_job_runtime(&job.provider, &job.model, job.thinking_enabled)?;
-    let session_id = new_session_id();
-    let task_id = uuid::Uuid::new_v4().to_string();
     let workspace_dir = resolve_workspace_dir(job.workspace_dir.as_deref(), &state);
-    let now = current_timestamp_ms();
-    let session_title = derive_automation_session_title(&job, 48);
-    let session = SessionRecord {
-        id: session_id.clone(),
-        title: session_title.clone(),
-        model: job.model.trim().to_string(),
-        provider: runtime.provider.clone(),
-        workspace_dir: workspace_dir.clone(),
-        session_kind: "standard".to_string(),
-        autonomy_mode: "interactive".to_string(),
-        decision_policy_version: "mvp-v1".to_string(),
-        decision_model: None,
-        parent_session_id: None,
-        plan_file_name: None,
-        plan_built_at: None,
-        context_usage_snapshot: None,
-        pinned_at: None,
-        created_at: now,
-        updated_at: now,
-    };
 
+    // Spawn the session via the unified entry point (Q8: merge with SubAgent).
+    // spawn_session creates the SessionRecord + sends the user message + starts
+    // the agent loop — identical to a normal session, no Automation-specific
+    // execution logic.
+    let spawn_result = crate::agent::spawn::spawn_session(
+        state.clone(),
+        crate::agent::spawn::SpawnSessionOptions {
+            parent_session_id: None,
+            task: job.prompt.clone(),
+            model: job.model.trim().to_string(),
+            workspace_dir,
+            base_url: runtime.base_url,
+            api_key: runtime.api_key,
+            api_key_source: Some(runtime.api_key_source),
+            api_key_env_var: Some(runtime.api_key_env_var),
+            request_extensions: runtime.request_extensions,
+            max_context_tokens: Some(runtime.max_context_tokens),
+            agent_mode: Some(match job.agent_mode {
+                super::types::AgentMode::Agent => "agent".to_string(),
+                super::types::AgentMode::Ask => "ask".to_string(),
+            }),
+            thinking_enabled: Some(job.thinking_enabled),
+            extra_tools: None,
+            autonomy_mode: None,
+            decision_policy_version: None,
+            decision_model: None,
+        },
+    )
+    .await?;
+
+    let session_id = spawn_result.session_id.clone();
+    let task_id = spawn_result.task_id.clone();
+
+    // Apply the "自动化 · " title prefix on top of the derived title.
+    // spawn_session derived the base title from the prompt via
+    // derive_session_title (same as a normal session); Automation adds its
+    // business prefix afterward.
+    let session_title = derive_automation_session_title(&job, 48);
     {
         let db = state
             .db
             .lock()
             .map_err(|_| "Database lock poisoned".to_string())?;
-        put_session(&db, &session)?;
+        let _ = crate::db::session_store::update_session(&db, &session_id, |record| {
+            record.title = session_title.clone();
+        });
     }
 
     start_job_run(&state.db, &job.id, &task_id, &session_id)?;
@@ -84,53 +98,10 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
         job.cron_expression
     );
 
-    let response = start_agent_send_with_task_id(
-        state.clone(),
-        AgentSendParams {
-            session_id: session_id.clone(),
-            content: job.prompt.clone(),
-            images: None,
-            edit_message_id: None,
-            referenced_skills: None,
-            base_url: runtime.base_url,
-            api_key: runtime.api_key,
-            api_key_source: Some(runtime.api_key_source),
-            api_key_env_var: Some(runtime.api_key_env_var),
-            model: job.model.clone(),
-            request_extensions: runtime.request_extensions,
-            max_context_tokens: Some(runtime.max_context_tokens),
-            compact_trigger_threshold: None,
-            agent_mode: Some(match job.agent_mode {
-                super::types::AgentMode::Agent => "agent".to_string(),
-                super::types::AgentMode::Ask => "ask".to_string(),
-            }),
-            thinking_enabled: Some(job.thinking_enabled),
-            models: None,
-            extra_tools: None,
-        },
-        task_id.clone(),
-    )
-    .await
-    .map_err(|(_, message)| message);
-
-    let response = match response {
-        Ok(value) => value,
-        Err(error) => {
-            let _ = finish_job_run(
-                &state.db,
-                &job.id,
-                &task_id,
-                format_failed_summary(&error),
-                RunStatus::Failed,
-            );
-            return Err(error);
-        }
-    };
-
     let active_run = ActiveScheduledRun {
         job_id: job.id.clone(),
         session_id,
-        assistant_message_id: response.assistant_message_id,
+        assistant_message_id: spawn_result.assistant_message_id,
         task_id,
     };
     state

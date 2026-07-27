@@ -100,7 +100,7 @@ import { SkillToolOutput } from "./skill-tool-output";
 import { TodoToolOutput } from "./todo-tool-output";
 import { WebSearchToolOutput } from "./web-search-tool-output";
 import { WorkspaceTreeToolOutput } from "./workspace-tree-tool-output";
-import { SubAgentToolOutput } from "./sub-agent-tool-output";
+import { SubAgentLabel } from "./sub-agent-label";
 
 type ToolInvocationChipProps = {
   invocation: MessageToolInvocation;
@@ -364,7 +364,7 @@ export function ToolInvocationChip({
               state={invocation.state as ToolUIPart["state"]}
             />
           ) : isSubAgentTool ? (
-            <SubAgentToolOutput
+            <SubAgentLabel
               errorText={invocation.errorText}
               input={invocation.input}
               output={invocation.output}

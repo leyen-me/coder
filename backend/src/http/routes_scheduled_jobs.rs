@@ -3,12 +3,10 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
 
-use crate::agent;
 use crate::scheduled_jobs::{
     create_job, delete_job, get_job, list_jobs, run_job_by_id, update_job, CreateJobInput,
     ScheduledJobRecord, UpdateJobInput,
 };
-use crate::tools::shell_kill_by_task;
 use crate::AppState;
 
 #[derive(Deserialize)]
@@ -156,9 +154,11 @@ pub async fn handle_cancel_scheduled_job(
         return Ok(Json(json!({ "ok": true, "cancelled": false })));
     };
 
-    let _ = state.ask_question_registry.cancel(&run.task_id, "Cancelled");
-    let _ = agent::agent_cancel(&state.agent_registry, run.task_id.clone());
-    let _ = shell_kill_by_task(&state.shell_registry, run.task_id.clone());
+    // Q8/Q9: unified cancel path — cancels the session's active task AND
+    // recursively cancels any child sessions (SubAgent). Automation has no
+    // children, so the recursion is a no-op, but the shared path keeps the
+    // two callers consistent.
+    let _ = crate::agent::cancel::cancel_session_and_children(&state, &run.session_id).await;
 
     Ok(Json(json!({
         "ok": true,
