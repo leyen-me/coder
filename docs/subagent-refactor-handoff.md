@@ -47,6 +47,7 @@
 | `2ecc97a` | 延迟 unregister 2 秒修复 race (无效, 详见 §3.2) |
 | `7021934` | **fix: DB 终态回退修复 race** (Closed → 读 DB assistant message status, 真正的修复) |
 | `d43c304` | fix: merge_tool_invocations 保留 background emitter 写入的终态 status (修复刷新回退 running) |
+| `60ad35f` | fix: 关浏览器重开后续跑 — 前端 reconcile spawn status + 后端 session status DB 兜底 (§3.6) |
 
 ### 2.2 新建文件
 
@@ -150,6 +151,32 @@ assistant message `status` 写为 `completed`/`failed`/`cancelled` (registry.rs:
 
 **验证 (待用户回归)**: 子 agent 跑完 → 等父 session 也跑完 → **刷新页面** → Label 应保持 ✓ (不再回退 running)。
 
+### 3.6 关浏览器后重开: 子 agent 完成但 Label 卡 running 的根因与修复 (架构级目标 review 发现)
+
+**目标**: 前端发任务 → 关浏览器 → 后端继续跑 (独立 `tokio::spawn`, 已满足) → 重开浏览器状态还原且续跑。
+
+**架构事实 (review 确认)**:
+- 后端 agent loop = `registry.rs:436` `tokio::spawn`; `spawn_completion_watcher` = `tool_dispatch.rs:2890` `tokio::spawn` → 后端脱离浏览器自治, 关浏览器后仍写 DB + 发 ToolCallFinished 给父 task_id。✓
+- `execute_spawn_subagent` fire-and-forget 立即返回 (`tool_dispatch.rs:2660`) → 父 task run 很快从 registry 移除。
+- SSE 支持 `from_seq` 重放 (`routes_sse.rs` + `event_log`), 但**仅在 run 仍在 registry 时有效**。
+- 前端重开走 `resumeSessionTask` (`agent-store.tsx:671`): 只 `getAgentSessionStatus(parentSessionId)` + `resumeAgentStream(parentTaskId)` → **只续父 session, 不处理 spawn_subagent 子 session**。
+
+**根因**: 若 fire-and-forget 派生子 agent 后关浏览器、子仍在跑, 重开时:
+- 子若在关浏览器期间完成: watcher 已写 DB completed, 重开读 DB 得 completed (§3.5 修复保证不被父 loop 覆盖) → Label ✓。
+- 子若重开时仍在跑、之后才完成: 重开读 DB=running → Label 转圈; 前端只续父 task (父 run 已删, 无直播); 子完成后 watcher 写 DB completed + 发 ToolCallFinished 给父 task_id (run 已删, 事件丢失); 前端**不再回读 DB** → Label 卡 running。✗
+- 关键: 前端 `useSessionData` 的 `subscribeDb` 只订阅**前端本地 DB**, 后端 watcher 在浏览器关闭期间写的 server DB 变更重开时不会触发它 → 必须主动轮询。
+
+**修复** (commit 见 §2.1 最新, 改动 3 个文件):
+1. 后端 `backend/src/db/session_store.rs`: 新增 `latest_assistant_message_status(session_id)` — 读子 session 最新 assistant message 的 DB 状态。
+2. 后端 `backend/src/http/routes_tool.rs`: `handle_agent_session_status` 在 registry 无 run 时回退读 DB 终态 (`{running:false, status}`), 使前端重连后仍能查到子 session 完成状态。
+3. 前端 `frontend/src/features/chat/hooks/use-session-messages.ts`: `useSessionData` 加载完成后枚举仍 running 的 spawn_subagent 子 session, 每 2.5s 轮询 `getAgentSessionStatus(子)`, 一旦终态即 `refresh()` 让 Label 翻状态 (读 DB 中 watcher 已写的终态)。轮询上限 ~10min, 卸载即取消。
+
+**为何这样修**: 后端已把子终态写进 DB (§3.5 保证不被覆盖), 只差前端消费这份权威状态。reconcile 轮询最小侵入, 不动 resume 主流程, 不改既有 SSE 路径; 用户打开子 session 时其自身 `resumeSessionTask` 仍负责直播续跑。
+
+**验证 (待用户回归)**:
+- 场景 A (子关浏览器期间完成): 派生子 agent → 关浏览器 → 等子完成 → 重开父 session → Label 应直接显示 ✓ (读 DB)。
+- 场景 B (子重开后仍跑、之后完成): 派生子 agent → 关浏览器 → 重开父 session (子还在跑, Label 转圈) → 等子完成 → Label 应自动翻 ✓ (reconcile 轮询), 无需手动刷新。
+
 ---
 
 ## 4. 关键代码位置
@@ -172,6 +199,8 @@ assistant message `status` 写为 `completed`/`failed`/`cancelled` (registry.rs:
 | `backend/src/agent/registry.rs` | ~513 | **unregister(&task_id) — race condition 根因** |
 | `backend/src/scheduled_jobs/runner.rs` | ~40 | `execute_job` (Automation 接入 spawn_session) |
 | `backend/src/http/routes_tool.rs` | ~1562 | `handle_agent_cancel` (级联取消子 session) |
+| `backend/src/http/routes_tool.rs` | ~1638 | `handle_agent_session_status` (registry 无 run 时回退 DB 终态, §3.6) |
+| `backend/src/db/session_store.rs` | 新增 | `latest_assistant_message_status(session_id)` (§3.6) |
 
 ### 4.2 前端
 
@@ -180,6 +209,7 @@ assistant message `status` 写为 `completed`/`failed`/`cancelled` (registry.rs:
 | `frontend/src/features/chat/components/sub-agent-label.tsx` | 全文件 | Label 组件 |
 | `frontend/src/features/chat/components/tool-invocation-chip.tsx` | ~103, ~366 | import + 渲染分支 |
 | `frontend/src/lib/db/sessions.ts` | ~132 | listSessions 过滤 parentSessionId |
+| `frontend/src/features/chat/hooks/use-session-messages.ts` | `useSessionData` | spawn_subagent reconcile 轮询 (§3.6) |
 
 ### 4.3 关键类型
 
@@ -246,9 +276,13 @@ await_subagent 工具调用
 
 1. **修复 race condition — `RecvError::Closed` 回退 DB 终态 (代码已提交, 待运行验证)** — §3.3, commit `7021934`
 2. **修复刷新回退 running — 父 loop 持久化覆盖 (代码已提交, 待运行验证)** — §3.5, commit 见 §2.1 最新 (`merge_tool_invocations` 保留终态 `status`)
-3. **验证 (必须用户回归确认才算修复)**:
+3. **修复关浏览器重开后续跑卡 running — 前端 reconcile + 后端 session status DB 兜底 (代码已提交, 待运行验证)** — §3.6, commit 见 §2.1 最新
+4. **验证 (必须用户回归确认才算修复)**:
    - 运行中: 转圈停止后显示 ✓ (completed), await_subagent 返回 status=completed
    - **刷新后: Label 保持 ✓, 不再回退 running** (§3.5 专门验证项)
+   - **关浏览器重开续跑** (§3.6 专门验证项):
+     - 场景 A: 派生子 agent → 关浏览器 → 等子完成 → 重开父 session → Label 直接 ✓
+     - 场景 B: 派生子 agent → 关浏览器 → 重开父 session (子还在跑, 转圈) → 等子完成 → Label 自动翻 ✓ (无需手动刷新)
    - 重点测试: 子 agent 跑完后**过几秒再**调 await_subagent (最容易触发 subscribe-after-emit race 的场景)
 
 ### 6.2 P1 (UI 完善)
