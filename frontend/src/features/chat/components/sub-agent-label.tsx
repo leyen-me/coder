@@ -38,10 +38,22 @@ interface SubAgentInputShape {
 function extractSubAgentData(
   output: unknown,
 ): Record<string, unknown> | null {
-  if (typeof output !== "object" || output === null || Array.isArray(output)) {
+  let value = output;
+
+  // Tolerate a JSON-stringified payload (defensive: some storage/transport
+  // paths may serialize the object as a string).
+  if (typeof value === "string") {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return null;
   }
-  const envelope = output as ToolResultEnvelopeShape;
+  const envelope = value as ToolResultEnvelopeShape;
   if (
     envelope.ok === true &&
     envelope.data &&
@@ -50,7 +62,7 @@ function extractSubAgentData(
     return envelope.data as Record<string, unknown>;
   }
   // Bare payload (no envelope wrapper) — treat output itself as data.
-  return output as Record<string, unknown>;
+  return value as Record<string, unknown>;
 }
 
 /**
