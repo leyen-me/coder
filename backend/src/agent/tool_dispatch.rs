@@ -2793,11 +2793,17 @@ fn emit_spawn_subagent_status_update(
     //    Scan all messages in the parent session to find the one containing
     //    the spawn_subagent invocation (by tool_call_id match).
     if let (Some(tool_call_id), Some(session_id)) = (spawn_tool_call_id, parent_session_id) {
+        log::info!(
+            "emit_spawn_status: updating tool_call_id={} session_id={} status={}",
+            tool_call_id,
+            session_id,
+            status
+        );
         let db_guard = app_state.db.lock().ok();
         if let Some(db) = db_guard {
             if let Ok(messages) = crate::db::session_store::get_messages_by_session(&db, session_id) {
+                let mut found = false;
                 for mut msg in messages {
-                    let mut found = false;
                     for inv in msg.tool_invocations.iter_mut() {
                         if inv.id == tool_call_id {
                             if let Some(ref mut output) = inv.output {
@@ -2813,12 +2819,27 @@ fn emit_spawn_subagent_status_update(
                         }
                     }
                     if found {
+                        log::info!(
+                            "emit_spawn_status: found invocation, persisting to DB"
+                        );
                         let _ = crate::db::session_store::put_message(&db, &msg, false);
                         break;
                     }
                 }
+                if !found {
+                    log::warn!(
+                        "emit_spawn_status: invocation not found in {} messages",
+                        "session"
+                    );
+                }
             }
         }
+    } else {
+        log::warn!(
+            "emit_spawn_status: missing tool_call_id={:?} or session_id={:?}",
+            spawn_tool_call_id,
+            parent_session_id
+        );
     }
 
     // 2. Emit ToolCallFinished event for real-time frontend update.
@@ -2968,11 +2989,22 @@ async fn wait_for_child_done_with_receiver(
         match receiver.recv().await {
             Ok(payload) => {
                 if let Some(status) = terminal_status_from_payload(&payload) {
+                    log::info!(
+                        "subagent_wait_done status={} via Status event",
+                        status
+                    );
                     return status;
                 }
             }
-            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                log::warn!("subagent_wait_lagged n={}", n);
+                continue;
+            }
             Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                log::warn!(
+                    "subagent_wait_closed: channel closed before Status event \
+                     (likely unregister in registry.rs:513 raced ahead)"
+                );
                 return "failed".to_string();
             }
         }
