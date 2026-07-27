@@ -3016,7 +3016,37 @@ async fn wait_for_child_done(
     session_id: &str,
     task_id: &str,
 ) -> String {
+    // The DB is the authoritative source of completion. The broadcast channel
+    // is unreliable here: if the child has ALREADY finished and its topic was
+    // unregistered, `subscribe` lazily CREATES a brand-new empty channel that
+    // will never emit a terminal event and will never close — so awaiting it
+    // would spin forever. This is exactly the parallel case: while we wait for
+    // the first child, the second may complete and be unregistered before we
+    // even subscribe to it. Check the DB first and bail out immediately.
+    if let Some(status) = read_child_db_terminal_status(&app_state.db, session_id, task_id) {
+        log::info!(
+            "subagent_wait_done status={} via DB pre-check (task_id={})",
+            status,
+            task_id
+        );
+        return status;
+    }
+
     let mut receiver = app_state.sse_broadcaster.subscribe(task_id);
+
+    // Re-check after subscribing to close the race window where the child
+    // completed + unregistered between the first DB check and the subscribe
+    // call. If it's already terminal now, this fresh channel will never
+    // deliver/close for us, so return immediately.
+    if let Some(status) = read_child_db_terminal_status(&app_state.db, session_id, task_id) {
+        log::info!(
+            "subagent_wait_done status={} via DB post-subscribe (task_id={})",
+            status,
+            task_id
+        );
+        return status;
+    }
+
     wait_for_child_done_with_receiver(app_state, session_id, task_id, &mut receiver).await
 }
 
@@ -3030,53 +3060,74 @@ async fn wait_for_child_done_with_receiver(
     receiver: &mut tokio::sync::broadcast::Receiver<String>,
 ) -> String {
     loop {
-        match receiver.recv().await {
-            Ok(payload) => {
-                if let Some(status) = terminal_status_from_payload(&payload) {
+        tokio::select! {
+            received = receiver.recv() => {
+                match received {
+                    Ok(payload) => {
+                        if let Some(status) = terminal_status_from_payload(&payload) {
+                            log::info!(
+                                "subagent_wait_done status={} via Status event (task_id={})",
+                                status,
+                                task_id
+                            );
+                            return status;
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                        log::warn!("subagent_wait_lagged task_id={} n={}", task_id, n);
+                        continue;
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        // Channel closed (unregister raced ahead, OR we subscribed
+                        // after the child already emitted its Status event). The
+                        // authoritative terminal status is already in the DB —
+                        // poll it briefly.
+                        log::warn!(
+                            "subagent_wait_closed: channel closed (task_id={}); falling back to DB status",
+                            task_id
+                        );
+                        for attempt in 0..10 {
+                            if let Some(status) =
+                                read_child_db_terminal_status(&app_state.db, session_id, task_id)
+                            {
+                                log::info!(
+                                    "subagent_wait_done status={} via DB (task_id={})",
+                                    status,
+                                    task_id
+                                );
+                                return status;
+                            }
+                            // DB not yet terminal — wait a tick and retry (defensive;
+                            // in practice the DB write happens before channel close).
+                            let _ = attempt;
+                            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                        }
+                        // Nothing terminal in DB after the budget — give up safely.
+                        // Returning "failed" is preferable to spinning forever; this
+                        // branch should be unreachable in normal operation.
+                        log::warn!(
+                            "subagent_wait_closed: no terminal status in DB after retries (task_id={}); returning failed",
+                            task_id
+                        );
+                        return "failed".to_string();
+                    }
+                }
+            }
+            // Defensive backstop: if the channel is somehow stuck open and never
+            // delivers a terminal status (e.g. a fresh empty channel that will
+            // never close), poll the authoritative DB so await_subagent can never
+            // spin forever.
+            _ = tokio::time::sleep(std::time::Duration::from_secs(2)) => {
+                if let Some(status) =
+                    read_child_db_terminal_status(&app_state.db, session_id, task_id)
+                {
                     log::info!(
-                        "subagent_wait_done status={} via Status event (task_id={})",
+                        "subagent_wait_done status={} via periodic DB check (task_id={})",
                         status,
                         task_id
                     );
                     return status;
                 }
-            }
-            Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                log::warn!("subagent_wait_lagged task_id={} n={}", task_id, n);
-                continue;
-            }
-            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                // Channel closed (unregister raced ahead, OR we subscribed after
-                // the child already emitted its Status event). The authoritative
-                // terminal status is already in the DB — poll it briefly.
-                log::warn!(
-                    "subagent_wait_closed: channel closed (task_id={}); falling back to DB status",
-                    task_id
-                );
-                for attempt in 0..10 {
-                    if let Some(status) =
-                        read_child_db_terminal_status(&app_state.db, session_id, task_id)
-                    {
-                        log::info!(
-                            "subagent_wait_done status={} via DB (task_id={})",
-                            status,
-                            task_id
-                        );
-                        return status;
-                    }
-                    // DB not yet terminal — wait a tick and retry (defensive;
-                    // in practice the DB write happens before channel close).
-                    let _ = attempt;
-                    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-                }
-                // Nothing terminal in DB after the budget — give up safely.
-                // Returning "failed" is preferable to spinning forever; this
-                // branch should be unreachable in normal operation.
-                log::warn!(
-                    "subagent_wait_closed: no terminal status in DB after retries (task_id={}); returning failed",
-                    task_id
-                );
-                return "failed".to_string();
             }
         }
     }
@@ -3089,10 +3140,12 @@ fn terminal_status_from_payload(payload: &str) -> Option<String> {
         return None;
     }
     let status = parsed.get("status").and_then(serde_json::Value::as_str)?;
-    match status {
-        "Completed" => Some("completed".to_string()),
-        "Cancelled" => Some("cancelled".to_string()),
-        "Failed" => Some("failed".to_string()),
+    // Case-insensitive: the child serializes AgentStatus as "Completed"/etc.,
+    // but be tolerant in case the casing differs.
+    match status.to_ascii_lowercase().as_str() {
+        "completed" => Some("completed".to_string()),
+        "cancelled" => Some("cancelled".to_string()),
+        "failed" => Some("failed".to_string()),
         _ => None,
     }
 }
@@ -3708,7 +3761,7 @@ fn current_timestamp_ms() -> u64 {
 mod tests {
     use super::{
         all_tool_names, ask_question_timeout_message, get_tool_definitions,
-        resolve_ask_question_timeout_ms, validate_ask_question_args,
+        resolve_ask_question_timeout_ms, terminal_status_from_payload, validate_ask_question_args,
         AskQuestionArgs, AskQuestionItem, AskQuestionOption, AutomationIdArgs,
         CreateAutomationArgs, DISABLED_AGENT_TOOL_NAMES, DEFAULT_ASK_QUESTION_TIMEOUT_MS,
         UpdateAutomationArgs,
@@ -3721,6 +3774,44 @@ mod tests {
             .into_iter()
             .map(|tool| tool.function.name)
             .collect()
+    }
+
+    #[test]
+    fn terminal_status_from_payload_is_case_insensitive_and_selective() {
+        // What the child actually serializes (AgentStatus::Completed -> "Completed").
+        assert_eq!(
+            terminal_status_from_payload(r#"{"type":"status","status":"Completed"}"#).as_deref(),
+            Some("completed")
+        );
+        // Defensive: tolerate lower-case too.
+        assert_eq!(
+            terminal_status_from_payload(r#"{"type":"status","status":"completed"}"#).as_deref(),
+            Some("completed")
+        );
+        assert_eq!(
+            terminal_status_from_payload(r#"{"type":"status","status":"Cancelled"}"#).as_deref(),
+            Some("cancelled")
+        );
+        assert_eq!(
+            terminal_status_from_payload(r#"{"type":"status","status":"Failed"}"#).as_deref(),
+            Some("failed")
+        );
+        // Non-status events are ignored.
+        assert_eq!(
+            terminal_status_from_payload(r#"{"type":"content","delta":"x"}"#),
+            None
+        );
+        // Non-terminal status is ignored (so the await keeps waiting).
+        assert_eq!(
+            terminal_status_from_payload(r#"{"type":"status","status":"Running"}"#),
+            None
+        );
+        assert_eq!(
+            terminal_status_from_payload(r#"{"type":"status","status":"Pending"}"#),
+            None
+        );
+        // Malformed payload is ignored.
+        assert_eq!(terminal_status_from_payload("not json"), None);
     }
 
     #[test]
