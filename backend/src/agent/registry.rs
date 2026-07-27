@@ -510,7 +510,17 @@ impl AgentRegistry {
                 );
             }
 
-            emit_broadcaster.unregister(&task_id);
+            // Delay unregister to give subscribers time to consume the final
+            // Status event. Without this, the channel closes immediately
+            // after emit, and receivers may see RecvError::Closed before
+            // polling the Status event from their buffer (race condition).
+            // This particularly affects SubAgent's wait_for_child_done.
+            let delayed_bc = emit_broadcaster.clone();
+            let delayed_task_id = task_id.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                delayed_bc.unregister(&delayed_task_id);
+            });
 
             if let Ok(mut registry) = registry.lock() {
                 registry.remove_run(&task_id);
