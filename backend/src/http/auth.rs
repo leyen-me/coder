@@ -49,16 +49,17 @@ fn extract_token_from_cookie(headers: &axum::http::HeaderMap) -> Option<String> 
 
 /// Build a `Set-Cookie` header value for the token.
 fn set_cookie_header(value: &str) -> String {
-    // 10 years — effectively permanent.
+    // Max-Age = 10 years — effectively permanent.
+    // `Secure` is safe on both HTTPS and localhost (browsers accept it).
     format!(
-        "{COOKIE_NAME}={value}; HttpOnly; SameSite=Lax; Path=/; Max-Age=315360000"
+        "{COOKIE_NAME}={value}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=315360000"
     )
 }
 
 /// Build a `Set-Cookie` header that clears the token (logout).
 fn clear_cookie_header() -> String {
     format!(
-        "{COOKIE_NAME}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"
+        "{COOKIE_NAME}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0"
     )
 }
 
@@ -91,11 +92,7 @@ async fn handle_login(Json(body): Json<LoginRequest>) -> Response {
     let expected = match expected_token() {
         Some(t) => t,
         None => {
-            return (
-                StatusCode::FORBIDDEN,
-                "Password authentication is not configured",
-            )
-                .into_response();
+            return (StatusCode::NOT_FOUND, "Not found").into_response();
         }
     };
 
