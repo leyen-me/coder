@@ -6,16 +6,23 @@ import { SkillsPage } from "@/features/skills/pages/skills-page";
 import { SettingsPage } from "@/features/settings/pages/settings-page";
 
 import { AppShell } from "./app-shell";
+import { LoginPage } from "./login-page";
 import { MainLayout } from "./main-layout";
 import { NotFoundPage } from "./not-found-page";
 import { paths } from "./paths";
 import { RouteErrorPage } from "./route-error-page";
+import { authGuardLoader } from "./auth-guard";
 
 export const router = createBrowserRouter([
+  {
+    path: paths.login,
+    element: <LoginPage />,
+  },
   {
     path: paths.home,
     element: <AppShell />,
     errorElement: <RouteErrorPage />,
+    loader: authGuardLoader,
     children: [
       { index: true, element: <Navigate to={paths.chatNew} replace /> },
       {

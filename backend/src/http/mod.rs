@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod routes_tool;
 pub mod routes_db;
 pub mod routes_skills;
@@ -166,4 +167,11 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .layer(DefaultBodyLimit::disable())
         .layer(cors)
         .with_state(state)
+}
+
+/// Build the full HTTP router with optional auth layer.
+/// When `CODER_PASSWORD` is set, auth middleware protects all `/api/*` routes.
+pub fn build_router_with_auth(state: Arc<AppState>) -> Router {
+    let router = build_router(state);
+    auth::apply(router)
 }

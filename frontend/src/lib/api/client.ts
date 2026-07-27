@@ -145,3 +145,26 @@ export async function apiGetText(
   }
   return response.text();
 }
+
+// ── Auth helpers ────────────────────────────────────────────────────────
+
+/** Check whether the current session is authenticated. */
+export async function apiAuthStatus(): Promise<{ authenticated: boolean }> {
+  const response = await fetch(`${getApiBase()}/api/auth/status`, {
+    method: "GET",
+  });
+  if (!response.ok) {
+    return { authenticated: false };
+  }
+  return response.json();
+}
+
+/** Submit the password for login. Returns true on success. */
+export async function apiLogin(password: string): Promise<boolean> {
+  const response = await fetch(`${getApiBase()}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  return response.ok;
+}

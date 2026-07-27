@@ -105,7 +105,7 @@ pub async fn start_server(opts: ServerOptions) -> Result<RunningServer, String> 
     let state = initialize_app_state(&workspace_dir, local_url.clone());
     crate::scheduled_jobs::spawn_scheduler(state.clone());
 
-    let app = crate::http::build_router(state.clone());
+    let app = crate::http::build_router_with_auth(state.clone());
     let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
 
     let join_handle = tokio::spawn(async move {
