@@ -1639,7 +1639,7 @@ pub async fn handle_agent_session_status(
     Path(session_id): Path<String>,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let result = agent::agent_get_session_status(&state.agent_registry, session_id)
+    let result = agent::agent_get_session_status(&state.agent_registry, session_id.clone())
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     let payload = match result {
         Some(status) => serde_json::json!({
@@ -1648,9 +1648,25 @@ pub async fn handle_agent_session_status(
             "status": status.status,
             "lastSeq": status.last_seq,
         }),
-        None => serde_json::json!({
-            "running": false,
-        }),
+        None => {
+            // The run is not tracked in the registry (finished/cancelled, or
+            // this process never hosted it). Fall back to the DB so callers can
+            // still learn the terminal status — required for resuming after a
+            // browser reconnect where the live SSE replay is unavailable.
+            let db_status = state
+                .db
+                .lock()
+                .ok()
+                .and_then(|db| {
+                    crate::db::session_store::latest_assistant_message_status(&db, &session_id)
+                        .ok()
+                        .flatten()
+                });
+            match db_status {
+                Some(status) => serde_json::json!({ "running": false, "status": status }),
+                None => serde_json::json!({ "running": false }),
+            }
+        }
     };
     Ok(Json(payload))
 }

@@ -209,6 +209,23 @@ pub fn find_assistant_message_by_task_id(
         .find(|message| message.role == "assistant" && message.task_id.as_deref() == Some(task_id)))
 }
 
+/// Returns the status of the most recent assistant message for a session.
+///
+/// Used to report a terminal status when the live run is no longer tracked in
+/// the registry (e.g. the browser reconnected after the run finished), so the
+/// frontend can reconcile `spawn_subagent` Labels without a live SSE replay.
+pub fn latest_assistant_message_status(
+    db: &Database,
+    session_id: &str,
+) -> Result<Option<String>, String> {
+    let messages = get_messages_by_session(db, session_id)?;
+    Ok(messages
+        .iter()
+        .filter(|m| m.role == "assistant")
+        .last()
+        .map(|m| m.status.clone()))
+}
+
 pub fn get_agent_todos_by_session(
     db: &Database,
     session_id: &str,

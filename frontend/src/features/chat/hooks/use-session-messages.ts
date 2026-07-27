@@ -10,6 +10,7 @@ import {
   type MessageRecord,
   type SessionRecord,
 } from "@/lib/db";
+import { getAgentSessionStatus } from "@/features/agent/runner";
 
 const DB_REFRESH_DEBOUNCE_MS = 150;
 
@@ -190,6 +191,8 @@ export function useSessionData(sessionId: string) {
   const streamingOverlays = useStreamingMessageOverlays();
   const [session, setSession] = useState<SessionRecord | null>(null);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
   const [isLoading, setIsLoading] = useState(true);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRefreshRef = useRef(false);
@@ -314,6 +317,100 @@ export function useSessionData(sessionId: string) {
     pendingRefreshRef.current = false;
     void refresh();
   }, [hasStreamingOverlayForSession, refresh]);
+
+  // Reconcile spawn_subagent invocation statuses against the authoritative DB.
+  //
+  // A child spawned via spawn_subagent runs as an independent backend session.
+  // If the browser is closed while the child is still running and reopened
+  // later, the child's ToolCallFinished SSE is lost (the parent run is already
+  // removed from the registry), so the Label would stay stuck on "running"
+  // even after the child finished. The backend watcher does write the terminal
+  // status into the parent message in DB, so we poll each still-running child's
+  // session status and refresh once it reaches a terminal state.
+  const spawnReconcileTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const spawnReconcileCancelled = useRef(false);
+  useEffect(() => {
+    if (!sessionId || isLoading) {
+      return;
+    }
+    spawnReconcileCancelled.current = false;
+
+    const RECONCILE_INTERVAL_MS = 2500;
+    const MAX_ATTEMPTS = 240; // ~10 min safety cap
+
+    const extractSpawn = (
+      output: unknown,
+    ): { sessionId?: string; status?: string } | null => {
+      if (!output || typeof output !== "object") return null;
+      const o = output as Record<string, unknown>;
+      if (typeof o.sessionId === "string") {
+        return {
+          sessionId: o.sessionId,
+          status: typeof o.status === "string" ? o.status : undefined,
+        };
+      }
+      const data = o.data as Record<string, unknown> | undefined;
+      if (data && typeof data.sessionId === "string") {
+        return {
+          sessionId: data.sessionId,
+          status: typeof data.status === "string" ? data.status : undefined,
+        };
+      }
+      return null;
+    };
+
+    const running: { sessionId: string; toolCallId: string }[] = [];
+    for (const msg of messagesRef.current) {
+      for (const inv of msg.toolInvocations ?? []) {
+        if (inv.name !== "spawn_subagent") continue;
+        const spawn = extractSpawn(inv.output);
+        if (!spawn?.sessionId) continue;
+        if (spawn.status && spawn.status !== "running") continue;
+        if (spawnReconcileTimers.current.has(inv.id)) continue;
+        running.push({
+          sessionId: spawn.sessionId,
+          toolCallId: inv.id,
+        });
+      }
+    }
+
+    running.forEach(({ sessionId: childSessionId, toolCallId }) => {
+      let attempts = 0;
+      const poll = async () => {
+        if (spawnReconcileCancelled.current) return;
+        attempts += 1;
+        try {
+          const statusResp = await getAgentSessionStatus(childSessionId);
+          const s = statusResp?.status;
+          if (s && s !== "running" && s !== "streaming" && s !== "pending") {
+            spawnReconcileTimers.current.delete(toolCallId);
+            // Re-read the parent message from DB where the watcher already wrote
+            // the terminal status onto the spawn_subagent invocation.
+            void refresh();
+            return;
+          }
+        } catch {
+          // ignore and retry
+        }
+        if (attempts >= MAX_ATTEMPTS) {
+          spawnReconcileTimers.current.delete(toolCallId);
+          return;
+        }
+        const timer = setTimeout(poll, RECONCILE_INTERVAL_MS);
+        spawnReconcileTimers.current.set(toolCallId, timer);
+      };
+      const timer = setTimeout(poll, RECONCILE_INTERVAL_MS);
+      spawnReconcileTimers.current.set(toolCallId, timer);
+    });
+
+    return () => {
+      spawnReconcileCancelled.current = true;
+      for (const timer of spawnReconcileTimers.current.values()) {
+        clearTimeout(timer);
+      }
+      spawnReconcileTimers.current.clear();
+    };
+  }, [sessionId, isLoading, refresh]);
 
   return { session, messages, isLoading, refresh };
 }
