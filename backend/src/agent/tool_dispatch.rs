@@ -2773,47 +2773,50 @@ async fn execute_await_subagent(
 /// Update the parent's spawn_subagent invocation output status: persists to
 /// DB (survives page reload) AND emits a ToolCallFinished event (real-time
 /// frontend update). Called from execute_await_subagent (primary path).
+///
+/// IMPORTANT: spawn_subagent and await_subagent may be on DIFFERENT assistant
+/// messages (different turns). We cannot use ctx.tool_result_message_id (which
+/// points to await_subagent's message). Instead, we scan all messages in the
+/// parent session to find the one containing the spawn_subagent invocation by
+/// tool_call_id.
 fn emit_spawn_subagent_status_update(
     app_state: &Arc<crate::AppState>,
     parent_task_id: Option<&str>,
     parent_session_id: Option<&str>,
     spawn_tool_call_id: Option<&str>,
-    parent_message_id: Option<&str>,
+    _parent_message_id: Option<&str>,
     child_session_id: &str,
     handle_id: &str,
     status: &str,
 ) {
     // 1. Persist to DB so the status survives page reload.
-    if let Some(tool_call_id) = spawn_tool_call_id {
+    //    Scan all messages in the parent session to find the one containing
+    //    the spawn_subagent invocation (by tool_call_id match).
+    if let (Some(tool_call_id), Some(session_id)) = (spawn_tool_call_id, parent_session_id) {
         let db_guard = app_state.db.lock().ok();
         if let Some(db) = db_guard {
-            let mut msg = parent_message_id
-                .and_then(|id| crate::db::session_store::get_message(&db, id).ok())
-                .flatten();
-            if msg.is_none() {
-                msg = crate::db::session_store::find_assistant_message_by_task_id(
-                    &db,
-                    parent_session_id,
-                    parent_task_id.unwrap_or(""),
-                )
-                .ok()
-                .flatten();
-            }
-            if let Some(mut msg) = msg {
-                for inv in msg.tool_invocations.iter_mut() {
-                    if inv.id == tool_call_id {
-                        if let Some(ref mut output) = inv.output {
-                            if let Some(obj) = output.as_object_mut() {
-                                obj.insert(
-                                    "status".to_string(),
-                                    Value::String(status.to_string()),
-                                );
+            if let Ok(messages) = crate::db::session_store::get_messages_by_session(&db, session_id) {
+                for mut msg in messages {
+                    let mut found = false;
+                    for inv in msg.tool_invocations.iter_mut() {
+                        if inv.id == tool_call_id {
+                            if let Some(ref mut output) = inv.output {
+                                if let Some(obj) = output.as_object_mut() {
+                                    obj.insert(
+                                        "status".to_string(),
+                                        Value::String(status.to_string()),
+                                    );
+                                    found = true;
+                                }
                             }
+                            break;
                         }
+                    }
+                    if found {
+                        let _ = crate::db::session_store::put_message(&db, &msg, false);
                         break;
                     }
                 }
-                let _ = crate::db::session_store::put_message(&db, &msg, false);
             }
         }
     }

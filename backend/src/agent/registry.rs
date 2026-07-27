@@ -453,7 +453,15 @@ impl AgentRegistry {
                 match &result {
                     Ok(()) => AgentStatus::Completed,
                     Err(AgentLoopError::Cancelled) => AgentStatus::Cancelled,
-                    Err(_) => AgentStatus::Failed,
+                    Err(e) => {
+                        log::error!(
+                            "agent_loop_failed task_id={} session_id={} error={:?}",
+                            task_id,
+                            session_id.as_deref().unwrap_or("?"),
+                            e
+                        );
+                        AgentStatus::Failed
+                    }
                 }
             };
 
