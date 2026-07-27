@@ -44,7 +44,8 @@
 | `a60e706` | bugfix: emit_spawn_subagent_status_update 加 DB 持久化 |
 | `7030d9a` | bugfix: 遍历 session messages 查找 invocation + registry.rs 失败日志 |
 | `1283ad3` | 诊断日志: wait_for_child_done + emit_spawn_status |
-| `2ecc97a` | 延迟 unregister 2 秒修复 race (用户报告仍未解决) |
+| `2ecc97a` | 延迟 unregister 2 秒修复 race (无效, 详见 §3.2) |
+| `7021934` | **fix: DB 终态回退修复 race** (Closed → 读 DB assistant message status, 真正的修复) |
 
 ### 2.2 新建文件
 
