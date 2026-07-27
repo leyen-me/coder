@@ -1179,30 +1179,63 @@ fn persist_message_snapshot(
     crate::db::session_store::put_message(&db, &message, false).map_err(AgentLoopError::Other)
 }
 
-/// Merges `state_invocations` into `db_invocations` but preserves any
-/// `__progress` field inside `output.data` that exists on the DB side
-/// but is absent from the state (because background progress emitters
-/// write to the DB directly between persist snapshots).
+/// Merges `state_invocations` into `db_invocations` but preserves fields that
+/// background emitters wrote directly to the DB between snapshots — these are
+/// not reflected in the loop's in-memory `state` and would otherwise be
+/// clobbered back to their initial value.
+///
+/// Specifically:
+/// - `__progress` (output top level): written by streaming progress emitters.
+/// - `status` (output top level): written by `spawn_subagent`'s completion
+///   path (`emit_spawn_subagent_status_update`) once the child session reaches
+///   a terminal state. The loop's in-memory copy stays `"running"` forever,
+///   so without this preservation the parent message would revert to "running"
+///   on reload even though the child already completed.
 fn merge_tool_invocations(
     db_invocations: &mut Vec<MessageToolInvocation>,
     state_invocations: &[MessageToolInvocation],
 ) {
-    // Collect per-invocation __progress from the existing DB record.
-    // __progress lives at output top level (not nested under "data").
-    let mut progress_by_id: HashMap<String, serde_json::Value> = HashMap::new();
+    // Collect per-invocation background-written fields from the existing DB record.
+    let mut preserve_by_id: HashMap<String, (Option<serde_json::Value>, Option<String>)> =
+        HashMap::new();
     for inv in db_invocations.iter() {
+        let mut progress = None;
+        let mut status = None;
         if let Some(output) = inv.output.as_ref().and_then(|o| o.as_object()) {
             if let Some(prog) = output.get("__progress") {
-                progress_by_id.insert(inv.id.clone(), prog.clone());
+                progress = Some(prog.clone());
+            }
+            // Only preserve terminal statuses written by background emitters;
+            // a child session moves running -> completed/cancelled/failed, never
+            // the reverse. We never downgrade a terminal status to "running".
+            if let Some(s) = output.get("status").and_then(|v| v.as_str()) {
+                if matches!(s, "completed" | "cancelled" | "failed") {
+                    status = Some(s.to_string());
+                }
             }
         }
+        preserve_by_id.insert(inv.id.clone(), (progress, status));
     }
     *db_invocations = state_invocations.to_vec();
-    // Reapply any preserved __progress into the state's invocations.
+    // Reapply any preserved fields into the state's invocations.
     for inv in db_invocations.iter_mut() {
-        if let Some(prog) = progress_by_id.remove(&inv.id) {
+        if let Some((progress, status)) = preserve_by_id.remove(&inv.id) {
             if let Some(output) = inv.output.as_mut().and_then(|o| o.as_object_mut()) {
-                output.insert("__progress".to_string(), prog);
+                if let Some(prog) = progress {
+                    output.insert("__progress".to_string(), prog);
+                }
+                if let Some(s) = status {
+                    // Don't override a terminal status already present in the
+                    // loop's in-memory copy (it would only ever be more accurate).
+                    let state_terminal = output
+                        .get("status")
+                        .and_then(|v| v.as_str())
+                        .map(|st| matches!(st, "completed" | "cancelled" | "failed"))
+                        .unwrap_or(false);
+                    if !state_terminal {
+                        output.insert("status".to_string(), serde_json::Value::String(s));
+                    }
+                }
             }
         }
     }
