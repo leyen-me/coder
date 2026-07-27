@@ -61,9 +61,6 @@ function SubAgentPanelHeader({ sessionId, onClose }: SubAgentPanelHeaderProps) {
 
   return (
     <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-        子 Agent
-      </span>
       <span className="min-w-0 flex-1 truncate text-sm font-medium" title={title}>
         {title}
       </span>
@@ -71,7 +68,7 @@ function SubAgentPanelHeader({ sessionId, onClose }: SubAgentPanelHeaderProps) {
         type="button"
         onClick={onClose}
         className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-        aria-label="关闭子 agent 面板"
+        aria-label="关闭面板"
       >
         <X className="h-4 w-4" />
       </button>
