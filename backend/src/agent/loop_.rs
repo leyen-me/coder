@@ -1270,7 +1270,7 @@ fn upsert_compact_process_step(
     steps: &mut Vec<MessageProcessStep>,
     patch: CompactProcessStepPatch<'_>,
 ) {
-    let preview: String = patch.preview.chars().take(160).collect();
+    let preview: String = patch.preview.to_string();
     let compact_message_id = patch.compact_message_id.map(str::to_string);
     let id = compact_message_id
         .as_deref()
