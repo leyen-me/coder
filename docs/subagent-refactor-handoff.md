@@ -75,11 +75,14 @@
 
 ## 3. 未解决的问题 (核心 bug)
 
-### 3.1 现象 (已全部修复 ✅)
+### 3.1 现象 (代码已修复, 待用户运行验证 ⏳)
 
-1. ~~子 agent 正常完成后, Label 显示 ✗ (failed) 而非 ✓ (completed)~~ → 现在显示 ✓
-2. ~~await_subagent 返回 `status: "failed"`~~ → 现在返回正确的 `completed`/`cancelled`/`failed`
-3. ~~刷新页面后, Label 回到转圈 (status 回到 "running")~~ → DB 现在写入正确的终态, 刷新保持 ✓
+> **状态说明**: 以下为本轮代码改动的**预期效果**, 尚未经用户实际运行回归确认。
+> 编译通过 ≠ 已修复 —— 必须以用户在 `pnpm dev:server` 重新编译并实测的结果为准。
+
+1. 子 agent 正常完成后, Label **应**显示 ✓ (completed) 而非 ✗ (failed) — 代码改为读 DB 终态, 待验证
+2. await_subagent **应**返回正确的 `completed`/`cancelled`/`failed` — 待验证
+3. 刷新页面后 Label **应**保持终态 (不再回到 running) — DB 现写正确终态, 待验证
 
 ### 3.2 根因 (已定位 + 已修复)
 
@@ -218,8 +221,8 @@ await_subagent 工具调用
 
 ### 6.1 P0 剩余 (必须先解决)
 
-1. ✅ **修复 race condition** — 采用 §3.3 的 DB 终态回退方案 (已 commit)
-2. **验证** (待用户回归): 转圈停止后显示 ✓ (completed), 刷新后保持 ✓, await_subagent 返回 status=completed
+1. **修复 race condition (代码已提交, 待运行验证)** — 采用 §3.3 的 DB 终态回退方案 (commit `7021934`)
+2. **验证 (必须用户回归确认才算修复)**: 转圈停止后显示 ✓ (completed), 刷新后保持 ✓, await_subagent 返回 status=completed
    - 重点测试: 子 agent 跑完后**过几秒再**调 await_subagent (最容易触发 subscribe-after-emit race 的场景)
 
 ### 6.2 P1 (UI 完善)
