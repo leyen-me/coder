@@ -1,60 +1,48 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { X } from "lucide-react";
 
 import { ChatSessionView } from "../views/chat-session-view";
 import { useSubAgentPanel } from "../store/sub-agent-panel-store";
 import { getSession } from "@/lib/db/sessions";
-import { cn } from "@/lib/utils";
 
 /**
- * Right-hand panel that shows one or more SubAgent (child) sessions side by
- * side with the parent session. Clicking a SubAgent Label opens the child
- * here instead of navigating away, so the parent conversation stays visible.
+ * Right-hand panel that shows a single SubAgent (child) session alongside the
+ * parent. Clicking a SubAgent Label opens the child here (replacing any
+ * previously open child) instead of navigating away, so the parent
+ * conversation stays visible.
  *
- * Each open child is rendered with a full `ChatSessionView` instance — it runs
- * its own `useSessionData` / `resumeSessionTask` / reconcile, fully isolated by
- * `sessionId`. The panel itself holds no session logic beyond which children
- * are open and which is active.
+ * The panel is read-only: the child is rendered with `ChatSessionView
+ * readOnly`, so there is no composer and the user cannot send a new prompt —
+ * they can only watch it run (and pause it via the info bar). Only one child
+ * is shown at a time; clicking a different Label unmounts the current child
+ * and mounts the new one.
  */
-export function SubAgentPanel() {
-  const { openChildIds, activeChildId, closeChild, setActiveChild } =
-    useSubAgentPanel();
+export function SubAgentPanel({ style }: { style?: CSSProperties }) {
+  const { childSessionId, closeChild } = useSubAgentPanel();
 
-  if (openChildIds.length === 0) {
+  if (!childSessionId) {
     return null;
   }
 
-  // When the active child was closed, fall back to the most recently opened.
-  const active = activeChildId ?? openChildIds[openChildIds.length - 1];
-
   return (
-    <aside className="flex h-full w-[440px] shrink-0 flex-col border-l border-border bg-background">
-      <div className="flex items-center gap-1 overflow-x-auto border-b border-border px-2 py-1">
-        {openChildIds.map((id) => (
-          <ChildTab
-            key={id}
-            sessionId={id}
-            active={id === active}
-            onSelect={() => setActiveChild(id)}
-            onClose={() => closeChild(id)}
-          />
-        ))}
-      </div>
+    <aside
+      className="flex h-full shrink-0 flex-col border-l border-border bg-background"
+      style={style}
+    >
+      <SubAgentPanelHeader sessionId={childSessionId} onClose={closeChild} />
       <div className="min-h-0 flex-1">
-        <ChatSessionView key={active} chatId={active} />
+        <ChatSessionView key={childSessionId} chatId={childSessionId} readOnly />
       </div>
     </aside>
   );
 }
 
-type ChildTabProps = {
+type SubAgentPanelHeaderProps = {
   sessionId: string;
-  active: boolean;
-  onSelect: () => void;
   onClose: () => void;
 };
 
-function ChildTab({ sessionId, active, onSelect, onClose }: ChildTabProps) {
+function SubAgentPanelHeader({ sessionId, onClose }: SubAgentPanelHeaderProps) {
   const [title, setTitle] = useState(sessionId);
 
   useEffect(() => {
@@ -72,27 +60,20 @@ function ChildTab({ sessionId, active, onSelect, onClose }: ChildTabProps) {
   }, [sessionId]);
 
   return (
-    <div
-      className={cn(
-        "flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-xs",
-        active ? "border-foreground/30 bg-accent" : "border-border",
-      )}
-    >
-      <button
-        type="button"
-        onClick={onSelect}
-        className="max-w-[160px] truncate"
-        title={title}
-      >
+    <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        子 Agent
+      </span>
+      <span className="min-w-0 flex-1 truncate text-sm font-medium" title={title}>
         {title}
-      </button>
+      </span>
       <button
         type="button"
         onClick={onClose}
-        className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-        aria-label="关闭子会话"
+        className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+        aria-label="关闭子 agent 面板"
       >
-        <X className="h-3 w-3" />
+        <X className="h-4 w-4" />
       </button>
     </div>
   );

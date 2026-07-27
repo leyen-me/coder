@@ -30,6 +30,7 @@ import { useAgentStopConfirmation } from "../hooks/use-agent-stop-confirmation";
 import { ChatMessageList } from "../components/chat-message-list";
 import { requestMessageListScrollToBottom } from "../components/message-list-scroll";
 import { PromptComposer } from "../components/prompt-composer";
+import { SubAgentInfoBar } from "../components/sub-agent-info-bar";
 import { QueuedMessageList } from "../components/queued-message-list";
 import { notifySendMessageError } from "../lib/notify-send-message-error";
 import { buildPlanExecutionPrompt } from "../lib/plan/build-plan-execution-prompt";
@@ -66,9 +67,15 @@ import { updateSession } from "@/lib/db/sessions";
 
 type ChatSessionViewProps = {
   chatId: string;
+  /**
+   * Read-only mode (used by the right-hand SubAgent panel): hides the composer
+   * and all message editing/regeneration controls, and renders a live info bar
+   * instead. The user can watch the session run but cannot send a new prompt.
+   */
+  readOnly?: boolean;
 };
 
-export function ChatSessionView({ chatId }: ChatSessionViewProps) {
+export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewProps) {
   const { t } = useTranslation();
   const { allModels, modelProviders } = useModelProvider();
   const {
@@ -654,39 +661,45 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
         isRunning={isRunning}
         messages={messages}
         onCancelEdit={handleCancelEdit}
-        onEditUserMessage={handleEditUserMessage}
-        onRegenerateAssistantMessage={handleRegenerateAssistantMessage}
+        onEditUserMessage={readOnly ? undefined : handleEditUserMessage}
+        onRegenerateAssistantMessage={
+          readOnly ? undefined : handleRegenerateAssistantMessage
+        }
         onRequestStop={requestStopAgent}
       />
-      <ChatMessageList
-        compactUi={compactUi}
-        editingMessageId={editingMessageId}
-        messages={displayMessages}
-        onEditUserMessage={handleEditUserMessage}
-        onRegenerateAssistantMessage={handleRegenerateAssistantMessage}
-        onSystemPromptExpand={() => {
-          void refreshSystemPrompt();
-        }}
-        sessionTitle={session?.title}
-        systemPrompt={systemPrompt}
-      />
+          <ChatMessageList
+            compactUi={compactUi}
+            editingMessageId={editingMessageId}
+            messages={displayMessages}
+            onEditUserMessage={readOnly ? undefined : handleEditUserMessage}
+            onRegenerateAssistantMessage={
+              readOnly ? undefined : handleRegenerateAssistantMessage
+            }
+            onSystemPromptExpand={() => {
+              void refreshSystemPrompt();
+            }}
+            sessionTitle={session?.title}
+            systemPrompt={systemPrompt}
+          />
 
       <div className="shrink-0 px-3 pb-3 pt-2 md:px-4 md:pb-4 md:pt-3">
         <div className="mx-auto w-full max-w-3xl">
           <AgentTodoList sessionId={chatId} isRunning={isRunning} />
-          <QueuedMessageList
-            editingMessageId={editingQueuedMessageId}
-            messages={queuedMessages}
-            onDelete={handleDeleteQueuedMessage}
-            onEdit={handleEditQueuedMessage}
-          />
+          {!readOnly && (
+            <QueuedMessageList
+              editingMessageId={editingQueuedMessageId}
+              messages={queuedMessages}
+              onDelete={handleDeleteQueuedMessage}
+              onEdit={handleEditQueuedMessage}
+            />
+          )}
           {isStopConfirmPending ? (
             <AgentStopConfirmBanner
               onConfirm={confirmStopAgent}
               onDismiss={dismissStopConfirm}
             />
           ) : null}
-          {!isLoading && session != null && session.id === chatId ? (
+          {!readOnly && !isLoading && session != null && session.id === chatId ? (
           <PlanSheet
             sessionId={chatId}
             workspaceDir={workspaceBinding.workspaceDir}
@@ -695,6 +708,18 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             planBuildActions={{ isRunning, isBuildPending, onBuild: () => { void handleBuildFromPlan(""); } }}
           />
           ) : null}
+          {readOnly ? (
+            <SubAgentInfoBar
+              model={activeTask?.model ?? model}
+              agentMode={activeTask?.agentMode ?? "agent"}
+              thinkingEnabled={activeTask?.thinkingEnabled ?? thinkingEnabled}
+              sessionKind={session?.sessionKind}
+              autonomyMode={session?.autonomyMode}
+              contextUsage={contextUsage}
+              isRunning={isRunning}
+              onStop={activeTask ? handleStop : undefined}
+            />
+          ) : (
           <PromptComposer
             key={editingMessageId ?? editingQueuedMessageId ?? "new"}
             composerKey={editingMessageId ?? editingQueuedMessageId ?? "new"}
@@ -730,6 +755,7 @@ export function ChatSessionView({ chatId }: ChatSessionViewProps) {
             planBuiltAt={session?.planBuiltAt ?? null}
             sessionKind={session?.sessionKind ?? "standard"}
           />
+          )}
         </div>
       </div>
     </div>

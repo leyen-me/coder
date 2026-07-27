@@ -17,8 +17,8 @@ type ChatHotkeyActionsProps = {
   editingQueuedMessageId: string | null;
   onCancelEdit: () => void;
   onRequestStop: () => void;
-  onEditUserMessage: (message: MessageRecord) => void;
-  onRegenerateAssistantMessage: (message: MessageRecord) => void;
+  onEditUserMessage?: (message: MessageRecord) => void;
+  onRegenerateAssistantMessage?: (message: MessageRecord) => void;
 };
 
 function getLastUserMessage(
@@ -90,7 +90,7 @@ export function ChatHotkeyActions({
       return false;
     }
 
-    void onRegenerateAssistantMessage(lastAssistant);
+    void onRegenerateAssistantMessage?.(lastAssistant);
     return true;
   }, [isRunning, messages, onRegenerateAssistantMessage]);
 
@@ -104,7 +104,7 @@ export function ChatHotkeyActions({
       return false;
     }
 
-    onEditUserMessage(lastUser);
+    onEditUserMessage?.(lastUser);
     return true;
   }, [isRunning, messages, onEditUserMessage]);
 
