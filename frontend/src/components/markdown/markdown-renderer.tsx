@@ -79,8 +79,9 @@ function MarkdownLink({
   className,
   href,
   children,
+  node,
   ...props
-}: ComponentProps<"a">) {
+}: ComponentProps<"a"> & { node?: unknown }) {
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLAnchorElement>) => {
       if (!href) return;
@@ -194,7 +195,7 @@ const sanitizeSchema = {
 
 const markdownComponents: Components = {
   a: MarkdownLink,
-  blockquote: ({ className, ...props }) => (
+  blockquote: ({ node, className, ...props }) => (
     <blockquote
       className={cn(
         "my-4 border-l-2 border-border pl-4 text-muted-foreground italic",
@@ -203,7 +204,7 @@ const markdownComponents: Components = {
       {...props}
     />
   ),
-  code: ({ className, children, ...props }) => {
+  code: ({ node, className, children, ...props }) => {
     if (className?.includes("language-")) {
       return (
         <code className={className} {...props}>
@@ -224,36 +225,36 @@ const markdownComponents: Components = {
       </code>
     );
   },
-  details: ({ className, ...props }) => (
+  details: ({ node, className, ...props }) => (
     <details
       className={cn("my-4 rounded-md border border-border p-4", className)}
       {...props}
     />
   ),
-  h1: ({ className, ...props }) => (
+  h1: ({ node, className, ...props }) => (
     <h1 className={cn("mt-6 mb-3 text-2xl font-semibold", className)} {...props} />
   ),
-  h2: ({ className, ...props }) => (
+  h2: ({ node, className, ...props }) => (
     <h2 className={cn("mt-6 mb-3 text-xl font-semibold", className)} {...props} />
   ),
-  h3: ({ className, ...props }) => (
+  h3: ({ node, className, ...props }) => (
     <h3 className={cn("mt-5 mb-2 text-lg font-semibold", className)} {...props} />
   ),
-  hr: ({ className, ...props }) => (
+  hr: ({ node, className, ...props }) => (
     <hr className={cn("my-6 border-border", className)} {...props} />
   ),
-  img: ({ className, alt, ...props }) => (
+  img: ({ node, className, alt, ...props }) => (
     <img
       alt={alt}
       className={cn("my-4 max-w-full rounded-md border border-border", className)}
       {...props}
     />
   ),
-  li: ({ className, ...props }) => <li className={cn("my-1", className)} {...props} />,
-  ol: ({ className, ...props }) => (
+  li: ({ node, className, ...props }) => <li className={cn("my-1", className)} {...props} />,
+  ol: ({ node, className, ...props }) => (
     <ol className={cn("my-4 list-decimal pl-6", className)} {...props} />
   ),
-  p: ({ className, ...props }) => (
+  p: ({ node, className, ...props }) => (
     <p
       className={cn("my-4 whitespace-pre-wrap wrap-break-word", className)}
       {...props}
@@ -281,7 +282,7 @@ const markdownComponents: Components = {
       />
     );
   },
-  table: ({ className, children, ...props }) => (
+  table: ({ node, className, children, ...props }) => (
     <div className="my-4 w-full overflow-x-auto">
       <table
         className={cn("w-full border-collapse text-sm", className)}
@@ -291,13 +292,13 @@ const markdownComponents: Components = {
       </table>
     </div>
   ),
-  tbody: ({ className, ...props }) => (
+  tbody: ({ node, className, ...props }) => (
     <tbody className={cn("[&_tr:last-child]:border-0", className)} {...props} />
   ),
-  td: ({ className, ...props }) => (
+  td: ({ node, className, ...props }) => (
     <td className={cn("border border-border px-3 py-2 align-top", className)} {...props} />
   ),
-  th: ({ className, ...props }) => (
+  th: ({ node, className, ...props }) => (
     <th
       className={cn(
         "border border-border bg-muted/50 px-3 py-2 text-left font-medium",
@@ -306,13 +307,13 @@ const markdownComponents: Components = {
       {...props}
     />
   ),
-  summary: ({ className, ...props }) => (
+  summary: ({ node, className, ...props }) => (
     <summary className={cn("cursor-pointer font-medium", className)} {...props} />
   ),
-  tr: ({ className, ...props }) => (
+  tr: ({ node, className, ...props }) => (
     <tr className={cn("border-b border-border", className)} {...props} />
   ),
-  ul: ({ className, ...props }) => (
+  ul: ({ node, className, ...props }) => (
     <ul className={cn("my-4 list-disc pl-6", className)} {...props} />
   ),
 };
