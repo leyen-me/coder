@@ -55,10 +55,10 @@ impl TextFileToolError {
             code: "string_not_found".to_string(),
             message: format!(
                 "old_string was not found in the file. \
-                 This is likely because double quotes or backslashes inside \
-                 the string were incorrectly escaped during JSON serialization. \
-                 Re-read the file and try again, ensuring characters like \
-                 `\"` and `\\` are escaped only once."
+                 Re-read the file and copy the exact text to match, then retry. \
+                 The string must match verbatim (whitespace, comments and line \
+                 endings included). For JSON escaping rules, see the Code \
+                 Modification guidance."
             ),
             mime_type: None,
             size: None,
@@ -495,32 +495,6 @@ pub fn apply_text_replacement(
 
     let count = content_lf.matches(&old_lf).count();
     if count == 0 {
-        // Fallback: if old_string contains JSON escape sequences (e.g. \")
-        // that likely resulted from double-escaping in the LLM tool call,
-        // try unescaping once and match again.
-        let unescaped = unescape_json_string(&old_lf);
-        let fallback_count = if unescaped != old_lf {
-            content_lf.matches(&unescaped).count()
-        } else {
-            0
-        };
-        if fallback_count > 0 {
-            if !replace_all && fallback_count > 1 {
-                return Err(TextFileToolError::new(
-                    "multiple_matches",
-                    format!(
-                        "old_string matched {fallback_count} locations; set replace_all to true or provide a more specific string"
-                    ),
-                ));
-            }
-            // Use the unescaped version for replacement.
-            let updated_lf = if replace_all {
-                content_lf.replace(&unescaped, &new_lf)
-            } else {
-                content_lf.replacen(&unescaped, &new_lf, 1)
-            };
-            return Ok(normalize_line_endings(&updated_lf, ending));
-        }
         return Err(TextFileToolError::string_not_found(old_string, content));
     }
     if !replace_all && count > 1 {
@@ -539,33 +513,6 @@ pub fn apply_text_replacement(
     };
 
     Ok(normalize_line_endings(&updated_lf, ending))
-}
-
-/// Apply single-level JSON unescaping to recover from double-escaped
-/// LLM tool-call arguments. Only handles the common cases:
-///   `\"` → `"`,  `\\` → `\`,  `\n` → newline,  `\t` → tab,  `\/` → `/`
-fn unescape_json_string(s: &str) -> String {
-    let mut result = String::with_capacity(s.len());
-    let mut chars = s.chars();
-    while let Some(c) = chars.next() {
-        if c == '\\' {
-            match chars.next() {
-                Some('"') => result.push('"'),
-                Some('\\') => result.push('\\'),
-                Some('n') => result.push('\n'),
-                Some('t') => result.push('\t'),
-                Some('/') => result.push('/'),
-                Some(other) => {
-                    result.push('\\');
-                    result.push(other);
-                }
-                None => result.push('\\'),
-            }
-        } else {
-            result.push(c);
-        }
-    }
-    result
 }
 
 /// Copies the file into `.history/` before a write. Reserved for future rollback/undo;
@@ -738,54 +685,9 @@ mod tests {
     }
 
     #[test]
-    fn unescapes_json_double_quotes() {
-        assert_eq!(super::unescape_json_string(r#"foo \"bar\""#), "foo \"bar\"");
-    }
-
-    #[test]
-    fn unescapes_json_backslashes() {
-        assert_eq!(super::unescape_json_string(r#"a\\b"#), "a\\b");
-    }
-
-    #[test]
-    fn unescapes_json_newlines() {
-        assert_eq!(super::unescape_json_string("line1\\nline2"), "line1\nline2");
-    }
-
-    #[test]
-    fn unescapes_json_tabs() {
-        assert_eq!(super::unescape_json_string("col1\\tcol2"), "col1\tcol2");
-    }
-
-    #[test]
-    fn unescapes_noop_for_plain_text() {
-        assert_eq!(super::unescape_json_string("hello world"), "hello world");
-    }
-
-    #[test]
-    fn fallback_handles_double_escaped_quotes() {
-        // old_string contains \" (double-escaped), file has " (just quote)
-        let updated = apply_text_replacement(
-            r#"let msg = "hello";"#,
-            r#"let msg = \"hello\";"#,
-            "let msg = \"hi\";",
-            false,
-        )
-        .expect("fallback should match");
-        assert_eq!(updated, "let msg = \"hi\";");
-    }
-
-    #[test]
-    fn fallback_passes_through_exact_match() {
-        // When old_string matches exactly, fallback is not needed
-        let updated = apply_text_replacement("foo bar", "bar", "baz", false).expect("exact match");
-        assert_eq!(updated, "foo baz");
-    }
-
-    #[test]
-    fn fallback_rejects_multiple_matches_by_default() {
-        let error = apply_text_replacement(r#""a" and "a""#, r#"\"a\""#, "b", false)
-            .expect_err("multiple matches should be rejected");
-        assert_eq!(error.code, "multiple_matches");
+    fn rejects_missing_old_string() {
+        let error = apply_text_replacement("alpha\n", "beta", "gamma", false)
+            .expect_err("missing old_string");
+        assert_eq!(error.code, "string_not_found");
     }
 }

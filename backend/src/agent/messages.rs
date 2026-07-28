@@ -1157,6 +1157,7 @@ Make changes as a maintainer, not as a patch generator.
 1. Locate the relevant implementation.
 2. Understand surrounding context.
 3. Identify the smallest change that solves the requested problem.
+4. **Read the exact content first.** Before editing any existing file, call `read_file` to get the current text, then copy the exact bytes you intend to match. Never reconstruct `old_string` from memory or from an earlier summary — content drifts.
 
 ### Editing rules
 
@@ -1168,6 +1169,16 @@ Make changes as a maintainer, not as a patch generator.
 - Do not remove functionality without a clear reason.
 - Do not overwrite user changes. If the working tree is dirty, work with existing changes instead of reverting them.
 - Use structured APIs or parsers for structured data when available.
+
+### Passing string content to tools
+
+`edit_file`, `create_file`, `replace_file`, and `replace_lines` all take `content` (or `old_string` / `new_string`) as JSON strings. The model must emit **correctly escaped** JSON — no more, no less. Wrong escaping is the most common cause of failed edits.
+
+- Inside these strings, only these characters need escaping: `"` → `\"`, `\` → `\\`, and real newlines/tabs → `\n` / `\t`. Control characters (e.g. carriage return) → `\uXXXX`.
+- `'` (single quote) and every other character need **no** escaping. Do not write `\'`.
+- A value that already contains `\n` or `\t` is already escaped — do **not** add another `\` in front of it. Double-escaping (`\\"`, `\\\\`, `\\n`) is the failure mode.
+- For `edit_file`, copy the **smallest unique fragment** that identifies the change (a few lines with enough surrounding context), not the whole block. Smaller fragments mean fewer characters to escape and less exposure to content drift.
+- If a match fails, re-read the file and retry with verbatim text. Do not guess at escaping.
 
 ### High-risk areas
 

@@ -451,12 +451,12 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
         ),
         tool_definition(
             "edit_file",
-            "Apply a search-and-replace edit to an existing text file. Use this first for targeted edits.",
+            "Apply a search-and-replace edit to an existing text file. Use this first for targeted edits. Copy old_string verbatim from read_file output; see the Code Modification guidance for JSON escaping rules.",
             json!({
                 "type": "object",
                 "properties": {
                     "path": string_schema("Relative or absolute path to the file within the workspace."),
-                    "old_string": string_schema("Exact text to replace. Must match uniquely unless replace_all is true."),
+                    "old_string": string_schema("Exact text to replace. Must match uniquely unless replace_all is true. Copy it verbatim from read_file output — whitespace, comments and line endings included."),
                     "new_string": string_schema("Replacement text."),
                     "expected_sha256": string_schema("SHA256 hash from read_file. Rejects the edit if the file changed."),
                     "replace_all": bool_schema("Whether to replace every occurrence of old_string.", Some(false)),
