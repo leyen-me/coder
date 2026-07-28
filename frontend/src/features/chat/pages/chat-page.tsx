@@ -79,8 +79,13 @@ function ChatPageContent() {
             aria-orientation="vertical"
             aria-label="拖动调整子 agent 面板宽度"
             onPointerDown={startResize}
-            className="w-1 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary/50"
-          />
+            className="group relative w-1 shrink-0 cursor-col-resize"
+          >
+            {/* Thin 1px line by default, centered on the divider; thickens and
+                recolors on hover without shifting layout (the 4px container is
+                the invisible hit area, mirroring VS Code's sash behavior). */}
+            <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border transition-all group-hover:w-1 group-hover:bg-primary/50" />
+          </div>
           <SubAgentPanel style={{ width: panelWidth }} />
         </>
       )}

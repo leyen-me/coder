@@ -26,7 +26,7 @@ export function SubAgentPanel({ style }: { style?: CSSProperties }) {
 
   return (
     <aside
-      className="flex h-full shrink-0 flex-col border-l border-border bg-background"
+      className="flex h-full shrink-0 flex-col bg-background"
       style={style}
     >
       <SubAgentPanelHeader sessionId={childSessionId} onClose={closeChild} />
