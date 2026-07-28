@@ -62,6 +62,11 @@ pub struct SpawnedAgent {
     /// frontend Label stops spinning.
     pub spawn_tool_call_id: Option<String>,
     pub started_at: Instant,
+    /// Whether the child has reached a terminal state (completed/failed/
+    /// cancelled). Once true, the child no longer counts against the
+    /// concurrency limit, but the record is kept so a later `await_subagent`
+    /// can still read its summary.
+    pub completed: bool,
 }
 
 /// Shared store of background sub-agents for parallel spawn/await.
@@ -82,19 +87,27 @@ impl ConcurrentAgentStore {
         }
     }
 
-    /// Register a background sub-agent and return its handle_id.
-    pub async fn register(
+    /// Reserve a concurrency slot for a background sub-agent BEFORE the child
+    /// session is actually spawned.
+    ///
+    /// The limit counts only sub-agents that are still *running*
+    /// (`completed == false`), so a child that has finished but has not yet
+    /// been `await`ed does not occupy a slot. If the limit is reached this
+    /// returns `Err` with a message the caller turns into a **recoverable**
+    /// tool failure — the parent agent loop must NOT be aborted. The reserved
+    /// slot is filled in with the real session/task ids via `set_session`
+    /// once the child is spawned.
+    pub async fn reserve(
         &self,
         handle_id: String,
         task: String,
-        session_id: String,
-        task_id: String,
         spawn_tool_call_id: Option<String>,
     ) -> Result<(), String> {
         let mut agents = self.agents.lock().await;
-        if agents.len() >= self.max_concurrent {
+        let running = agents.values().filter(|a| !a.completed).count();
+        if running >= self.max_concurrent {
             return Err(format!(
-                "Maximum concurrent sub-agents ({}) reached.",
+                "Maximum concurrent sub-agents ({}) reached. Await or cancel some running sub-agents before spawning more.",
                 self.max_concurrent
             ));
         }
@@ -103,13 +116,34 @@ impl ConcurrentAgentStore {
             SpawnedAgent {
                 handle_id,
                 task,
-                session_id,
-                task_id,
+                session_id: String::new(),
+                task_id: String::new(),
                 spawn_tool_call_id,
                 started_at: Instant::now(),
+                completed: false,
             },
         );
         Ok(())
+    }
+
+    /// Fill in the real session/task ids of a reserved slot once the child
+    /// session has been spawned.
+    pub async fn set_session(&self, handle_id: &str, session_id: String, task_id: String) {
+        let mut agents = self.agents.lock().await;
+        if let Some(agent) = agents.get_mut(handle_id) {
+            agent.session_id = session_id;
+            agent.task_id = task_id;
+        }
+    }
+
+    /// Mark a sub-agent as having reached a terminal state so it no longer
+    /// counts against the concurrency limit. The record is intentionally kept
+    /// so a later `await_subagent` can still read its summary.
+    pub async fn mark_completed(&self, handle_id: &str) {
+        let mut agents = self.agents.lock().await;
+        if let Some(agent) = agents.get_mut(handle_id) {
+            agent.completed = true;
+        }
     }
 
     /// Look up a spawned agent by handle_id (used by `execute_await_subagent`
@@ -2610,10 +2644,26 @@ async fn execute_spawn_subagent(
     let parent = &ctx.parent_start_params;
     let handle_id = format!("sub-{}", current_timestamp_ms());
 
+    // Reserve a concurrency slot BEFORE spawning the child session. Doing this
+    // first guarantees a rejected spawn (limit reached) never leaves an orphaned
+    // placeholder, and the breach is surfaced to the model as a recoverable tool
+    // failure rather than a fatal error that aborts the parent agent loop.
+    if let Err(e) = ctx
+        .concurrent_agents
+        .reserve(handle_id.clone(), task.to_string(), ctx.current_tool_call_id.clone())
+        .await
+    {
+        return Ok(tool_failure(
+            "spawn_subagent",
+            "max_concurrent_reached",
+            e,
+        ));
+    }
+
     // Spawn the child as a normal Session via the unified entry point.
     // No thread::spawn, no separate runtime, no event compression — the child
     // runs through the standard agent loop and persists its own messages.
-    let spawn_result = crate::agent::spawn::spawn_session(
+    let spawn_result = match crate::agent::spawn::spawn_session(
         ctx.app_state.clone(),
         crate::agent::spawn::SpawnSessionOptions {
             parent_session_id: ctx.session_id.clone(),
@@ -2634,20 +2684,23 @@ async fn execute_spawn_subagent(
             decision_model: parent.decision_model.clone(),
         },
     )
-    .await?;
+    .await
+    {
+        Ok(result) => result,
+        Err(e) => {
+            // Spawn failed after reserving the slot — release the placeholder so
+            // it does not permanently occupy a concurrency slot.
+            ctx.concurrent_agents.remove(&handle_id).await;
+            return Ok(tool_failure("spawn_subagent", "spawn_failed", e));
+        }
+    };
 
-    // Track the handle so await_subagent can find the child session/task.
-    // Pass spawn_tool_call_id so await_subagent can emit status updates back
-    // to the parent's spawn_subagent invocation (stops the Label spinner).
+    // Fill in the real session/task ids now that the child exists. Pass
+    // spawn_tool_call_id so await_subagent can emit status updates back to the
+    // parent's spawn_subagent invocation (stops the Label spinner).
     ctx.concurrent_agents
-        .register(
-            handle_id.clone(),
-            task.to_string(),
-            spawn_result.session_id.clone(),
-            spawn_result.task_id.clone(),
-            ctx.current_tool_call_id.clone(),
-        )
-        .await?;
+        .set_session(&handle_id, spawn_result.session_id.clone(), spawn_result.task_id.clone())
+        .await;
 
     // Spawn a background watcher that updates the parent message's invocation
     // output (status: running → completed/cancelled/failed) when the child
@@ -2659,6 +2712,7 @@ async fn execute_spawn_subagent(
     let watcher_receiver = ctx.app_state.sse_broadcaster.subscribe(&spawn_result.task_id);
     spawn_completion_watcher(
         ctx.app_state.clone(),
+        ctx.concurrent_agents.clone(),
         spawn_result.session_id.clone(),
         spawn_result.task_id.clone(),
         handle_id.clone(),
@@ -2887,6 +2941,7 @@ fn emit_spawn_subagent_status_update(
 /// continuing to other work. It does NOT block the parent.
 fn spawn_completion_watcher(
     app_state: Arc<crate::AppState>,
+    concurrent_agents: Arc<ConcurrentAgentStore>,
     child_session_id: String,
     child_task_id: String,
     handle_id: String,
@@ -2911,6 +2966,12 @@ fn spawn_completion_watcher(
             &mut receiver,
         )
         .await;
+
+        // Release the concurrency slot: the child has reached a terminal state,
+        // so it no longer counts against the limit. The record is kept so a
+        // later `await_subagent` can still read its summary. If the handle was
+        // already consumed (removed) by await_subagent, this is a no-op.
+        concurrent_agents.mark_completed(&handle_id).await;
 
         // 1. Update the parent message's invocation output (persisted to DB
         //    so it survives page reload).
