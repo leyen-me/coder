@@ -140,7 +140,7 @@ pub fn tool_read_file(
     let (total_lines, selected_lines, truncated_by_lines) =
         select_lines(&text, start_line, max_lines);
     let (content, truncated_by_bytes) = if numbered {
-        format_numbered_content(start_line, &selected_lines, MAX_OUTPUT_BYTES)
+        format_numbered_content(start_line, &selected_lines, total_lines, MAX_OUTPUT_BYTES)
     } else {
         format_raw_content(&selected_lines, MAX_OUTPUT_BYTES)
     };
@@ -200,13 +200,23 @@ fn format_raw_content(lines: &[String], max_bytes: usize) -> (String, bool) {
     (content, truncated)
 }
 
-fn format_numbered_content(start_line: u32, lines: &[String], max_bytes: usize) -> (String, bool) {
+fn format_numbered_content(
+    start_line: u32,
+    lines: &[String],
+    total_lines: u32,
+    max_bytes: usize,
+) -> (String, bool) {
     let mut content = String::new();
     let mut truncated = false;
 
+    // Right-align line numbers to the width of the file's total line count so
+    // the ` | ` separator and content stay in fixed columns regardless of how
+    // many digits a given line number has.
+    let width = total_lines.to_string().len().max(1);
+
     for (offset, line) in lines.iter().enumerate() {
         let line_number = start_line + offset as u32;
-        let segment = format!("{line_number} | {line}\n");
+        let segment = format!("{ln:>width$} | {line}\n", ln = line_number, width = width, line = line);
         if content.len() + segment.len() > max_bytes {
             truncated = true;
             break;
@@ -394,9 +404,29 @@ mod tests {
     #[test]
     fn formats_numbered_content_with_byte_limit() {
         let lines = vec!["a".repeat(100); 10];
-        let (content, truncated) = format_numbered_content(1, &lines, 120);
+        let (content, truncated) = format_numbered_content(1, &lines, 10, 120);
         assert!(truncated);
         assert!(content.len() <= 120);
+    }
+
+    #[test]
+    fn formats_numbered_content_right_aligns_line_numbers() {
+        // total_lines = 120 -> width 3, so all line numbers occupy 3 columns
+        // and content starts at a fixed column.
+        let lines = vec!["x".to_string(), "x".to_string(), "x".to_string()];
+        let (content, _) = format_numbered_content(1, &lines, 120, usize::MAX);
+        assert_eq!(
+            content,
+            "  1 | x\n  2 | x\n  3 | x\n"
+        );
+    }
+
+    #[test]
+    fn formats_numbered_content_keeps_separator_fixed_for_range() {
+        // Starting at a 3-digit line, the 3-column width means no leading pad.
+        let lines = vec!["x".to_string(), "x".to_string()];
+        let (content, _) = format_numbered_content(100, &lines, 253, usize::MAX);
+        assert_eq!(content, "100 | x\n101 | x\n");
     }
 
     #[test]
