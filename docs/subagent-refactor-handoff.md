@@ -350,34 +350,38 @@ await_subagent 工具调用
 
 > 注意: P1 仅改 chat-page + 新建面板/store + 改 sub-agent-label, 不动 router / app shell / 后端。回归成本低于 Tab 方案。Q4 降级加固已随 P1 提交 (或独立 commit)。
 
-### 6.3 P2 (清理)
+### 6.3 P2 (清理) — 状态总览
 
-6. **清理后端死代码** (9 个 warning) — ✅ **已完成 (2026-07-27)**
-   - **决策原则**: 属于被"面板方案"取代的旧实现 → 删除; 属于对外 API 契约 / 设计意图（后续可能启用）→ `#[allow(dead_code)]` + 注释保留。
-   - **删除** (共 343 行死代码集群, 无外部调用者, 被面板方案取代; 文件 `backend/src/agent/tool_dispatch.rs`):
-     - `collect_subagent_event` — 旧 subagent 事件收集
-     - `build_subagent_system_prompt` — 旧 system prompt 构建
-     - `build_project_overview` — 旧项目概览构建
-     - `subagent_context_depth` — 旧嵌套深度统计
-     - `extract_subagent_tool_label` — 仅被 `collect_subagent_event` 调用
-     - `truncate_label` — 仅被 `extract_subagent_tool_label` 调用
-     - `build_subagent_summary` — 旧摘要构建
-   - **保留 + `#[allow(dead_code)]`** (设计意图 / 对外契约, 文件 `backend/src/agent/tool_dispatch.rs`):
-     - `SpawnSubAgentArgs.context` 字段 — `spawn_subagent` 工具 schema (`get_tool_definitions`) 已文档化为可选参数, 但上下文注入尚未接入子 session; 保留以维持 API 契约, 注释说明"尚未接入"
-     - `MAX_SUBAGENT_DEPTH` 常量 — 对应 spawn schema 中 "Maximum nesting depth: 3"; 当前嵌套被禁用 (Q6), 暂未强制; 保留以避免魔法数字漂移, 注释说明保留原因
-   - **验证**: `cargo check` (backend) 已确认该文件零警告 (9 个 dead_code warning 全部清除)
-7. **删除前端死代码**:
-   - `frontend/src/features/chat/components/sub-agent-tool-output.tsx` (整文件)
-   - `frontend/src/features/agent/tools/spawn-subagent-display.ts` (整文件)
-   - `SubAgentStep` 类型 (`types.ts:327-358`)
-   - `ToolExecutionContext.spawnSubAgentConfig` 死字段 (`types.ts:307-319`)
-8. **移除诊断日志** (修复后不再需要)
-9. **`ConcurrentAgentStore` 并发数可配置化** (当前硬编码 3)
+> 2026-07-28 进展: items 6/7/8/9 全部完成。下方逐条标注完成状态与**实测**决策（纠正了原文档两处过时/错误指令）。
+
+6. **清理后端死代码** (9 个 warning) — ✅ **已完成**
+   - 9 个 `dead_code` 警告已于 2026-07-27 清除 (`cargo check` 零警告, commit `9b8e401`)。
+   - `SpawnSubAgentArgs.context` 字段: 原计划用 `#[allow(dead_code)]` 保留, 但 2026-07-28 用户 commit `070bc0d` (**enforce sub-agent nesting guard and drop dead context param**) 实际**删除了**该字段。故该字段现已不在代码中, 文档原"保留"措辞作废。
+   - `MAX_SUBAGENT_DEPTH` 常量: 仍按原决策 `#[allow(dead_code)]` 保留 (对应 schema "Maximum nesting depth: 3", 嵌套禁用故未强制, 留作设计意图记号)。
+
+7. **删除前端死代码** — ✅ **已完成 (2026-07-28, 实测修正了文档原指令)**
+   - **删除** `frontend/src/features/chat/components/sub-agent-tool-output.tsx` (整文件): grep 确认**零外部引用者** (仅文件内自引用 `SubAgentToolOutput`/路径), 是面板方案前的旧渲染组件, 已被右侧 `ChatSessionView` 面板取代。
+   - **❌ 文档原指令有误, 未执行**: `spawn-subagent-display.ts` **不能删** —— 其 `getSubAgentChipLabel` / `extractSubAgentOutput` 仍被 `tool-invocation-chip.tsx` 用于当前 SubAgent Label 渲染, 是活代码。
+   - **❌ 文档原指令有误, 未执行**: `SubAgentStep` / `SubAgentOutput` 类型 **不能删** —— 被上面的活代码使用 (`getSubAgentChipLabel` 依赖 `extractSubAgentOutput` 返回 `SubAgentOutput`)。
+   - **移除** `ToolExecutionContext.spawnSubAgentConfig` 死字段 (`types.ts`): grep 确认无任何读取/构造引用 (可选字段, 从未被设置)。移除后顺带删除了仅被该字段使用的 `ModelDefinition` 导入 (tsc 验证零错误)。
+
+8. **移除诊断日志** — ✅ **已完成 (2026-07-28)**
+   - 删除 `tool_dispatch.rs` 中 P0 调试期添加的**纯路径追踪 info 级**日志: `emit_spawn_status: updating` / `emit_spawn_status: found invocation` / `subagent_wait_done via DB pre-check` / `via DB post-subscribe` / `via Status event` / `via DB` / `via periodic DB check` / `subagent_wait_closed: channel closed ... falling back`。
+   - **保留** 4 处 **warn 级、指示真实故障** 的日志 (维护运行时可观测性, 非纯噪音):
+     - `emit_spawn_status: invocation not found` (DB 写入漏掉 invocation)
+     - `emit_spawn_status: missing tool_call_id / session_id` (无法持久化状态)
+     - `subagent_wait_lagged` (broadcast 缓冲区溢出)
+     - `subagent_wait_closed: no terminal status in DB after retries; returning failed` (兜底耗尽, 返回 failed)
+
+9. **`ConcurrentAgentStore` 并发数可配置化** — ✅ **已完成 (2026-07-28)**
+   - `loop_.rs` 硬编码 `ConcurrentAgentStore::new(3)` 改为读环境变量 `CODER_SUBAGENT_MAX_CONCURRENT` (默认 3, 下限 1 避免配成 0 导致全部拒绝)。
+   - 沿用项目既有 `CODER_*` env var 约定 (参考 `compact.rs` 的 `env::var(...).ok().and_then(parse).filter(...)` 写法)。
+   - 注意: 用户 commit `5f49841` 已把"达到并发上限"改为返回**可恢复工具错误** (而非静默失败), 本项仅补齐"上限可配置"。
 
 ---
 
 ## 7. AGENTS.md 合规性
 
 - **遵循**: 工程质量达到开源标准; 复用现有 `start_agent_send_with_task_id`; 工具签名不变
-- **偏离**: 无 (P0 三个修复均已完成且用户验证通过); 后端死代码已清理 (P2 item 6 已完成, 2026-07-27), 前端死代码仍待 P2 item 7
+- **偏离**: 无 (P0 三个修复均已完成且用户验证通过). P2 items 6/7/8/9 全部完成 (2026-07-28): 后端死代码已清 (9 警告清零, `context` 字段由用户 `070bc0d` 实际删除); 前端死代码按**实测**修正 (删 `sub-agent-tool-output.tsx` + 移除 `spawnSubAgentConfig` 字段, `spawn-subagent-display.ts`/`SubAgentStep`/`SubAgentOutput` 经验证为活代码故保留); 诊断日志清理 (保留 4 处 warn 级故障日志); 并发上限改为读 `CODER_SUBAGENT_MAX_CONCURRENT` (默认 3).
 - **Git commits**: 已创建 9+ 个 commit (含 P0 三修复 + 文档), 代码已保存
