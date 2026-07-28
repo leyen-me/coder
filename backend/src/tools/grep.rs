@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -6,7 +7,8 @@ use regex::RegexBuilder;
 use serde::Serialize;
 
 use super::search::{
-    build_workspace_walker, is_hidden_path, relative_file_path, WorkspaceWalkOptions,
+    build_workspace_walker, is_hidden_path, relative_file_path, to_search_root_relative,
+    WorkspaceWalkOptions,
 };
 use super::text_file::{
     decode_text, detect_binary, is_gitignored, is_sensitive_path, read_binary_sample,
@@ -98,6 +100,7 @@ pub fn tool_grep(
     offset: Option<u32>,
     multiline: Option<bool>,
     respect_gitignore: Option<bool>,
+    show_hidden: Option<bool>,
 ) -> Result<GrepResult, String> {
     let workspace = PathBuf::from(workspace_dir.trim());
     if workspace.as_os_str().is_empty() {
@@ -118,6 +121,7 @@ pub fn tool_grep(
     let respect_gitignore = respect_gitignore.unwrap_or(true);
     let case_insensitive = case_insensitive.unwrap_or(false);
     let multiline = multiline.unwrap_or(false);
+    let show_hidden = show_hidden.unwrap_or(false);
 
     let (before, after) = resolve_context(context_before, context_after, context);
 
@@ -168,6 +172,7 @@ pub fn tool_grep(
             &target,
             respect_gitignore,
             glob_filter.as_deref(),
+            show_hidden,
         )?
     };
 
@@ -211,9 +216,14 @@ pub fn tool_grep(
                 continue;
             }
         };
-        if detect_binary(&sample).is_some() {
-            skipped_files += 1;
-            continue;
+        // BUG-5: only skip files whose sample is a recognized binary container
+        // (image/pdf/zip/...). A stray NUL byte in an otherwise-text file is no
+        // longer grounds to skip the whole file; such lines are filtered below.
+        if let Some(mime) = detect_binary(&sample) {
+            if mime != "application/octet-stream" {
+                skipped_files += 1;
+                continue;
+            }
         }
 
         let bytes = match fs::read(&file) {
@@ -232,7 +242,60 @@ pub fn tool_grep(
         let normalized_lines: Vec<String> = lines
             .iter()
             .map(|line| line.strip_suffix('\n').unwrap_or(line).to_string())
+            .filter(|line| !line.contains('\0'))
             .collect();
+
+        // BUG-6: an empty file yields one zero-width match for patterns that
+        // can match the empty string (e.g. `.*`), instead of zero matches.
+        if normalized_lines.is_empty() {
+            if regex.is_match("") {
+                match mode {
+                    GrepOutputMode::Content => {
+                        total_matches += 1;
+                        if skipped_for_offset < offset {
+                            skipped_for_offset += 1;
+                        } else if (content_matches.len() as u32) < head_limit {
+                            content_matches.push(GrepContentMatch {
+                                path: relative.clone(),
+                                line_number: 1,
+                                line: String::new(),
+                                context_before: None,
+                                context_after: None,
+                                line_truncated: false,
+                            });
+                        } else {
+                            truncated = true;
+                        }
+                    }
+                    GrepOutputMode::FilesWithMatches => {
+                        total_matches += 1;
+                        if skipped_for_offset < offset {
+                            skipped_for_offset += 1;
+                        } else if (file_matches.len() as u32) < head_limit {
+                            file_matches.push(relative);
+                        } else {
+                            truncated = true;
+                        }
+                    }
+                    GrepOutputMode::Count => {
+                        total_matches += 1;
+                        if skipped_for_offset >= offset {
+                            if (count_matches.len() as u32) < head_limit {
+                                count_matches.push(GrepCountMatch {
+                                    path: relative,
+                                    count: 1,
+                                });
+                            } else {
+                                truncated = true;
+                            }
+                        } else {
+                            skipped_for_offset += 1;
+                        }
+                    }
+                }
+            }
+            continue;
+        }
 
         match mode {
             GrepOutputMode::Content => {
@@ -436,6 +499,7 @@ fn collect_grep_files(
     search_root: &Path,
     respect_gitignore: bool,
     glob_filter: Option<&str>,
+    show_hidden: bool,
 ) -> Result<Vec<PathBuf>, String> {
     let canonical_workspace = workspace
         .canonicalize()
@@ -448,6 +512,9 @@ fn collect_grep_files(
     })?;
 
     let mut files = Vec::new();
+    // BUG-3: skip symlink entries already represented by their resolved target
+    // so the same content is not reported twice.
+    let mut seen: HashSet<std::path::PathBuf> = HashSet::new();
     for entry in walker {
         let entry = entry.map_err(|error| format!("Failed to walk workspace: {error}"))?;
         let file_type = entry.file_type();
@@ -456,7 +523,11 @@ fn collect_grep_files(
         }
 
         let absolute = entry.into_path();
-        if is_hidden_path(&absolute) {
+        if !show_hidden && is_hidden_path(&absolute) {
+            continue;
+        }
+        let resolved = absolute.canonicalize().unwrap_or_else(|_| absolute.clone());
+        if !seen.insert(resolved) {
             continue;
         }
         let Some(relative) = relative_file_path(&canonical_workspace, &absolute) else {
@@ -466,7 +537,9 @@ fn collect_grep_files(
             continue;
         }
         if let Some(glob_set) = &file_glob {
-            if !glob_set.is_match(&relative) {
+            // BUG-1: match the glob filter relative to the search root.
+            let target_rel = to_search_root_relative(&canonical_workspace, search_root, &relative);
+            if !glob_set.is_match(&target_rel) {
                 continue;
             }
         }
@@ -573,6 +646,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         )
         .expect("grep");
 
@@ -610,6 +684,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         )
         .expect("grep");
 
@@ -628,6 +703,7 @@ mod tests {
             None,
             None,
             Some("count".to_string()),
+            None,
             None,
             None,
             None,
@@ -666,6 +742,7 @@ mod tests {
             Some(50),
             None,
             None,
+            None,
         )
         .expect("grep");
 
@@ -697,6 +774,7 @@ mod tests {
             None,
             Some(true),
             None,
+            None,
         )
         .expect("grep");
 
@@ -725,6 +803,7 @@ mod tests {
             None,
             Some(true),
             None,
+            None,
         )
         .expect("grep");
 
@@ -740,6 +819,7 @@ mod tests {
         let error = tool_grep(
             temp.to_string_lossy().into_owned(),
             "[invalid".to_string(),
+            None,
             None,
             None,
             None,
@@ -777,6 +857,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         )
         .expect("grep");
 
@@ -804,10 +885,225 @@ mod tests {
             None,
             None,
             None,
+            None,
         )
         .expect("grep project");
 
         let files = result.files.expect("files");
         assert!(files.iter().any(|path| path.ends_with("mod.rs")));
+    }
+
+    #[test]
+    fn glob_filter_relative_to_path() {
+        // BUG-1: the `glob` filter is matched relative to `path`, so a pattern
+        // anchored to a subdir of `path` must match.
+        let temp = temp_workspace("grep-bug1");
+        fs::create_dir_all(temp.join("a/b")).expect("create dirs");
+        fs::write(temp.join("a/b/file.txt"), "needle").expect("write nested");
+        fs::write(temp.join("top.txt"), "needle").expect("write top");
+
+        let result = tool_grep(
+            temp.to_string_lossy().into_owned(),
+            "needle".to_string(),
+            Some(".".to_string()),
+            Some("a/**/*.txt".to_string()),
+            Some("files_with_matches".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("grep bug1");
+
+        let files = result.files.expect("files");
+        assert_eq!(files, vec!["a/b/file.txt".to_string()]);
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn show_hidden_includes_dotfiles() {
+        // BUG-2: grep skips dotfiles unless show_hidden is set.
+        // Note: `.env` is treated as a sensitive path and skipped regardless,
+        // so we use a non-sensitive hidden name here.
+        let temp = temp_workspace("grep-hidden");
+        fs::write(temp.join(".hidden_file"), "needle").expect("write hidden");
+        fs::write(temp.join("visible.txt"), "needle").expect("write visible");
+
+        let off = tool_grep(
+            temp.to_string_lossy().into_owned(),
+            "needle".to_string(),
+            None,
+            None,
+            Some("files_with_matches".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(false),
+        )
+        .expect("grep hidden off");
+        assert!(!off.files.expect("files").iter().any(|f| f == ".hidden_file"));
+
+        let on = tool_grep(
+            temp.to_string_lossy().into_owned(),
+            "needle".to_string(),
+            None,
+            None,
+            Some("files_with_matches".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(true),
+        )
+        .expect("grep hidden on");
+        assert!(on.files.expect("files").iter().any(|f| f == ".hidden_file"));
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn symlink_not_duplicated() {
+        // BUG-3: a symlink to a file must not produce a duplicate result.
+        let temp = temp_workspace("grep-symlink");
+        fs::write(temp.join("target.txt"), "needle").expect("write target");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("target.txt", temp.join("link.txt")).expect("symlink");
+
+        #[cfg(unix)]
+        {
+            let result = tool_grep(
+                temp.to_string_lossy().into_owned(),
+                "needle".to_string(),
+                None,
+                None,
+                Some("content".to_string()),
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
+            .expect("grep symlink");
+            assert_eq!(result.total_matches, 1);
+        }
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn searches_lines_around_null_bytes() {
+        // BUG-5: a NUL byte in one line must not skip the whole file; the NUL
+        // line is dropped but surrounding text lines are still searched.
+        let temp = temp_workspace("grep-null");
+        fs::write(
+            temp.join("mixed.txt"),
+            "valid text line\nnull\x00byte\ntext line 3\n",
+        )
+        .expect("write mixed");
+
+        let before = tool_grep(
+            temp.to_string_lossy().into_owned(),
+            "valid text".to_string(),
+            None,
+            None,
+            Some("content".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("grep before null");
+        assert_eq!(before.total_matches, 1);
+
+        let after = tool_grep(
+            temp.to_string_lossy().into_owned(),
+            "text line 3".to_string(),
+            None,
+            None,
+            Some("content".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("grep after null");
+        assert_eq!(after.total_matches, 1);
+
+        let nul_line = tool_grep(
+            temp.to_string_lossy().into_owned(),
+            "byte".to_string(),
+            None,
+            None,
+            Some("content".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("grep nul line");
+        assert_eq!(nul_line.total_matches, 0);
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn empty_file_yields_zero_width_match_for_dot_star() {
+        // BUG-6: `.*` against an empty file should still report one match.
+        let temp = temp_workspace("grep-empty");
+        fs::write(temp.join("empty.txt"), "").expect("write empty");
+
+        let result = tool_grep(
+            temp.to_string_lossy().into_owned(),
+            ".*".to_string(),
+            None,
+            None,
+            Some("content".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("grep empty");
+        assert_eq!(result.total_matches, 1);
+        let matches = result.matches.expect("matches");
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].line_number, 1);
+        assert_eq!(matches[0].line, "");
+        let _ = fs::remove_dir_all(temp);
     }
 }

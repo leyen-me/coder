@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use globset::{GlobBuilder, GlobSetBuilder};
 use serde::Serialize;
 
-use super::search::{collect_walk_files, WorkspaceWalkOptions};
+use super::search::{collect_walk_files, to_search_root_relative, WorkspaceWalkOptions};
 use super::workspace_path::{format_absolute_path, format_error_path, resolve_workspace_path};
 
 const DEFAULT_HEAD_LIMIT: u32 = 100;
@@ -25,6 +25,8 @@ pub fn tool_glob(
     target_directory: Option<String>,
     head_limit: Option<u32>,
     respect_gitignore: Option<bool>,
+    show_hidden: Option<bool>,
+    offset: Option<u32>,
 ) -> Result<GlobResult, String> {
     let workspace = PathBuf::from(workspace_dir.trim());
     if workspace.as_os_str().is_empty() {
@@ -44,6 +46,8 @@ pub fn tool_glob(
         .unwrap_or(DEFAULT_HEAD_LIMIT)
         .clamp(1, MAX_HEAD_LIMIT);
     let respect_gitignore = respect_gitignore.unwrap_or(true);
+    let show_hidden = show_hidden.unwrap_or(false);
+    let offset = offset.unwrap_or(0);
 
     let canonical_workspace = workspace
         .canonicalize()
@@ -72,23 +76,30 @@ pub fn tool_glob(
             search_root: &search_root,
             respect_gitignore,
         },
-        true,
+        !show_hidden,
     )?;
 
+    // BUG-1: match the pattern relative to the search root (target_directory),
+    // so `a/**/file.txt` finds `target/a/b/file.txt` as the caller expects.
     let mut matches: Vec<String> = candidates
         .into_iter()
-        .filter(|path| glob_set.is_match(path))
+        .filter(|path| {
+            let target_rel = to_search_root_relative(&workspace, &search_root, path);
+            glob_set.is_match(&target_rel)
+        })
         .collect();
 
     matches.sort_by(|left, right| left.to_lowercase().cmp(&right.to_lowercase()));
     let total_matches = matches.len() as u32;
-    let truncated = total_matches > head_limit;
-    matches.truncate(head_limit as usize);
+    // BUG-8: page results with offset before applying head_limit.
+    let offset = offset as usize;
+    let truncated = matches.len().saturating_sub(offset) as u32 > head_limit;
+    let paged: Vec<String> = matches.into_iter().skip(offset).take(head_limit as usize).collect();
 
     Ok(GlobResult {
         pattern: pattern.to_string(),
         target_directory: format_absolute_path(&search_root),
-        matches,
+        matches: paged,
         total_matches,
         truncated,
     })
@@ -126,6 +137,8 @@ mod tests {
             Some(".".to_string()),
             None,
             None,
+            None,
+            None,
         )
         .expect("glob");
 
@@ -151,6 +164,8 @@ mod tests {
             None,
             None,
             Some(true),
+            None,
+            None,
         )
         .expect("glob");
 
@@ -172,6 +187,8 @@ mod tests {
             None,
             Some(2),
             None,
+            None,
+            None,
         )
         .expect("glob");
 
@@ -187,6 +204,8 @@ mod tests {
         let error = tool_glob(
             temp.to_string_lossy().into_owned(),
             "[invalid".to_string(),
+            None,
+            None,
             None,
             None,
             None,
@@ -207,10 +226,119 @@ mod tests {
             Some("backend/src/tools".to_string()),
             Some(10),
             None,
+            None,
+            None,
         )
         .expect("glob project tools");
 
         assert!(!result.matches.is_empty());
         assert!(result.matches.iter().any(|path| path.ends_with("glob.rs")));
+    }
+
+    #[test]
+    fn matches_pattern_relative_to_target_directory() {
+        // BUG-1: a pattern anchored to a subdirectory of target_directory must
+        // match, not require the full workspace-relative path.
+        let temp = temp_workspace("bug1");
+        fs::create_dir_all(temp.join("a/b/c")).expect("create dirs");
+        fs::write(temp.join("a/b/c/file_c.txt"), "x").expect("write file");
+
+        let result = tool_glob(
+            temp.to_string_lossy().into_owned(),
+            "a/**/file_c.txt".to_string(),
+            Some(".".to_string()),
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("glob bug1");
+
+        assert_eq!(result.total_matches, 1);
+        assert!(result.matches.contains(&"a/b/c/file_c.txt".to_string()));
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn offset_skips_leading_matches() {
+        // BUG-8: offset pages past the first N matches.
+        let temp = temp_workspace("offset");
+        for index in 0..5 {
+            fs::write(temp.join(format!("file-{index}.txt")), "x").expect("write file");
+        }
+
+        let result = tool_glob(
+            temp.to_string_lossy().into_owned(),
+            "*.txt".to_string(),
+            None,
+            Some(2),
+            None,
+            None,
+            Some(2),
+        )
+        .expect("glob offset");
+
+        assert_eq!(result.total_matches, 5);
+        assert_eq!(result.matches.len(), 2);
+        assert!(result.truncated);
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn show_hidden_includes_dotfiles() {
+        // BUG-2: dotfiles are skipped by default but returned with show_hidden.
+        let temp = temp_workspace("hidden");
+        fs::write(temp.join(".hidden_file"), "x").expect("write hidden");
+        fs::write(temp.join("visible.txt"), "x").expect("write visible");
+
+        let hidden_off = tool_glob(
+            temp.to_string_lossy().into_owned(),
+            "*".to_string(),
+            None,
+            None,
+            None,
+            Some(false),
+            None,
+        )
+        .expect("glob hidden off");
+        assert!(!hidden_off.matches.iter().any(|m| m == ".hidden_file"));
+
+        let hidden_on = tool_glob(
+            temp.to_string_lossy().into_owned(),
+            "*".to_string(),
+            None,
+            None,
+            None,
+            Some(true),
+            None,
+        )
+        .expect("glob hidden on");
+        assert!(hidden_on.matches.iter().any(|m| m == ".hidden_file"));
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn symlink_name_remains_visible() {
+        // BUG-7: globbing a symlink returns the link name, not the target's.
+        let temp = temp_workspace("symlink");
+        fs::write(temp.join("target.txt"), "x").expect("write target");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("target.txt", temp.join("link.txt")).expect("symlink");
+
+        #[cfg(unix)]
+        {
+            let result = tool_glob(
+                temp.to_string_lossy().into_owned(),
+                "link.txt".to_string(),
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
+            .expect("glob symlink");
+            assert!(result.matches.iter().any(|m| m == "link.txt"));
+        }
+        let _ = fs::remove_dir_all(temp);
     }
 }

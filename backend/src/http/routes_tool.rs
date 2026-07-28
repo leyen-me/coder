@@ -195,6 +195,8 @@ pub struct GlobParams {
     pub target_directory: Option<String>,
     pub head_limit: Option<u32>,
     pub respect_gitignore: Option<bool>,
+    pub show_hidden: Option<bool>,
+    pub offset: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -213,6 +215,7 @@ pub struct GrepParams {
     pub offset: Option<u32>,
     pub multiline: Option<bool>,
     pub respect_gitignore: Option<bool>,
+    pub show_hidden: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -642,6 +645,8 @@ pub async fn handle_glob(
         params.target_directory,
         params.head_limit,
         params.respect_gitignore,
+        params.show_hidden,
+        params.offset,
     )
     .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(serde_json::to_value(result).map_err(|e| {
@@ -669,6 +674,7 @@ pub async fn handle_grep(
         params.offset,
         params.multiline,
         params.respect_gitignore,
+        params.show_hidden,
     )
     .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     Ok(Json(serde_json::to_value(result).map_err(|e| {

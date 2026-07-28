@@ -45,6 +45,32 @@ pub fn relative_file_path(workspace: &Path, file: &Path) -> Option<String> {
     Some(workspace_relative_path(workspace, &canonical_file))
 }
 
+/// Like [`relative_file_path`] but does NOT resolve symlinks. Returns the
+/// workspace-relative path of `file` using its own (possibly symlinked) path,
+/// so symlink entries keep their original names instead of the target's.
+pub fn relative_file_path_unresolved(workspace: &Path, file: &Path) -> Option<String> {
+    let canonical_workspace = workspace.canonicalize().ok()?;
+    let rel = file.strip_prefix(&canonical_workspace).ok()?;
+    Some(rel.to_string_lossy().replace('\\', "/"))
+}
+
+/// Expresses `workspace_relative` relative to `search_root` so a glob/grep
+/// pattern anchored at `search_root` matches as the caller expects.
+pub fn to_search_root_relative(
+    workspace: &Path,
+    search_root: &Path,
+    workspace_relative: &str,
+) -> String {
+    let search_root_rel = workspace_relative_path(workspace, search_root);
+    if search_root_rel.is_empty() {
+        return workspace_relative.to_string();
+    }
+    workspace_relative
+        .strip_prefix(&format!("{search_root_rel}/"))
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| workspace_relative.to_string())
+}
+
 /// Collects regular files under `search_root` via the workspace walker.
 pub fn collect_walk_files(
     workspace: &Path,
@@ -60,9 +86,7 @@ pub fn collect_walk_files(
     for entry in walker {
         let entry = entry.map_err(|error| format!("Failed to walk workspace: {error}"))?;
         let file_type = entry.file_type();
-        if file_type.map(|kind| kind.is_dir()).unwrap_or(true)
-            || file_type.map(|kind| kind.is_symlink()).unwrap_or(false)
-        {
+        if file_type.map(|kind| kind.is_dir()).unwrap_or(true) {
             continue;
         }
 
@@ -71,7 +95,9 @@ pub fn collect_walk_files(
             continue;
         }
 
-        let Some(relative) = relative_file_path(&canonical_workspace, &absolute) else {
+        // BUG-7: include symlink entries so their names stay visible; use the
+        // unresolved path so we report the link name, not the target's.
+        let Some(relative) = relative_file_path_unresolved(&canonical_workspace, &absolute) else {
             continue;
         };
 

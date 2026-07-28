@@ -491,10 +491,12 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
             json!({
                 "type": "object",
                 "properties": {
-                    "glob_pattern": string_schema("Glob pattern such as **/*.tsx or src/**/*.rs."),
+                    "glob_pattern": string_schema("Glob pattern such as **/*.tsx or src/**/*.rs. Matched relative to target_directory."),
                     "target_directory": string_schema("Directory to search from. Defaults to the workspace root."),
                     "head_limit": int_schema("Maximum number of matching paths to return.", Some(100)),
-                    "respect_gitignore": bool_schema("Whether to skip paths ignored by .gitignore.", Some(true))
+                    "offset": int_schema("Number of matching paths to skip (for paging).", Some(0)),
+                    "respect_gitignore": bool_schema("Whether to skip paths ignored by .gitignore.", Some(true)),
+                    "show_hidden": bool_schema("Whether to include dotfiles / hidden paths.", Some(false))
                 },
                 "required": ["glob_pattern"],
                 "additionalProperties": false
@@ -517,7 +519,8 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "head_limit": int_schema("Maximum number of results to return.", Some(200)),
                     "offset": int_schema("Number of results to skip in content mode.", Some(0)),
                     "multiline": bool_schema("Whether . should match newlines.", Some(false)),
-                    "respect_gitignore": bool_schema("Whether to skip paths ignored by .gitignore.", Some(true))
+                    "respect_gitignore": bool_schema("Whether to skip paths ignored by .gitignore.", Some(true)),
+                    "show_hidden": bool_schema("Whether to include dotfiles / hidden paths.", Some(false))
                 },
                 "required": ["pattern"],
                 "additionalProperties": false
@@ -1242,6 +1245,8 @@ struct GlobArgs {
     target_directory: Option<String>,
     head_limit: Option<u32>,
     respect_gitignore: Option<bool>,
+    show_hidden: Option<bool>,
+    offset: Option<u32>,
 }
 
 fn execute_glob(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
@@ -1259,6 +1264,8 @@ fn execute_glob(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResul
         args.target_directory,
         args.head_limit,
         args.respect_gitignore,
+        args.show_hidden,
+        args.offset,
     ) {
         Ok(result) => tool_success("glob", result),
         Err(error) => tool_failure("glob", "execution_failed", error.to_string()),
@@ -1279,6 +1286,7 @@ struct GrepArgs {
     offset: Option<u32>,
     multiline: Option<bool>,
     respect_gitignore: Option<bool>,
+    show_hidden: Option<bool>,
 }
 
 fn execute_grep(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
@@ -1304,6 +1312,7 @@ fn execute_grep(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResul
         args.offset,
         args.multiline,
         args.respect_gitignore,
+        args.show_hidden,
     ) {
         Ok(result) => tool_success("grep", result),
         Err(error) => tool_failure("grep", "execution_failed", error.to_string()),
