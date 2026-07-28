@@ -60,6 +60,7 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
             }),
             thinking_enabled: Some(job.thinking_enabled),
             extra_tools: None,
+            denied_tools: None,
             autonomy_mode: None,
             decision_policy_version: None,
             decision_model: None,

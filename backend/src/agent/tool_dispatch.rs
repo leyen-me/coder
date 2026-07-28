@@ -816,7 +816,6 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                 "type": "object",
                 "properties": {
                     "task": string_schema("The task description for the sub-agent. Be specific about what to do and what to report back."),
-                    "context": string_schema("Optional additional context or constraints for the sub-agent."),
                     "tools": {
                         "type": "array",
                         "description": "Optional whitelist of tool names the sub-agent may use. Defaults to all available tools.",
@@ -2201,12 +2200,6 @@ struct AskQuestionOption {
 #[derive(Debug, Clone, Deserialize)]
 struct SpawnSubAgentArgs {
     task: String,
-    /// Reserved: optional additional context/constraints for the sub-agent.
-    /// Documented in the `spawn_subagent` tool schema (see `get_tool_definitions`),
-    /// but context injection into the child session is not yet wired, so the value
-    /// is currently accepted and ignored. Kept to preserve the documented API contract.
-    #[allow(dead_code)]
-    context: Option<String>,
     tools: Option<Vec<String>>,
 }
 
@@ -2627,8 +2620,12 @@ async fn execute_spawn_subagent(
         ));
     }
 
-    // Q6: forbid nesting. Exclude spawn_subagent AND await_subagent from the
-    // child's toolset — a SubAgent cannot spawn or await its own sub-agents.
+    // Q6: forbid nesting. The child's toolset is rebuilt from the full default
+    // tool catalog inside resolve_agent_tool_definitions, so the `allowed_tools`
+    // filter below is only a defensive narrowing. The hard guarantee that a
+    // SubAgent cannot spawn or await its own sub-agents is `denied_tools`, passed
+    // into the child session below — it strips these two tools from the child's
+    // resolved tool set regardless of agent mode.
     let allowed_tools: Vec<AgentToolDefinition> = ctx
         .available_tools
         .iter()
@@ -2679,6 +2676,10 @@ async fn execute_spawn_subagent(
             agent_mode: Some("agent".to_string()),
             thinking_enabled: parent.thinking_enabled,
             extra_tools: Some(allowed_tools),
+            denied_tools: Some(vec![
+                "spawn_subagent".to_string(),
+                "await_subagent".to_string(),
+            ]),
             autonomy_mode: parent.autonomy_mode.clone(),
             decision_policy_version: parent.decision_policy_version.clone(),
             decision_model: parent.decision_model.clone(),

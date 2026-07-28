@@ -411,6 +411,8 @@ pub struct AgentSendParams {
     pub models: Option<Vec<Value>>,
     #[serde(default)]
     pub extra_tools: Option<Vec<agent::AgentToolDefinition>>,
+    #[serde(default)]
+    pub denied_tools: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]
@@ -1171,6 +1173,7 @@ pub async fn handle_agent_start(
             &state,
             agent_mode.as_deref(),
             params.tools.clone(),
+            None,
         )
         .await;
         (!defaults.is_empty()).then_some(defaults)
@@ -1351,6 +1354,7 @@ pub async fn start_agent_send_with_task_id(
         &state,
         params.agent_mode.as_deref(),
         params.extra_tools.clone(),
+        params.denied_tools.clone(),
     )
     .await;
     let agent_params = agent::AgentStartParams {
@@ -1508,6 +1512,7 @@ pub async fn handle_agent_regenerate(
         &state,
         resolved_agent_mode.as_deref(),
         params.extra_tools.clone(),
+        None,
     )
     .await;
     let agent_params = agent::AgentStartParams {
@@ -1888,6 +1893,7 @@ mod tests {
                     thinking_enabled: Some(false),
                     models: None,
                     extra_tools: None,
+                    denied_tools: None,
                 }),
             )
             .await,

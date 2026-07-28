@@ -38,6 +38,7 @@ pub struct SpawnSessionOptions {
     pub agent_mode: Option<String>,
     pub thinking_enabled: Option<bool>,
     pub extra_tools: Option<Vec<AgentToolDefinition>>,
+    pub denied_tools: Option<Vec<String>>,
     pub autonomy_mode: Option<String>,
     pub decision_policy_version: Option<String>,
     pub decision_model: Option<String>,
@@ -128,6 +129,7 @@ pub async fn spawn_session(
             thinking_enabled: opts.thinking_enabled,
             models: None,
             extra_tools: opts.extra_tools,
+            denied_tools: opts.denied_tools,
         },
         task_id.clone(),
     )

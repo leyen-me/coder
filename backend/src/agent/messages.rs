@@ -106,12 +106,22 @@ pub async fn resolve_agent_tool_definitions(
     app_state: &AppState,
     agent_mode: Option<&str>,
     extra_tools: Option<Vec<AgentToolDefinition>>,
+    denied_tools: Option<Vec<String>>,
 ) -> Vec<AgentToolDefinition> {
     let mut definitions =
         super::tool_dispatch::get_tool_definitions(agent_mode);
     definitions.extend(resolve_mcp_agent_tools(app_state).await);
     if let Some(extra) = extra_tools {
         definitions.extend(extra);
+    }
+    // `denied_tools` is a hard removal list applied last, so these tools are
+    // excluded regardless of agent mode or `extra_tools`. This is what enforces
+    // the sub-agent nesting guard (Q6): a spawned child must never be able to
+    // spawn or await its own sub-agents.
+    if let Some(denied) = denied_tools {
+        let denied_set: std::collections::HashSet<&str> =
+            denied.iter().map(|name| name.as_str()).collect();
+        definitions.retain(|tool| !denied_set.contains(tool.function.name.as_str()));
     }
     dedupe_tool_definitions(definitions)
 }
@@ -1675,7 +1685,7 @@ Prefer deterministic test scaffolding.
             },
         };
 
-        let tools = resolve_agent_tool_definitions(&state, Some("ask"), Some(vec![extra, custom]))
+        let tools = resolve_agent_tool_definitions(&state, Some("ask"), Some(vec![extra, custom]), None)
             .await;
         let names = tools.iter().map(|tool| tool.function.name.as_str()).collect::<Vec<_>>();
 
