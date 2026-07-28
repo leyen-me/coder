@@ -1,5 +1,3 @@
-import type { ModelDefinition } from "@/lib/model-provider/types";
-
 import type { AgentMode } from "../types";
 import type { ToolResultEnvelope } from "./result";
 
@@ -303,20 +301,6 @@ export type ToolExecutionContext = {
    * tools that are normally restricted in agent mode.
    */
   explicitlyAllowedToolNames?: ReadonlySet<string>;
-  /**
-   * Provider config for spawning sub-agent instances.
-   * When present, the spawn_subagent tool can run a child agent
-   * using the same provider/model configuration as the parent.
-   */
-  spawnSubAgentConfig?: {
-    baseUrl: string;
-    apiKey: string;
-    apiKeySource: "manual" | "env";
-    apiKeyEnvVar: string;
-    model: string;
-    models: readonly ModelDefinition[];
-    thinkingEnabled?: boolean;
-  };
   /**
    * Callback for tools to emit partial/progressive output during execution.
    * The UI updates in real-time as partial data is pushed.
