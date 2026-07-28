@@ -94,7 +94,15 @@ pub async fn run_agent_loop(
     let mut turn_index = 0_u32;
     // Baseline for CODER_AUTO_COMPACT_EVERY_N_MESSAGES (dev-only cadence).
     let mut last_dev_auto_compact_message_count = 0usize;
-    let concurrent_agents = Arc::new(ConcurrentAgentStore::new(3));
+    // Sub-agent concurrency cap. Override via CODER_SUBAGENT_MAX_CONCURRENT
+    // (defaults to 3). Values below 1 are treated as 1 so the store never
+    // rejects every spawn.
+    let max_concurrent = std::env::var("CODER_SUBAGENT_MAX_CONCURRENT")
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .filter(|value| *value >= 1)
+        .unwrap_or(3);
+    let concurrent_agents = Arc::new(ConcurrentAgentStore::new(max_concurrent));
 
     if let Some(state) = persisted_state.as_mut() {
         persist_message_snapshot(

@@ -2860,12 +2860,6 @@ fn emit_spawn_subagent_status_update(
     //    Scan all messages in the parent session to find the one containing
     //    the spawn_subagent invocation (by tool_call_id match).
     if let (Some(tool_call_id), Some(session_id)) = (spawn_tool_call_id, parent_session_id) {
-        log::info!(
-            "emit_spawn_status: updating tool_call_id={} session_id={} status={}",
-            tool_call_id,
-            session_id,
-            status
-        );
         let db_guard = app_state.db.lock().ok();
         if let Some(db) = db_guard {
             if let Ok(messages) = crate::db::session_store::get_messages_by_session(&db, session_id) {
@@ -2886,9 +2880,6 @@ fn emit_spawn_subagent_status_update(
                         }
                     }
                     if found {
-                        log::info!(
-                            "emit_spawn_status: found invocation, persisting to DB"
-                        );
                         let _ = crate::db::session_store::put_message(&db, &msg, false);
                         break;
                     }
@@ -3098,11 +3089,6 @@ async fn wait_for_child_done(
     // the first child, the second may complete and be unregistered before we
     // even subscribe to it. Check the DB first and bail out immediately.
     if let Some(status) = read_child_db_terminal_status(&app_state.db, session_id, task_id) {
-        log::info!(
-            "subagent_wait_done status={} via DB pre-check (task_id={})",
-            status,
-            task_id
-        );
         return status;
     }
 
@@ -3113,11 +3099,6 @@ async fn wait_for_child_done(
     // call. If it's already terminal now, this fresh channel will never
     // deliver/close for us, so return immediately.
     if let Some(status) = read_child_db_terminal_status(&app_state.db, session_id, task_id) {
-        log::info!(
-            "subagent_wait_done status={} via DB post-subscribe (task_id={})",
-            status,
-            task_id
-        );
         return status;
     }
 
@@ -3139,11 +3120,6 @@ async fn wait_for_child_done_with_receiver(
                 match received {
                     Ok(payload) => {
                         if let Some(status) = terminal_status_from_payload(&payload) {
-                            log::info!(
-                                "subagent_wait_done status={} via Status event (task_id={})",
-                                status,
-                                task_id
-                            );
                             return status;
                         }
                     }
@@ -3156,19 +3132,10 @@ async fn wait_for_child_done_with_receiver(
                         // after the child already emitted its Status event). The
                         // authoritative terminal status is already in the DB —
                         // poll it briefly.
-                        log::warn!(
-                            "subagent_wait_closed: channel closed (task_id={}); falling back to DB status",
-                            task_id
-                        );
                         for attempt in 0..10 {
                             if let Some(status) =
                                 read_child_db_terminal_status(&app_state.db, session_id, task_id)
                             {
-                                log::info!(
-                                    "subagent_wait_done status={} via DB (task_id={})",
-                                    status,
-                                    task_id
-                                );
                                 return status;
                             }
                             // DB not yet terminal — wait a tick and retry (defensive;
@@ -3195,11 +3162,6 @@ async fn wait_for_child_done_with_receiver(
                 if let Some(status) =
                     read_child_db_terminal_status(&app_state.db, session_id, task_id)
                 {
-                    log::info!(
-                        "subagent_wait_done status={} via periodic DB check (task_id={})",
-                        status,
-                        task_id
-                    );
                     return status;
                 }
             }
