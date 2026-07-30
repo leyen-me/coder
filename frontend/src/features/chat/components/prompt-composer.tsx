@@ -27,7 +27,6 @@ import {
   findModelDefinition,
   type ModelDefinition,
 } from "@/lib/model-provider/model-definition";
-import type { ProviderId } from "@/lib/model-provider/types";
 import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { cn } from "@/lib/utils";
 import type { AgentMode } from "@/features/agent/types";
@@ -65,7 +64,9 @@ type PromptComposerProps = {
   model: string;
   models: readonly ModelDefinition[];
   /** Maps model ID → provider ID for grouping models in the dropdown. */
-  modelProviders?: Map<string, ProviderId>;
+  modelProviders?: Map<string, string>;
+  /** Resolves a human-readable label for a provider id (preset or custom). */
+  getProviderLabel?: (providerId: string) => string;
   onModelChange: (model: string) => void;
   agentMode?: AgentMode;
   onAgentModeChange?: (mode: AgentMode) => void;
@@ -279,6 +280,7 @@ export const PromptComposer = memo(function PromptComposer({
   sessionKind = "standard",
   onSessionKindChange,
   modelProviders,
+  getProviderLabel,
 }: PromptComposerProps) {
   const { t } = useTranslation();
   const isCompact = variant === "compact";
@@ -472,6 +474,7 @@ export const PromptComposer = memo(function PromptComposer({
           isRunning={isRunning}
           model={model}
           modelProviders={modelProviders}
+          getProviderLabel={getProviderLabel}
           models={models}
           onAgentModeChange={onAgentModeChange}
           onModelChange={onModelChange}

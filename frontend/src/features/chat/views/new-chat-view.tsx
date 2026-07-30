@@ -24,7 +24,7 @@ import { DEFAULT_PROJECT_NAME } from "../data/mock-chats";
 export function NewChatView() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { allModels, modelProviders } = useModelProvider();
+  const { allModels, modelProviders, getProviderLabel } = useModelProvider();
   const { sendMessage } = useAgentStore();
   const { settings: labSettings } = useLabSettings();
   const longTaskEnabled = labSettings.longTaskEnabled;
@@ -119,6 +119,7 @@ export function NewChatView() {
           model={model}
           models={allModels}
           modelProviders={modelProviders}
+          getProviderLabel={getProviderLabel}
           onModelChange={setModel}
           thinkingEnabled={thinkingEnabled}
           onThinkingEnabledChange={onThinkingEnabledChange}

@@ -9,7 +9,6 @@ import {
   normalizeEditableModelDefinitions,
   type ModelDefinition,
 } from "@/lib/model-provider/model-definition";
-import type { ProviderId } from "@/lib/model-provider/types";
 import { useLocale } from "@/lib/i18n/locale-provider";
 import { randomUUID } from "@/lib/random-id";
 
@@ -23,7 +22,7 @@ const PERSIST_DEBOUNCE_MS = 300;
 type CustomModelsEditorProps = {
   models: ModelDefinition[];
   onChange: (models: ModelDefinition[]) => void;
-  provider: ProviderId;
+  provider: string;
 };
 
 type ModelRow = {
@@ -33,7 +32,7 @@ type ModelRow = {
 
 type CustomModelRowProps = {
   model: ModelDefinition;
-  provider: ProviderId;
+  provider: string;
   onChange: (model: ModelDefinition) => void;
   onRemove: () => void;
 };

@@ -6,6 +6,7 @@ import {
   MINIMAX_THINKING_CONFIG,
 } from "./thinking-config";
 import type {
+  CustomProviderSettings,
   ModelProviderSettings,
   PresetProviderDefinition,
   ProviderId,
@@ -20,18 +21,39 @@ export const PROVIDER_IDS = [
   "agnes",
   "nvidia",
   "minimax",
-  "custom",
 ] as const satisfies readonly ProviderId[];
+
+/** Prefix used for generated custom provider ids (e.g. `custom-<uuid>`). */
+export const CUSTOM_PROVIDER_ID_PREFIX = "custom-";
 
 /** Preset providers whose model list is maintained by the user in settings. */
 export const USER_MANAGED_MODEL_PROVIDER_IDS = [
   "nvidia",
-] as const satisfies readonly Exclude<ProviderId, "custom">[];
+] as const satisfies readonly ProviderId[];
 
-export function usesUserManagedModels(provider: ProviderId): boolean {
+export function isPresetProvider(provider: string): provider is ProviderId {
+  return (PROVIDER_IDS as readonly string[]).includes(provider);
+}
+
+export function isCustomProviderId(provider: string): boolean {
   return (
-    provider === "custom" ||
-    (USER_MANAGED_MODEL_PROVIDER_IDS as readonly string[]).includes(provider)
+    !isPresetProvider(provider) &&
+    provider.startsWith(CUSTOM_PROVIDER_ID_PREFIX)
+  );
+}
+
+/** Static (non-localized) display labels for the built-in providers. */
+export const PRESET_PROVIDER_LABELS: Record<ProviderId, string> = {
+  deepseek: "DeepSeek",
+  glm: "GLM",
+  agnes: "Agnes",
+  nvidia: "NVIDIA",
+  minimax: "MiniMax",
+};
+
+export function usesUserManagedModels(provider: string): boolean {
+  return (USER_MANAGED_MODEL_PROVIDER_IDS as readonly string[]).includes(
+    provider
   );
 }
 
@@ -146,12 +168,12 @@ export const PRESET_PROVIDERS = {
   PresetProviderDefinition
 >;
 
-export function getDefaultApiKeyEnvVar(provider: ProviderId): string {
-  if (provider === "custom") {
-    return "OPENAI_API_KEY";
+export function getDefaultApiKeyEnvVar(provider: string): string {
+  if (isPresetProvider(provider)) {
+    return PRESET_PROVIDERS[provider].defaultApiKeyEnvVar;
   }
 
-  return PRESET_PROVIDERS[provider].defaultApiKeyEnvVar;
+  return "OPENAI_API_KEY";
 }
 
 export function createDefaultProviderSettings(
@@ -167,9 +189,26 @@ export function createDefaultProviderSettings(
   };
 }
 
+export function createDefaultCustomProviderSettings(
+  id: string,
+  name = "Custom Provider"
+): CustomProviderSettings {
+  return {
+    id,
+    name,
+    apiKeySource: "env",
+    apiKey: "",
+    apiKeyEnvVar: "OPENAI_API_KEY",
+    baseUrl: "",
+    models: [],
+    showUsage: false,
+  };
+}
+
 export const DEFAULT_MODEL_PROVIDER_SETTINGS: ModelProviderSettings = {
   enabledProviders: [...PROVIDER_IDS],
   providers: Object.fromEntries(
     PROVIDER_IDS.map((id) => [id, createDefaultProviderSettings(id)])
   ) as Record<ProviderId, ProviderSettings>,
+  customProviders: {},
 };

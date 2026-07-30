@@ -3,11 +3,10 @@ import { RefreshCw } from "lucide-react";
 
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { useDeepSeekBalance } from "./use-deepseek-balance";
-import type { ProviderId } from "@/lib/model-provider/types";
 
 type ProviderUsageTagProps = {
   /** Show balance for this provider. Currently only "deepseek" is supported. */
-  providerId?: ProviderId | null;
+  providerId?: string | null;
 };
 
 export function ProviderUsageTag({ providerId }: ProviderUsageTagProps) {

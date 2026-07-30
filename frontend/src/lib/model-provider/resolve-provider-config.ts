@@ -1,40 +1,55 @@
-import { PRESET_PROVIDERS, usesUserManagedModels } from "./constants";
+import {
+  isPresetProvider,
+  PRESET_PROVIDERS,
+  usesUserManagedModels,
+} from "./constants";
 import { findModelDefinition } from "./model-definition";
 import type {
   ModelDefinition,
   ModelProviderSettings,
-  ProviderId,
   ResolvedProviderConfig,
 } from "./types";
 
 export function resolveProviderConfig(
   settings: ModelProviderSettings,
-  providerId: ProviderId
+  providerId: string
 ): ResolvedProviderConfig {
-  const providerSettings = settings.providers[providerId];
+  if (isPresetProvider(providerId)) {
+    const providerSettings = settings.providers[providerId];
+    const preset = PRESET_PROVIDERS[providerId];
 
-  if (providerId === "custom") {
     return {
       provider: providerId,
-      baseUrl: providerSettings.customBaseUrl.trim(),
+      baseUrl: preset.baseUrl,
       apiKeySource: providerSettings.apiKeySource,
       apiKey: providerSettings.apiKey,
       apiKeyEnvVar: providerSettings.apiKeyEnvVar.trim(),
-      models: providerSettings.customModels,
+      models: usesUserManagedModels(providerId)
+        ? providerSettings.customModels
+        : preset.models,
     };
   }
 
-  const preset = PRESET_PROVIDERS[providerId];
+  const custom = settings.customProviders[providerId];
+
+  if (!custom) {
+    return {
+      provider: providerId,
+      baseUrl: "",
+      apiKeySource: "env",
+      apiKey: "",
+      apiKeyEnvVar: "",
+      models: [],
+    };
+  }
 
   return {
     provider: providerId,
-    baseUrl: preset.baseUrl,
-    apiKeySource: providerSettings.apiKeySource,
-    apiKey: providerSettings.apiKey,
-    apiKeyEnvVar: providerSettings.apiKeyEnvVar.trim(),
-    models: usesUserManagedModels(providerId)
-      ? providerSettings.customModels
-      : preset.models,
+    baseUrl: custom.baseUrl.trim(),
+    apiKeySource: custom.apiKeySource,
+    apiKey: custom.apiKey,
+    apiKeyEnvVar: custom.apiKeyEnvVar.trim(),
+    models: custom.models,
   };
 }
 
@@ -61,9 +76,9 @@ export function resolveProviderForModel(
  */
 export function mergeAllModels(
   settings: ModelProviderSettings
-): { models: ModelDefinition[]; modelProviders: Map<string, ProviderId> } {
+): { models: ModelDefinition[]; modelProviders: Map<string, string> } {
   const models: ModelDefinition[] = [];
-  const modelProviders = new Map<string, ProviderId>();
+  const modelProviders = new Map<string, string>();
 
   for (const providerId of settings.enabledProviders) {
     const config = resolveProviderConfig(settings, providerId);

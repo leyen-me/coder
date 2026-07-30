@@ -1,18 +1,28 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createDefaultCustomProviderSettings,
   createDefaultProviderSettings,
   DEFAULT_MODEL_PROVIDER_SETTINGS,
   PRESET_PROVIDERS,
 } from "./constants";
 import { resolveProviderConfig } from "./resolve-provider-config";
+import type { ModelProviderSettings } from "./types";
+
+function baseSettings(): ModelProviderSettings {
+  return {
+    enabledProviders: ["deepseek", "glm", "agnes", "nvidia", "minimax"],
+    providers: DEFAULT_MODEL_PROVIDER_SETTINGS.providers,
+    customProviders: {},
+  };
+}
 
 describe("resolveProviderConfig", () => {
   it("resolves preset provider configuration", () => {
     expect(
       resolveProviderConfig(
         {
-          enabledProviders: ["deepseek", "glm", "agnes", "nvidia", "custom"],
+          ...baseSettings(),
           providers: {
             ...DEFAULT_MODEL_PROVIDER_SETTINGS.providers,
             deepseek: {
@@ -46,7 +56,7 @@ describe("resolveProviderConfig", () => {
     expect(
       resolveProviderConfig(
         {
-          enabledProviders: ["deepseek", "glm", "agnes", "nvidia", "custom"],
+          ...baseSettings(),
           providers: {
             ...DEFAULT_MODEL_PROVIDER_SETTINGS.providers,
             nvidia: {
@@ -67,7 +77,7 @@ describe("resolveProviderConfig", () => {
     });
   });
 
-  it("resolves custom provider configuration", () => {
+  it("resolves a custom provider configuration", () => {
     const customModels = [
       {
         id: "custom-model",
@@ -80,28 +90,40 @@ describe("resolveProviderConfig", () => {
     expect(
       resolveProviderConfig(
         {
-          enabledProviders: ["deepseek", "glm", "agnes", "nvidia", "custom"],
-          providers: {
-            ...DEFAULT_MODEL_PROVIDER_SETTINGS.providers,
-            custom: {
+          ...baseSettings(),
+          customProviders: {
+            "custom-1": {
+              ...createDefaultCustomProviderSettings("custom-1", "My Ollama"),
               apiKeySource: "manual",
               apiKey: "sk-custom",
               apiKeyEnvVar: "",
-              customBaseUrl: "https://example.com/v1",
-              customModels,
-              showUsage: false,
+              baseUrl: "https://example.com/v1",
+              models: customModels,
             },
           },
         },
-        "custom"
+        "custom-1"
       )
     ).toEqual({
-      provider: "custom",
+      provider: "custom-1",
       baseUrl: "https://example.com/v1",
       apiKeySource: "manual",
       apiKey: "sk-custom",
       apiKeyEnvVar: "",
       models: customModels,
+    });
+  });
+
+  it("returns an empty config for an unknown custom provider id", () => {
+    expect(
+      resolveProviderConfig(baseSettings(), "custom-missing")
+    ).toEqual({
+      provider: "custom-missing",
+      baseUrl: "",
+      apiKeySource: "env",
+      apiKey: "",
+      apiKeyEnvVar: "",
+      models: [],
     });
   });
 });

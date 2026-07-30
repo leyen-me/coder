@@ -7,12 +7,21 @@ import {
 } from "./constants";
 import { createModelDefinition } from "./model-definition";
 import { parseModelProviderSettings } from "./parse-model-provider-settings";
+import type { ModelProviderSettings } from "./types";
+
+function baseExpected(): ModelProviderSettings {
+  return {
+    ...DEFAULT_MODEL_PROVIDER_SETTINGS,
+    providers: { ...DEFAULT_MODEL_PROVIDER_SETTINGS.providers },
+    customProviders: {},
+  };
+}
 
 describe("parseModelProviderSettings", () => {
   it("accepts valid per-provider settings", () => {
     expect(
       parseModelProviderSettings({
-        enabledProviders: ["deepseek", "glm", "agnes", "nvidia", "custom"],
+        enabledProviders: ["deepseek", "glm", "agnes", "nvidia", "minimax"],
         providers: {
           glm: {
             apiKeySource: "manual",
@@ -27,7 +36,7 @@ describe("parseModelProviderSettings", () => {
         },
       })
     ).toEqual({
-      enabledProviders: ["deepseek", "glm", "agnes", "nvidia", "custom"],
+      enabledProviders: ["deepseek", "glm", "agnes", "nvidia", "minimax"],
       providers: {
         ...Object.fromEntries(
           PROVIDER_IDS.filter((id) => id !== "glm").map((id) => [
@@ -47,6 +56,7 @@ describe("parseModelProviderSettings", () => {
           showUsage: false,
         },
       },
+      customProviders: {},
     });
   });
 
@@ -56,22 +66,26 @@ describe("parseModelProviderSettings", () => {
     );
     expect(
       parseModelProviderSettings({ enabledProviders: ["invalid"] })
-    ).toEqual({
-      ...DEFAULT_MODEL_PROVIDER_SETTINGS,
-      enabledProviders: [...PROVIDER_IDS],
-    });
+    ).toEqual(baseExpected());
   });
 
   it("filters invalid custom model entries", () => {
     expect(
       parseModelProviderSettings({
-        enabledProviders: ["deepseek", "glm", "agnes", "nvidia", "custom"],
-        providers: {
-          custom: {
-            customModels: ["valid", "", 42, "  trimmed  "],
+        enabledProviders: ["deepseek"],
+        customProviders: {
+          "custom-1": {
+            id: "custom-1",
+            name: "Test",
+            apiKeySource: "env",
+            apiKey: "",
+            apiKeyEnvVar: "OPENAI_API_KEY",
+            baseUrl: "",
+            models: ["valid", "", 42, "  trimmed  "] as never,
+            showUsage: false,
           },
         },
-      }).providers.custom.customModels
+      }).customProviders["custom-1"].models
     ).toEqual([
       createModelDefinition("valid"),
       createModelDefinition("trimmed"),
@@ -106,6 +120,35 @@ describe("parseModelProviderSettings", () => {
           showUsage: false,
         },
       },
+      customProviders: {},
     });
+  });
+
+  it("migrates the legacy single custom provider slot into a customProviders entry", () => {
+    const parsed = parseModelProviderSettings({
+      enabledProviders: ["deepseek", "custom"],
+      providers: {
+        custom: {
+          apiKeySource: "manual",
+          apiKey: "sk-custom",
+          apiKeyEnvVar: "",
+          customBaseUrl: "https://legacy-custom.example.com/v1",
+          customModels: [createModelDefinition("legacy-custom-model")],
+        },
+      },
+    });
+
+    expect(parsed.customProviders["custom-legacy"]).toEqual({
+      id: "custom-legacy",
+      name: "Custom Provider",
+      apiKeySource: "manual",
+      apiKey: "sk-custom",
+      apiKeyEnvVar: "",
+      baseUrl: "https://legacy-custom.example.com/v1",
+      models: [createModelDefinition("legacy-custom-model")],
+      showUsage: false,
+    });
+    expect(parsed.enabledProviders).toContain("custom-legacy");
+    expect(parsed.enabledProviders).not.toContain("custom");
   });
 });

@@ -77,7 +77,7 @@ type ChatSessionViewProps = {
 
 export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewProps) {
   const { t } = useTranslation();
-  const { allModels, modelProviders } = useModelProvider();
+  const { allModels, modelProviders, getProviderLabel } = useModelProvider();
   const {
     sendMessage,
     regenerateMessage,
@@ -735,6 +735,7 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
             model={model}
             models={allModels}
             modelProviders={modelProviders}
+            getProviderLabel={getProviderLabel}
             onModelChange={setModel}
             thinkingEnabled={thinkingEnabled}
             onThinkingEnabledChange={onThinkingEnabledChange}

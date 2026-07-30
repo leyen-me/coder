@@ -4,7 +4,6 @@ import type {
   DecisionRiskLevel,
   DecisionTrigger,
 } from "@/lib/decision";
-import type { ProviderId } from "@/lib/model-provider/types";
 
 export type MessageRole = "user" | "assistant";
 
@@ -39,8 +38,8 @@ export type SessionRecord = {
   id: string;
   title: string;
   model: string;
-  /** The provider that owns this session's model. */
-  provider: ProviderId;
+  /** The provider that owns this session's model (preset id or custom id). */
+  provider: string;
   /** Absolute path; owned by this session after the first message. */
   workspaceDir: string | null;
   sessionKind: SessionKind;

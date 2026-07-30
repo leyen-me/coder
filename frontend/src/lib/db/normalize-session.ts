@@ -1,4 +1,3 @@
-import type { ProviderId } from "@/lib/model-provider/types";
 import { stripWindowsVerbatimPrefix } from "@/lib/path";
 import {
   DEFAULT_DECISION_POLICY_VERSION,
@@ -116,20 +115,11 @@ function toNonNegativeInteger(value: number | null | undefined): number | null {
 export function inferProviderFromModel(
   storedProvider: string | null | undefined,
   modelId: string
-): ProviderId {
-  if (
-    storedProvider &&
-    storedProvider !== "deepseek" &&
-    storedProvider !== "glm" &&
-    storedProvider !== "agnes" &&
-    storedProvider !== "minimax" &&
-    storedProvider !== "nvidia" &&
-    storedProvider !== "custom"
-  ) {
-    return "custom";
-  }
+): string {
   if (storedProvider) {
-    return storedProvider as ProviderId;
+    // Preserve whatever provider id was stored (a preset id or a custom id).
+    // Unknown ids are kept as-is so they remain round-trippable.
+    return storedProvider;
   }
 
   // Fall back to prefix-based inference for legacy records
@@ -137,5 +127,6 @@ export function inferProviderFromModel(
   if (model.startsWith("deepseek")) return "deepseek";
   if (model.startsWith("glm")) return "glm";
   if (model.startsWith("agnes")) return "agnes";
+  // Anything else is treated as a custom provider.
   return "custom";
 }

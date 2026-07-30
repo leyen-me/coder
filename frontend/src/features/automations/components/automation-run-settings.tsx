@@ -36,20 +36,13 @@ import {
 } from "@/lib/model-provider/model-definition";
 import type { ProviderId } from "@/lib/model-provider/types";
 import { cn } from "@/lib/utils";
+import { PRESET_PROVIDER_LABELS } from "@/lib/model-provider/constants";
 import type { ScheduledJobAgentMode } from "@/features/scheduled-jobs/lib/api";
-
-const PROVIDER_LABELS: Record<ProviderId, string> = {
-  deepseek: "DeepSeek",
-  glm: "GLM",
-  agnes: "Agnes",
-  nvidia: "NVIDIA",
-  minimax: "MiniMax",
-  custom: "Custom",
-};
 
 function renderModelOptions(
   models: readonly ModelDefinition[],
-  modelProviders?: Map<string, ProviderId>
+  modelProviders?: Map<string, string>,
+  getProviderLabel?: (providerId: string) => string
 ) {
   if (!modelProviders) {
     return models.map((item) => (
@@ -59,7 +52,7 @@ function renderModelOptions(
     ));
   }
 
-  const groups = new Map<ProviderId, ModelDefinition[]>();
+  const groups = new Map<string, ModelDefinition[]>();
   for (const model of models) {
     const provider = modelProviders.get(model.id) ?? "custom";
     const group = groups.get(provider);
@@ -70,6 +63,9 @@ function renderModelOptions(
     }
   }
 
+  const fallbackLabel = (id: string) =>
+    PRESET_PROVIDER_LABELS[id as ProviderId] ?? id;
+
   const items: ReactNode[] = [];
   let groupIndex = 0;
   for (const [providerId, providerModels] of groups) {
@@ -79,7 +75,7 @@ function renderModelOptions(
     items.push(
       <DropdownMenuGroup key={providerId}>
         <DropdownMenuLabel className="text-xs text-muted-foreground">
-          {PROVIDER_LABELS[providerId] ?? providerId}
+          {getProviderLabel ? getProviderLabel(providerId) : fallbackLabel(providerId)}
         </DropdownMenuLabel>
         {providerModels.map((item) => (
           <DropdownMenuRadioItem key={item.id} value={item.id}>
@@ -104,7 +100,9 @@ type AutomationRunSettingsProps = {
   thinkingEnabled: boolean;
   onThinkingEnabledChange: (thinkingEnabled: boolean) => void;
   models: readonly ModelDefinition[];
-  modelProviders?: Map<string, ProviderId>;
+  modelProviders?: Map<string, string>;
+  /** Resolves a human-readable label for a provider id (preset or custom). */
+  getProviderLabel?: (providerId: string) => string;
   disabled?: boolean;
 };
 
@@ -119,6 +117,7 @@ export function AutomationRunSettings({
   onThinkingEnabledChange,
   models,
   modelProviders,
+  getProviderLabel,
   disabled = false,
 }: AutomationRunSettingsProps) {
   const { t } = useTranslation();
@@ -243,7 +242,7 @@ export function AutomationRunSettings({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="max-w-sm">
             <DropdownMenuRadioGroup value={model} onValueChange={onModelChange}>
-              {renderModelOptions(models, modelProviders)}
+              {renderModelOptions(models, modelProviders, getProviderLabel)}
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>

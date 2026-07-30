@@ -8,12 +8,21 @@ import {
   type ReactNode,
 } from "react";
 
+import {
+  CUSTOM_PROVIDER_ID_PREFIX,
+  createDefaultCustomProviderSettings,
+  isPresetProvider,
+  PRESET_PROVIDER_LABELS,
+} from "./constants";
 import { resolveProviderConfig, resolveProviderForModel, mergeAllModels } from "./resolve-provider-config";
 import {
   readModelProviderSettings,
   writeModelProviderSettings,
 } from "./storage";
+import { randomUUID } from "@/lib/random-id";
 import type {
+  AnyProviderId,
+  CustomProviderSettings,
   ModelDefinition,
   ModelProviderSettings,
   ProviderId,
@@ -25,18 +34,26 @@ type ModelProviderContextValue = {
   settings: ModelProviderSettings;
   /** Resolved config for the first enabled provider (backward compat). */
   resolved: ResolvedProviderConfig;
-  /** All enabled provider IDs. */
-  enabledProviders: ProviderId[];
+  /** All enabled provider IDs (presets and custom). */
+  enabledProviders: AnyProviderId[];
   /** Flat list of all models from all enabled providers. */
   allModels: ModelDefinition[];
   /** Maps model ID → owning provider ID. */
-  modelProviders: Map<string, ProviderId>;
+  modelProviders: Map<string, string>;
   /** Resolve config for a specific model across all enabled providers. */
   resolveProviderForModel: (modelId: string) => ResolvedProviderConfig | null;
-  /** Update settings for a specific provider. */
+  /** Update settings for a built-in provider. */
   updateProviderSettings: (providerId: ProviderId, patch: Partial<ProviderSettings>) => void;
-  /** Toggle provider enabled/disabled. */
-  setProviderEnabled: (providerId: ProviderId, enabled: boolean) => void;
+  /** Update settings for a custom provider. */
+  updateCustomProvider: (id: string, patch: Partial<CustomProviderSettings>) => void;
+  /** Add a new custom provider; returns its generated id. */
+  addCustomProvider: () => string;
+  /** Remove a custom provider (and disable it). */
+  removeCustomProvider: (id: string) => void;
+  /** Toggle provider enabled/disabled (preset or custom). */
+  setProviderEnabled: (providerId: string, enabled: boolean) => void;
+  /** Human-readable label for a provider id (preset name or custom name). */
+  getProviderLabel: (providerId: string) => string;
   setSettings: (settings: ModelProviderSettings) => void;
 };
 
@@ -88,8 +105,60 @@ export function ModelProviderProvider({ children }: ModelProviderProviderProps) 
     []
   );
 
+  const updateCustomProvider = useCallback(
+    (id: string, patch: Partial<CustomProviderSettings>) => {
+      setSettingsState((current) => {
+        const existing = current.customProviders[id];
+        if (!existing) {
+          return current;
+        }
+        const next = {
+          ...current,
+          customProviders: {
+            ...current.customProviders,
+            [id]: { ...existing, ...patch, id },
+          },
+        };
+        writeModelProviderSettings(next);
+        return next;
+      });
+    },
+    []
+  );
+
+  const addCustomProvider = useCallback((): string => {
+    const id = `${CUSTOM_PROVIDER_ID_PREFIX}${randomUUID()}`;
+    setSettingsState((current) => {
+      const next: ModelProviderSettings = {
+        ...current,
+        customProviders: {
+          ...current.customProviders,
+          [id]: createDefaultCustomProviderSettings(id),
+        },
+        enabledProviders: [...current.enabledProviders, id],
+      };
+      writeModelProviderSettings(next);
+      return next;
+    });
+    return id;
+  }, []);
+
+  const removeCustomProvider = useCallback((id: string) => {
+    setSettingsState((current) => {
+      const nextCustomProviders = { ...current.customProviders };
+      delete nextCustomProviders[id];
+      const next: ModelProviderSettings = {
+        ...current,
+        customProviders: nextCustomProviders,
+        enabledProviders: current.enabledProviders.filter((p) => p !== id),
+      };
+      writeModelProviderSettings(next);
+      return next;
+    });
+  }, []);
+
   const setProviderEnabled = useCallback(
-    (providerId: ProviderId, enabled: boolean) => {
+    (providerId: string, enabled: boolean) => {
       setSettingsState((current) => {
         const next = {
           ...current,
@@ -103,6 +172,17 @@ export function ModelProviderProvider({ children }: ModelProviderProviderProps) 
     },
     []
   );
+
+  const getProviderLabel = useCallback((providerId: string): string => {
+    if (isPresetProvider(providerId)) {
+      return PRESET_PROVIDER_LABELS[providerId];
+    }
+    if (providerId === "custom") {
+      // Legacy sentinel for unknown models; keep a stable label.
+      return "Custom";
+    }
+    return settings.customProviders[providerId]?.name?.trim() || providerId;
+  }, [settings.customProviders]);
 
   /** Resolved config for the first enabled provider (backward compat for existing code). */
   const resolved = useMemo(() => {
@@ -131,7 +211,11 @@ export function ModelProviderProvider({ children }: ModelProviderProviderProps) 
       modelProviders,
       resolveProviderForModel: resolveForModel,
       updateProviderSettings,
+      updateCustomProvider,
+      addCustomProvider,
+      removeCustomProvider,
       setProviderEnabled,
+      getProviderLabel,
       setSettings,
     }),
     [
@@ -142,7 +226,11 @@ export function ModelProviderProvider({ children }: ModelProviderProviderProps) 
       modelProviders,
       resolveForModel,
       updateProviderSettings,
+      updateCustomProvider,
+      addCustomProvider,
+      removeCustomProvider,
       setProviderEnabled,
+      getProviderLabel,
       setSettings,
     ]
   );

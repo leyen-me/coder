@@ -73,7 +73,7 @@ export function AutomationDialog({
   onSave,
 }: AutomationDialogProps) {
   const { t } = useTranslation();
-  const { allModels, modelProviders } = useModelProvider();
+  const { allModels, modelProviders, getProviderLabel } = useModelProvider();
   const isEditing = editItem !== null;
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -457,6 +457,7 @@ export function AutomationDialog({
               onThinkingEnabledChange={setThinkingEnabled}
               models={allModels}
               modelProviders={modelProviders}
+              getProviderLabel={getProviderLabel}
               disabled={saving}
             />
 

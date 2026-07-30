@@ -28,10 +28,9 @@ import { ProviderUsageTag } from "@/features/lab/provider-usage-tag";
 import { openWorkspaceInExplorer } from "@/features/workspace/open-workspace-in-explorer";
 import { getMessagesBySession, getSession, pinSession, unpinSession, updateSessionTitle } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
-import type { ProviderId } from "@/lib/model-provider/types";
 
 type SessionToolbarProps = {
-  sessionProvider?: ProviderId | null;
+  sessionProvider?: string | null;
 };
 
 export function SessionToolbar({

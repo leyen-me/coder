@@ -455,6 +455,16 @@ export type Messages = {
       showUsageLabel: string;
       showUsageDescription: string;
       showUsageAriaLabel: string;
+      customProvidersSectionTitle: string;
+      addProviderButton: string;
+      customProviderDefaultName: string;
+      customProviderNamePlaceholder: string;
+      customProviderNameAriaLabel: string;
+      removeProviderAriaLabel: string;
+      confirmRemoveProviderTitle: string;
+      confirmRemoveProviderDescription: string;
+      confirmRemoveProviderAction: string;
+      confirmCancel: string;
     };
     webTools: {
       webSearchProviderLabel: string;

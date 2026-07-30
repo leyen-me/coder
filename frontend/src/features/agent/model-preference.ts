@@ -1,6 +1,7 @@
 import { getKVStore } from "@/lib/storage";
 import {
   getDefaultApiKeyEnvVar,
+  isPresetProvider,
   PRESET_PROVIDERS,
 } from "@/lib/model-provider/constants";
 import { findModelDefinition } from "@/lib/model-provider/model-definition";
@@ -41,11 +42,11 @@ export function resolveApiKeyEnvVar(resolved: ResolvedProviderConfig): string {
     return resolved.apiKeyEnvVar.trim();
   }
 
-  if (resolved.provider === "custom") {
-    return getDefaultApiKeyEnvVar("custom");
+  if (isPresetProvider(resolved.provider)) {
+    return PRESET_PROVIDERS[resolved.provider].defaultApiKeyEnvVar;
   }
 
-  return PRESET_PROVIDERS[resolved.provider].defaultApiKeyEnvVar;
+  return getDefaultApiKeyEnvVar(resolved.provider);
 }
 
 export function resolveSelectedModelDefinition(
