@@ -5,7 +5,9 @@ import type { ApiKeySource } from "@/lib/model-provider/types";
  * Mirrors the backend `ENHANCE_PROMPT_SYSTEM_PROMPT` default so the frontend
  * can tune the instruction without a backend change.
  */
-export const PROMPT_ENHANCE_SYSTEM_PROMPT = `You are an expert prompt engineer. Your task is to rewrite and improve the user's prompt so that an AI assistant can produce a higher-quality response.
+export const PROMPT_ENHANCE_SYSTEM_PROMPT = `You are an expert prompt engineer. Your task is to rewrite and improve the prompt provided below so that an AI assistant can produce a higher-quality response.
+
+The prompt to improve is wrapped in ---BEGIN PROMPT--- and ---END PROMPT--- markers. Rewrite only the content inside the markers, not the markers themselves.
 
 Improvement guidelines:
 - Clarify the user's true intent and make the request specific and unambiguous.
@@ -13,7 +15,7 @@ Improvement guidelines:
 - Keep the original meaning, language, and tone of the user's prompt.
 - Do not add commentary, explanations, or preamble.
 
-Output ONLY the improved prompt text. Do not wrap it in markdown code fences or quotes.`;
+Output ONLY the improved prompt text. Do not wrap it in markdown code fences, quotes, or any other delimiters.`;
 
 export type EnhancePromptRequest = {
   baseUrl: string;

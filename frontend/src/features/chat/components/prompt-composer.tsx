@@ -447,9 +447,11 @@ export const PromptComposer = memo(function PromptComposer({
           apiKeySource: resolved.apiKeySource,
           apiKeyEnvVar: resolved.apiKeyEnvVar,
           model: parseModelValue(model).modelId,
-          // Wrap the original prompt in code fences so the model clearly sees it
-          // as raw text to rewrite/improve, not as a direct conversational query.
-          userPrompt: `\`\`\`\n${original}\n\`\`\``,
+          // Wrap the original prompt in explicit markers so the model clearly
+          // sees it as raw text to rewrite/improve, not as a direct query.
+          // Using ---BEGIN PROMPT---/---END PROMPT--- instead of ``` to avoid
+          // conflicts when the user's text already contains code fences.
+          userPrompt: `---BEGIN PROMPT---\n${original}\n---END PROMPT---`,
           systemPrompt: PROMPT_ENHANCE_SYSTEM_PROMPT,
         },
         {
