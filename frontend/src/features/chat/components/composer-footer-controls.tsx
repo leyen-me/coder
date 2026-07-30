@@ -174,12 +174,12 @@ export function ComposerFooterControls({
             }
             className={cn(
               compactControlClassName,
-              "size-8 shrink-0 justify-center px-0"
+              "group size-8 shrink-0 justify-center px-0"
             )}
             aria-label={t("chat.composerMoreActions")}
             title={t("chat.composerMoreActions")}
           >
-            <PlusIcon className="size-4 shrink-0" />
+            <PlusIcon className="size-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-45" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
