@@ -207,7 +207,7 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
                 <MessageContent className="gap-2 !bg-primary/10">
                   <HoverCard openDelay={200} closeDelay={100}>
                     <HoverCardTrigger asChild>
-                      <span className="cursor-help text-muted-foreground text-sm">
+                      <span className="cursor-help whitespace-pre-wrap wrap-break-word">
                         {group.response.outcome === "complete"
                           ? t("chat.decisionOutcomeComplete")
                           : group.response.outcome === "ask_user"
