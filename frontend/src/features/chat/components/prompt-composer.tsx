@@ -23,10 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { PromptComposerAttachmentsHeader } from "./prompt-composer-attachments";
 import { useTranslation } from "@/lib/i18n/locale-provider";
-import {
-  findModelDefinition,
-  type ModelDefinition,
-} from "@/lib/model-provider/model-definition";
+import { findModelEntry, type ModelProviderEntry } from "@/lib/model-provider/resolve-provider-config";
 import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { cn } from "@/lib/utils";
 import type { AgentMode } from "@/features/agent/types";
@@ -62,9 +59,8 @@ type PromptComposerProps = {
   onSend?: (payload: { text: string; files: FileUIPart[]; skillSlugs?: string[] }) => Promise<void>;
   onStop?: () => void;
   model: string;
-  models: readonly ModelDefinition[];
-  /** Maps model ID → provider ID for grouping models in the dropdown. */
-  modelProviders?: Map<string, string>;
+  /** Provider-tagged model entries; each has a unique composite `value`. */
+  entries?: ModelProviderEntry[];
   /** Resolves a human-readable label for a provider id (preset or custom). */
   getProviderLabel?: (providerId: string) => string;
   onModelChange: (model: string) => void;
@@ -256,7 +252,7 @@ export const PromptComposer = memo(function PromptComposer({
   onSend,
   onStop,
   model,
-  models,
+  entries,
   onModelChange,
   thinkingEnabled = false,
   onThinkingEnabledChange,
@@ -279,7 +275,6 @@ export const PromptComposer = memo(function PromptComposer({
   planBuiltAt,
   sessionKind = "standard",
   onSessionKindChange,
-  modelProviders,
   getProviderLabel,
 }: PromptComposerProps) {
   const { t } = useTranslation();
@@ -300,7 +295,7 @@ export const PromptComposer = memo(function PromptComposer({
 
   const editorRef = useRef<Editor | null>(null);
   const submitStatus = resolveSubmitStatus(isRunning, Boolean(onStop));
-  const selectedModel = findModelDefinition(models, model);
+  const selectedModel = findModelEntry(entries, model)?.model;
   const supportsMultimodal = selectedModel?.supportsMultimodal ?? false;
   const showThinkingToggle =
     canToggleThinking(selectedModel) && Boolean(onThinkingEnabledChange);
@@ -473,9 +468,8 @@ export const PromptComposer = memo(function PromptComposer({
           agentMode={agentMode}
           isRunning={isRunning}
           model={model}
-          modelProviders={modelProviders}
+          entries={entries}
           getProviderLabel={getProviderLabel}
-          models={models}
           onAgentModeChange={onAgentModeChange}
           onModelChange={onModelChange}
           onSessionKindChange={onSessionKindChange}

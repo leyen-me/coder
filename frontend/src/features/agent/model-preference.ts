@@ -5,6 +5,10 @@ import {
   PRESET_PROVIDERS,
 } from "@/lib/model-provider/constants";
 import { findModelDefinition } from "@/lib/model-provider/model-definition";
+import {
+  findModelEntry,
+  type ModelProviderEntry,
+} from "@/lib/model-provider/resolve-provider-config";
 import type { ModelDefinition, ResolvedProviderConfig } from "@/lib/model-provider/types";
 
 export const LAST_SELECTED_MODEL_KEY = "coder:last-selected-model";
@@ -27,6 +31,25 @@ export function resolveDefaultModel(
   }
 
   return resolved.models[0]?.id ?? "";
+}
+
+/**
+ * Resolves the default selection value from the provider-tagged entries.
+ * Honors the last-selected model (matched by composite value or, for legacy
+ * plain ids, by model id) and otherwise falls back to the first entry.
+ */
+export function resolveDefaultModelValue(
+  entries: readonly ModelProviderEntry[]
+): string {
+  const remembered = readLastSelectedModel();
+  if (remembered) {
+    const match = findModelEntry(entries, remembered);
+    if (match) {
+      return match.value;
+    }
+  }
+
+  return entries[0]?.value ?? "";
 }
 
 export function resolveApiKey(resolved: ResolvedProviderConfig): string {

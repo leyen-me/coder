@@ -13,7 +13,12 @@ import { nanoid } from "nanoid";
 import { toast } from "sonner";
 
 import { storedImagesToFileUIParts } from "@/features/agent/message-content";
-import { resolveDefaultModel } from "@/features/agent/model-preference";
+import { resolveDefaultModelValue } from "@/features/agent/model-preference";
+import {
+  isModelValue,
+  makeModelValue,
+  parseModelValue,
+} from "@/lib/model-provider/resolve-provider-config";
 import { useAgentStore } from "@/features/agent/store/agent-store";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { apiPost } from "@/lib/api/client";
@@ -77,7 +82,7 @@ type ChatSessionViewProps = {
 
 export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewProps) {
   const { t } = useTranslation();
-  const { allModels, modelProviders, getProviderLabel } = useModelProvider();
+  const { allModels, modelEntries, getProviderLabel } = useModelProvider();
   const {
     sendMessage,
     regenerateMessage,
@@ -104,7 +109,19 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
   >(undefined);
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
   const queueDispatchingRef = useRef(false);
-  const [model, setModel] = useState(() => resolveDefaultModel({ models: allModels }));
+  const [model, setModel] = useState(() => resolveDefaultModelValue(modelEntries));
+  const handleModelChange = useCallback(
+    (next: string) => {
+      setModel(next);
+      if (chatId) {
+        void updateSession(chatId, {
+          model: next,
+          provider: parseModelValue(next).providerId,
+        });
+      }
+    },
+    [chatId]
+  );
   const { thinkingEnabled, onThinkingEnabledChange } = useComposerThinking(
     model,
     allModels
@@ -153,9 +170,17 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
 
   useEffect(() => {
     if (session?.model) {
-      setModel(session.model);
+      // Reconstruct the composite selection value so the exact provider is
+      // restored (a plain model id alone can't disambiguate duplicate ids).
+      setModel(
+        isModelValue(session.model)
+          ? session.model
+          : session.provider
+            ? makeModelValue(session.provider, session.model)
+            : session.model
+      );
     }
-  }, [session?.model]);
+  }, [session?.model, session?.provider]);
 
   useEffect(() => {
     let cancelled = false;
@@ -733,10 +758,9 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
             onSend={handleSend}
             onStop={activeTask ? handleStop : undefined}
             model={model}
-            models={allModels}
-            modelProviders={modelProviders}
+            entries={modelEntries}
             getProviderLabel={getProviderLabel}
-            onModelChange={setModel}
+            onModelChange={handleModelChange}
             thinkingEnabled={thinkingEnabled}
             onThinkingEnabledChange={onThinkingEnabledChange}
             showWorkspaceControls={canEditWorkspace}

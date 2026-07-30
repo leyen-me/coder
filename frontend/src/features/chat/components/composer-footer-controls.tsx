@@ -36,10 +36,10 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import type { SessionKind } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import {
-  findModelDefinition,
   getModelDisplayName,
-  type ModelDefinition,
 } from "@/lib/model-provider/model-definition";
+import type { ModelProviderEntry } from "@/lib/model-provider/resolve-provider-config";
+import { findModelEntry } from "@/lib/model-provider/resolve-provider-config";
 import type { ProviderId } from "@/lib/model-provider/types";
 import { PRESET_PROVIDER_LABELS } from "@/lib/model-provider/constants";
 import { cn } from "@/lib/utils";
@@ -48,28 +48,20 @@ const mobileCompactControlClassName =
   "inline-flex h-8 min-h-8 min-w-0 items-center gap-1 rounded-xl px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 data-[state=open]:bg-accent data-[state=open]:text-foreground";
 
 function renderModelOptions(
-  models: readonly ModelDefinition[],
-  modelProviders?: Map<string, string>,
+  entries: readonly ModelProviderEntry[] | undefined,
   getProviderLabel?: (providerId: string) => string
 ) {
-  if (!modelProviders) {
-    return models.map((item) => (
-      <DropdownMenuRadioItem key={item.id} value={item.id}>
-        <span className="truncate" title={getModelDisplayName(item)}>
-          {getModelDisplayName(item)}
-        </span>
-      </DropdownMenuRadioItem>
-    ));
+  if (!entries || entries.length === 0) {
+    return null;
   }
 
-  const groups = new Map<string, ModelDefinition[]>();
-  for (const model of models) {
-    const provider = modelProviders.get(model.id) ?? "custom";
-    const group = groups.get(provider);
+  const groups = new Map<string, ModelProviderEntry[]>();
+  for (const entry of entries) {
+    const group = groups.get(entry.providerId);
     if (group) {
-      group.push(model);
+      group.push(entry);
     } else {
-      groups.set(provider, [model]);
+      groups.set(entry.providerId, [entry]);
     }
   }
 
@@ -78,7 +70,7 @@ function renderModelOptions(
 
   const items: ReactElement[] = [];
   let groupIndex = 0;
-  for (const [providerId, providerModels] of groups) {
+  for (const [providerId, providerEntries] of groups) {
     if (groupIndex > 0) {
       items.push(<DropdownMenuSeparator key={`sep-${providerId}`} />);
     }
@@ -87,10 +79,10 @@ function renderModelOptions(
         <DropdownMenuLabel className="text-xs text-muted-foreground">
           {getProviderLabel ? getProviderLabel(providerId) : fallbackLabel(providerId)}
         </DropdownMenuLabel>
-        {providerModels.map((item) => (
-          <DropdownMenuRadioItem key={item.id} value={item.id}>
-            <span className="truncate" title={getModelDisplayName(item)}>
-              {getModelDisplayName(item)}
+        {providerEntries.map((entry) => (
+          <DropdownMenuRadioItem key={entry.value} value={entry.value}>
+            <span className="truncate" title={getModelDisplayName(entry.model)}>
+              {getModelDisplayName(entry.model)}
             </span>
           </DropdownMenuRadioItem>
         ))}
@@ -132,8 +124,8 @@ type ComposerFooterControlsProps = {
   sessionKind: SessionKind;
   onSessionKindChange?: (kind: SessionKind) => void;
   model: string;
-  models: readonly ModelDefinition[];
-  modelProviders?: Map<string, string>;
+  /** Provider-tagged model entries; each has a unique composite `value`. */
+  entries?: ModelProviderEntry[];
   /** Resolves a human-readable label for a provider id (preset or custom). */
   getProviderLabel?: (providerId: string) => string;
   onModelChange: (model: string) => void;
@@ -150,8 +142,7 @@ export function ComposerFooterControls({
   sessionKind,
   onSessionKindChange,
   model,
-  models,
-  modelProviders,
+  entries,
   getProviderLabel,
   onModelChange,
   showThinkingToggle,
@@ -162,7 +153,7 @@ export function ComposerFooterControls({
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const attachments = usePromptInputAttachments();
-  const selectedModel = findModelDefinition(models, model);
+  const selectedModel = findModelEntry(entries, model)?.model;
   const AgentModeIcon = resolveAgentModeIcon(agentMode);
   const agentModeLabel = resolveAgentModeLabel(agentMode, (key) => t(key));
   const modelLabel = selectedModel
@@ -200,7 +191,7 @@ export function ComposerFooterControls({
 
   const modelMenu = (
     <DropdownMenuRadioGroup value={model} onValueChange={onModelChange}>
-      {renderModelOptions(models, modelProviders, getProviderLabel)}
+      {renderModelOptions(entries, getProviderLabel)}
     </DropdownMenuRadioGroup>
   );
 
@@ -213,7 +204,7 @@ export function ComposerFooterControls({
               type="button"
               disabled={
                 (isRunning && !showThinkingToggle) ||
-                (!onAgentModeChange && !onSessionKindChange && models.length === 0)
+                (!onAgentModeChange && !onSessionKindChange && !entries?.length)
               }
               className={cn(
                 mobileCompactControlClassName,
@@ -237,21 +228,21 @@ export function ComposerFooterControls({
               <span>{t("chat.addAttachment")}</span>
             </DropdownMenuItem>
             <DropdownMenuSub>
-              <DropdownMenuSubTrigger disabled={models.length === 0 && !showThinkingToggle}>
+              <DropdownMenuSubTrigger disabled={!entries?.length && !showThinkingToggle}>
                 <span className="min-w-0 flex-1 truncate">{t("chat.composerModelLabel")}</span>
                 <DropdownMenuShortcut className="max-w-16 truncate tracking-normal normal-case">
                   {modelLabel}
                 </DropdownMenuShortcut>
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="max-h-[min(50vh,20rem)] w-[min(14rem,calc(100vw-5rem))] overflow-y-auto">
-                {models.length > 0 ? (
+                {entries?.length ? (
                   modelMenu
                 ) : (
                   <DropdownMenuLabel>{t("chat.noModel")}</DropdownMenuLabel>
                 )}
                 {showThinkingToggle ? (
                   <>
-                    {models.length > 0 ? <DropdownMenuSeparator /> : null}
+                    {entries?.length ? <DropdownMenuSeparator /> : null}
                     <DropdownMenuItem
                       disabled={isRunning}
                       onSelect={(event) => {
@@ -381,7 +372,7 @@ export function ComposerFooterControls({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            disabled={models.length === 0}
+            disabled={!entries?.length}
             className={cn(
               composerFooterControlClassName,
               "inline-flex max-w-44 items-center gap-1.5",

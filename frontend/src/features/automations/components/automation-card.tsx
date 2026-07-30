@@ -18,10 +18,8 @@ import {
 } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "@/lib/i18n/locale-provider";
-import {
-  findModelDefinition,
-  getModelDisplayName,
-} from "@/lib/model-provider/model-definition";
+import { getModelDisplayName } from "@/lib/model-provider/model-definition";
+import { findModelEntry } from "@/lib/model-provider/resolve-provider-config";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
 import { AutomationRunHistorySheet } from "./automation-run-history-sheet";
@@ -78,10 +76,10 @@ export function AutomationCard({
   onDelete,
 }: AutomationCardProps) {
   const { t } = useTranslation();
-  const { allModels } = useModelProvider();
+  const { modelEntries } = useModelProvider();
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const runConfig = resolveScheduledJobRunConfig(item, { models: allModels });
-  const modelDefinition = findModelDefinition(allModels, runConfig.model);
+  const runConfig = resolveScheduledJobRunConfig(item, modelEntries);
+  const modelDefinition = findModelEntry(modelEntries, runConfig.model)?.model;
   const workspaceName = runConfig.workspaceDir
     ? getWorkspaceDisplayName(runConfig.workspaceDir)
     : null;

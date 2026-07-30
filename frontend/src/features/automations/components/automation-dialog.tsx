@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   composerFooterControlClassName,
 } from "@/components/ai-elements/composer-footer-control";
-import { resolveDefaultModel } from "@/features/agent/model-preference";
+import { resolveDefaultModelValue } from "@/features/agent/model-preference";
 import { resolveDefaultThinkingEnabled } from "@/features/agent/thinking-preference";
 import {
   buildCronFromSimple,
@@ -35,8 +35,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useTranslation } from "@/lib/i18n/locale-provider";
-import { findModelDefinition } from "@/lib/model-provider/model-definition";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
+import {
+  findModelEntry,
+  parseModelValue,
+} from "@/lib/model-provider/resolve-provider-config";
 import { cn } from "@/lib/utils";
 
 import type {
@@ -73,7 +76,7 @@ export function AutomationDialog({
   onSave,
 }: AutomationDialogProps) {
   const { t } = useTranslation();
-  const { allModels, modelProviders, getProviderLabel } = useModelProvider();
+  const { modelEntries, getProviderLabel } = useModelProvider();
   const isEditing = editItem !== null;
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -84,7 +87,7 @@ export function AutomationDialog({
   const [advancedOnly, setAdvancedOnly] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [workspaceDir, setWorkspaceDir] = useState<string | null>(null);
-  const [model, setModel] = useState(() => resolveDefaultModel({ models: allModels }));
+  const [model, setModel] = useState(() => resolveDefaultModelValue(modelEntries));
   const [agentMode, setAgentMode] = useState<ScheduledJobAgentMode>("agent");
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -94,10 +97,12 @@ export function AutomationDialog({
     (nextModel: string) => {
       setModel(nextModel);
       setThinkingEnabled(
-        resolveDefaultThinkingEnabled(findModelDefinition(allModels, nextModel))
+        resolveDefaultThinkingEnabled(
+          findModelEntry(modelEntries, nextModel)?.model
+        )
       );
     },
-    [allModels]
+    [modelEntries]
   );
 
   const weekdayOptions = useMemo(
@@ -140,7 +145,7 @@ export function AutomationDialog({
     }
 
     if (editItem) {
-      const runConfig = resolveScheduledJobRunConfig(editItem, { models: allModels });
+      const runConfig = resolveScheduledJobRunConfig(editItem, modelEntries);
       const parsedSchedule = parseCronToSimple(editItem.cronExpression);
       setName(editItem.name);
       setDescription(editItem.description);
@@ -159,7 +164,7 @@ export function AutomationDialog({
       setAgentMode(runConfig.agentMode);
       setThinkingEnabled(runConfig.thinkingEnabled);
     } else {
-      const defaultModel = resolveDefaultModel({ models: allModels });
+      const defaultModel = resolveDefaultModelValue(modelEntries);
       const defaultSchedule = createDefaultSimpleSchedule();
       setName("");
       setDescription("");
@@ -171,12 +176,14 @@ export function AutomationDialog({
       setModel(defaultModel);
       setAgentMode("agent");
       setThinkingEnabled(
-        resolveDefaultThinkingEnabled(findModelDefinition(allModels, defaultModel))
+        resolveDefaultThinkingEnabled(
+          findModelEntry(modelEntries, defaultModel)?.model
+        )
       );
     }
     setError(null);
     setSaving(false);
-  }, [allModels, editItem, open]);
+  }, [modelEntries, editItem, open]);
 
   const handleSave = useCallback(async () => {
     setError(null);
@@ -211,12 +218,15 @@ export function AutomationDialog({
     }
 
     const trimmedModel = model.trim();
-    if (!trimmedModel || !findModelDefinition(allModels, trimmedModel)) {
+    if (!trimmedModel || !findModelEntry(modelEntries, trimmedModel)) {
       setError(t("automations.formModelRequired"));
       return;
     }
 
-    const inferredProvider = modelProviders?.get(trimmedModel) ?? "custom";
+    const inferredProvider =
+      parseModelValue(trimmedModel).providerId ||
+      editItem?.provider ||
+      "custom";
     const payload = {
       name: trimmedName,
       description: description.trim(),
@@ -248,13 +258,12 @@ export function AutomationDialog({
     }
   }, [
     agentMode,
-    allModels,
+    modelEntries,
     advancedOnly,
     cronExpression,
     description,
     editItem,
     model,
-    modelProviders,
     name,
     onOpenChange,
     onSave,
@@ -455,8 +464,7 @@ export function AutomationDialog({
               onModelChange={handleModelChange}
               thinkingEnabled={thinkingEnabled}
               onThinkingEnabledChange={setThinkingEnabled}
-              models={allModels}
-              modelProviders={modelProviders}
+              entries={modelEntries}
               getProviderLabel={getProviderLabel}
               disabled={saving}
             />

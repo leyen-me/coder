@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { paths } from "@/app/paths";
-import { resolveDefaultModel } from "@/features/agent/model-preference";
+import { resolveDefaultModelValue } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
 import { useLabSettings } from "@/features/lab/use-lab-settings";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
@@ -24,12 +24,12 @@ import { DEFAULT_PROJECT_NAME } from "../data/mock-chats";
 export function NewChatView() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { allModels, modelProviders, getProviderLabel } = useModelProvider();
+  const { allModels, modelEntries, getProviderLabel } = useModelProvider();
   const { sendMessage } = useAgentStore();
   const { settings: labSettings } = useLabSettings();
   const longTaskEnabled = labSettings.longTaskEnabled;
   const { workspaceDir, pickWorkspace, clearWorkspace } = useNewChatWorkspace();
-  const [model, setModel] = useState(() => resolveDefaultModel({ models: allModels }));
+  const [model, setModel] = useState(() => resolveDefaultModelValue(modelEntries));
   const { thinkingEnabled, onThinkingEnabledChange } = useComposerThinking(
     model,
     allModels
@@ -117,8 +117,7 @@ export function NewChatView() {
         <PromptComposer
           onSend={sendText}
           model={model}
-          models={allModels}
-          modelProviders={modelProviders}
+          entries={modelEntries}
           getProviderLabel={getProviderLabel}
           onModelChange={setModel}
           thinkingEnabled={thinkingEnabled}

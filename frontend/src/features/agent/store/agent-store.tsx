@@ -35,6 +35,7 @@ import { fileUIPartsToStoredImages } from "../message-content";
 import type { FileUIPart } from "ai";
 import type { AgentToolDefinition } from "../tools/types";
 import { applyGeneratedSessionTitle } from "../generate-session-title";
+import { parseModelValue } from "@/lib/model-provider/resolve-provider-config";
 import {
   resolveApiKey,
   resolveApiKeyEnvVar,
@@ -135,7 +136,7 @@ function resolveThinkingEnabledForRequest(
 }
 
 export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
-  const { resolved, resolveProviderForModel } = useModelProvider();
+  const { resolved, resolveProviderForValue } = useModelProvider();
   const resolvedRef = useRef(resolved);
   resolvedRef.current = resolved;
   const tasksRef = useRef(new Map<string, ActiveTaskState>());
@@ -728,6 +729,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         .reverse()
         .find((message) => message.role === "user");
       const model = session?.model ?? "";
+      const modelId = parseModelValue(model).modelId;
       const activeTask: ActiveTaskState = {
         taskId: status.taskId,
         sessionId,
@@ -741,7 +743,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         userContent: latestUserMessage?.content ?? "",
         thinkingEnabled: model
           ? resolveDefaultThinkingEnabled(
-              findModelDefinition(resolvedRef.current.models, model)
+              findModelDefinition(resolvedRef.current.models, modelId)
             )
           : true,
         agentMode: assistantMessage.messageKind === "plan" ? "plan" : "agent",
@@ -852,6 +854,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         skillSlugs.length > 0 ? skillSlugs : undefined;
 
       writeLastSelectedModel(input.model);
+      const { modelId } = parseModelValue(input.model);
       let isFirstTurn: boolean;
       const sessionMessages = await getMessagesBySession(input.sessionId);
       if (input.editMessageId) {
@@ -877,14 +880,14 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         if (derived) {
           updateSessionTitle(input.sessionId, derived).catch(() => {});
         }
-        const titleResolved = resolveProviderForModel(input.model) ?? resolved;
+        const titleResolved = resolveProviderForValue(input.model) ?? resolved;
         void applyGeneratedSessionTitle({
           sessionId: input.sessionId,
           baseUrl: titleResolved.baseUrl,
           apiKey: resolveApiKey(titleResolved),
           apiKeySource: titleResolved.apiKeySource,
           apiKeyEnvVar: titleResolved.apiKeyEnvVar,
-          model: input.model,
+          model: modelId,
           userMessage: trimmed,
         }).catch(() => {
           // best-effort
@@ -896,15 +899,15 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         throw new Error(`Session not found: ${input.sessionId}`);
       }
       const sessionPolicy = resolveAgentSessionPolicy(session);
-      const sessionResolved = resolveProviderForModel(input.model) ?? resolved;
+      const sessionResolved = resolveProviderForValue(input.model) ?? resolved;
       const thinkingEnabled = resolveThinkingEnabledForRequest(
         sessionResolved,
-        input.model,
+        modelId,
         input.thinkingEnabled
       );
       const maxContextTokens = resolveContextWindowForModel(
         sessionResolved,
-        input.model
+        modelId
       );
       const started = await sendAgentMessage({
         sessionId: input.sessionId,
@@ -916,11 +919,11 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         apiKey: resolveApiKey(sessionResolved),
         apiKeySource: sessionResolved.apiKeySource,
         apiKeyEnvVar: resolveApiKeyEnvVar(sessionResolved),
-        model: input.model,
+        model: modelId,
         models: sessionResolved.models,
         requestExtensions: buildThinkingRequestExtensions({
           models: sessionResolved.models,
-          modelId: input.model,
+          modelId,
           thinkingEnabled,
         }),
         maxContextTokens,
@@ -957,7 +960,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         taskId,
       };
     },
-    [emit, resolved, resolveProviderForModel, startAgentTask]
+    [emit, resolved, resolveProviderForValue, startAgentTask]
   );
 
   const regenerateMessage = useCallback(
@@ -969,6 +972,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       agentMode?: AgentMode;
     }) => {
       writeLastSelectedModel(input.model);
+      const { modelId } = parseModelValue(input.model);
 
       const sessionMessages = await getMessagesBySession(input.sessionId);
       const assistantIndex = sessionMessages.findIndex(
@@ -1005,16 +1009,16 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       }
       const sessionPolicy = resolveAgentSessionPolicy(session);
 
-      const sessionResolved = resolveProviderForModel(input.model) ?? resolved;
+      const sessionResolved = resolveProviderForValue(input.model) ?? resolved;
       const storedImages = userMessage.images ?? [];
       const thinkingEnabled = resolveThinkingEnabledForRequest(
         sessionResolved,
-        input.model,
+        modelId,
         input.thinkingEnabled
       );
       const maxContextTokens = resolveContextWindowForModel(
         sessionResolved,
-        input.model
+        modelId
       );
       const started = await regenerateAgentMessage({
         sessionId: input.sessionId,
@@ -1023,11 +1027,11 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         apiKey: resolveApiKey(sessionResolved),
         apiKeySource: sessionResolved.apiKeySource,
         apiKeyEnvVar: resolveApiKeyEnvVar(sessionResolved),
-        model: input.model,
+        model: modelId,
         models: sessionResolved.models,
         requestExtensions: buildThinkingRequestExtensions({
           models: sessionResolved.models,
-          modelId: input.model,
+          modelId,
           thinkingEnabled,
         }),
         maxContextTokens,
@@ -1063,7 +1067,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         taskId,
       };
     },
-    [emit, resolved, resolveProviderForModel, startAgentTask]
+    [emit, resolved, resolveProviderForValue, startAgentTask]
   );
 
   const cancelTask = useCallback(

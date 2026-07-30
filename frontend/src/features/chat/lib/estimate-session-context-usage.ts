@@ -7,6 +7,7 @@ import {
   findModelDefinition,
   type ModelDefinition,
 } from "@/lib/model-provider/model-definition";
+import { parseModelValue } from "@/lib/model-provider/resolve-provider-config";
 
 const IMAGE_TOKEN_ESTIMATE = 765;
 const CJK_PATTERN = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g;
@@ -249,7 +250,10 @@ export function estimateSessionContextUsage(input: {
     return null;
   }
 
-  const selectedModel = findModelDefinition(input.models, input.modelId);
+  const selectedModel = findModelDefinition(
+    input.models,
+    parseModelValue(input.modelId).modelId
+  );
   const maxTokens = selectedModel?.contextWindow ?? DEFAULT_MODEL_CONTEXT_WINDOW;
 
   const compactMessage = effectiveMessages.find(

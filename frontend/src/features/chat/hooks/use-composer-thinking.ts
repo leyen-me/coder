@@ -8,11 +8,14 @@ import {
   findModelDefinition,
   type ModelDefinition,
 } from "@/lib/model-provider/model-definition";
+import { parseModelValue } from "@/lib/model-provider/resolve-provider-config";
 
 export function useComposerThinking(
-  modelId: string,
+  modelValue: string,
   models: readonly ModelDefinition[]
 ) {
+  const modelId = parseModelValue(modelValue).modelId;
+
   const [thinkingEnabled, setThinkingEnabled] = useState(() =>
     resolveDefaultThinkingEnabled(findModelDefinition(models, modelId))
   );

@@ -14,7 +14,13 @@ import {
   isPresetProvider,
   PRESET_PROVIDER_LABELS,
 } from "./constants";
-import { resolveProviderConfig, resolveProviderForModel, mergeAllModels } from "./resolve-provider-config";
+import {
+  mergeAllModels,
+  resolveProviderConfig,
+  resolveProviderForModel,
+  resolveProviderForValue,
+  type ModelProviderEntry,
+} from "./resolve-provider-config";
 import {
   readModelProviderSettings,
   writeModelProviderSettings,
@@ -36,12 +42,14 @@ type ModelProviderContextValue = {
   resolved: ResolvedProviderConfig;
   /** All enabled provider IDs (presets and custom). */
   enabledProviders: AnyProviderId[];
-  /** Flat list of all models from all enabled providers. */
+  /** Flat list of all models from all enabled providers (may contain duplicate ids). */
   allModels: ModelDefinition[];
-  /** Maps model ID → owning provider ID. */
-  modelProviders: Map<string, string>;
-  /** Resolve config for a specific model across all enabled providers. */
+  /** Provider-tagged model entries; each has a unique composite `value`. */
+  modelEntries: ModelProviderEntry[];
+  /** Resolve config for a specific model id across all enabled providers. */
   resolveProviderForModel: (modelId: string) => ResolvedProviderConfig | null;
+  /** Resolve config for a stored model value (composite or legacy). */
+  resolveProviderForValue: (value: string) => ResolvedProviderConfig | null;
   /** Update settings for a built-in provider. */
   updateProviderSettings: (providerId: ProviderId, patch: Partial<ProviderSettings>) => void;
   /** Update settings for a custom provider. */
@@ -192,7 +200,7 @@ export function ModelProviderProvider({ children }: ModelProviderProviderProps) 
 
   const enabledProviders = settings.enabledProviders;
 
-  const { models: allModels, modelProviders } = useMemo(
+  const { models: allModels, entries: modelEntries } = useMemo(
     () => mergeAllModels(settings),
     [settings]
   );
@@ -202,14 +210,20 @@ export function ModelProviderProvider({ children }: ModelProviderProviderProps) 
     [settings]
   );
 
+  const resolveForValue = useCallback(
+    (value: string) => resolveProviderForValue(settings, value),
+    [settings]
+  );
+
   const value = useMemo(
     () => ({
       settings,
       resolved,
       enabledProviders,
       allModels,
-      modelProviders,
+      modelEntries,
       resolveProviderForModel: resolveForModel,
+      resolveProviderForValue: resolveForValue,
       updateProviderSettings,
       updateCustomProvider,
       addCustomProvider,
@@ -223,8 +237,9 @@ export function ModelProviderProvider({ children }: ModelProviderProviderProps) 
       resolved,
       enabledProviders,
       allModels,
-      modelProviders,
+      modelEntries,
       resolveForModel,
+      resolveForValue,
       updateProviderSettings,
       updateCustomProvider,
       addCustomProvider,

@@ -30,36 +30,30 @@ import { Label } from "@/components/ui/label";
 import { Toggle } from "@/components/ui/toggle";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import {
-  findModelDefinition,
   getModelDisplayName,
-  type ModelDefinition,
 } from "@/lib/model-provider/model-definition";
+import type { ModelProviderEntry } from "@/lib/model-provider/resolve-provider-config";
+import { findModelEntry } from "@/lib/model-provider/resolve-provider-config";
 import type { ProviderId } from "@/lib/model-provider/types";
 import { cn } from "@/lib/utils";
 import { PRESET_PROVIDER_LABELS } from "@/lib/model-provider/constants";
 import type { ScheduledJobAgentMode } from "@/features/scheduled-jobs/lib/api";
 
 function renderModelOptions(
-  models: readonly ModelDefinition[],
-  modelProviders?: Map<string, string>,
+  entries: readonly ModelProviderEntry[] | undefined,
   getProviderLabel?: (providerId: string) => string
 ) {
-  if (!modelProviders) {
-    return models.map((item) => (
-      <DropdownMenuRadioItem key={item.id} value={item.id}>
-        {getModelDisplayName(item)}
-      </DropdownMenuRadioItem>
-    ));
+  if (!entries || entries.length === 0) {
+    return null;
   }
 
-  const groups = new Map<string, ModelDefinition[]>();
-  for (const model of models) {
-    const provider = modelProviders.get(model.id) ?? "custom";
-    const group = groups.get(provider);
+  const groups = new Map<string, ModelProviderEntry[]>();
+  for (const entry of entries) {
+    const group = groups.get(entry.providerId);
     if (group) {
-      group.push(model);
+      group.push(entry);
     } else {
-      groups.set(provider, [model]);
+      groups.set(entry.providerId, [entry]);
     }
   }
 
@@ -68,7 +62,7 @@ function renderModelOptions(
 
   const items: ReactNode[] = [];
   let groupIndex = 0;
-  for (const [providerId, providerModels] of groups) {
+  for (const [providerId, providerEntries] of groups) {
     if (groupIndex > 0) {
       items.push(<DropdownMenuSeparator key={`sep-${providerId}`} />);
     }
@@ -77,9 +71,9 @@ function renderModelOptions(
         <DropdownMenuLabel className="text-xs text-muted-foreground">
           {getProviderLabel ? getProviderLabel(providerId) : fallbackLabel(providerId)}
         </DropdownMenuLabel>
-        {providerModels.map((item) => (
-          <DropdownMenuRadioItem key={item.id} value={item.id}>
-            {getModelDisplayName(item)}
+        {providerEntries.map((entry) => (
+          <DropdownMenuRadioItem key={entry.value} value={entry.value}>
+            {getModelDisplayName(entry.model)}
           </DropdownMenuRadioItem>
         ))}
       </DropdownMenuGroup>
@@ -99,8 +93,7 @@ type AutomationRunSettingsProps = {
   onModelChange: (model: string) => void;
   thinkingEnabled: boolean;
   onThinkingEnabledChange: (thinkingEnabled: boolean) => void;
-  models: readonly ModelDefinition[];
-  modelProviders?: Map<string, string>;
+  entries?: ModelProviderEntry[];
   /** Resolves a human-readable label for a provider id (preset or custom). */
   getProviderLabel?: (providerId: string) => string;
   disabled?: boolean;
@@ -115,13 +108,12 @@ export function AutomationRunSettings({
   onModelChange,
   thinkingEnabled,
   onThinkingEnabledChange,
-  models,
-  modelProviders,
+  entries,
   getProviderLabel,
   disabled = false,
 }: AutomationRunSettingsProps) {
   const { t } = useTranslation();
-  const selectedModel = findModelDefinition(models, model);
+  const selectedModel = findModelEntry(entries, model)?.model;
   const showThinkingToggle = canToggleThinking(selectedModel);
   const workspaceName = workspaceDir
     ? getWorkspaceDisplayName(workspaceDir)
@@ -220,7 +212,7 @@ export function AutomationRunSettings({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              disabled={disabled || models.length === 0}
+              disabled={disabled || !entries?.length}
               className={cn(
                 composerFooterControlClassName,
                 "inline-flex max-w-44 min-w-0 items-center gap-1.5",
@@ -242,7 +234,7 @@ export function AutomationRunSettings({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="max-w-sm">
             <DropdownMenuRadioGroup value={model} onValueChange={onModelChange}>
-              {renderModelOptions(models, modelProviders, getProviderLabel)}
+              {renderModelOptions(entries, getProviderLabel)}
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>

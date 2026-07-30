@@ -1,7 +1,9 @@
-import { resolveDefaultModel } from "@/features/agent/model-preference";
 import { readWorkspaceDir } from "@/features/workspace/storage";
-import { findModelDefinition } from "@/lib/model-provider/model-definition";
-import type { ResolvedProviderConfig } from "@/lib/model-provider/types";
+import {
+  findModelEntry,
+  parseModelValue,
+  type ModelProviderEntry,
+} from "@/lib/model-provider/resolve-provider-config";
 
 import type { ScheduledJobRecord } from "./api";
 
@@ -15,15 +17,12 @@ export type ResolvedScheduledJobRunConfig = {
 
 export function resolveScheduledJobRunConfig(
   job: ScheduledJobRecord,
-  resolved: Pick<ResolvedProviderConfig, "models">
+  entries: ModelProviderEntry[]
 ): ResolvedScheduledJobRunConfig {
-  const trimmedModel = job.model.trim();
-  const model =
-    trimmedModel && findModelDefinition(resolved.models, trimmedModel)
-      ? trimmedModel
-      : resolveDefaultModel(resolved);
-
-  const modelDefinition = findModelDefinition(resolved.models, model);
+  const entry = findModelEntry(entries, job.model) ?? entries[0];
+  const model = entry?.value ?? job.model;
+  const modelDefinition = entry?.model;
+  const { providerId } = parseModelValue(job.model);
   const thinkingEnabled =
     job.thinkingEnabled &&
     Boolean(modelDefinition?.supportsThinking && modelDefinition.thinkingConfig);
@@ -31,7 +30,7 @@ export function resolveScheduledJobRunConfig(
   return {
     workspaceDir: job.workspaceDir?.trim() || readWorkspaceDir()?.trim() || null,
     model,
-    provider: job.provider,
+    provider: providerId || job.provider,
     agentMode: job.agentMode,
     thinkingEnabled,
   };

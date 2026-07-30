@@ -1,4 +1,5 @@
 import { stripWindowsVerbatimPrefix } from "@/lib/path";
+import { parseModelValue } from "@/lib/model-provider/resolve-provider-config";
 import {
   DEFAULT_DECISION_POLICY_VERSION,
   DEFAULT_SESSION_AUTONOMY_MODE,
@@ -114,12 +115,19 @@ function toNonNegativeInteger(value: number | null | undefined): number | null {
  */
 export function inferProviderFromModel(
   storedProvider: string | null | undefined,
-  modelId: string
+  modelValue: string
 ): string {
   if (storedProvider) {
     // Preserve whatever provider id was stored (a preset id or a custom id).
     // Unknown ids are kept as-is so they remain round-trippable.
     return storedProvider;
+  }
+
+  // A composite selection value `<providerId>::<modelId>` already carries the
+  // provider; prefer it over inference.
+  const { providerId, modelId } = parseModelValue(modelValue);
+  if (providerId) {
+    return providerId;
   }
 
   // Fall back to prefix-based inference for legacy records
