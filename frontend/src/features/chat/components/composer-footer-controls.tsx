@@ -2,7 +2,6 @@ import type { ReactElement } from "react";
 import {
   BrainIcon,
   BotIcon,
-  ChevronDownIcon,
   ClipboardListIcon,
   FileQuestionIcon,
   ImageIcon,
@@ -25,14 +24,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
-import { Toggle } from "@/components/ui/toggle";
-import {
-  composerFooterControlActiveClassName,
-  composerFooterControlClassName,
-} from "@/components/ai-elements/composer-footer-control";
 import { usePromptInputAttachments } from "@/components/ai-elements/prompt-input";
 import type { AgentMode } from "@/features/agent/types";
-import { useIsMobile } from "@/hooks/use-mobile";
 import type { SessionKind } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import {
@@ -44,7 +37,7 @@ import type { ProviderId } from "@/lib/model-provider/types";
 import { PRESET_PROVIDER_LABELS } from "@/lib/model-provider/constants";
 import { cn } from "@/lib/utils";
 
-const mobileCompactControlClassName =
+const compactControlClassName =
   "inline-flex h-8 min-h-8 min-w-0 items-center gap-1 rounded-xl px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 data-[state=open]:bg-accent data-[state=open]:text-foreground";
 
 function renderModelOptions(
@@ -94,29 +87,6 @@ function renderModelOptions(
   return items;
 }
 
-function resolveAgentModeLabel(
-  agentMode: AgentMode,
-  t: (key: "chat.modeAgent" | "chat.modeAsk" | "chat.modePlan") => string
-) {
-  if (agentMode === "agent") {
-    return t("chat.modeAgent");
-  }
-  if (agentMode === "plan") {
-    return t("chat.modePlan");
-  }
-  return t("chat.modeAsk");
-}
-
-function resolveAgentModeIcon(agentMode: AgentMode) {
-  if (agentMode === "agent") {
-    return BotIcon;
-  }
-  if (agentMode === "plan") {
-    return ClipboardListIcon;
-  }
-  return FileQuestionIcon;
-}
-
 type ComposerFooterControlsProps = {
   agentMode: AgentMode;
   onAgentModeChange?: (mode: AgentMode) => void;
@@ -151,11 +121,8 @@ export function ComposerFooterControls({
   isRunning,
 }: ComposerFooterControlsProps) {
   const { t } = useTranslation();
-  const isMobile = useIsMobile();
   const attachments = usePromptInputAttachments();
   const selectedModel = findModelEntry(entries, model)?.model;
-  const AgentModeIcon = resolveAgentModeIcon(agentMode);
-  const agentModeLabel = resolveAgentModeLabel(agentMode, (key) => t(key));
   const modelLabel = selectedModel
     ? getModelDisplayName(selectedModel)
     : t("chat.noModel");
@@ -195,225 +162,99 @@ export function ComposerFooterControls({
     </DropdownMenuRadioGroup>
   );
 
-  if (isMobile) {
-    return (
-      <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              disabled={
-                (isRunning && !showThinkingToggle) ||
-                (!onAgentModeChange && !onSessionKindChange && !entries?.length)
-              }
-              className={cn(
-                mobileCompactControlClassName,
-                "size-8 shrink-0 justify-center px-0"
-              )}
-              aria-label={t("chat.composerMoreActions")}
-              title={t("chat.composerMoreActions")}
-            >
-              <PlusIcon className="size-4 shrink-0" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            className="min-w-48 max-w-[calc(100vw-1.5rem)]"
-            side="top"
+  return (
+    <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            disabled={
+              (isRunning && !showThinkingToggle) ||
+              (!onAgentModeChange && !onSessionKindChange && !entries?.length)
+            }
+            className={cn(
+              compactControlClassName,
+              "size-8 shrink-0 justify-center px-0"
+            )}
+            aria-label={t("chat.composerMoreActions")}
+            title={t("chat.composerMoreActions")}
           >
-            {agentModeMenu}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => attachments.openFileDialog()}>
-              <ImageIcon className="size-4" />
-              <span>{t("chat.addAttachment")}</span>
-            </DropdownMenuItem>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger disabled={!entries?.length && !showThinkingToggle}>
-                <span className="min-w-0 flex-1 truncate">{t("chat.composerModelLabel")}</span>
-                <DropdownMenuShortcut className="max-w-16 truncate tracking-normal normal-case">
-                  {modelLabel}
-                </DropdownMenuShortcut>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="max-h-[min(50vh,20rem)] w-[min(14rem,calc(100vw-5rem))] overflow-y-auto">
-                {entries?.length ? (
-                  modelMenu
-                ) : (
-                  <DropdownMenuLabel>{t("chat.noModel")}</DropdownMenuLabel>
-                )}
-                {showThinkingToggle ? (
-                  <>
-                    {entries?.length ? <DropdownMenuSeparator /> : null}
-                    <DropdownMenuItem
-                      disabled={isRunning}
-                      onSelect={(event) => {
-                        event.preventDefault();
-                        onThinkingEnabledChange?.(!thinkingEnabled);
-                      }}
-                    >
-                      <BrainIcon className="size-4" />
-                      <span className="flex-1">{t("chat.thinkingToggleLabel")}</span>
-                      <Switch
-                        checked={thinkingEnabled}
-                        className="pointer-events-none"
-                        size="sm"
-                      />
-                    </DropdownMenuItem>
-                  </>
-                ) : null}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            {onSessionKindChange ? (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger disabled={isRunning}>
-                  <span className="min-w-0 flex-1 truncate">{t("chat.sessionTypeLabel")}</span>
-                  <DropdownMenuShortcut className="max-w-16 truncate tracking-normal normal-case">
-                    {sessionKindLabel}
-                  </DropdownMenuShortcut>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-[min(12rem,calc(100vw-5rem))]">
-                  <DropdownMenuRadioGroup
-                    value={sessionKind}
-                    onValueChange={(value) => {
-                      onSessionKindChange(value as SessionKind);
+            <PlusIcon className="size-4 shrink-0" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="min-w-48 max-w-[calc(100vw-1.5rem)]"
+          side="top"
+        >
+          {agentModeMenu}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => attachments.openFileDialog()}>
+            <ImageIcon className="size-4" />
+            <span>{t("chat.addAttachment")}</span>
+          </DropdownMenuItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger disabled={!entries?.length && !showThinkingToggle}>
+              <span className="min-w-0 flex-1 truncate">{t("chat.composerModelLabel")}</span>
+              <DropdownMenuShortcut className="max-w-16 truncate tracking-normal normal-case">
+                {modelLabel}
+              </DropdownMenuShortcut>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="max-h-[min(50vh,20rem)] w-[min(14rem,calc(100vw-5rem))] overflow-y-auto">
+              {entries?.length ? (
+                modelMenu
+              ) : (
+                <DropdownMenuLabel>{t("chat.noModel")}</DropdownMenuLabel>
+              )}
+              {showThinkingToggle ? (
+                <>
+                  {entries?.length ? <DropdownMenuSeparator /> : null}
+                  <DropdownMenuItem
+                    disabled={isRunning}
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      onThinkingEnabledChange?.(!thinkingEnabled);
                     }}
                   >
-                    <DropdownMenuRadioItem value="standard">
-                      <span>{t("chat.sessionTypeStandard")}</span>
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="long_task">
-                      <span>{t("chat.sessionTypeLongTask")}</span>
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            disabled={isRunning || !onAgentModeChange}
-            className={cn(
-              composerFooterControlClassName,
-              "inline-flex items-center gap-1.5",
-              "data-[state=open]:bg-accent data-[state=open]:text-foreground data-[state=open]:dark:bg-input/50"
-            )}
-            title={
-              agentMode === "agent"
-                ? t("chat.modeAgentLabel")
-                : agentMode === "plan"
-                  ? t("chat.modePlanLabel")
-                  : t("chat.modeAskLabel")
-            }
-          >
-            <AgentModeIcon className="size-3.5 shrink-0" />
-            <span className="truncate">{agentModeLabel}</span>
-            <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-32">
-          {agentModeMenu}
+                    <BrainIcon className="size-4" />
+                    <span className="flex-1">{t("chat.thinkingToggleLabel")}</span>
+                    <Switch
+                      checked={thinkingEnabled}
+                      className="pointer-events-none"
+                      size="sm"
+                    />
+                  </DropdownMenuItem>
+                </>
+              ) : null}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          {onSessionKindChange ? (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger disabled={isRunning}>
+                <span className="min-w-0 flex-1 truncate">{t("chat.sessionTypeLabel")}</span>
+                <DropdownMenuShortcut className="max-w-16 truncate tracking-normal normal-case">
+                  {sessionKindLabel}
+                </DropdownMenuShortcut>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-[min(12rem,calc(100vw-5rem))]">
+                <DropdownMenuRadioGroup
+                  value={sessionKind}
+                  onValueChange={(value) => {
+                    onSessionKindChange(value as SessionKind);
+                  }}
+                >
+                  <DropdownMenuRadioItem value="standard">
+                    <span>{t("chat.sessionTypeStandard")}</span>
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="long_task">
+                    <span>{t("chat.sessionTypeLongTask")}</span>
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {onSessionKindChange ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              disabled={isRunning}
-              className={cn(
-                composerFooterControlClassName,
-                sessionKind === "long_task" &&
-                  composerFooterControlActiveClassName,
-                "inline-flex items-center gap-1.5",
-                "data-[state=open]:bg-accent data-[state=open]:text-foreground data-[state=open]:dark:bg-input/50"
-              )}
-              title={
-                sessionKind === "long_task"
-                  ? t("chat.sessionTypeLongTaskLabel")
-                  : t("chat.sessionTypeStandardLabel")
-              }
-            >
-              <span className="truncate">
-                {sessionKind === "long_task"
-                  ? t("chat.sessionTypeLongTask")
-                  : t("chat.sessionTypeStandard")}
-              </span>
-              <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-44">
-            <DropdownMenuRadioGroup
-              value={sessionKind}
-              onValueChange={(value) => {
-                onSessionKindChange(value as SessionKind);
-              }}
-            >
-              <DropdownMenuRadioItem value="standard">
-                <span>{t("chat.sessionTypeStandard")}</span>
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="long_task">
-                <span>{t("chat.sessionTypeLongTask")}</span>
-              </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : null}
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            disabled={!entries?.length}
-            className={cn(
-              composerFooterControlClassName,
-              "inline-flex max-w-44 items-center gap-1.5",
-              "data-[state=open]:bg-accent data-[state=open]:text-foreground data-[state=open]:dark:bg-input/50"
-            )}
-            title={
-              selectedModel ? getModelDisplayName(selectedModel) : model || undefined
-            }
-          >
-            <span className="truncate">{modelLabel}</span>
-            <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="max-w-sm">
-          {modelMenu}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {showThinkingToggle ? (
-        <Toggle
-          pressed={thinkingEnabled}
-          onPressedChange={onThinkingEnabledChange}
-          variant="composer"
-          size="sm"
-          className={cn(
-            composerFooterControlClassName,
-            composerFooterControlActiveClassName,
-            "max-w-36"
-          )}
-          disabled={isRunning}
-          aria-label={t("chat.thinkingToggle")}
-          title={
-            thinkingEnabled
-              ? t("chat.thinkingEnabled")
-              : t("chat.thinkingDisabled")
-          }
-        >
-          <BrainIcon className="size-4 shrink-0" />
-          <span className="truncate">{t("chat.thinkingToggleLabel")}</span>
-        </Toggle>
-      ) : null}
     </div>
   );
 }
