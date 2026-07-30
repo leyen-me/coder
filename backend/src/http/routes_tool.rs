@@ -1836,7 +1836,7 @@ pub async fn handle_enhance_prompt(
         };
 
         let url = crate::agent::openai::chat_completions_url(&params.base_url);
-        let model = params.model.trim().to_string();
+        let model = params.model.trim().split_once("::").map_or(params.model.trim(), |(_, id)| id).to_string();
         let messages = crate::agent::registry::build_enhance_messages(user_prompt, &system_prompt);
 
         let (tx, mut rx) = mpsc::channel::<String>(128);
