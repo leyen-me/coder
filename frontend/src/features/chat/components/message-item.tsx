@@ -33,8 +33,10 @@ import {
   getAssistantTimelineSteps,
   shouldRenderStandaloneAssistantAnswer,
   shouldShowAssistantProcessTimeline,
+  type AssistantProcessStep,
 } from "./assistant-process";
 import { AssistantProcessCollapsible } from "./assistant-process-collapsible";
+import { ProxyContinuationBlock } from "./assistant-process-view";
 import { StreamingMessageContent } from "./streaming-message-content";
 import { UserMessageContent } from "./user-message-content";
 
@@ -190,8 +192,28 @@ export const MessageItem = memo(function MessageItem({
     () => getAssistantTimelineSteps({ steps: processSteps, isPlanMessage }),
     [isPlanMessage, processSteps]
   );
-  const showProcessTimeline = shouldShowAssistantProcessTimeline({
-    steps: processSteps,
+  // Proxy/agent decisions are lifted out of the assistant process collapsible
+  // and rendered as standalone user-style blocks at the message level (see
+  // ProxyContinuationBlock). They must not be nested inside the collapsible's
+  // indented, open-gated interior — that is what previously made them render
+  // offset (inside the assistant message) and disappear on the last message
+  // (the interior is unmounted when the collapsible auto-closes).
+  const decisionSteps = useMemo(
+    () =>
+      timelineSteps.filter(
+        (step): step is Extract<AssistantProcessStep, { kind: "decision" }> =>
+          step.kind === "decision" &&
+          (step.status === "requested" ||
+            (step.status === "resolved" && step.response != null))
+      ),
+    [timelineSteps]
+  );
+  const processStepsForCollapsible = useMemo(
+    () => timelineSteps.filter((step) => step.kind !== "decision"),
+    [timelineSteps]
+  );
+  const showCollapsible = shouldShowAssistantProcessTimeline({
+    steps: processStepsForCollapsible,
     isPlanMessage,
   });
   const showStandaloneAnswer = shouldRenderStandaloneAssistantAnswer({
@@ -401,19 +423,20 @@ export const MessageItem = memo(function MessageItem({
   }
 
   return (
-    <Message from="assistant">
-      {showProcessTimeline ? (
-        <AssistantProcessCollapsible
-          steps={timelineSteps}
-          taskId={message.taskId}
-          isStreaming={isStreaming}
-          answerText={answerText}
-          durationMs={message.durationMs}
-          defaultOpen={isPlanMessage}
-        />
-      ) : answerText && showStandaloneAnswer ? (
-        <StreamingMessageContent text={answerText} />
-      ) : null}
+    <>
+      <Message from="assistant">
+        {showCollapsible ? (
+          <AssistantProcessCollapsible
+            steps={processStepsForCollapsible}
+            taskId={message.taskId}
+            isStreaming={isStreaming}
+            answerText={answerText}
+            durationMs={message.durationMs}
+            defaultOpen={isPlanMessage}
+          />
+        ) : answerText && showStandaloneAnswer ? (
+          <StreamingMessageContent text={answerText} />
+        ) : null}
       {showActions ? (
         <MessageActions className={cn("mt-1 transition-opacity", hoverRevealClassName)}>
           <MessageAction
@@ -479,6 +502,10 @@ export const MessageItem = memo(function MessageItem({
           <span className="animate-pulse">...</span>
         </div>
       ) : null}
-    </Message>
+      </Message>
+      {decisionSteps.map((step) => (
+        <ProxyContinuationBlock key={step.id} step={step} />
+      ))}
+    </>
   );
 }, areMessageItemPropsEqual);

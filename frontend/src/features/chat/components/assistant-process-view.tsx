@@ -1,6 +1,7 @@
 "use client";
 
 import type { MessageToolInvocation } from "@/lib/db";
+import type { DecisionResponse } from "@/lib/decision";
 import { ASK_QUESTION_TOOL_NAME } from "@/features/agent/tools/definitions";
 import {
   HoverCard,
@@ -35,7 +36,6 @@ type AssistantProcessGroup =
     };
 
 export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProps) {
-  const { t } = useTranslation();
   const groups = groupAssistantProcessSteps(steps);
 
   return (
@@ -104,187 +104,164 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
           );
         }
 
-        if (group.kind === "decision") {
-          if (group.status === "requested") {
-            return (
-              <Message key={group.id} from="user">
-                <MessageContent className="gap-2 !bg-primary/10">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Spinner className="size-4" />
-                    <span className="text-muted-foreground">
-                      {t("chat.proxyContinuationLoading")}
-                    </span>
-                  </div>
-                </MessageContent>
-              </Message>
-            );
-          }
-
-          // The proxy continuation reuses the exact same user bubble so it
-          // reads as a peer of a real user message. The only visual
-          // distinction is a subtle background tint (bg-primary/10); the
-          // decision details stay available on hover.
-          if (
-            group.status === "resolved" &&
-            group.response?.outcome === "continue" &&
-            group.response?.suggestedContinuation?.trim()
-          ) {
-            return (
-              <Message key={group.id} from="user">
-                <MessageContent className="gap-2 !bg-primary/10">
-                  <HoverCard openDelay={200} closeDelay={100}>
-                    <HoverCardTrigger asChild>
-                      <span className="cursor-help whitespace-pre-wrap wrap-break-word">
-                        {group.response.suggestedContinuation.trim()}
-                      </span>
-                    </HoverCardTrigger>
-                    <HoverCardContent
-                      align="start"
-                      className="w-80 space-y-3"
-                      side="top"
-                    >
-                      <p className="font-medium text-sm">
-                        {t("chat.proxyContinuationHoverTitle")}
-                      </p>
-                      <div className="space-y-2 text-sm text-muted-foreground">
-                        <div className="flex flex-wrap gap-1.5">
-                          <Badge variant="secondary" className="text-xs">
-                            {group.response.outcome === "continue"
-                              ? t("chat.decisionOutcomeContinue")
-                              : group.response.outcome === "complete"
-                                ? t("chat.decisionOutcomeComplete")
-                                : group.response.outcome === "ask_user"
-                                  ? t("chat.decisionOutcomeAskUser")
-                                  : t("chat.decisionOutcomeStopPath")}
-                          </Badge>
-                          <Badge
-                            variant={
-                              group.response.riskLevel === "high"
-                                ? "destructive"
-                                : "outline"
-                            }
-                            className="text-xs"
-                          >
-                            {group.response.riskLevel === "high"
-                              ? t("chat.decisionRiskHigh")
-                              : group.response.riskLevel === "medium"
-                                ? t("chat.decisionRiskMedium")
-                                : t("chat.decisionRiskLow")}
-                          </Badge>
-                        </div>
-                        {group.response.reason ? (
-                          <div className="space-y-0.5">
-                            <p className="font-medium text-foreground text-xs">
-                              {t("chat.decisionReason")}
-                            </p>
-                            <p className="whitespace-pre-wrap text-xs">
-                              {group.response.reason}
-                            </p>
-                          </div>
-                        ) : null}
-                        {group.response.assumption ? (
-                          <div className="space-y-0.5">
-                            <p className="font-medium text-foreground text-xs">
-                              {t("chat.decisionAssumption")}
-                            </p>
-                            <p className="whitespace-pre-wrap text-xs">
-                              {group.response.assumption}
-                            </p>
-                          </div>
-                        ) : null}
-                      </div>
-                    </HoverCardContent>
-                  </HoverCard>
-                </MessageContent>
-              </Message>
-            );
-          }
-
-          // Show resolved decision outcome (complete / ask_user / stop_path)
-          if (group.status === "resolved" && group.response) {
-            return (
-              <Message key={group.id} from="user">
-                <MessageContent className="gap-2 !bg-primary/10">
-                  <HoverCard openDelay={200} closeDelay={100}>
-                    <HoverCardTrigger asChild>
-                      <span className="cursor-help whitespace-pre-wrap wrap-break-word">
-                        {group.response.outcome === "complete"
-                          ? t("chat.decisionOutcomeComplete")
-                          : group.response.outcome === "ask_user"
-                            ? t("chat.decisionOutcomeAskUser")
-                            : group.response.outcome === "stop_path"
-                              ? t("chat.decisionOutcomeStopPath")
-                              : ""}
-                      </span>
-                    </HoverCardTrigger>
-                    <HoverCardContent
-                      align="start"
-                      className="w-80 space-y-3"
-                      side="top"
-                    >
-                      <p className="font-medium text-sm">
-                        {t("chat.proxyContinuationHoverTitle")}
-                      </p>
-                      <div className="space-y-2 text-sm text-muted-foreground">
-                        <div className="flex flex-wrap gap-1.5">
-                          <Badge variant="secondary" className="text-xs">
-                            {group.response.outcome === "continue"
-                              ? t("chat.decisionOutcomeContinue")
-                              : group.response.outcome === "complete"
-                                ? t("chat.decisionOutcomeComplete")
-                                : group.response.outcome === "ask_user"
-                                  ? t("chat.decisionOutcomeAskUser")
-                                  : t("chat.decisionOutcomeStopPath")}
-                          </Badge>
-                          <Badge
-                            variant={
-                              group.response.riskLevel === "high"
-                                ? "destructive"
-                                : "outline"
-                            }
-                            className="text-xs"
-                          >
-                            {group.response.riskLevel === "high"
-                              ? t("chat.decisionRiskHigh")
-                              : group.response.riskLevel === "medium"
-                                ? t("chat.decisionRiskMedium")
-                                : t("chat.decisionRiskLow")}
-                          </Badge>
-                        </div>
-                        {group.response.reason ? (
-                          <div className="space-y-0.5">
-                            <p className="font-medium text-foreground text-xs">
-                              {t("chat.decisionReason")}
-                            </p>
-                            <p className="whitespace-pre-wrap text-xs">
-                              {group.response.reason}
-                            </p>
-                          </div>
-                        ) : null}
-                        {group.response.assumption ? (
-                          <div className="space-y-0.5">
-                            <p className="font-medium text-foreground text-xs">
-                              {t("chat.decisionAssumption")}
-                            </p>
-                            <p className="whitespace-pre-wrap text-xs">
-                              {group.response.assumption}
-                            </p>
-                          </div>
-                        ) : null}
-                      </div>
-                    </HoverCardContent>
-                  </HoverCard>
-                </MessageContent>
-              </Message>
-            );
-          }
-
-          return null;
-        }
-
+        // `decision` steps are no longer rendered inside the assistant
+        // process timeline. They are lifted to the top level by the message
+        // item so they read as standalone user-style blocks (see
+        // ProxyContinuationBlock). Keeping this branch out avoids nesting the
+        // proxy block inside the collapsible's indented, open-gated interior.
         return null;
       })}
     </div>
+  );
+}
+
+export type ProxyContinuationBlockProps = {
+  step: Extract<AssistantProcessStep, { kind: "decision" }>;
+};
+
+/**
+ * Renders a proxy/agent decision as a standalone user-style bubble. It is
+ * intentionally rendered at the message-item level (outside the assistant
+ * process collapsible) so it appears like a peer of a real user message:
+ * right-aligned, full-width, and always visible regardless of the
+ * collapsible's open state. The only visual distinction from a real user
+ * message is the subtle `bg-primary/10` background tint.
+ */
+export function ProxyContinuationBlock({ step }: ProxyContinuationBlockProps) {
+  const { t } = useTranslation();
+
+  if (step.status === "requested") {
+    return (
+      <Message from="user">
+        <MessageContent className="gap-2 !bg-primary/10">
+          <div className="flex items-center gap-2 text-sm">
+            <Spinner className="size-4" />
+            <span className="text-muted-foreground">
+              {t("chat.proxyContinuationLoading")}
+            </span>
+          </div>
+        </MessageContent>
+      </Message>
+    );
+  }
+
+  // The proxy continuation reuses the exact same user bubble so it reads as a
+  // peer of a real user message. The only visual distinction is a subtle
+  // background tint (bg-primary/10); the decision details stay available on
+  // hover.
+  if (
+    step.status === "resolved" &&
+    step.response != null &&
+    step.response.outcome === "continue" &&
+    step.response.suggestedContinuation?.trim()
+  ) {
+    return (
+      <Message from="user">
+        <MessageContent className="gap-2 !bg-primary/10">
+          <HoverCard openDelay={200} closeDelay={100}>
+            <HoverCardTrigger asChild>
+              <span className="cursor-help whitespace-pre-wrap wrap-break-word">
+                {step.response.suggestedContinuation.trim()}
+              </span>
+            </HoverCardTrigger>
+            <HoverCardContent
+              align="start"
+              className="w-80 space-y-3"
+              side="top"
+            >
+              <ProxyContinuationDetails response={step.response} />
+            </HoverCardContent>
+          </HoverCard>
+        </MessageContent>
+      </Message>
+    );
+  }
+
+  // Show resolved decision outcome (complete / ask_user / stop_path)
+  if (step.status === "resolved" && step.response) {
+    return (
+      <Message from="user">
+        <MessageContent className="gap-2 !bg-primary/10">
+          <HoverCard openDelay={200} closeDelay={100}>
+            <HoverCardTrigger asChild>
+              <span className="cursor-help whitespace-pre-wrap wrap-break-word">
+                {step.response.outcome === "complete"
+                  ? t("chat.decisionOutcomeComplete")
+                  : step.response.outcome === "ask_user"
+                    ? t("chat.decisionOutcomeAskUser")
+                    : step.response.outcome === "stop_path"
+                      ? t("chat.decisionOutcomeStopPath")
+                      : ""}
+              </span>
+            </HoverCardTrigger>
+            <HoverCardContent
+              align="start"
+              className="w-80 space-y-3"
+              side="top"
+            >
+              <ProxyContinuationDetails response={step.response} />
+            </HoverCardContent>
+          </HoverCard>
+        </MessageContent>
+      </Message>
+    );
+  }
+
+  return null;
+}
+
+function ProxyContinuationDetails({ response }: { response: DecisionResponse }) {
+  const { t } = useTranslation();
+
+  return (
+    <>
+      <p className="font-medium text-sm">
+        {t("chat.proxyContinuationHoverTitle")}
+      </p>
+      <div className="space-y-2 text-sm text-muted-foreground">
+        <div className="flex flex-wrap gap-1.5">
+          <Badge variant="secondary" className="text-xs">
+            {response.outcome === "continue"
+              ? t("chat.decisionOutcomeContinue")
+              : response.outcome === "complete"
+                ? t("chat.decisionOutcomeComplete")
+                : response.outcome === "ask_user"
+                  ? t("chat.decisionOutcomeAskUser")
+                  : t("chat.decisionOutcomeStopPath")}
+          </Badge>
+          <Badge
+            variant={
+              response.riskLevel === "high" ? "destructive" : "outline"
+            }
+            className="text-xs"
+          >
+            {response.riskLevel === "high"
+              ? t("chat.decisionRiskHigh")
+              : response.riskLevel === "medium"
+                ? t("chat.decisionRiskMedium")
+                : t("chat.decisionRiskLow")}
+          </Badge>
+        </div>
+        {response.reason ? (
+          <div className="space-y-0.5">
+            <p className="font-medium text-foreground text-xs">
+              {t("chat.decisionReason")}
+            </p>
+            <p className="whitespace-pre-wrap text-xs">{response.reason}</p>
+          </div>
+        ) : null}
+        {response.assumption ? (
+          <div className="space-y-0.5">
+            <p className="font-medium text-foreground text-xs">
+              {t("chat.decisionAssumption")}
+            </p>
+            <p className="whitespace-pre-wrap text-xs">
+              {response.assumption}
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </>
   );
 }
 
