@@ -12,7 +12,6 @@ import {
   MessageContent,
 } from "@/components/ai-elements/message";
 import { Badge } from "@/components/ui/badge";
-import { BotIcon } from "lucide-react";
 
 import type { AssistantProcessStep } from "./assistant-process";
 import { CompactProcessChip } from "./compact-process-chip";
@@ -109,7 +108,7 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
           if (group.status === "requested") {
             return (
               <Message key={group.id} from="user">
-                <MessageContent className="gap-2">
+                <MessageContent className="gap-2 !bg-primary/10">
                   <div className="flex items-center gap-2 text-sm">
                     <Spinner className="size-4" />
                     <span className="text-muted-foreground">
@@ -121,7 +120,10 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
             );
           }
 
-          // Show the proxy continuation as a user-message-like block
+          // The proxy continuation reuses the exact same user bubble so it
+          // reads as a peer of a real user message. The only visual
+          // distinction is a subtle background tint (bg-primary/10); the
+          // decision details stay available on hover.
           if (
             group.status === "resolved" &&
             group.response?.outcome === "continue" &&
@@ -129,16 +131,12 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
           ) {
             return (
               <Message key={group.id} from="user">
-                <MessageContent className="gap-2">
+                <MessageContent className="gap-2 !bg-primary/10">
                   <HoverCard openDelay={200} closeDelay={100}>
                     <HoverCardTrigger asChild>
-                      <Badge
-                        variant="outline"
-                        className="cursor-help gap-1 border-primary/30 text-xs text-primary/70 hover:text-primary"
-                      >
-                        <BotIcon className="size-3" />
-                        {t("chat.proxyContinuationBadge")}
-                      </Badge>
+                      <span className="cursor-help whitespace-pre-wrap wrap-break-word">
+                        {group.response.suggestedContinuation.trim()}
+                      </span>
                     </HoverCardTrigger>
                     <HoverCardContent
                       align="start"
@@ -197,9 +195,6 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
                       </div>
                     </HoverCardContent>
                   </HoverCard>
-                  <span className="whitespace-pre-wrap wrap-break-word">
-                    {group.response.suggestedContinuation.trim()}
-                  </span>
                 </MessageContent>
               </Message>
             );
@@ -209,16 +204,18 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
           if (group.status === "resolved" && group.response) {
             return (
               <Message key={group.id} from="user">
-                <MessageContent className="gap-2">
+                <MessageContent className="gap-2 !bg-primary/10">
                   <HoverCard openDelay={200} closeDelay={100}>
                     <HoverCardTrigger asChild>
-                      <Badge
-                        variant="outline"
-                        className="cursor-help gap-1 border-primary/30 text-xs text-primary/70 hover:text-primary"
-                      >
-                        <BotIcon className="size-3" />
-                        {t("chat.proxyContinuationBadge")}
-                      </Badge>
+                      <span className="cursor-help text-muted-foreground text-sm">
+                        {group.response.outcome === "complete"
+                          ? t("chat.decisionOutcomeComplete")
+                          : group.response.outcome === "ask_user"
+                            ? t("chat.decisionOutcomeAskUser")
+                            : group.response.outcome === "stop_path"
+                              ? t("chat.decisionOutcomeStopPath")
+                              : ""}
+                      </span>
                     </HoverCardTrigger>
                     <HoverCardContent
                       align="start"
@@ -277,15 +274,6 @@ export function AssistantProcessView({ steps, taskId }: AssistantProcessViewProp
                       </div>
                     </HoverCardContent>
                   </HoverCard>
-                  <span className="text-muted-foreground text-sm">
-                    {group.response.outcome === "complete"
-                      ? t("chat.decisionOutcomeComplete")
-                      : group.response.outcome === "ask_user"
-                        ? t("chat.decisionOutcomeAskUser")
-                        : group.response.outcome === "stop_path"
-                          ? t("chat.decisionOutcomeStopPath")
-                          : ""}
-                  </span>
                 </MessageContent>
               </Message>
             );
