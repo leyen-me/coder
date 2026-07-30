@@ -548,6 +548,12 @@ export const MessageItem = memo(function MessageItem({
         });
         const segmentAnswerText = lastAnswerTextOf(item.steps);
         const isLastSegment = index === lastSegmentIndex;
+        // Only the live (last) fragment should be in the streaming state. As
+        // steps stream in, the "last fragment" advances, so each completed turn
+        // loses streaming and auto-closes on its own — exactly like separate
+        // sequential chat turns rather than one panel closing everything at
+        // once. This makes each answer+proxy read as an independent message.
+        const isActiveFragment = index === renderItems.length - 1;
 
         return (
           <Message from="assistant" key={item.id}>
@@ -555,7 +561,7 @@ export const MessageItem = memo(function MessageItem({
               <AssistantProcessCollapsible
                 steps={item.steps}
                 taskId={message.taskId}
-                isStreaming={isStreaming}
+                isStreaming={isStreaming && isActiveFragment}
                 answerText={segmentAnswerText}
                 durationMs={message.durationMs}
                 defaultOpen={isPlanMessage}
