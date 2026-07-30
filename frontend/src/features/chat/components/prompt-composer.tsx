@@ -386,6 +386,7 @@ export const PromptComposer = memo(function PromptComposer({
   const [enhancing, setEnhancing] = useState(false);
   const enhanceAbortRef = useRef<AbortController | null>(null);
   const enhanceAccumRef = useRef("");
+  const enhanceRafRef = useRef<number | null>(null);
 
   /** Replace the editor content with plain text without HTML parsing. */
   const setEditorPlainText = useCallback((text: string) => {
@@ -393,9 +394,11 @@ export const PromptComposer = memo(function PromptComposer({
     if (editor) {
       editor.commands.clearContent();
       if (text) {
-        const { state, view } = editor;
-        const endPos = state.doc.content.size;
-        view.dispatch(state.tr.insertText(text, endPos));
+        const { view } = editor;
+        // After clearContent the document has one empty paragraph.
+        // Position 1 is *inside* that paragraph — insert text there to
+        // avoid creating a new paragraph on line 2.
+        view.dispatch(editor.state.tr.insertText(text, 1));
       }
     }
     setValue(text);
@@ -403,15 +406,17 @@ export const PromptComposer = memo(function PromptComposer({
 
   const toggleEnhance = useCallback(async () => {
     if (enhancing) {
-      // Pause: abort the in-flight stream. Accumulated text stays in the input.
+      // Pause: abort the in-flight stream.
       enhanceAbortRef.current?.abort();
       enhanceAbortRef.current = null;
+      if (enhanceRafRef.current !== null) {
+        cancelAnimationFrame(enhanceRafRef.current);
+        enhanceRafRef.current = null;
+      }
       setEnhancing(false);
       const normalized = normalizeEnhancedPrompt(enhanceAccumRef.current);
-      if (normalized !== enhanceAccumRef.current) {
-        enhanceAccumRef.current = normalized;
-        setEditorPlainText(normalized);
-      }
+      enhanceAccumRef.current = normalized;
+      setEditorPlainText(normalized);
       return;
     }
 
@@ -426,6 +431,11 @@ export const PromptComposer = memo(function PromptComposer({
 
     setEnhancing(true);
     enhanceAccumRef.current = "";
+    // Reset RAF ref and flush any stale frame from a previous incomplete run.
+    if (enhanceRafRef.current !== null) {
+      cancelAnimationFrame(enhanceRafRef.current);
+      enhanceRafRef.current = null;
+    }
     const controller = new AbortController();
     enhanceAbortRef.current = controller;
 
@@ -446,24 +456,29 @@ export const PromptComposer = memo(function PromptComposer({
           signal: controller.signal,
           onDelta: (delta) => {
             enhanceAccumRef.current += delta;
-            // Trim leading whitespace so the enhanced text starts at line 1.
-            // Skip empty results — if the first delta is just "\n" (common
-            // from model output), we don't want to clear the input and show a
-            // placeholder flash. Only update the editor when there is actual
-            // text to display.
-            const displayText = enhanceAccumRef.current.trimStart();
-            if (displayText) {
-              setEditorPlainText(displayText);
+            // Schedule an editor update on the next animation frame.
+            // This prevents blocking the main thread (and stuttering the
+            // spinner) when deltas arrive faster than the display refresh rate.
+            if (enhanceRafRef.current === null) {
+              enhanceRafRef.current = requestAnimationFrame(() => {
+                enhanceRafRef.current = null;
+                const displayText = enhanceAccumRef.current.trimStart();
+                if (displayText) {
+                  setEditorPlainText(displayText);
+                }
+              });
             }
           },
         }
       );
-      // Stream finished successfully — normalize the final result.
-      const normalized = normalizeEnhancedPrompt(enhanceAccumRef.current);
-      if (normalized !== enhanceAccumRef.current) {
-        enhanceAccumRef.current = normalized;
-        setEditorPlainText(normalized);
+      // Stream finished — cancel any pending RAF and show the complete text.
+      if (enhanceRafRef.current !== null) {
+        cancelAnimationFrame(enhanceRafRef.current);
+        enhanceRafRef.current = null;
       }
+      const normalized = normalizeEnhancedPrompt(enhanceAccumRef.current);
+      enhanceAccumRef.current = normalized;
+      setEditorPlainText(normalized);
     } catch (error) {
       // AbortError means the user paused — keep the accumulated text as-is.
       if (!(error instanceof DOMException && error.name === "AbortError")) {
