@@ -148,5 +148,8 @@ export function normalizeEnhancedPrompt(raw: string): string {
   if (fence) {
     text = fence[1].trim();
   }
+  // Collapse three or more consecutive blank lines into one blank line,
+  // preventing excessive whitespace from token-level streaming artifacts.
+  text = text.replace(/\n{3,}/g, "\n\n");
   return text;
 }

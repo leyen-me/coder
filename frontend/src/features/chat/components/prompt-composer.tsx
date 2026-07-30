@@ -429,9 +429,6 @@ export const PromptComposer = memo(function PromptComposer({
     const controller = new AbortController();
     enhanceAbortRef.current = controller;
 
-    // Clear the composer, then stream the enhanced prompt back in.
-    setEditorPlainText("");
-
     try {
       await streamEnhancePrompt(
         {
@@ -440,19 +437,23 @@ export const PromptComposer = memo(function PromptComposer({
           apiKeySource: resolved.apiKeySource,
           apiKeyEnvVar: resolved.apiKeyEnvVar,
           model: parseModelValue(model).modelId,
-          userPrompt: original,
+          // Wrap the original prompt in code fences so the model clearly sees it
+          // as raw text to rewrite/improve, not as a direct conversational query.
+          userPrompt: `\`\`\`\n${original}\n\`\`\``,
           systemPrompt: PROMPT_ENHANCE_SYSTEM_PROMPT,
         },
         {
           signal: controller.signal,
           onDelta: (delta) => {
             enhanceAccumRef.current += delta;
-            const editor = editorRef.current;
-            if (editor) {
-              const endPos = editor.state.doc.content.size;
-              editor.view.dispatch(editor.state.tr.insertText(delta, endPos));
-            } else {
-              setValue((prev) => prev + delta);
+            // Trim leading whitespace so the enhanced text starts at line 1.
+            // Skip empty results — if the first delta is just "\n" (common
+            // from model output), we don't want to clear the input and show a
+            // placeholder flash. Only update the editor when there is actual
+            // text to display.
+            const displayText = enhanceAccumRef.current.trimStart();
+            if (displayText) {
+              setEditorPlainText(displayText);
             }
           },
         }
