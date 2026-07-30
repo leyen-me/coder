@@ -31,7 +31,6 @@ import type { ChatRetryState } from "@/features/agent/types";
 import {
   buildAssistantProcessSteps,
   getAssistantTimelineSteps,
-  shouldRenderStandaloneAssistantAnswer,
   shouldShowAssistantProcessTimeline,
   type AssistantProcessStep,
 } from "./assistant-process";
@@ -117,6 +116,32 @@ function areReferencedSkillsEqual(
   return prev.every((slug, index) => slug === next[index]);
 }
 
+/**
+ * Ordered fragments derived from a message's process steps. Each `segment` is a
+ * run of consecutive non-decision steps (rendered as its own collapsible or
+ * standalone answer); each `decision` is a proxy/agent checkpoint rendered as a
+ * standalone user-style block. Keeping the decision markers between segments
+ * preserves the original timeline order instead of grouping all answers before
+ * all proxies.
+ */
+type RenderItem =
+  | { kind: "segment"; id: string; steps: AssistantProcessStep[] }
+  | {
+      kind: "decision";
+      id: string;
+      step: Extract<AssistantProcessStep, { kind: "decision" }>;
+    };
+
+function lastAnswerTextOf(steps: AssistantProcessStep[]): string {
+  for (let index = steps.length - 1; index >= 0; index -= 1) {
+    const step = steps[index];
+    if (step?.kind === "answer") {
+      return step.text;
+    }
+  }
+  return "";
+}
+
 export const MessageItem = memo(function MessageItem({
   message,
   sessionTitle,
@@ -192,34 +217,52 @@ export const MessageItem = memo(function MessageItem({
     () => getAssistantTimelineSteps({ steps: processSteps, isPlanMessage }),
     [isPlanMessage, processSteps]
   );
-  // Proxy/agent decisions are lifted out of the assistant process collapsible
-  // and rendered as standalone user-style blocks at the message level (see
-  // ProxyContinuationBlock). They must not be nested inside the collapsible's
-  // indented, open-gated interior — that is what previously made them render
-  // offset (inside the assistant message) and disappear on the last message
-  // (the interior is unmounted when the collapsible auto-closes).
-  const decisionSteps = useMemo(
-    () =>
-      timelineSteps.filter(
-        (step): step is Extract<AssistantProcessStep, { kind: "decision" }> =>
-          step.kind === "decision" &&
-          (step.status === "requested" ||
-            (step.status === "resolved" && step.response != null))
-      ),
-    [timelineSteps]
-  );
-  const processStepsForCollapsible = useMemo(
-    () => timelineSteps.filter((step) => step.kind !== "decision"),
-    [timelineSteps]
-  );
-  const showCollapsible = shouldShowAssistantProcessTimeline({
-    steps: processStepsForCollapsible,
-    isPlanMessage,
-  });
-  const showStandaloneAnswer = shouldRenderStandaloneAssistantAnswer({
-    steps: processSteps,
-    isPlanMessage,
-  });
+  // Split the ordered timeline into interleaved fragments: a run of
+  // consecutive non-decision steps becomes one `segment` (its own collapsible
+  // or standalone answer), and each decision step becomes a `decision`
+  // fragment rendered as a standalone user-style block right where it sits in
+  // the timeline. This preserves the original order — answer 1 -> proxy 1 ->
+  // answer 2 -> proxy 2 — instead of grouping all answers before all proxies.
+  const renderItems = useMemo(() => {
+    const items: RenderItem[] = [];
+    let current: AssistantProcessStep[] = [];
+    let segmentIndex = 0;
+    const flush = () => {
+      if (current.length > 0) {
+        items.push({
+          kind: "segment",
+          id: `seg-${segmentIndex++}`,
+          steps: current,
+        });
+        current = [];
+      }
+    };
+    for (const step of timelineSteps) {
+      if (step.kind !== "decision") {
+        current.push(step);
+        continue;
+      }
+      const isRenderableDecision =
+        step.status === "requested" ||
+        (step.status === "resolved" && step.response != null);
+      if (!isRenderableDecision) {
+        continue;
+      }
+      flush();
+      items.push({ kind: "decision", id: step.id, step });
+    }
+    flush();
+    return items;
+  }, [timelineSteps]);
+
+  const lastSegmentIndex = useMemo(() => {
+    for (let index = renderItems.length - 1; index >= 0; index -= 1) {
+      if (renderItems[index].kind === "segment") {
+        return index;
+      }
+    }
+    return -1;
+  }, [renderItems]);
   const showActions =
     !isStreaming &&
     (Boolean(answerText) ||
@@ -422,21 +465,8 @@ export const MessageItem = memo(function MessageItem({
     );
   }
 
-  return (
+  const trailingBlock = (
     <>
-      <Message from="assistant">
-        {showCollapsible ? (
-          <AssistantProcessCollapsible
-            steps={processStepsForCollapsible}
-            taskId={message.taskId}
-            isStreaming={isStreaming}
-            answerText={answerText}
-            durationMs={message.durationMs}
-            defaultOpen={isPlanMessage}
-          />
-        ) : answerText && showStandaloneAnswer ? (
-          <StreamingMessageContent text={answerText} />
-        ) : null}
       {showActions ? (
         <MessageActions className={cn("mt-1 transition-opacity", hoverRevealClassName)}>
           <MessageAction
@@ -502,10 +532,44 @@ export const MessageItem = memo(function MessageItem({
           <span className="animate-pulse">...</span>
         </div>
       ) : null}
-      </Message>
-      {decisionSteps.map((step) => (
-        <ProxyContinuationBlock key={step.id} step={step} />
-      ))}
     </>
+  );
+
+  return (
+    <div className="flex w-full flex-col gap-3">
+      {renderItems.map((item, index) => {
+        if (item.kind === "decision") {
+          return <ProxyContinuationBlock key={item.id} step={item.step} />;
+        }
+
+        const segmentShowsCollapsible = shouldShowAssistantProcessTimeline({
+          steps: item.steps,
+          isPlanMessage,
+        });
+        const segmentAnswerText = lastAnswerTextOf(item.steps);
+        const isLastSegment = index === lastSegmentIndex;
+
+        return (
+          <Message from="assistant" key={item.id}>
+            {segmentShowsCollapsible ? (
+              <AssistantProcessCollapsible
+                steps={item.steps}
+                taskId={message.taskId}
+                isStreaming={isStreaming}
+                answerText={segmentAnswerText}
+                durationMs={message.durationMs}
+                defaultOpen={isPlanMessage}
+              />
+            ) : segmentAnswerText ? (
+              <StreamingMessageContent text={segmentAnswerText} />
+            ) : null}
+            {isLastSegment ? trailingBlock : null}
+          </Message>
+        );
+      })}
+      {lastSegmentIndex === -1 ? (
+        <Message from="assistant">{trailingBlock}</Message>
+      ) : null}
+    </div>
   );
 }, areMessageItemPropsEqual);
