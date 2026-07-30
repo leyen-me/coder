@@ -9,6 +9,7 @@ import { useAgentStore } from "@/features/agent/store/agent-store";
 import { useLabSettings } from "@/features/lab/use-lab-settings";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
 import { createSession, inferProviderFromModel, type SessionKind } from "@/lib/db";
+import { parseModelValue } from "@/lib/model-provider/resolve-provider-config";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 
@@ -68,7 +69,7 @@ export function NewChatView() {
         sessionKind: effectiveSessionKind,
         autonomyMode:
           effectiveSessionKind === "long_task" ? "unattended" : "interactive",
-        decisionModel: model,
+        decisionModel: parseModelValue(model).modelId,
       });
       navigate(paths.chat(session.id), {
         state: { agentMode, hideWorkspaceControls: true },

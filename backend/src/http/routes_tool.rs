@@ -1289,6 +1289,7 @@ pub async fn start_agent_send_with_task_id(
             .or_else(|| session_fallback_workspace_dir(&state));
         let updated_session = update_session(&db, &params.session_id, |record| {
             record.model = params.model.trim().to_string();
+            record.decision_model = Some(params.model.trim().to_string());
             record.provider = normalize_provider("", &params.model);
             record.workspace_dir = workspace_dir.clone();
             record.context_usage_snapshot = None;
@@ -1499,6 +1500,7 @@ pub async fn handle_agent_regenerate(
             .or_else(|| session_fallback_workspace_dir(&state));
         let updated_session = update_session(&db, &params.session_id, |record| {
             record.model = params.model.trim().to_string();
+            record.decision_model = Some(params.model.trim().to_string());
             record.provider = normalize_provider("", &params.model);
             record.workspace_dir = workspace_dir.clone();
             record.context_usage_snapshot = None;
