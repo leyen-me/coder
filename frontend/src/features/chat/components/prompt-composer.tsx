@@ -466,6 +466,7 @@ export const PromptComposer = memo(function PromptComposer({
     } catch (error) {
       // AbortError means the user paused — keep the accumulated text as-is.
       if (!(error instanceof DOMException && error.name === "AbortError")) {
+        console.error("Prompt enhancement failed:", error);
         toast.error(t("chat.enhancePromptFailed"));
       }
     } finally {
