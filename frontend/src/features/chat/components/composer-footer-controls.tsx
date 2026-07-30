@@ -175,26 +175,6 @@ export function ComposerFooterControls({
 
   return (
     <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden">
-      {onToggleEnhance && (enhancing || inputText?.trim()) ? (
-        <button
-          type="button"
-          disabled={!enhancing && isRunning}
-          onClick={() => onToggleEnhance?.()}
-          className={cn(
-            compactControlClassName,
-            "group size-8 shrink-0 justify-center px-0",
-            enhancing && "text-foreground"
-          )}
-          aria-label={enhancing ? t("chat.enhancePromptStop") : t("chat.enhancePrompt")}
-          title={enhancing ? t("chat.enhancePromptStop") : t("chat.enhancePrompt")}
-        >
-          {enhancing ? (
-            <Loader2Icon className="size-4 shrink-0 animate-spin" />
-          ) : (
-            <SparklesIcon className="size-4 shrink-0" />
-          )}
-        </button>
-      ) : null}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
@@ -286,6 +266,26 @@ export function ComposerFooterControls({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+      {onToggleEnhance && (enhancing || inputText?.trim()) ? (
+        <button
+          type="button"
+          disabled={!enhancing && isRunning}
+          onClick={() => onToggleEnhance?.()}
+          className={cn(
+            compactControlClassName,
+            "group size-8 shrink-0 justify-center px-0",
+            enhancing && "text-foreground"
+          )}
+          aria-label={enhancing ? t("chat.enhancePromptStop") : t("chat.enhancePrompt")}
+          title={enhancing ? t("chat.enhancePromptStop") : t("chat.enhancePrompt")}
+        >
+          {enhancing ? (
+            <Loader2Icon className="size-4 shrink-0 animate-spin" />
+          ) : (
+            <SparklesIcon className="size-4 shrink-0" />
+          )}
+        </button>
+      ) : null}
     </div>
   );
 }
