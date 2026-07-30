@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { PromptComposerAttachmentsHeader } from "./prompt-composer-attachments";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
-import { findModelEntry, type ModelProviderEntry } from "@/lib/model-provider/resolve-provider-config";
+import { findModelEntry, parseModelValue, type ModelProviderEntry } from "@/lib/model-provider/resolve-provider-config";
 import {
   normalizeEnhancedPrompt,
   PROMPT_ENHANCE_SYSTEM_PROMPT,
@@ -439,7 +439,7 @@ export const PromptComposer = memo(function PromptComposer({
           apiKey: resolved.apiKey,
           apiKeySource: resolved.apiKeySource,
           apiKeyEnvVar: resolved.apiKeyEnvVar,
-          model,
+          model: parseModelValue(model).modelId,
           userPrompt: original,
           systemPrompt: PROMPT_ENHANCE_SYSTEM_PROMPT,
         },

@@ -233,7 +233,7 @@ export function AutomationDialog({
       cronExpression: normalizedCron,
       prompt: trimmedPrompt,
       workspaceDir: workspaceDir?.trim() || null,
-      model: trimmedModel,
+      model: parseModelValue(trimmedModel).modelId,
       provider: inferredProvider,
       agentMode,
       thinkingEnabled,
