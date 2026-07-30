@@ -249,6 +249,9 @@ export type Messages = {
     composerModeLabel: string;
     composerModelLabel: string;
     composerMoreActions: string;
+    enhancePrompt: string;
+    enhancePromptStop: string;
+    enhancePromptFailed: string;
     sessionTypeStandard: string;
     sessionTypeLongTask: string;
     sessionTypeLabel: string;

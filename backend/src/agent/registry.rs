@@ -353,6 +353,45 @@ pub async fn refine_prompt(
     .await
 }
 
+/// System prompt for the streaming "enhance prompt" endpoint. Instructs the
+/// model to rewrite the user's prompt so an assistant can answer better, while
+/// preserving the original language, intent, and tone.
+pub const ENHANCE_PROMPT_SYSTEM_PROMPT: &str = r#"You are an expert prompt engineer. Your task is to rewrite and improve the user's prompt so that an AI assistant can produce a higher-quality response.
+
+Improvement guidelines:
+- Clarify the user's true intent and make the request specific and unambiguous.
+- Add helpful structure (steps, constraints, output format, or context) when it improves clarity.
+- Keep the original meaning, language, and tone of the user's prompt.
+- Do not add commentary, explanations, or preamble.
+
+Output ONLY the improved prompt text. Do not wrap it in markdown code fences or quotes."#;
+
+/// Build the chat messages for the "enhance prompt" request. `system_prompt`
+/// is provided by the frontend (typically `ENHANCE_PROMPT_SYSTEM_PROMPT`) so the
+/// instruction can be tuned without a backend change.
+pub fn build_enhance_messages(user_prompt: &str, system_prompt: &str) -> Vec<ChatMessage> {
+    vec![
+        ChatMessage {
+            role: "system".to_string(),
+            content: Some(Value::String(system_prompt.to_string())),
+            reasoning_content: None,
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        },
+        ChatMessage {
+            role: "user".to_string(),
+            content: Some(Value::String(format!(
+                "Improve the following prompt:\n\n{user_prompt}"
+            ))),
+            reasoning_content: None,
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        },
+    ]
+}
+
 impl AgentRegistry {
     pub fn cancel(&mut self, task_id: &str) -> Result<(), String> {
         let Some(run) = self.runs.get_mut(task_id) else {

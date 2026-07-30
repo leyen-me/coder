@@ -5,6 +5,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type RefObject,
@@ -23,7 +24,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { PromptComposerAttachmentsHeader } from "./prompt-composer-attachments";
 import { useTranslation } from "@/lib/i18n/locale-provider";
+import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
 import { findModelEntry, type ModelProviderEntry } from "@/lib/model-provider/resolve-provider-config";
+import {
+  normalizeEnhancedPrompt,
+  PROMPT_ENHANCE_SYSTEM_PROMPT,
+  streamEnhancePrompt,
+} from "../lib/prompt-enhance";
 import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { cn } from "@/lib/utils";
 import type { AgentMode } from "@/features/agent/types";
@@ -278,6 +285,7 @@ export const PromptComposer = memo(function PromptComposer({
   getProviderLabel,
 }: PromptComposerProps) {
   const { t } = useTranslation();
+  const { resolveProviderForValue } = useModelProvider();
   const isCompact = variant === "compact";
   const isEditing = Boolean(onCancelEdit);
 
@@ -297,6 +305,10 @@ export const PromptComposer = memo(function PromptComposer({
   const submitStatus = resolveSubmitStatus(isRunning, Boolean(onStop));
   const selectedModel = findModelEntry(entries, model)?.model;
   const supportsMultimodal = selectedModel?.supportsMultimodal ?? false;
+  const providerConfig = useMemo(
+    () => resolveProviderForValue(model),
+    [model, resolveProviderForValue]
+  );
   const showThinkingToggle =
     canToggleThinking(selectedModel) && Boolean(onThinkingEnabledChange);
   const attachmentAccept = supportsMultimodal ? COMPOSER_ATTACHMENT_ACCEPT : undefined;
@@ -369,6 +381,100 @@ export const PromptComposer = memo(function PromptComposer({
   const handleChange = useCallback((nextValue: string) => {
     setValue(nextValue);
   }, []);
+
+  // ----- Prompt enhancement (streaming) -----
+  const [enhancing, setEnhancing] = useState(false);
+  const enhanceAbortRef = useRef<AbortController | null>(null);
+  const enhanceAccumRef = useRef("");
+
+  /** Replace the editor content with plain text without HTML parsing. */
+  const setEditorPlainText = useCallback((text: string) => {
+    const editor = editorRef.current;
+    if (editor) {
+      editor.commands.clearContent();
+      if (text) {
+        const { state, view } = editor;
+        const endPos = state.doc.content.size;
+        view.dispatch(state.tr.insertText(text, endPos));
+      }
+    }
+    setValue(text);
+  }, []);
+
+  const toggleEnhance = useCallback(async () => {
+    if (enhancing) {
+      // Pause: abort the in-flight stream. Accumulated text stays in the input.
+      enhanceAbortRef.current?.abort();
+      enhanceAbortRef.current = null;
+      setEnhancing(false);
+      const normalized = normalizeEnhancedPrompt(enhanceAccumRef.current);
+      if (normalized !== enhanceAccumRef.current) {
+        enhanceAccumRef.current = normalized;
+        setEditorPlainText(normalized);
+      }
+      return;
+    }
+
+    const resolved = resolveProviderForValue(model);
+    if (!resolved) {
+      return;
+    }
+    const original = valueRef.current;
+    if (!original.trim()) {
+      return;
+    }
+
+    setEnhancing(true);
+    enhanceAccumRef.current = "";
+    const controller = new AbortController();
+    enhanceAbortRef.current = controller;
+
+    // Clear the composer, then stream the enhanced prompt back in.
+    setEditorPlainText("");
+
+    try {
+      await streamEnhancePrompt(
+        {
+          baseUrl: resolved.baseUrl,
+          apiKey: resolved.apiKey,
+          apiKeySource: resolved.apiKeySource,
+          apiKeyEnvVar: resolved.apiKeyEnvVar,
+          model,
+          userPrompt: original,
+          systemPrompt: PROMPT_ENHANCE_SYSTEM_PROMPT,
+        },
+        {
+          signal: controller.signal,
+          onDelta: (delta) => {
+            enhanceAccumRef.current += delta;
+            const editor = editorRef.current;
+            if (editor) {
+              const endPos = editor.state.doc.content.size;
+              editor.view.dispatch(editor.state.tr.insertText(delta, endPos));
+            } else {
+              setValue((prev) => prev + delta);
+            }
+          },
+        }
+      );
+      // Stream finished successfully — normalize the final result.
+      const normalized = normalizeEnhancedPrompt(enhanceAccumRef.current);
+      if (normalized !== enhanceAccumRef.current) {
+        enhanceAccumRef.current = normalized;
+        setEditorPlainText(normalized);
+      }
+    } catch (error) {
+      // AbortError means the user paused — keep the accumulated text as-is.
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        toast.error(t("chat.enhancePromptFailed"));
+      }
+    } finally {
+      if (enhanceAbortRef.current === controller) {
+        enhanceAbortRef.current = null;
+      }
+      setEnhancing(false);
+    }
+  }, [enhancing, model, resolveProviderForValue, setEditorPlainText, t]);
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage) => {
@@ -478,6 +584,9 @@ export const PromptComposer = memo(function PromptComposer({
           sessionKind={sessionKind}
           showThinkingToggle={showThinkingToggle}
           thinkingEnabled={thinkingEnabled}
+          inputText={value}
+          enhancing={enhancing}
+          onToggleEnhance={providerConfig ? toggleEnhance : undefined}
         />
 
         <div className="ml-auto flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">

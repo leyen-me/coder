@@ -147,6 +147,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         )
         .route("/api/agent/generate_title", post(routes_tool::handle_generate_session_title))
         .route("/api/agent/refine_prompt", post(routes_tool::handle_refine_prompt))
+        .route("/api/agent/enhance_prompt", post(routes_tool::handle_enhance_prompt))
         .route("/api/sse/events/{topic}", get(routes_sse::handle_sse_events))
         // Shell output SSE
         .route("/api/sse/shell/{shell_id}", get(routes_sse::handle_shell_sse))

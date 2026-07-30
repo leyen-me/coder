@@ -1,8 +1,17 @@
 use axum::{extract::{Path, State}, http::StatusCode, Json};
+use axum::response::sse::{Event, KeepAlive, Sse};
 use chrono::Utc;
+use futures::stream::Stream;
 use serde::Deserialize;
+use serde_json::json;
 use serde_json::Value;
+use std::convert::Infallible;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
+use std::time::Duration;
+use tokio::sync::mpsc;
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::agent;
@@ -503,6 +512,18 @@ pub struct RefinePromptParams {
     pub user_prompt: String,
     pub system_prompt: String,
     pub context_messages: Vec<agent::RefineContextMessage>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnhancePromptParams {
+    pub base_url: String,
+    pub api_key: Option<String>,
+    pub api_key_source: Option<String>,
+    pub api_key_env_var: Option<String>,
+    pub model: String,
+    pub user_prompt: String,
+    pub system_prompt: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -1724,6 +1745,154 @@ pub async fn handle_refine_prompt(
     Ok(Json(serde_json::to_value(result).map_err(|e| {
         (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
     })?))
+}
+
+/// Wraps an inner stream and cancels the upstream LLM request when the SSE
+/// connection is dropped (client disconnect or stream completion).
+struct CancellableStream {
+    inner: Pin<Box<dyn Stream<Item = Result<Event, Infallible>> + Send>>,
+    cancel: CancellationToken,
+}
+
+impl Stream for CancellableStream {
+    type Item = Result<Event, Infallible>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+        this.inner.as_mut().poll_next(cx)
+    }
+}
+
+impl Drop for CancellableStream {
+    fn drop(&mut self) {
+        self.cancel.cancel();
+    }
+}
+
+/// POST /api/agent/enhance_prompt
+///
+/// Streams an improved version of the user's prompt from the configured model.
+/// Each server-sent event is `data: {"type":"delta","text":"..."}`; the stream
+/// ends with `data: {"type":"done"}` (or `{"type":"error","message":"..."}`).
+pub async fn handle_enhance_prompt(
+    Json(params): Json<EnhancePromptParams>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    let cancel = CancellationToken::new();
+    let cancel_for_stream = cancel.clone();
+
+    let stream = async_stream::stream! {
+        let api_key_source = params.api_key_source.clone().unwrap_or_else(|| "manual".to_string());
+        let api_key_env_var = params.api_key_env_var.clone().unwrap_or_else(|| "OPENAI_API_KEY".to_string());
+
+        let api_key = match crate::agent::registry::resolve_api_key(
+            &api_key_source,
+            params.api_key.as_deref(),
+            &api_key_env_var,
+        ) {
+            Ok(key) => key,
+            Err(e) => {
+                yield Ok(Event::default().data(
+                    json!({ "type": "error", "message": e }).to_string(),
+                ));
+                return;
+            }
+        };
+
+        if params.base_url.trim().is_empty() {
+            yield Ok(Event::default().data(
+                json!({ "type": "error", "message": "Base URL is required" }).to_string(),
+            ));
+            return;
+        }
+
+        if params.model.trim().is_empty() {
+            yield Ok(Event::default().data(
+                json!({ "type": "error", "message": "Model is required" }).to_string(),
+            ));
+            return;
+        }
+
+        let user_prompt = params.user_prompt.trim();
+        if user_prompt.is_empty() {
+            // Nothing to enhance — end cleanly.
+            yield Ok(Event::default().data(r#"{"type":"done"}"#));
+            return;
+        }
+
+        let system_prompt = if params.system_prompt.trim().is_empty() {
+            crate::agent::registry::ENHANCE_PROMPT_SYSTEM_PROMPT.to_string()
+        } else {
+            params.system_prompt.trim().to_string()
+        };
+
+        let client = match crate::agent::openai::build_http_client() {
+            Ok(client) => client,
+            Err(e) => {
+                yield Ok(Event::default().data(
+                    json!({ "type": "error", "message": e }).to_string(),
+                ));
+                return;
+            }
+        };
+
+        let url = crate::agent::openai::chat_completions_url(&params.base_url);
+        let model = params.model.trim().to_string();
+        let messages = crate::agent::registry::build_enhance_messages(user_prompt, &system_prompt);
+
+        let (tx, mut rx) = mpsc::channel::<String>(128);
+        let cancel_inner = cancel_for_stream.clone();
+
+        let llm = tokio::spawn(async move {
+            let emit = move |event: crate::agent::AgentEvent| {
+                if let crate::agent::AgentEvent::ContentDelta { delta, .. } = event {
+                    let _ = tx.try_send(delta);
+                }
+            };
+            crate::agent::openai::stream_chat_completion(
+                &client,
+                url,
+                &api_key,
+                &model,
+                &messages,
+                None,
+                None,
+                cancel_inner,
+                emit,
+                "enhance-prompt",
+            )
+            .await
+        });
+
+        while let Some(delta) = rx.recv().await {
+            yield Ok(Event::default().data(
+                json!({ "type": "delta", "text": delta }).to_string(),
+            ));
+        }
+
+        match llm.await {
+            Ok(Ok(())) => {
+                yield Ok(Event::default().data(r#"{"type":"done"}"#));
+            }
+            Ok(Err(e)) => {
+                yield Ok(Event::default().data(
+                    json!({ "type": "error", "message": e }).to_string(),
+                ));
+            }
+            Err(_) => {
+                yield Ok(Event::default().data(r#"{"type":"done"}"#));
+            }
+        }
+    };
+
+    Sse::new(CancellableStream {
+        inner: Box::pin(stream),
+        cancel,
+    })
+    .keep_alive(
+        KeepAlive::new()
+            .interval(Duration::from_secs(15))
+            .text(r#"{"type":"heartbeat"}"#),
+    )
 }
 
 #[cfg(test)]
