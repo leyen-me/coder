@@ -267,6 +267,9 @@ export const zhMessages = {
       "长任务会话 — 尽量自主推进，低风险分歧可由系统代为决策",
     sessionTypeLongTaskHint:
       "适合长时间无人值守任务；系统会优先继续推进，高风险操作仍会等待你的确认。",
+    mcpServers: "MCP 服务",
+    mcpServersEmpty: "没有已启用的 MCP 服务",
+    mcpServersHint: "勾选服务以将其工具挂载到本次会话",
     composerPlanPlaceholder: "描述你想规划的内容，或要求修改当前计划…",
     planFileName: "计划",
     planGenerating: "生成中…",

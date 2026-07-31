@@ -18,6 +18,7 @@ type LegacySessionRecord = {
   planBuiltAt?: number | null;
   contextUsageSnapshot?: SessionRecord["contextUsageSnapshot"];
   pinnedAt?: number | null;
+  attachedMcpServers?: string[] | null;
   createdAt: number;
   updatedAt: number;
   gitBranch?: string | null;
@@ -57,6 +58,7 @@ export function normalizeSessionRecord(
       session.contextUsageSnapshot
     ),
     pinnedAt: session.pinnedAt ?? null,
+    attachedMcpServers: session.attachedMcpServers ?? null,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   };

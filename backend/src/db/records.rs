@@ -42,6 +42,11 @@ pub struct SessionRecord {
     pub plan_built_at: Option<u64>,
     pub context_usage_snapshot: Option<SessionContextUsageSnapshot>,
     pub pinned_at: Option<u64>,
+    /// Per-session MCP attachment. Holds the server ids the user toggled on for
+    /// THIS conversation. `None`/empty means nothing attached (pure on-demand:
+    /// a server being `enabled` only makes it *selectable*, not auto-loaded).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub attached_mcp_servers: Option<Vec<String>>,
     pub created_at: u64,
     pub updated_at: u64,
 }
@@ -68,6 +73,16 @@ impl SessionRecord {
         self.decision_model = normalize_optional_string(self.decision_model);
         self.parent_session_id = normalize_optional_string(self.parent_session_id);
         self.plan_file_name = normalize_optional_string(self.plan_file_name);
+        self.attached_mcp_servers = self
+            .attached_mcp_servers
+            .map(|servers| {
+                servers
+                    .into_iter()
+                    .map(|server| server.trim().to_string())
+                    .filter(|server| !server.is_empty())
+                    .collect::<Vec<String>>()
+            })
+            .filter(|servers: &Vec<String>| !servers.is_empty());
         self
     }
 }

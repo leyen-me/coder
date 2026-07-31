@@ -67,8 +67,10 @@ import {
 import { useSessionWorkspaceBinding } from "../hooks/use-session-workspace-binding";
 import { useSystemPrompt } from "../hooks/use-system-prompt";
 import { useWorkspaceGitControls } from "../hooks/use-workspace-git-controls";
-import type { MessageRecord } from "@/lib/db";
+import type { McpServerConfig, MessageRecord } from "@/lib/db";
 import { updateSession } from "@/lib/db/sessions";
+import { listMcpServers } from "@/lib/db/mcp-servers";
+import { updateSessionMcpServers } from "@/features/mcp/api";
 
 type ChatSessionViewProps = {
   chatId: string;
@@ -109,6 +111,47 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
   >(undefined);
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
   const queueDispatchingRef = useRef(false);
+
+  // On-demand MCP attachment for this session.
+  const [enabledMcpServers, setEnabledMcpServers] = useState<McpServerConfig[]>([]);
+  const [attachedMcpServers, setAttachedMcpServers] = useState<string[]>([]);
+
+  // Load the enabled MCP servers available to attach (the "+" menu lists these).
+  useEffect(() => {
+    let cancelled = false;
+    void listMcpServers()
+      .then((servers) => {
+        if (!cancelled) {
+          setEnabledMcpServers(servers.filter((server) => server.enabled));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Seed the attached set from the session record (source of truth = backend).
+  useEffect(() => {
+    setAttachedMcpServers(session?.attachedMcpServers ?? []);
+  }, [chatId, session?.attachedMcpServers]);
+
+  const handleToggleMcpServer = useCallback(
+    async (serverId: string) => {
+      const next = attachedMcpServers.includes(serverId)
+        ? attachedMcpServers.filter((id) => id !== serverId)
+        : [...attachedMcpServers, serverId];
+      setAttachedMcpServers(next);
+      try {
+        await updateSessionMcpServers(chatId, next);
+        await updateSession(chatId, { attachedMcpServers: next });
+      } catch {
+        // Revert optimistic update on failure so UI stays consistent.
+        setAttachedMcpServers(attachedMcpServers);
+      }
+    },
+    [attachedMcpServers, chatId]
+  );
   const [model, setModel] = useState(() => resolveDefaultModelValue(modelEntries));
   const handleModelChange = useCallback(
     (next: string) => {
@@ -243,6 +286,7 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
           editMessageId: options?.editMessageId,
           agentMode,
           skillSlugs: payload.skillSlugs,
+          attachedMcpServers,
         });
         requestMessageListScrollToBottom();
       } catch (error) {
@@ -780,6 +824,9 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
             onAgentModeChange={setAgentMode}
             planBuiltAt={session?.planBuiltAt ?? null}
             sessionKind={session?.sessionKind ?? "standard"}
+            mcpServers={enabledMcpServers}
+            attachedMcpServers={attachedMcpServers}
+            onToggleMcpServer={handleToggleMcpServer}
           />
           )}
         </div>

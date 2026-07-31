@@ -34,7 +34,7 @@ import {
 import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { cn } from "@/lib/utils";
 import type { AgentMode } from "@/features/agent/types";
-import type { SessionKind } from "@/lib/db";
+import type { McpServerConfig, SessionKind } from "@/lib/db";
 
 import { collectNativeFileDropItems } from "@/lib/dnd/external-file-drop";
 
@@ -95,6 +95,12 @@ type PromptComposerProps = {
   /** Skill allowlist when editing an existing user or queued message. */
   initialReferencedSkills?: readonly string[];
   contextUsage?: SessionContextUsage | null;
+  /** Enabled MCP servers available to attach (selectable in the "+" menu). */
+  mcpServers?: McpServerConfig[];
+  /** Server ids currently attached to this session. */
+  attachedMcpServers?: string[];
+  /** Toggle a server's attachment for this session. */
+  onToggleMcpServer?: (serverId: string) => void;
 };
 
 function resolveSubmitStatus(
@@ -277,6 +283,9 @@ export const PromptComposer = memo(function PromptComposer({
   onCancelEdit,
   initialReferencedSkills,
   contextUsage,
+  mcpServers,
+  attachedMcpServers,
+  onToggleMcpServer,
   agentMode = "agent",
   onAgentModeChange,
   planBuiltAt,
@@ -606,6 +615,9 @@ export const PromptComposer = memo(function PromptComposer({
           inputText={value}
           enhancing={enhancing}
           onToggleEnhance={providerConfig ? toggleEnhance : undefined}
+          mcpServers={mcpServers}
+          attachedMcpServers={attachedMcpServers}
+          onToggleMcpServer={onToggleMcpServer}
         />
 
         <div className="ml-auto flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">

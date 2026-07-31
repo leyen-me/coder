@@ -85,6 +85,7 @@ export type SessionPatch = Partial<
     | "planBuiltAt"
     | "contextUsageSnapshot"
     | "pinnedAt"
+    | "attachedMcpServers"
   >
 >;
 

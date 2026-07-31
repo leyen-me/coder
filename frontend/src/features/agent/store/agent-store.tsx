@@ -87,6 +87,8 @@ type AgentStoreValue = {
     agentMode?: AgentMode;
     skillSlugs?: string[];
     extraTools?: AgentToolDefinition[];
+    /** Per-session MCP attachment (on-demand model); send fallback. */
+    attachedMcpServers?: string[];
   }) => Promise<{ userMessageId: string; assistantMessageId: string; taskId: string }>;
   regenerateMessage: (input: {
     sessionId: string;
@@ -826,6 +828,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       agentMode?: AgentMode;
       skillSlugs?: string[];
       extraTools?: AgentToolDefinition[];
+      attachedMcpServers?: string[];
     }) => {
       const trimmed = input.content.trim();
       const storedImages = fileUIPartsToStoredImages(input.images ?? []);
@@ -930,6 +933,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         agentMode: input.agentMode,
         thinkingEnabled,
         extraTools: input.extraTools,
+        attachedMcpServers: input.attachedMcpServers,
       });
       for (const messageId of started.deletedMessageIds ?? []) {
         streamingBufferRef.current.clear(messageId);

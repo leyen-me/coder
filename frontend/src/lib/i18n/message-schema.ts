@@ -313,6 +313,9 @@ export type Messages = {
     durationLabel: string;
     skillReferenceTooltip: string;
     agentProcessSeconds: string;
+    mcpServers: string;
+    mcpServersEmpty: string;
+    mcpServersHint: string;
   };
   time: {
     justNow: string;

@@ -564,6 +564,7 @@ mod compact_persist_tests {
                 plan_built_at: None,
                 context_usage_snapshot: None,
                 pinned_at: None,
+                attached_mcp_servers: None,
                 created_at: now,
                 updated_at: now,
             },

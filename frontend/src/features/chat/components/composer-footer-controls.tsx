@@ -1,12 +1,15 @@
 import type { ReactElement } from "react";
+import { useMemo } from "react";
 import {
   BrainIcon,
   BotIcon,
+  CheckIcon,
   ClipboardListIcon,
   FileQuestionIcon,
   ImageIcon,
   Loader2Icon,
   PlusIcon,
+  ServerIcon,
   SparklesIcon,
 } from "lucide-react";
 
@@ -28,7 +31,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { usePromptInputAttachments } from "@/components/ai-elements/prompt-input";
 import type { AgentMode } from "@/features/agent/types";
-import type { SessionKind } from "@/lib/db";
+import type { McpServerConfig, SessionKind } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import {
   getModelDisplayName,
@@ -111,6 +114,12 @@ type ComposerFooterControlsProps = {
   enhancing?: boolean;
   /** Toggle the prompt-enhancement stream (start when idle, pause when running). */
   onToggleEnhance?: () => void;
+  /** Enabled MCP servers available to attach (selectable in the "+" menu). */
+  mcpServers?: McpServerConfig[];
+  /** Server ids currently attached to this session. */
+  attachedMcpServers?: string[];
+  /** Toggle a server's attachment for this session. */
+  onToggleMcpServer?: (serverId: string) => void;
 };
 
 export function ComposerFooterControls({
@@ -130,9 +139,53 @@ export function ComposerFooterControls({
   inputText,
   enhancing = false,
   onToggleEnhance,
+  mcpServers,
+  attachedMcpServers,
+  onToggleMcpServer,
 }: ComposerFooterControlsProps) {
   const { t } = useTranslation();
   const attachments = usePromptInputAttachments();
+  const attachedMcpSet = useMemo(
+    () => new Set(attachedMcpServers ?? []),
+    [attachedMcpServers]
+  );
+
+  const mcpMenu = (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger disabled={!mcpServers?.length || isRunning}>
+        <ServerIcon className="mr-2 size-4" />
+        <span className="min-w-0 flex-1 truncate">{t("chat.mcpServers")}</span>
+        <DropdownMenuShortcut className="max-w-16 truncate tracking-normal normal-case">
+          {(attachedMcpServers ?? []).length}
+        </DropdownMenuShortcut>
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className="max-h-[min(50vh,20rem)] w-[min(16rem,calc(100vw-5rem))] overflow-y-auto">
+        {mcpServers?.length ? (
+          mcpServers.map((server) => {
+            const active = attachedMcpSet.has(server.id);
+            return (
+              <DropdownMenuItem
+                key={server.id}
+                onSelect={(event) => {
+                  event.preventDefault();
+                  onToggleMcpServer?.(server.id);
+                }}
+              >
+                <span className="min-w-0 flex-1 truncate" title={server.name}>
+                  {server.name}
+                </span>
+                {active ? <CheckIcon className="size-4 shrink-0" /> : null}
+              </DropdownMenuItem>
+            );
+          })
+        ) : (
+          <DropdownMenuLabel className="text-xs text-muted-foreground">
+            {t("chat.mcpServersEmpty")}
+          </DropdownMenuLabel>
+        )}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
   const selectedModel = findModelEntry(entries, model)?.model;
   const modelLabel = selectedModel
     ? getModelDisplayName(selectedModel)
@@ -239,6 +292,12 @@ export function ComposerFooterControls({
               ) : null}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
+          {mcpServers?.length || attachedMcpServers?.length ? (
+            <>
+              <DropdownMenuSeparator />
+              {mcpMenu}
+            </>
+          ) : null}
           {onSessionKindChange ? (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger disabled={isRunning}>

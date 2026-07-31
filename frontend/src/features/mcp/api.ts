@@ -94,3 +94,16 @@ export async function getMcpOAuthStatus(
 export async function revokeMcpOAuth(serverId: string): Promise<void> {
   await apiPost("/api/mcp/oauth/revoke", { serverId });
 }
+
+/**
+ * Persist the per-session MCP attachment list. The composer "+" menu calls
+ * this whenever the user toggles a server on/off for the current conversation.
+ */
+export async function updateSessionMcpServers(
+  sessionId: string,
+  attachedMcpServers: string[]
+): Promise<void> {
+  await apiPost(`/api/agent/session/${sessionId}/mcp_servers`, {
+    attachedMcpServers,
+  });
+}

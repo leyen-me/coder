@@ -9,7 +9,8 @@ use super::types::{AgentToolDefinition, ApiToolCall, ApiToolCallFunction, ChatMe
 use crate::db::{
     records::{AgentTodoRecord, MessageImageAttachment, MessageProcessStep, MessageRecord, SessionRecord},
     session_store::{
-        get_agent_todos_by_session, get_messages_by_session, model_history_from_latest_compact,
+        get_agent_todos_by_session, get_messages_by_session, get_session,
+        model_history_from_latest_compact,
     },
     Database,
 };
@@ -107,10 +108,11 @@ pub async fn resolve_agent_tool_definitions(
     agent_mode: Option<&str>,
     extra_tools: Option<Vec<AgentToolDefinition>>,
     denied_tools: Option<Vec<String>>,
+    session_id: Option<&str>,
 ) -> Vec<AgentToolDefinition> {
     let mut definitions =
         super::tool_dispatch::get_tool_definitions(agent_mode);
-    definitions.extend(resolve_mcp_agent_tools(app_state).await);
+    definitions.extend(resolve_mcp_agent_tools(app_state, session_id).await);
     if let Some(extra) = extra_tools {
         definitions.extend(extra);
     }
@@ -132,8 +134,43 @@ fn dedupe_tool_definitions(mut tools: Vec<AgentToolDefinition>) -> Vec<AgentTool
     tools
 }
 
-async fn resolve_mcp_agent_tools(app_state: &AppState) -> Vec<AgentToolDefinition> {
-    let servers = load_enabled_mcp_servers(app_state).unwrap_or_default();
+/// Returns the MCP servers attached to a specific session (on-demand model):
+/// only servers the user toggled on for THIS conversation, and only if they are
+/// still globally `enabled`. A missing session or empty attachment list yields
+/// an empty vector — `enabled` alone no longer auto-loads anything.
+fn load_attached_mcp_servers(
+    app_state: &AppState,
+    session_id: Option<&str>,
+) -> Vec<McpServerConfig> {
+    let Some(session_id) = session_id.filter(|id| !id.trim().is_empty()) else {
+        return Vec::new();
+    };
+    let db = match app_state.db.lock() {
+        Ok(db) => db,
+        Err(_) => return Vec::new(),
+    };
+    let Ok(Some(session)) = get_session(&db, session_id) else {
+        return Vec::new();
+    };
+    let Some(attached) = session.attached_mcp_servers else {
+        return Vec::new();
+    };
+    let mut servers = Vec::new();
+    for id in attached {
+        if let Ok(Some(server)) = db.get::<McpServerConfig>("mcpServers", &id) {
+            if server.enabled {
+                servers.push(server);
+            }
+        }
+    }
+    servers
+}
+
+async fn resolve_mcp_agent_tools(
+    app_state: &AppState,
+    session_id: Option<&str>,
+) -> Vec<AgentToolDefinition> {
+    let servers = load_attached_mcp_servers(app_state, session_id);
     let mut definitions = Vec::new();
 
     for server in servers {
@@ -253,14 +290,6 @@ fn load_enabled_remote_targets(app_state: &AppState) -> Result<Vec<RemoteTargetR
     targets.retain(|target| target.enabled);
     targets.sort_by(|left, right| left.alias.cmp(&right.alias));
     Ok(targets)
-}
-
-fn load_enabled_mcp_servers(app_state: &AppState) -> Result<Vec<McpServerConfig>, String> {
-    let db = lock_db(&app_state.db)?;
-    let mut servers = db.get_all::<McpServerConfig>("mcpServers")?;
-    servers.retain(|server| server.enabled);
-    servers.sort_by(|left, right| left.id.cmp(&right.id));
-    Ok(servers)
 }
 
 fn message_record_to_historical_messages(message: MessageRecord) -> Vec<HistoricalChatMessage> {
@@ -1359,6 +1388,7 @@ mod tests {
             plan_built_at: None,
             context_usage_snapshot: None,
             pinned_at: None,
+            attached_mcp_servers: None,
             created_at: current_timestamp_ms(),
             updated_at: current_timestamp_ms(),
         }
@@ -1696,8 +1726,14 @@ Prefer deterministic test scaffolding.
             },
         };
 
-        let tools = resolve_agent_tool_definitions(&state, Some("ask"), Some(vec![extra, custom]), None)
-            .await;
+        let tools = resolve_agent_tool_definitions(
+            &state,
+            Some("ask"),
+            Some(vec![extra, custom]),
+            None,
+            None,
+        )
+        .await;
         let names = tools.iter().map(|tool| tool.function.name.as_str()).collect::<Vec<_>>();
 
         assert!(names.contains(&"read_file"));

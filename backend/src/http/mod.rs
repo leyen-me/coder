@@ -145,6 +145,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
             "/api/agent/session/{session_id}/status",
             get(routes_tool::handle_agent_session_status),
         )
+        .route(
+            "/api/agent/session/{session_id}/mcp_servers",
+            post(routes_tool::handle_update_session_mcp_servers),
+        )
         .route("/api/agent/generate_title", post(routes_tool::handle_generate_session_title))
         .route("/api/agent/refine_prompt", post(routes_tool::handle_refine_prompt))
         .route("/api/agent/enhance_prompt", post(routes_tool::handle_enhance_prompt))

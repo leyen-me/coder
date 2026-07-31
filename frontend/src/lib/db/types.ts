@@ -55,6 +55,12 @@ export type SessionRecord = {
   contextUsageSnapshot?: SessionContextUsageSnapshot | null;
   /** Timestamp (ms) when the session was pinned. null means not pinned. */
   pinnedAt?: number | null;
+  /**
+   * Per-session MCP attachment (on-demand model). Server ids the user toggled
+   * on for THIS conversation. `undefined`/`null`/empty means nothing attached —
+   * a server being `enabled` only makes it selectable, not auto-loaded.
+   */
+  attachedMcpServers?: string[] | null;
   createdAt: number;
   updatedAt: number;
 };

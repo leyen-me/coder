@@ -8,7 +8,7 @@ use crate::db::records::{
     current_timestamp_ms, normalize_provider, SessionRecord, DEFAULT_AUTONOMY_MODE,
     DEFAULT_DECISION_POLICY_VERSION, DEFAULT_SESSION_KIND,
 };
-use crate::db::session_store::{new_session_id, put_session};
+use crate::db::session_store::{get_session, new_session_id, put_session};
 use crate::http::routes_tool::{start_agent_send_with_task_id, AgentSendParams};
 use crate::AppState;
 
@@ -73,6 +73,9 @@ pub async fn spawn_session(
     // 1. Create the SessionRecord. parent_session_id links child → parent.
     //    Title starts empty; start_agent_send_with_task_id will derive it on
     //    first turn (same as a normal session), satisfying "SubAgent == Session".
+    //    A sub-agent inherits the parent's per-session MCP attachment (on-demand
+    //    model): what the parent had toggled on carries into the child.
+    let mut attached_mcp_servers: Option<Vec<String>> = None;
     let session = SessionRecord {
         id: session_id.clone(),
         title: String::new(),
@@ -94,6 +97,7 @@ pub async fn spawn_session(
         plan_built_at: None,
         context_usage_snapshot: None,
         pinned_at: None,
+        attached_mcp_servers: attached_mcp_servers.clone(),
         created_at: now,
         updated_at: now,
     };
@@ -103,6 +107,15 @@ pub async fn spawn_session(
             .db
             .lock()
             .map_err(|_| "Database lock poisoned".to_string())?;
+        if let Some(pid) = &opts.parent_session_id {
+            if let Ok(Some(parent)) = get_session(&db, pid) {
+                attached_mcp_servers = parent.attached_mcp_servers;
+            }
+        }
+        let session = SessionRecord {
+            attached_mcp_servers: attached_mcp_servers.clone(),
+            ..session
+        };
         put_session(&db, &session)?;
     }
 
@@ -130,6 +143,7 @@ pub async fn spawn_session(
             models: None,
             extra_tools: opts.extra_tools,
             denied_tools: opts.denied_tools,
+            attached_mcp_servers: None,
         },
         task_id.clone(),
     )

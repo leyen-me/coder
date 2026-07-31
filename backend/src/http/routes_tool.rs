@@ -425,6 +425,10 @@ pub struct AgentSendParams {
     pub extra_tools: Option<Vec<agent::AgentToolDefinition>>,
     #[serde(default)]
     pub denied_tools: Option<Vec<String>>,
+    /// Per-session MCP attachment (on-demand model). When present, the session's
+    /// attached server list is updated so the next tool resolution reflects it.
+    #[serde(default)]
+    pub attached_mcp_servers: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]
@@ -1201,6 +1205,7 @@ pub async fn handle_agent_start(
             agent_mode.as_deref(),
             params.tools.clone(),
             None,
+            params.session_id.as_deref(),
         )
         .await;
         (!defaults.is_empty()).then_some(defaults)
@@ -1293,6 +1298,9 @@ pub async fn start_agent_send_with_task_id(
             record.provider = normalize_provider("", &params.model);
             record.workspace_dir = workspace_dir.clone();
             record.context_usage_snapshot = None;
+            if let Some(attached) = &params.attached_mcp_servers {
+                record.attached_mcp_servers = Some(attached.clone());
+            }
         })
         .map_err(|error| (StatusCode::BAD_REQUEST, error))?
         .ok_or_else(|| (StatusCode::BAD_REQUEST, format!("Session not found: {}", params.session_id)))?;
@@ -1383,6 +1391,7 @@ pub async fn start_agent_send_with_task_id(
         params.agent_mode.as_deref(),
         params.extra_tools.clone(),
         params.denied_tools.clone(),
+        Some(&params.session_id),
     )
     .await;
     let agent_params = agent::AgentStartParams {
@@ -1542,6 +1551,7 @@ pub async fn handle_agent_regenerate(
         resolved_agent_mode.as_deref(),
         params.extra_tools.clone(),
         None,
+        Some(&params.session_id),
     )
     .await;
     let agent_params = agent::AgentStartParams {
@@ -1897,6 +1907,53 @@ pub async fn handle_enhance_prompt(
     )
 }
 
+/// Request body for `handle_update_session_mcp_servers`.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateSessionMcpServersParams {
+    pub attached_mcp_servers: Vec<String>,
+}
+
+/// POST /api/agent/session/{session_id}/mcp_servers
+///
+/// Persists the per-session MCP attachment (on-demand model). The frontend
+/// composer "+" menu calls this whenever the user toggles a server on/off for
+/// the current conversation. An empty list is normalized to `None` (nothing
+/// attached).
+pub async fn handle_update_session_mcp_servers(
+    State(state): State<Arc<AppState>>,
+    Path(session_id): Path<String>,
+    Json(params): Json<UpdateSessionMcpServersParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database lock poisoned".to_string()))?;
+    let attached: Vec<String> = params
+        .attached_mcp_servers
+        .iter()
+        .map(|server| server.trim().to_string())
+        .filter(|server| !server.is_empty())
+        .collect();
+    let updated = update_session(&db, &session_id, |record| {
+        record.attached_mcp_servers = if attached.is_empty() {
+            None
+        } else {
+            Some(attached.clone())
+        };
+    })
+    .map_err(|error| (StatusCode::BAD_REQUEST, error))?
+    .ok_or_else(|| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("Session not found: {session_id}"),
+        )
+    })?;
+    Ok(Json(
+        serde_json::to_value(updated).map_err(|error| (StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1958,6 +2015,7 @@ mod tests {
             plan_built_at: None,
             context_usage_snapshot: None,
             pinned_at: None,
+            attached_mcp_servers: None,
             created_at: current_timestamp_ms(),
             updated_at: current_timestamp_ms(),
         }
@@ -2071,6 +2129,7 @@ mod tests {
                     models: None,
                     extra_tools: None,
                     denied_tools: None,
+                    attached_mcp_servers: None,
                 }),
             )
             .await,

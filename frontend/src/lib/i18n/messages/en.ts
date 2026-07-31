@@ -269,6 +269,9 @@ export const enMessages = {
       "Standard session — use the default interactive behavior",
     sessionTypeLongTaskLabel:
       "Long-task session — keep moving autonomously and let the system resolve low-risk choices",
+    mcpServers: "MCP servers",
+    mcpServersEmpty: "No MCP servers enabled",
+    mcpServersHint: "Toggle servers to attach their tools to this conversation",
     sessionTypeLongTaskHint:
       "Best for unattended work. The system keeps going when safe, but still pauses for high-risk actions.",
     composerPlanPlaceholder: "Describe what you want to plan, or ask to revise the current plan…",

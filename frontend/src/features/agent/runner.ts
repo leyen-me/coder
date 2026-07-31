@@ -228,6 +228,8 @@ export async function sendAgentMessage(input: {
   }>;
   editMessageId?: string;
   referencedSkills?: string[];
+  /** Per-session MCP attachment (on-demand model); persisted as a send fallback. */
+  attachedMcpServers?: string[];
   baseUrl: string;
   apiKey: string;
   apiKeySource: "manual" | "env";
@@ -264,6 +266,7 @@ export async function sendAgentMessage(input: {
     thinkingEnabled: input.thinkingEnabled ?? null,
     models: input.models ?? null,
     extraTools: input.extraTools ?? null,
+    attachedMcpServers: input.attachedMcpServers ?? null,
   });
 }
 
