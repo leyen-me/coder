@@ -131,10 +131,23 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
     };
   }, []);
 
-  // Seed the attached set from the session record (source of truth = backend).
+  // Seed the attached set from the session record (source of truth = backend)
+  // exactly once, when the session first loads for this chat. After that the
+  // toggle owns `attachedMcpServers` — we must NOT re-seed on every
+  // `useSessionData` refresh, or a refresh that reads the backend value back as
+  // empty would clobber the user's optimistic selection (and then the next send
+  // would persist the empty list, wiping the attachment).
+  const seededChatIdRef = useRef<string | null>(null);
   useEffect(() => {
-    setAttachedMcpServers(session?.attachedMcpServers ?? []);
-  }, [chatId, session?.attachedMcpServers]);
+    if (!session) {
+      return;
+    }
+    if (seededChatIdRef.current === chatId) {
+      return;
+    }
+    seededChatIdRef.current = chatId;
+    setAttachedMcpServers(session.attachedMcpServers ?? []);
+  }, [chatId, session]);
 
   const handleToggleMcpServer = useCallback(
     async (serverId: string) => {
