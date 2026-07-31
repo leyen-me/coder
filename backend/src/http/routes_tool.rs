@@ -1298,9 +1298,6 @@ pub async fn start_agent_send_with_task_id(
             record.provider = normalize_provider("", &params.model);
             record.workspace_dir = workspace_dir.clone();
             record.context_usage_snapshot = None;
-            if let Some(attached) = &params.attached_mcp_servers {
-                record.attached_mcp_servers = Some(attached.clone());
-            }
         })
         .map_err(|error| (StatusCode::BAD_REQUEST, error))?
         .ok_or_else(|| (StatusCode::BAD_REQUEST, format!("Session not found: {}", params.session_id)))?;

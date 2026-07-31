@@ -324,7 +324,7 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
         setIsSubmitting(false);
       }
     },
-    [agentMode, chatId, model, sendMessage, t, thinkingEnabled]
+    [agentMode, attachedMcpServers, chatId, model, sendMessage, t, thinkingEnabled]
   );
 
   const handleRegenerateAssistantMessage = useCallback(
