@@ -9,7 +9,6 @@ import {
   ImageIcon,
   Loader2Icon,
   PlusIcon,
-  ServerIcon,
   SparklesIcon,
 } from "lucide-react";
 
@@ -153,7 +152,6 @@ export function ComposerFooterControls({
   const mcpMenu = (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger disabled={!mcpServers?.length || isRunning}>
-        <ServerIcon className="mr-2 size-4" />
         <span className="min-w-0 flex-1 truncate">{t("chat.mcpServers")}</span>
         <DropdownMenuShortcut className="max-w-16 truncate tracking-normal normal-case">
           {(attachedMcpServers ?? []).length}

@@ -425,10 +425,6 @@ pub struct AgentSendParams {
     pub extra_tools: Option<Vec<agent::AgentToolDefinition>>,
     #[serde(default)]
     pub denied_tools: Option<Vec<String>>,
-    /// Per-session MCP attachment (on-demand model). When present, the session's
-    /// attached server list is updated so the next tool resolution reflects it.
-    #[serde(default)]
-    pub attached_mcp_servers: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]
@@ -2126,7 +2122,6 @@ mod tests {
                     models: None,
                     extra_tools: None,
                     denied_tools: None,
-                    attached_mcp_servers: None,
                 }),
             )
             .await,

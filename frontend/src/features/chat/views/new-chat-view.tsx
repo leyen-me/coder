@@ -122,7 +122,6 @@ export function NewChatView() {
         thinkingEnabled,
         agentMode,
         skillSlugs: payload.skillSlugs,
-        attachedMcpServers,
       });
       requestMessageListScrollToBottom();
     } catch (error) {

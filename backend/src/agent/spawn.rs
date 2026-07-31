@@ -143,7 +143,6 @@ pub async fn spawn_session(
             models: None,
             extra_tools: opts.extra_tools,
             denied_tools: opts.denied_tools,
-            attached_mcp_servers: None,
         },
         task_id.clone(),
     )

@@ -299,7 +299,6 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
           editMessageId: options?.editMessageId,
           agentMode,
           skillSlugs: payload.skillSlugs,
-          attachedMcpServers,
         });
         requestMessageListScrollToBottom();
       } catch (error) {
@@ -324,7 +323,7 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
         setIsSubmitting(false);
       }
     },
-    [agentMode, attachedMcpServers, chatId, model, sendMessage, t, thinkingEnabled]
+    [agentMode, chatId, model, sendMessage, t, thinkingEnabled]
   );
 
   const handleRegenerateAssistantMessage = useCallback(
