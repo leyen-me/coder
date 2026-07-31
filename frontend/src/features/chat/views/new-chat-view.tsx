@@ -1,6 +1,6 @@
 import type { AgentMode } from "@/features/agent/types";
 import type { FileUIPart } from "ai";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { paths } from "@/app/paths";
@@ -8,7 +8,14 @@ import { resolveDefaultModelValue } from "@/features/agent/model-preference";
 import { useAgentStore } from "@/features/agent/store/agent-store";
 import { useLabSettings } from "@/features/lab/use-lab-settings";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
-import { createSession, inferProviderFromModel, type SessionKind } from "@/lib/db";
+import { updateSessionMcpServers } from "@/features/mcp/api";
+import {
+  createSession,
+  inferProviderFromModel,
+  type McpServerConfig,
+  type SessionKind,
+} from "@/lib/db";
+import { listMcpServers } from "@/lib/db/mcp-servers";
 import { parseModelValue } from "@/lib/model-provider/resolve-provider-config";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { useModelProvider } from "@/lib/model-provider/model-provider-provider";
@@ -38,6 +45,34 @@ export function NewChatView() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [agentMode, setAgentMode] = useState<AgentMode>("agent");
   const [sessionKind, setSessionKind] = useState<SessionKind>("standard");
+
+  // On-demand MCP attachment for the new session (selected before the first
+  // message is sent). Local-only until the session exists; persisted right
+  // after `createSession` so the session view seeds the same state.
+  const [enabledMcpServers, setEnabledMcpServers] = useState<McpServerConfig[]>([]);
+  const [attachedMcpServers, setAttachedMcpServers] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listMcpServers()
+      .then((servers) => {
+        if (!cancelled) {
+          setEnabledMcpServers(servers.filter((server) => server.enabled));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleToggleMcpServer = useCallback((serverId: string) => {
+    setAttachedMcpServers((prev) =>
+      prev.includes(serverId)
+        ? prev.filter((id) => id !== serverId)
+        : [...prev, serverId],
+    );
+  }, []);
 
   useEffect(() => {
     if (!longTaskEnabled && sessionKind === "long_task") {
@@ -71,6 +106,11 @@ export function NewChatView() {
           effectiveSessionKind === "long_task" ? "unattended" : "interactive",
         decisionModel: parseModelValue(model).modelId,
       });
+      // Persist the pre-selected MCP attachment before navigating so the
+      // session view seeds the same state (avoids a detach race on first send).
+      if (attachedMcpServers.length > 0) {
+        await updateSessionMcpServers(session.id, attachedMcpServers);
+      }
       navigate(paths.chat(session.id), {
         state: { agentMode, hideWorkspaceControls: true },
       });
@@ -82,6 +122,7 @@ export function NewChatView() {
         thinkingEnabled,
         agentMode,
         skillSlugs: payload.skillSlugs,
+        attachedMcpServers,
       });
       requestMessageListScrollToBottom();
     } catch (error) {
@@ -137,6 +178,9 @@ export function NewChatView() {
           onAgentModeChange={setAgentMode}
           sessionKind={longTaskEnabled ? sessionKind : "standard"}
           onSessionKindChange={longTaskEnabled ? setSessionKind : undefined}
+          mcpServers={enabledMcpServers}
+          attachedMcpServers={attachedMcpServers}
+          onToggleMcpServer={handleToggleMcpServer}
         />
         {longTaskEnabled && sessionKind === "long_task" ? (
           <p className="max-w-3xl px-2 text-center text-muted-foreground text-sm">
