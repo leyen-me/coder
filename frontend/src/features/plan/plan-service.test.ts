@@ -12,11 +12,11 @@ describe("parsePlanApiError", () => {
     expect(
       parsePlanApiError({
         code: "plan_not_found",
-        message: "Plan not found: .plan/old-plan.md",
+        message: "Plan not found: .coder/plan/old-plan.md",
       })
     ).toEqual({
       code: "plan_not_found",
-      message: "Plan not found: .plan/old-plan.md",
+      message: "Plan not found: .coder/plan/old-plan.md",
     });
   });
 
@@ -38,11 +38,11 @@ describe("parsePlanApiError", () => {
   it("reads ApiError payloads from the HTTP client", () => {
     expect(
       parsePlanApiError(
-        new ApiError(400, "plan_not_found", "Plan not found: .plan/old-plan.md")
+        new ApiError(400, "plan_not_found", "Plan not found: .coder/plan/old-plan.md")
       )
     ).toEqual({
       code: "plan_not_found",
-      message: "Plan not found: .plan/old-plan.md",
+      message: "Plan not found: .coder/plan/old-plan.md",
     });
   });
 });

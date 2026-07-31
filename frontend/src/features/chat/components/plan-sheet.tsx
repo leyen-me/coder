@@ -41,7 +41,7 @@ type PlanSheetProps = {
 /**
  * Inline collapsible sheet above the prompt composer that shows the
  * current session's bound plan file content. Content is loaded from
- * the .plan/ directory using the file name stored in the session.
+ * the .coder/plan/ directory using the file name stored in the session.
  */
 export function PlanSheet({
   sessionId,

@@ -47,7 +47,7 @@ export type SessionRecord = {
   decisionPolicyVersion: string;
   decisionModel?: string | null;
   parentSessionId?: string | null;
-  /** Name of the .plan/ file bound to this session, if any. */
+  /** Name of the .coder/plan/ file bound to this session, if any. */
   planFileName?: string | null;
   /** Timestamp (ms) when the plan was built/executed. null/undefined means not yet built. */
   planBuiltAt?: number | null;

@@ -515,14 +515,14 @@ pub fn apply_text_replacement(
     Ok(normalize_line_endings(&updated_lf, ending))
 }
 
-/// Copies the file into `.history/` before a write. Reserved for future rollback/undo;
+/// Copies the file into `.coder/history/` before a write. Reserved for future rollback/undo;
 /// disabled by default in `edit_file` / `replace_file` until that UX ships.
 pub fn create_backup(
     workspace: &Path,
     source: &Path,
     relative_path: &str,
 ) -> Result<String, TextFileToolError> {
-    let history_dir = workspace.join(".history");
+    let history_dir = workspace.join(".coder").join("history");
     fs::create_dir_all(&history_dir).map_err(|error| {
         TextFileToolError::new(
             "io_error",
@@ -539,7 +539,7 @@ pub fn create_backup(
             fs::copy(source, &backup_path).map_err(|error| {
                 TextFileToolError::new("io_error", format!("Failed to create backup: {error}"))
             })?;
-            return Ok(format!(".history/{backup_name}"));
+            return Ok(format!(".coder/history/{backup_name}"));
         }
         sequence += 1;
         if sequence > 999 {

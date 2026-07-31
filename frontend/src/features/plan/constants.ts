@@ -1,5 +1,5 @@
 /** Directory under the workspace root where plan markdown files are stored. */
-export const PLAN_DIRECTORY = ".plan";
+export const PLAN_DIRECTORY = ".coder/plan";
 
 /** Suffix required on every plan filename. */
 export const PLAN_FILENAME_SUFFIX = "-plan.md";

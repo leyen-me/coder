@@ -10,7 +10,7 @@ use super::text_file::{
 };
 use super::workspace_path::{resolve_workspace_path, resolve_workspace_write_path, workspace_relative_path};
 
-const PLAN_DIR: &str = ".plan";
+const PLAN_DIR: &str = ".coder/plan";
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -151,7 +151,7 @@ fn ensure_plan_dir(workspace: &Path) -> Result<PathBuf, TextFileToolError> {
     fs::create_dir_all(&plan_dir).map_err(|error| {
         TextFileToolError::new(
             "io_error",
-            format!("Failed to create .plan directory: {error}"),
+            format!("Failed to create .coder/plan directory: {error}"),
         )
     })?;
     Ok(plan_dir)
@@ -374,7 +374,7 @@ pub fn tool_plan_list(workspace_dir: String) -> Result<PlanListResult, TextFileT
 
     let mut plans = Vec::new();
     let entries = fs::read_dir(&plan_dir).map_err(|error| {
-        TextFileToolError::new("io_error", format!("Failed to read .plan directory: {error}"))
+        TextFileToolError::new("io_error", format!("Failed to read .coder/plan directory: {error}"))
     })?;
 
     for entry in entries {
@@ -440,7 +440,7 @@ mod tests {
         )
         .expect("create plan");
 
-        assert_eq!(created.path, ".plan/refactor-auth-plan.md");
+        assert_eq!(created.path, ".coder/plan/refactor-auth-plan.md");
         assert_eq!(created.name, "refactor-auth-plan.md");
 
         let read = tool_plan_read(

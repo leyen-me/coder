@@ -170,10 +170,10 @@ export const REPLACE_FILE_TOOL: AgentToolDefinition = {
           type: "string",
           description: "SHA256 hash from read_file. Rejects the write if the file changed.",
         },
-        // Pre-write .history backup; off until rollback UX ships (see text_file::create_backup).
+        // Pre-write .coder/history backup; off until rollback UX ships (see text_file::create_backup).
         create_backup: {
           type: "boolean",
-          description: "Whether to save a backup copy under .history before writing.",
+          description: "Whether to save a backup copy under .coder/history before writing.",
           default: false,
         },
         respect_gitignore: {
@@ -221,10 +221,10 @@ export const EDIT_FILE_TOOL: AgentToolDefinition = {
           description: "Whether to replace every occurrence of old_string.",
           default: false,
         },
-        // Pre-write .history backup; off until rollback UX ships (see text_file::create_backup).
+        // Pre-write .coder/history backup; off until rollback UX ships (see text_file::create_backup).
         create_backup: {
           type: "boolean",
-          description: "Whether to save a backup copy under .history before writing.",
+          description: "Whether to save a backup copy under .coder/history before writing.",
           default: false,
         },
         respect_gitignore: {
@@ -279,7 +279,7 @@ export const REPLACE_LINES_TOOL: AgentToolDefinition = {
         },
         create_backup: {
           type: "boolean",
-          description: "Whether to save a backup copy under .history before writing.",
+          description: "Whether to save a backup copy under .coder/history before writing.",
           default: false,
         },
         respect_gitignore: {
@@ -869,7 +869,7 @@ export const PLAN_CREATE_TOOL: AgentToolDefinition = {
   function: {
     name: PLAN_CREATE_TOOL_NAME,
     description:
-      "Create a new plan markdown file in the .plan/ directory. Filename must be descriptive and end with -plan.md (e.g. refactor-auth-plan.md). Fails if the plan already exists — use plan_update instead.",
+      "Create a new plan markdown file in the .coder/plan/ directory. Filename must be descriptive and end with -plan.md (e.g. refactor-auth-plan.md). Fails if the plan already exists — use plan_update instead.",
     parameters: {
       type: "object",
       properties: {
@@ -893,7 +893,7 @@ export const PLAN_READ_TOOL: AgentToolDefinition = {
   type: "function",
   function: {
     name: PLAN_READ_TOOL_NAME,
-    description: "Read a plan markdown file from the .plan/ directory.",
+    description: "Read a plan markdown file from the .coder/plan/ directory.",
     parameters: {
       type: "object",
       properties: {
@@ -913,7 +913,7 @@ export const PLAN_UPDATE_TOOL: AgentToolDefinition = {
   function: {
     name: PLAN_UPDATE_TOOL_NAME,
     description:
-      "Replace the content of an existing plan file in the .plan/ directory.",
+      "Replace the content of an existing plan file in the .coder/plan/ directory.",
     parameters: {
       type: "object",
       properties: {
@@ -937,7 +937,7 @@ export const PLAN_EDIT_TOOL: AgentToolDefinition = {
   function: {
     name: PLAN_EDIT_TOOL_NAME,
     description:
-      "Apply a targeted search-and-replace edit to an existing plan file in the .plan/ directory. Prefer this over plan_update for small changes.",
+      "Apply a targeted search-and-replace edit to an existing plan file in the .coder/plan/ directory. Prefer this over plan_update for small changes.",
     parameters: {
       type: "object",
       properties: {
@@ -969,7 +969,7 @@ export const PLAN_DELETE_TOOL: AgentToolDefinition = {
   type: "function",
   function: {
     name: PLAN_DELETE_TOOL_NAME,
-    description: "Delete a plan markdown file from the .plan/ directory.",
+    description: "Delete a plan markdown file from the .coder/plan/ directory.",
     parameters: {
       type: "object",
       properties: {
@@ -989,7 +989,7 @@ export const PLAN_LIST_TOOL: AgentToolDefinition = {
   function: {
     name: PLAN_LIST_TOOL_NAME,
     description:
-      "List all plan markdown files in the .plan/ directory, sorted by most recently modified.",
+      "List all plan markdown files in the .coder/plan/ directory, sorted by most recently modified.",
     parameters: {
       type: "object",
       properties: {},

@@ -255,7 +255,7 @@ export const enMessages = {
     modePlan: "Plan",
     modeAgentLabel: "Agent mode — full tool access",
     modeAskLabel: "Ask mode — read-only tool access",
-    modePlanLabel: "Plan mode — research and write plans to .plan/",
+    modePlanLabel: "Plan mode — research and write plans to .coder/plan/",
     composerModeLabel: "Mode",
     composerModelLabel: "Model",
     composerMoreActions: "Open more options",

@@ -252,7 +252,7 @@ export const zhMessages = {
     modePlan: "Plan",
     modeAgentLabel: "代理模式 — 完整工具权限",
     modeAskLabel: "询问模式 — 只读工具权限",
-    modePlanLabel: "规划模式 — 调研并将计划写入 .plan/ 目录",
+    modePlanLabel: "规划模式 — 调研并将计划写入 .coder/plan/ 目录",
     composerModeLabel: "模式",
     composerModelLabel: "模型",
     composerMoreActions: "打开更多选项",

@@ -21,7 +21,7 @@ pub fn tool_replace_file(
         ));
     }
 
-    // Rollback via .history is not wired up yet; keep backups off unless explicitly requested.
+    // Rollback via .coder/history is not wired up yet; keep backups off unless explicitly requested.
     let create_backup = create_backup.unwrap_or(false);
     let respect_gitignore = respect_gitignore.unwrap_or(true);
 
@@ -174,7 +174,7 @@ mod tests {
         .expect("replace");
 
         assert!(result.__backup_path.is_some());
-        assert!(temp.join(".history").exists());
+        assert!(temp.join(".coder").join("history").exists());
         let _ = fs::remove_dir_all(temp);
     }
 }

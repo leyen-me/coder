@@ -10,7 +10,7 @@ export type ResolvedPlanForBuild = {
 
 /**
  * Resolves plan content for execution, preferring the session-bound plan file,
- * then the latest .plan/ file, then inline message content.
+ * then the latest .coder/plan/ file, then inline message content.
  */
 export async function resolvePlanContentForBuild(
   workspaceDir: string | null | undefined,

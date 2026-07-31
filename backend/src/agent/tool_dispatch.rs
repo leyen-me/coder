@@ -442,7 +442,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "path": string_schema("Relative or absolute path to the file within the workspace."),
                     "content": string_schema("Full replacement file content."),
                     "expected_sha256": string_schema("SHA256 hash from read_file. Rejects the write if the file changed."),
-                    "create_backup": bool_schema("Whether to save a backup copy under .history before writing.", Some(false)),
+                    "create_backup": bool_schema("Whether to save a backup copy under .coder/history before writing.", Some(false)),
                     "respect_gitignore": bool_schema("Whether to refuse editing paths ignored by .gitignore.", Some(true))
                 },
                 "required": ["path", "content"],
@@ -460,7 +460,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "new_string": string_schema("Replacement text."),
                     "expected_sha256": string_schema("SHA256 hash from read_file. Rejects the edit if the file changed."),
                     "replace_all": bool_schema("Whether to replace every occurrence of old_string.", Some(false)),
-                    "create_backup": bool_schema("Whether to save a backup copy under .history before writing.", Some(false)),
+                    "create_backup": bool_schema("Whether to save a backup copy under .coder/history before writing.", Some(false)),
                     "respect_gitignore": bool_schema("Whether to refuse editing paths ignored by .gitignore.", Some(true))
                 },
                 "required": ["path", "old_string", "new_string"],
@@ -478,7 +478,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "end_line": int_schema("Last line to replace (inclusive, 1-based).", None),
                     "content": string_schema("Replacement content for the specified line range."),
                     "expected_sha256": string_schema("SHA256 hash from read_file. Rejects the edit if the file changed."),
-                    "create_backup": bool_schema("Whether to save a backup copy under .history before writing.", Some(false)),
+                    "create_backup": bool_schema("Whether to save a backup copy under .coder/history before writing.", Some(false)),
                     "respect_gitignore": bool_schema("Whether to refuse editing paths ignored by .gitignore.", Some(true))
                 },
                 "required": ["path", "start_line", "end_line", "content"],
@@ -730,7 +730,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
         ),
         tool_definition(
             "plan_create",
-            "Create a new plan markdown file in the .plan/ directory.",
+            "Create a new plan markdown file in the .coder/plan/ directory.",
             json!({
                 "type": "object",
                 "properties": {
@@ -743,7 +743,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
         ),
         tool_definition(
             "plan_read",
-            "Read a plan markdown file from the .plan/ directory.",
+            "Read a plan markdown file from the .coder/plan/ directory.",
             json!({
                 "type": "object",
                 "properties": { "name": string_schema("Plan filename.") },
@@ -753,7 +753,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
         ),
         tool_definition(
             "plan_update",
-            "Replace the content of an existing plan file in the .plan/ directory.",
+            "Replace the content of an existing plan file in the .coder/plan/ directory.",
             json!({
                 "type": "object",
                 "properties": {
@@ -766,7 +766,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
         ),
         tool_definition(
             "plan_edit",
-            "Apply a targeted search-and-replace edit to an existing plan file in the .plan/ directory.",
+            "Apply a targeted search-and-replace edit to an existing plan file in the .coder/plan/ directory.",
             json!({
                 "type": "object",
                 "properties": {
@@ -781,7 +781,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
         ),
         tool_definition(
             "plan_delete",
-            "Delete a plan markdown file from the .plan/ directory.",
+            "Delete a plan markdown file from the .coder/plan/ directory.",
             json!({
                 "type": "object",
                 "properties": { "name": string_schema("Plan filename to delete.") },
@@ -791,7 +791,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
         ),
         tool_definition(
             "plan_list",
-            "List all plan markdown files in the .plan/ directory.",
+            "List all plan markdown files in the .coder/plan/ directory.",
             json!({
                 "type": "object",
                 "properties": {},

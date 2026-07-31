@@ -792,7 +792,7 @@ fn build_identity_and_environment_section(
     };
     let mode_line = match agent_mode.unwrap_or("agent") {
         "ask" => "ask (read-only: can read files, search code, browse the web, and ask structured clarification questions - cannot modify files or run shell commands)",
-        "plan" => "plan (planning: can read files, search, browse, manage .plan/ files and todos - cannot modify project files or run shell commands)",
+        "plan" => "plan (planning: can read files, search, browse, manage .coder/plan/ files and todos - cannot modify project files or run shell commands)",
         _ => "agent (implementation: full file, shell, and workspace tool access — plan file tools are Plan-mode only)",
     };
 
@@ -931,7 +931,7 @@ fn build_mode_guidance_section(agent_mode: Option<&str>, workspace_dir: Option<&
             let mut lines = vec![
                 "## Mode Guidance".to_string(),
                 String::new(),
-                "You are in Plan mode - research, analyze, and write a structured Markdown plan to the .plan/ directory.".to_string(),
+                "You are in Plan mode - research, analyze, and write a structured Markdown plan to the .coder/plan/ directory.".to_string(),
                 "The plan file is the source of truth and is shown in the plan sheet above the message composer.".to_string(),
                 String::new(),
                 "### Plan file workflow".to_string(),

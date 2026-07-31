@@ -14,7 +14,7 @@ export function buildPlanExecutionPrompt(
 
   const planHeading = planPath?.trim()
     ? `## Plan (${planPath.trim()})`
-    : "## Plan (.plan/)";
+    : "## Plan (.coder/plan/)";
 
   return [
     "Please implement the following plan. Follow it step by step.",

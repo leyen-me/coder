@@ -10,7 +10,7 @@ const MAX_DEPTH: u32 = 6;
 const ALWAYS_EXCLUDE: &[&str] = &[
     "node_modules",
     ".git",
-    ".history",
+    ".coder",
     ".logs",
     "target",
     "dist",
