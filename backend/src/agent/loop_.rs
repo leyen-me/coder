@@ -28,7 +28,9 @@ use crate::db::{
 };
 
 const MAX_RETRY_ATTEMPTS: u32 = 3;
-const TOOL_STALL_THRESHOLD: u32 = 3;
+/// Consecutive identical tool-call signatures that abort the loop as "stalled".
+/// A negative value (e.g. -1) disables stall detection entirely.
+const TOOL_STALL_THRESHOLD: i32 = -1;
 /// Streaming tokens update in-memory state every delta, but SQLite writes are
 /// coalesced so the agent loop is not blocked on a put_message per token.
 const STREAM_PERSIST_MIN_INTERVAL_MS: u64 = 150;
@@ -90,7 +92,7 @@ pub async fn run_agent_loop(
     let mut cumulative_usage: Option<TokenUsage> = None;
     let mut latest_prompt_tokens: Option<u32> = None;
     let mut last_tool_signature: Option<String> = None;
-    let mut repeated_tool_signature_count = 0_u32;
+    let mut repeated_tool_signature_count = 0_i32;
     let mut turn_index = 0_u32;
     // Baseline for CODER_AUTO_COMPACT_EVERY_N_MESSAGES (dev-only cadence).
     let mut last_dev_auto_compact_message_count = 0usize;
@@ -695,7 +697,8 @@ pub async fn run_agent_loop(
             .map(|call| format!("{}:{}", call.name, call.arguments))
             .collect::<Vec<_>>()
             .join("|");
-        if is_stalled(&mut last_tool_signature, &mut repeated_tool_signature_count, &tool_signature)
+        if TOOL_STALL_THRESHOLD > 0
+            && is_stalled(&mut last_tool_signature, &mut repeated_tool_signature_count, &tool_signature)
         {
             return Err(AgentLoopError::Stalled(
                 "Agent repeated the same tool calls without making progress.".to_string(),
@@ -1391,7 +1394,7 @@ fn parse_tool_input(arguments: &str) -> Value {
 
 fn is_stalled(
     last_signature: &mut Option<String>,
-    repeated_count: &mut u32,
+    repeated_count: &mut i32,
     next_signature: &str,
 ) -> bool {
     match last_signature {
