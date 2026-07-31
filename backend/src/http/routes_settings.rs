@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::AppState;
+use crate::tools::CODER_DIR_NAME;
 
 const SETTINGS_FILE: &str = "settings.json";
 
@@ -12,7 +13,7 @@ fn get_coder_data_dir() -> PathBuf {
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .unwrap_or_else(|_| ".".to_string());
-    PathBuf::from(home).join(".coder")
+    PathBuf::from(home).join(CODER_DIR_NAME)
 }
 
 fn settings_path() -> PathBuf {

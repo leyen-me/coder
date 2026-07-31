@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use serde::Serialize;
+use super::workspace_path::CODER_DIR_NAME;
 
 /// Max directory depth (inclusive of root).
 const MAX_DEPTH: u32 = 6;
@@ -10,7 +11,7 @@ const MAX_DEPTH: u32 = 6;
 const ALWAYS_EXCLUDE: &[&str] = &[
     "node_modules",
     ".git",
-    ".coder",
+    CODER_DIR_NAME,
     ".logs",
     "target",
     "dist",

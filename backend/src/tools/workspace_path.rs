@@ -1,5 +1,30 @@
 use std::path::{Path, PathBuf};
 
+/// Name of the per-workspace agent data directory.
+///
+/// Every directory the agent manages inside a workspace (plans, history
+/// backups, skills, …) lives below `<workspace>/.coder` so they stay grouped
+/// and can be excluded or relocated as a single unit. New agent data dirs
+/// should live here too — resolve their path with [`workspace_coder_subdir`].
+pub const CODER_DIR_NAME: &str = ".coder";
+
+/// Returns the per-workspace agent data directory: `<workspace>/.coder`.
+pub fn workspace_coder_dir(workspace: &Path) -> PathBuf {
+    workspace.join(CODER_DIR_NAME)
+}
+
+/// Resolves the canonical path for an agent-owned subdirectory inside the
+/// workspace: `<workspace>/.coder/<name>`.
+///
+/// This is the single entry point for every directory the agent creates under
+/// the workspace `.coder` tree (plans, history, skills, caches, …). Routing all
+/// of them through here keeps them grouped, and because the whole `.coder` tree
+/// is already excluded from the workspace file view (`ALWAYS_EXCLUDE`), new
+/// subdirs inherit the "hidden from the user's project tree" behavior for free.
+pub fn workspace_coder_subdir(workspace: &Path, name: &str) -> PathBuf {
+    workspace_coder_dir(workspace).join(name)
+}
+
 /// Validates that `path` refers to an existing directory on disk.
 pub fn validate_workspace_dir(path: &str) -> Result<String, String> {
     let trimmed = path.trim();
@@ -358,5 +383,23 @@ mod tests {
             format_absolute_path(unc),
             "//server/share/file.txt"
         );
+    }
+
+    #[test]
+    fn workspace_coder_subdir_groups_under_coder_dir() {
+        use super::{workspace_coder_dir, workspace_coder_subdir, CODER_DIR_NAME};
+
+        let temp = temp_workspace("coder-subdir");
+        assert_eq!(workspace_coder_dir(&temp), temp.join(".coder"));
+        assert_eq!(workspace_coder_subdir(&temp, "plan"), temp.join(".coder/plan"));
+        assert_eq!(
+            workspace_coder_subdir(&temp, "history"),
+            temp.join(".coder/history")
+        );
+        // The subdir name must be nested under .coder, not appended to it.
+        assert!(workspace_coder_subdir(&temp, "skills")
+            .to_string_lossy()
+            .ends_with(&format!("{CODER_DIR_NAME}/skills")));
+        let _ = fs::remove_dir_all(temp);
     }
 }

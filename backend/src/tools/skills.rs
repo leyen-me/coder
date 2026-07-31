@@ -6,7 +6,7 @@ use base64::Engine;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use super::workspace_path::format_absolute_path;
+use super::workspace_path::{format_absolute_path, workspace_coder_subdir, CODER_DIR_NAME};
 
 const SKILL_FILE_NAME: &str = "SKILL.md";
 
@@ -401,7 +401,7 @@ fn is_valid_skill_slug(slug: &str) -> bool {
 
 fn user_skills_root() -> Result<PathBuf, String> {
     user_home_dir()
-        .map(|home| home.join(".coder").join("skills"))
+        .map(|home| home.join(CODER_DIR_NAME).join("skills"))
         .ok_or_else(|| "Could not resolve the user home directory.".to_string())
 }
 
@@ -416,7 +416,7 @@ fn workspace_skills_root(workspace_dir: &str) -> Option<PathBuf> {
         return None;
     }
 
-    Some(workspace_path.join(".coder").join("skills"))
+    Some(workspace_coder_subdir(&workspace_path, "skills"))
 }
 
 fn user_home_dir() -> Option<PathBuf> {

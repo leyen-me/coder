@@ -56,6 +56,7 @@ pub fn tool_replace_file(
 #[cfg(test)]
 mod tests {
     use super::super::text_file::sha256_hex;
+    use crate::tools::workspace_coder_subdir;
     use super::tool_replace_file;
     use std::fs;
     use std::path::PathBuf;
@@ -174,7 +175,7 @@ mod tests {
         .expect("replace");
 
         assert!(result.__backup_path.is_some());
-        assert!(temp.join(".coder").join("history").exists());
+        assert!(workspace_coder_subdir(&temp, "history").exists());
         let _ = fs::remove_dir_all(temp);
     }
 }

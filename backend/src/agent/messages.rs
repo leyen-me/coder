@@ -1327,6 +1327,7 @@ Use this workflow when reviewing code rather than implementing changes.
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tools::workspace_coder_subdir;
     use std::fs;
     use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
@@ -1402,7 +1403,7 @@ mod tests {
             "## Workspace rules\nKeep tests deterministic.\n",
         )
         .expect("write AGENTS");
-        let skill_dir = workspace_dir.join(".coder").join("skills").join("demo-skill");
+        let skill_dir = workspace_coder_subdir(&workspace_dir, "skills").join("demo-skill");
         fs::create_dir_all(&skill_dir).expect("create skill dir");
         fs::write(
             skill_dir.join("SKILL.md"),

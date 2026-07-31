@@ -13,6 +13,7 @@ use agent::registry::AgentRegistry;
 use db::Database;
 use scheduled_jobs::{ActiveRunRegistry, RunLock};
 use tools::{ensure_skill_roots, McpRegistry, PageCache, RemoteConnectionPool, ShellRegistry};
+use crate::tools::CODER_DIR_NAME;
 
 /// Global shared state for all HTTP handlers.
 pub struct AppState {
@@ -119,7 +120,7 @@ pub fn get_coder_data_dir() -> PathBuf {
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .unwrap_or_else(|_| ".".to_string());
-    PathBuf::from(home).join(".coder")
+    PathBuf::from(home).join(CODER_DIR_NAME)
 }
 
 pub fn get_coder_logs_dir() -> PathBuf {

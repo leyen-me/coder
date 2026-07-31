@@ -8,9 +8,10 @@ use super::text_file::{
     apply_text_replacement, atomic_write_bytes, count_lines, decode_text, encode_text, sha256_hex,
     TextFileToolError, MAX_WRITE_BYTES,
 };
-use super::workspace_path::{resolve_workspace_path, resolve_workspace_write_path, workspace_relative_path};
-
-const PLAN_DIR: &str = ".coder/plan";
+use super::workspace_path::{
+    resolve_workspace_path, resolve_workspace_write_path, workspace_coder_subdir, workspace_relative_path,
+    CODER_DIR_NAME,
+};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -106,7 +107,7 @@ fn validate_plan_name(name: &str) -> Result<&str, TextFileToolError> {
 }
 
 fn plan_relative_path(name: &str) -> String {
-    format!("{PLAN_DIR}/{name}")
+    format!("{CODER_DIR_NAME}/plan/{name}")
 }
 
 fn resolve_existing_plan(
@@ -147,11 +148,11 @@ fn resolve_new_plan(
 }
 
 fn ensure_plan_dir(workspace: &Path) -> Result<PathBuf, TextFileToolError> {
-    let plan_dir = workspace.join(PLAN_DIR);
+    let plan_dir = workspace_coder_subdir(workspace, "plan");
     fs::create_dir_all(&plan_dir).map_err(|error| {
         TextFileToolError::new(
             "io_error",
-            format!("Failed to create .coder/plan directory: {error}"),
+            format!("Failed to create {CODER_DIR_NAME}/plan directory: {error}"),
         )
     })?;
     Ok(plan_dir)
@@ -366,7 +367,7 @@ pub fn tool_plan_list(workspace_dir: String) -> Result<PlanListResult, TextFileT
     let canonical_workspace = workspace
         .canonicalize()
         .map_err(|error| TextFileToolError::new("invalid_workspace", error.to_string()))?;
-    let plan_dir = canonical_workspace.join(PLAN_DIR);
+    let plan_dir = workspace_coder_subdir(&canonical_workspace, "plan");
 
     if !plan_dir.exists() {
         return Ok(PlanListResult { plans: Vec::new() });
@@ -374,7 +375,10 @@ pub fn tool_plan_list(workspace_dir: String) -> Result<PlanListResult, TextFileT
 
     let mut plans = Vec::new();
     let entries = fs::read_dir(&plan_dir).map_err(|error| {
-        TextFileToolError::new("io_error", format!("Failed to read .coder/plan directory: {error}"))
+        TextFileToolError::new(
+            "io_error",
+            format!("Failed to read {CODER_DIR_NAME}/plan directory: {error}"),
+        )
     })?;
 
     for entry in entries {

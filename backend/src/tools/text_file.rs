@@ -6,6 +6,7 @@ use encoding_rs::{GB18030, SHIFT_JIS, UTF_16BE, UTF_16LE};
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+use super::workspace_path::{CODER_DIR_NAME, workspace_coder_subdir};
 
 pub const MAX_WRITE_BYTES: usize = 1024 * 1024;
 pub const MAX_READ_BYTES: u64 = 50 * 1024 * 1024;
@@ -522,7 +523,7 @@ pub fn create_backup(
     source: &Path,
     relative_path: &str,
 ) -> Result<String, TextFileToolError> {
-    let history_dir = workspace.join(".coder").join("history");
+    let history_dir = workspace_coder_subdir(workspace, "history");
     fs::create_dir_all(&history_dir).map_err(|error| {
         TextFileToolError::new(
             "io_error",
@@ -539,7 +540,7 @@ pub fn create_backup(
             fs::copy(source, &backup_path).map_err(|error| {
                 TextFileToolError::new("io_error", format!("Failed to create backup: {error}"))
             })?;
-            return Ok(format!(".coder/history/{backup_name}"));
+            return Ok(format!("{CODER_DIR_NAME}/history/{backup_name}"));
         }
         sequence += 1;
         if sequence > 999 {
