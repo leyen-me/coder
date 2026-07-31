@@ -108,7 +108,7 @@ pub struct McpOAuthStatus {
 
 impl McpOAuthStore {
     pub fn new() -> Self {
-        let dir = crate::get_coder_data_dir().join("mcp-oauth");
+        let dir = crate::user_coder_subdir("mcp-oauth");
         let _ = std::fs::create_dir_all(&dir);
         Self {
             dir,

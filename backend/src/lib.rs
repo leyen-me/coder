@@ -124,7 +124,20 @@ pub fn get_coder_data_dir() -> PathBuf {
 }
 
 pub fn get_coder_logs_dir() -> PathBuf {
-    get_coder_data_dir().join("logs")
+    user_coder_subdir("logs")
+}
+
+/// Resolves the canonical path for a user-level agent-owned subdirectory:
+/// `<home>/.coder/<name>`.
+///
+/// This is the single entry point for every directory the agent keeps under the
+/// user-level `~/.coder` tree (logs, skills, mcp-oauth, …), mirroring the
+/// workspace-side [`crate::tools::workspace_coder_subdir`]. Routing all of them
+/// through here keeps the location resolution in one place. (settings.json and
+/// similar single files stay on `get_coder_data_dir().join(..)` — they are not
+/// subdirectories.)
+pub fn user_coder_subdir(name: &str) -> PathBuf {
+    get_coder_data_dir().join(name)
 }
 
 /// Initialize all shared state for the application.
@@ -168,5 +181,31 @@ pub fn cleanup_background_shells(state: &AppState) {
         if killed > 0 {
             log::info!("Killed {} background shell process(es) on exit", killed);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::user_coder_subdir;
+
+    #[test]
+    fn user_coder_subdir_nests_under_coder() {
+        // Location resolution is single-sourced; every user-level subdir must
+        // live under <home>/.coder regardless of where HOME resolves.
+        assert!(
+            user_coder_subdir("skills")
+                .to_string_lossy()
+                .ends_with(".coder/skills")
+        );
+        assert!(
+            user_coder_subdir("mcp-oauth")
+                .to_string_lossy()
+                .ends_with(".coder/mcp-oauth")
+        );
+        assert!(
+            user_coder_subdir("logs")
+                .to_string_lossy()
+                .ends_with(".coder/logs")
+        );
     }
 }
