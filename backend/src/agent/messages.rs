@@ -7,10 +7,9 @@ use serde_json::{json, Value};
 
 use super::types::{AgentToolDefinition, ApiToolCall, ApiToolCallFunction, ChatMessage};
 use crate::db::{
-    records::{AgentTodoRecord, MessageImageAttachment, MessageProcessStep, MessageRecord, SessionRecord},
+    records::{MessageImageAttachment, MessageProcessStep, MessageRecord, SessionRecord},
     session_store::{
-        get_agent_todos_by_session, get_messages_by_session, get_session,
-        model_history_from_latest_compact,
+        get_messages_by_session, get_session, model_history_from_latest_compact,
     },
     Database,
 };
@@ -21,7 +20,6 @@ use crate::tools::{
 use crate::AppState;
 
 const PROMPT_BLOCK_SEPARATOR: &str = "\n\n---\n\n";
-const TODO_SNAPSHOT_LIMIT: usize = 8;
 const BUILD_PROMPT_MARKER: &str = "implement the following plan";
 
 #[derive(Debug, Clone)]
@@ -51,10 +49,6 @@ pub fn assemble_agent_messages(
     // Chat history is retained in the DB after compact. Model context only
     // includes the latest compact summary plus messages from first_kept onward.
     let history_records = model_history_from_latest_compact(history_records);
-    let todos = {
-        let db = lock_db(&app_state.db)?;
-        get_agent_todos_by_session(&db, &session.id)?
-    };
 
     let mut conversation = history_records
         .into_iter()
@@ -74,9 +68,6 @@ pub fn assemble_agent_messages(
     )));
 
     if let Some(prompt) = build_session_policy_system_prompt(session) {
-        result.push(system_message(prompt));
-    }
-    if let Some(prompt) = build_todo_snapshot_system_message(&todos) {
         result.push(system_message(prompt));
     }
 
@@ -719,35 +710,6 @@ fn build_session_policy_system_prompt(session: &SessionRecord) -> Option<String>
     )
 }
 
-fn build_todo_snapshot_system_message(todos: &[AgentTodoRecord]) -> Option<String> {
-    let active = todos
-        .iter()
-        .filter(|todo| todo.status == "pending" || todo.status == "in_progress")
-        .collect::<Vec<_>>();
-    if active.is_empty() {
-        return None;
-    }
-    let visible = active.iter().take(TODO_SNAPSHOT_LIMIT).collect::<Vec<_>>();
-    let hidden = active.len().saturating_sub(visible.len());
-    let mut lines = vec![
-        "## Current session todo state".to_string(),
-        "Persisted active todos for this chat session.".to_string(),
-        "Completed or cancelled todos are omitted to save tokens.".to_string(),
-        "Use todo_read if you need the full list before updating with todo_write.".to_string(),
-        String::new(),
-    ];
-    for todo in visible {
-        lines.push(format!("- [{}] {}: {}", todo.status, todo.id, todo.content));
-    }
-    if hidden > 0 {
-        lines.push(format!(
-            "- ... {} more active todos omitted; call todo_read for full state.",
-            hidden
-        ));
-    }
-    Some(lines.join("\n"))
-}
-
 fn build_system_prompt(
     runtime: &RuntimeEnvironmentResponse,
     remote_targets: &[RemoteTargetRecord],
@@ -1333,10 +1295,10 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use crate::agent::registry::AgentRegistry;
-    use crate::db::records::{current_timestamp_ms, AgentTodoRecord, MessageToolInvocation};
+    use crate::db::records::{current_timestamp_ms, MessageToolInvocation};
     use crate::db::session_store::{
-        model_history_from_latest_compact, new_message_id, new_session_id, new_todo_id,
-        put_agent_todo, put_message, put_session,
+        model_history_from_latest_compact, new_message_id, new_session_id,
+        put_message, put_session,
     };
     use crate::scheduled_jobs::{ActiveRunRegistry, RunLock};
     use crate::tools::{McpRegistry, PageCache, RemoteConnectionPool, ShellRegistry};
@@ -1396,7 +1358,7 @@ mod tests {
     }
 
     #[test]
-    fn assemble_agent_messages_trims_build_boundary_and_injects_skill_and_todos() {
+    fn assemble_agent_messages_trims_build_boundary_and_injects_skill() {
         let workspace_dir = temp_dir("workspace");
         fs::write(
             workspace_dir.join("AGENTS.md"),
@@ -1423,19 +1385,6 @@ Prefer deterministic test scaffolding.
         let session = sample_session(&workspace_dir);
         let db = state.db.lock().expect("db");
         put_session(&db, &session).expect("put session");
-        put_agent_todo(
-            &db,
-            &AgentTodoRecord {
-                id: new_todo_id(),
-                session_id: session.id.clone(),
-                content: "Ship backend parity".to_string(),
-                status: "in_progress".to_string(),
-                order: 0,
-                created_at: current_timestamp_ms(),
-                updated_at: current_timestamp_ms(),
-            },
-        )
-        .expect("put todo");
         put_message(
             &db,
             &MessageRecord {
@@ -1509,7 +1458,7 @@ Prefer deterministic test scaffolding.
 
         let messages = assemble_agent_messages(&state, &session, Some("agent")).expect("assemble messages");
 
-        assert!(messages.len() >= 4);
+        assert!(messages.len() >= 3);
         assert_eq!(messages[0].role, "system");
         let first_system = messages[0].content.as_ref().and_then(Value::as_str).expect("system text");
         assert!(first_system.contains("## Environment"));
@@ -1519,10 +1468,6 @@ Prefer deterministic test scaffolding.
         let policy_message = messages[1].content.as_ref().and_then(Value::as_str).expect("policy text");
         assert!(policy_message.contains("## Session execution policy"));
         assert!(policy_message.contains("autonomyMode: unattended"));
-
-        let todo_message = messages[2].content.as_ref().and_then(Value::as_str).expect("todo text");
-        assert!(todo_message.contains("## Current session todo state"));
-        assert!(todo_message.contains("Ship backend parity"));
 
         let user_message = messages
             .iter()
@@ -1966,7 +1911,6 @@ Prefer deterministic test scaffolding.
                         .is_some_and(|text| {
                             text.contains("## Environment")
                                 || text.contains("## Session execution policy")
-                                || text.contains("## Current session todo state")
                         }))
             })
             .collect::<Vec<_>>();
