@@ -108,11 +108,6 @@ export const READ_FILE_TOOL: AgentToolDefinition = {
           description: "Maximum number of lines to return.",
           default: 500,
         },
-        respect_gitignore: {
-          type: "boolean",
-          description: "Whether to refuse reading paths ignored by .gitignore.",
-          default: true,
-        },
       },
       required: ["path"],
       additionalProperties: false,

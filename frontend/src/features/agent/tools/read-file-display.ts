@@ -60,7 +60,6 @@ export function extractReadFileData(
     startLine: record.startLine,
     endLine: record.endLine,
     truncated: record.truncated === true,
-    containsSecrets: record.containsSecrets === true,
     content: typeof record.content === "string" ? record.content : "",
   };
 }
@@ -71,7 +70,6 @@ export function formatReadFileOutputForDisplay(output: unknown): {
   startLine: number;
   endLine: number;
   truncated: boolean;
-  containsSecrets: boolean;
   sha256: string;
   mimeType: string;
   encoding: string;
@@ -88,7 +86,6 @@ export function formatReadFileOutputForDisplay(output: unknown): {
     startLine: data.startLine,
     endLine: data.endLine,
     truncated: data.truncated,
-    containsSecrets: data.containsSecrets,
     sha256: data.sha256,
     mimeType: data.mimeType,
     encoding: data.encoding,

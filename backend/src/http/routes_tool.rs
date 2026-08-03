@@ -140,7 +140,6 @@ pub struct ReadFileParams {
     pub path: String,
     pub start_line: Option<u32>,
     pub max_lines: Option<u32>,
-    pub respect_gitignore: Option<bool>,
     pub numbered: Option<bool>,
 }
 
@@ -560,7 +559,6 @@ pub async fn handle_read_file(
         params.path,
         params.start_line,
         params.max_lines,
-        params.respect_gitignore,
         params.numbered,
     )
     .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;

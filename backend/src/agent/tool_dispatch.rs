@@ -413,7 +413,6 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "path": string_schema("Relative or absolute path to the file within the workspace."),
                     "start_line": int_schema("First line to read (1-based).", Some(1)),
                     "max_lines": int_schema("Maximum number of lines to return.", Some(500)),
-                    "respect_gitignore": bool_schema("Whether to refuse reading paths ignored by .gitignore.", Some(true))
                 },
                 "required": ["path"],
                 "additionalProperties": false
@@ -1062,7 +1061,6 @@ struct ReadFileArgs {
     path: String,
     start_line: Option<u32>,
     max_lines: Option<u32>,
-    respect_gitignore: Option<bool>,
 }
 
 fn execute_read_file(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
@@ -1079,7 +1077,6 @@ fn execute_read_file(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<Tool
         args.path,
         args.start_line,
         args.max_lines,
-        args.respect_gitignore,
         Some(true),
     ) {
         Ok(result) => tool_success("read_file", result),

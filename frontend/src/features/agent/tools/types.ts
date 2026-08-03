@@ -52,7 +52,6 @@ export type ReadFileData = {
   startLine: number;
   endLine: number;
   truncated: boolean;
-  containsSecrets: boolean;
   content: string;
 };
 

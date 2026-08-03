@@ -4,7 +4,9 @@ use globset::{GlobBuilder, GlobSetBuilder};
 use serde::Serialize;
 
 use super::search::{collect_walk_files, to_search_root_relative, WorkspaceWalkOptions};
-use super::workspace_path::{format_absolute_path, format_error_path, resolve_workspace_path};
+use super::workspace_path::{
+    format_absolute_path, format_error_path, resolve_workspace_path_unbounded,
+};
 
 const DEFAULT_HEAD_LIMIT: u32 = 100;
 const MAX_HEAD_LIMIT: u32 = 1000;
@@ -52,7 +54,7 @@ pub fn tool_glob(
     let canonical_workspace = workspace
         .canonicalize()
         .map_err(|error| format!("Invalid workspaceDir: {error}"))?;
-    let search_root = resolve_workspace_path(&workspace, &target)?;
+    let search_root = resolve_workspace_path_unbounded(&workspace, &target)?;
     if !search_root.is_dir() {
         return Err(format!(
             "Path is not a directory: {}",
@@ -340,5 +342,35 @@ mod tests {
             assert!(result.matches.iter().any(|m| m == "link.txt"));
         }
         let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn globs_directory_outside_workspace_when_unbounded() {
+        let ws = temp_workspace("glob-outside");
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let outside = std::env::temp_dir().join(format!("coder-glob-outside-{}", suffix));
+        std::fs::create_dir_all(&outside).expect("create outside");
+        std::fs::write(outside.join("y.txt"), "y").expect("write");
+
+        let result = tool_glob(
+            ws.to_string_lossy().into_owned(),
+            "*.txt".to_string(),
+            Some(outside.to_string_lossy().into_owned()),
+            None,
+            None,
+            None,
+            None,
+        )
+        .expect("glob outside workspace");
+        assert!(
+            result.matches.iter().any(|m| m.ends_with("y.txt")),
+            "should match files placed outside the workspace"
+        );
+
+        let _ = std::fs::remove_dir_all(&outside);
+        let _ = std::fs::remove_dir_all(&ws);
     }
 }

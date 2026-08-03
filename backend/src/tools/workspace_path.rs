@@ -49,6 +49,28 @@ pub fn validate_workspace_dir(path: &str) -> Result<String, String> {
 /// Relative paths are joined with `workspace`. Absolute paths are accepted when
 /// they resolve inside the canonical workspace after symlink resolution.
 pub fn resolve_workspace_path(workspace: &Path, raw_path: &str) -> Result<PathBuf, String> {
+    resolve_workspace_path_impl(workspace, raw_path, true)
+}
+
+/// Like [`resolve_workspace_path`] but does NOT require the resolved path to
+/// stay within the workspace.
+///
+/// Used by read-only exploration tools (`read_file`, `glob`, `grep`,
+/// `list_dir`) that should be able to reach files outside the project tree.
+/// Writing/mutating tools and the shell working directory must continue using
+/// the bounded [`resolve_workspace_path`].
+pub fn resolve_workspace_path_unbounded(
+    workspace: &Path,
+    raw_path: &str,
+) -> Result<PathBuf, String> {
+    resolve_workspace_path_impl(workspace, raw_path, false)
+}
+
+fn resolve_workspace_path_impl(
+    workspace: &Path,
+    raw_path: &str,
+    enforce_workspace: bool,
+) -> Result<PathBuf, String> {
     let trimmed = raw_path.trim();
     if trimmed.is_empty() {
         return Err("path is required".to_string());
@@ -73,7 +95,7 @@ pub fn resolve_workspace_path(workspace: &Path, raw_path: &str) -> Result<PathBu
         .canonicalize()
         .map_err(|_| format!("Invalid path: {}", normalize_raw_path(trimmed)))?;
 
-    if !is_within_workspace(&canonical_target, &canonical_workspace) {
+    if enforce_workspace && !is_within_workspace(&canonical_target, &canonical_workspace) {
         return Err("Path must stay within the workspace".to_string());
     }
 
@@ -85,6 +107,28 @@ pub fn resolve_workspace_path(workspace: &Path, raw_path: &str) -> Result<PathBu
 /// Existing path prefixes are canonicalized so symlink escapes are rejected.
 /// Missing parent directories are preserved for create-style operations.
 pub fn resolve_workspace_write_path(workspace: &Path, raw_path: &str) -> Result<PathBuf, String> {
+    resolve_workspace_write_path_impl(workspace, raw_path, true)
+}
+
+/// Like [`resolve_workspace_write_path`] but does NOT require the resolved path
+/// to stay within the workspace.
+///
+/// Used by read-only exploration tools (`read_file`, `grep`, `list_dir`) that
+/// should be able to reach existing or not-yet-created files outside the project
+/// tree. Writing/mutating tools must continue using the bounded
+/// [`resolve_workspace_write_path`].
+pub fn resolve_workspace_write_path_unbounded(
+    workspace: &Path,
+    raw_path: &str,
+) -> Result<PathBuf, String> {
+    resolve_workspace_write_path_impl(workspace, raw_path, false)
+}
+
+fn resolve_workspace_write_path_impl(
+    workspace: &Path,
+    raw_path: &str,
+    enforce_workspace: bool,
+) -> Result<PathBuf, String> {
     let trimmed = raw_path.trim();
     if trimmed.is_empty() {
         return Err("path is required".to_string());
@@ -108,7 +152,7 @@ pub fn resolve_workspace_write_path(workspace: &Path, raw_path: &str) -> Result<
 
     let resolved = resolve_with_missing_suffix(&candidate, trimmed)?;
 
-    if !is_within_workspace(&resolved, &canonical_workspace) {
+    if enforce_workspace && !is_within_workspace(&resolved, &canonical_workspace) {
         return Err("Path must stay within the workspace".to_string());
     }
 
@@ -401,5 +445,57 @@ mod tests {
             .to_string_lossy()
             .ends_with(&format!("{CODER_DIR_NAME}/skills")));
         let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn unbounded_accepts_absolute_path_outside_workspace() {
+        let temp = temp_workspace("unbounded-outside");
+        let outside = std::env::temp_dir().canonicalize().expect("temp dir");
+        if outside.starts_with(&temp) {
+            let _ = fs::remove_dir_all(&temp);
+            return;
+        }
+        let resolved = super::resolve_workspace_path_unbounded(
+            &temp,
+            outside.to_string_lossy().as_ref(),
+        )
+        .expect("unbounded resolves outside");
+        assert_eq!(resolved, outside);
+        let _ = fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn unbounded_write_accepts_absolute_path_outside_workspace() {
+        let temp = temp_workspace("unbounded-write-outside");
+        let outside = std::env::temp_dir().canonicalize().expect("temp dir");
+        if outside.starts_with(&temp) {
+            let _ = fs::remove_dir_all(&temp);
+            return;
+        }
+        let resolved = super::resolve_workspace_write_path_unbounded(
+            &temp,
+            outside.to_string_lossy().as_ref(),
+        )
+        .expect("unbounded write resolves outside");
+        assert_eq!(resolved, outside);
+        let _ = fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn unbounded_still_rejects_empty_path() {
+        let temp = temp_workspace("unbounded-empty");
+        let error =
+            super::resolve_workspace_path_unbounded(&temp, "   ").expect_err("empty path");
+        assert!(error.contains("required"));
+        let _ = fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn unbounded_write_still_rejects_dot() {
+        let temp = temp_workspace("unbounded-dot");
+        let error = super::resolve_workspace_write_path_unbounded(&temp, ".")
+            .expect_err("dot not allowed for write");
+        assert!(error.contains("must refer to a file"));
+        let _ = fs::remove_dir_all(&temp);
     }
 }

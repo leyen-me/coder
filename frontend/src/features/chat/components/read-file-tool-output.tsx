@@ -42,7 +42,6 @@ export function ReadFileToolOutput({
   const startLine = formatted?.startLine ?? 1;
   const endLine = formatted?.endLine ?? 0;
   const truncated = formatted?.truncated ?? false;
-  const containsSecrets = formatted?.containsSecrets ?? false;
   const isError = state === "output-error" && errorText;
 
   // Infer code language from file extension
@@ -67,11 +66,6 @@ export function ReadFileToolOutput({
           {totalLines > 0 ? (
             <span className="shrink-0 font-mono text-muted-foreground/50">
               / {totalLines} lines
-            </span>
-          ) : null}
-          {containsSecrets ? (
-            <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-amber-600">
-              secrets
             </span>
           ) : null}
           {truncated ? (

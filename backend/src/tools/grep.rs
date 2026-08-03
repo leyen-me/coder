@@ -15,7 +15,8 @@ use super::text_file::{
     MAX_READ_BYTES,
 };
 use super::workspace_path::{
-    format_absolute_path, format_error_path, resolve_workspace_write_path, workspace_relative_path,
+    format_absolute_path, format_error_path, resolve_workspace_write_path_unbounded,
+    workspace_relative_path,
 };
 
 const DEFAULT_HEAD_LIMIT: u32 = 200;
@@ -143,7 +144,7 @@ pub fn tool_grep(
     let target = if search_path_trimmed == "." {
         canonical_workspace.clone()
     } else {
-        resolve_workspace_write_path(&workspace, search_path_trimmed)?
+        resolve_workspace_write_path_unbounded(&workspace, search_path_trimmed)?
     };
 
     if !target.exists() {
@@ -530,8 +531,15 @@ fn collect_grep_files(
         if !seen.insert(resolved) {
             continue;
         }
-        let Some(relative) = relative_file_path(&canonical_workspace, &absolute) else {
-            continue;
+        let relative = if let Some(rel) = relative_file_path(&canonical_workspace, &absolute) {
+            rel
+        } else if let Ok(rel) = absolute.strip_prefix(search_root) {
+            // Search root is outside the workspace (allowed for the unbounded
+            // read tools); report the path relative to the search root so the
+            // glob filter below still matches.
+            rel.to_string_lossy().replace('\\', "/")
+        } else {
+            absolute.to_string_lossy().replace('\\', "/")
         };
         if respect_gitignore && is_gitignored(&canonical_workspace, &absolute).unwrap_or(false) {
             continue;
@@ -1105,5 +1113,39 @@ mod tests {
         assert_eq!(matches[0].line_number, 1);
         assert_eq!(matches[0].line, "");
         let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn greps_directory_outside_workspace_when_unbounded() {
+        let ws = temp_workspace("grep-outside");
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let outside = std::env::temp_dir().join(format!("coder-grep-outside-{}", suffix));
+        std::fs::create_dir_all(&outside).expect("create outside");
+        std::fs::write(outside.join("a.txt"), "needle-outside").expect("write");
+
+        let result = tool_grep(
+            ws.to_string_lossy().into_owned(),
+            "needle-outside".to_string(),
+            Some(outside.to_string_lossy().into_owned()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(false),
+            None,
+        )
+        .expect("grep outside workspace");
+        assert!(result.total_matches >= 1);
+
+        let _ = std::fs::remove_dir_all(&outside);
+        let _ = std::fs::remove_dir_all(&ws);
     }
 }

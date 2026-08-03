@@ -97,8 +97,19 @@ pub fn collect_walk_files(
 
         // BUG-7: include symlink entries so their names stay visible; use the
         // unresolved path so we report the link name, not the target's.
-        let Some(relative) = relative_file_path_unresolved(&canonical_workspace, &absolute) else {
-            continue;
+        //
+        // When the search root lives outside the workspace (allowed for the
+        // unbounded read tools), `relative_file_path_unresolved` returns None,
+        // so fall back to a path relative to `search_root` (or the absolute
+        // path) instead of dropping the entry.
+        let relative = if let Some(rel) =
+            relative_file_path_unresolved(&canonical_workspace, &absolute)
+        {
+            rel
+        } else if let Ok(rel) = absolute.strip_prefix(options.search_root) {
+            rel.to_string_lossy().replace('\\', "/")
+        } else {
+            absolute.to_string_lossy().replace('\\', "/")
         };
 
         if options.respect_gitignore

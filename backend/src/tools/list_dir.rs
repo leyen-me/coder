@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 use super::workspace_path::{
-    format_absolute_path, format_error_path, resolve_workspace_write_path, workspace_relative_path,
+    format_absolute_path, format_error_path, resolve_workspace_write_path_unbounded,
+    workspace_relative_path,
 };
 
 #[derive(Debug, Serialize)]
@@ -45,7 +46,7 @@ pub fn tool_list_dir(
     let target = if path.trim() == "." {
         canonical_workspace.clone()
     } else {
-        resolve_workspace_write_path(&workspace, &path)?
+        resolve_workspace_write_path_unbounded(&workspace, &path)?
     };
 
     if !target.exists() {
@@ -272,5 +273,33 @@ mod tests {
 
         let _ = fs::remove_dir_all(&outside);
         let _ = fs::remove_dir_all(&temp);
+    }
+
+    #[test]
+    fn lists_directory_outside_workspace_when_unbounded() {
+        let ws = temp_workspace("list-outside");
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let outside = std::env::temp_dir().join(format!("coder-list-outside-{}", suffix));
+        std::fs::create_dir_all(&outside).expect("create outside");
+        std::fs::write(outside.join("x.txt"), "x").expect("write");
+
+        let result = tool_list_dir(
+            ws.to_string_lossy().into_owned(),
+            outside.to_string_lossy().into_owned(),
+            None,
+            None,
+            None,
+        )
+        .expect("list outside workspace");
+        assert!(
+            result.entries.iter().any(|e| e.path.contains("x.txt")),
+            "should list the file placed outside the workspace"
+        );
+
+        let _ = std::fs::remove_dir_all(&outside);
+        let _ = std::fs::remove_dir_all(&ws);
     }
 }

@@ -4,10 +4,12 @@ use std::path::PathBuf;
 use serde::Serialize;
 
 use super::text_file::{
-    decode_text, detect_binary, detect_secrets, guess_text_mime_type, is_gitignored,
-    read_binary_sample, sha256_hex, TextFileToolError, MAX_READ_BYTES,
+    decode_text, detect_binary, guess_text_mime_type, read_binary_sample, sha256_hex,
+    TextFileToolError, MAX_READ_BYTES,
 };
-use super::workspace_path::{format_error_path, resolve_workspace_write_path, workspace_relative_path};
+use super::workspace_path::{
+    format_error_path, resolve_workspace_write_path_unbounded, workspace_relative_path,
+};
 
 const DEFAULT_MAX_LINES: u32 = 500;
 const ABSOLUTE_MAX_LINES: u32 = 1000;
@@ -24,7 +26,6 @@ pub struct ReadFileResult {
     pub start_line: u32,
     pub end_line: u32,
     pub truncated: bool,
-    pub contains_secrets: bool,
     pub content: String,
 }
 
@@ -35,7 +36,6 @@ pub fn tool_read_file(
     path: String,
     start_line: Option<u32>,
     max_lines: Option<u32>,
-    respect_gitignore: Option<bool>,
     numbered: Option<bool>,
 ) -> Result<ReadFileResult, ReadFileToolError> {
     let workspace = PathBuf::from(workspace_dir.trim());
@@ -50,13 +50,12 @@ pub fn tool_read_file(
     let max_lines = max_lines
         .unwrap_or(DEFAULT_MAX_LINES)
         .clamp(1, ABSOLUTE_MAX_LINES);
-    let respect_gitignore = respect_gitignore.unwrap_or(true);
     let numbered = numbered.unwrap_or(true);
 
     let canonical_workspace = workspace
         .canonicalize()
         .map_err(|error| ReadFileToolError::new("invalid_workspace", error.to_string()))?;
-    let target = resolve_workspace_write_path(&workspace, &path)
+    let target = resolve_workspace_write_path_unbounded(&workspace, &path)
         .map_err(|error| ReadFileToolError::new("invalid_path", error))?;
 
     if !target.exists() {
@@ -95,13 +94,6 @@ pub fn tool_read_file(
         });
     }
 
-    if respect_gitignore && is_gitignored(&canonical_workspace, &target)? {
-        return Err(ReadFileToolError::new(
-            "gitignored",
-            "Path is ignored by .gitignore",
-        ));
-    }
-
     let sample = read_binary_sample(&target)?;
     if let Some(mime_type) = detect_binary(&sample) {
         return Err(ReadFileToolError {
@@ -127,7 +119,6 @@ pub fn tool_read_file(
 
     let relative_path = workspace_relative_path(&canonical_workspace, &target);
     let mime_type = guess_text_mime_type(&relative_path);
-    let contains_secrets = detect_secrets(&text);
     let total_line_count = text.lines().count() as u32;
     if total_line_count > 0 && start_line > total_line_count {
         return Err(ReadFileToolError::new(
@@ -159,7 +150,6 @@ pub fn tool_read_file(
         start_line,
         end_line,
         truncated: truncated_by_lines || truncated_by_bytes,
-        contains_secrets,
         content,
     })
 }
@@ -254,7 +244,6 @@ mod tests {
             "missing.txt".to_string(),
             None,
             None,
-            Some(false),
             None,
         )
         .expect_err("missing file");
@@ -274,7 +263,6 @@ mod tests {
             "sample.txt".to_string(),
             Some(2),
             Some(2),
-            Some(false),
             None,
         )
         .expect("read file");
@@ -299,7 +287,6 @@ mod tests {
             "sample.txt".to_string(),
             Some(100),
             None,
-            Some(false),
             None,
         )
         .expect_err("start line out of range");
@@ -320,7 +307,6 @@ mod tests {
             "image.png".to_string(),
             None,
             None,
-            Some(false),
             None,
         )
         .expect_err("binary file");
@@ -331,33 +317,20 @@ mod tests {
     }
 
     #[test]
-    fn respects_gitignore_by_default() {
-        let temp = temp_workspace("gitignore");
+    fn reads_gitignored_file_despite_gitignore() {
+        let temp = temp_workspace("gitignore-read");
         fs::write(temp.join(".gitignore"), "ignored.txt\n").expect("write gitignore");
         fs::write(temp.join("ignored.txt"), "secret").expect("write ignored");
-        fs::write(temp.join("visible.txt"), "ok").expect("write visible");
 
-        let ignored = tool_read_file(
+        let result = tool_read_file(
             temp.to_string_lossy().into_owned(),
             "ignored.txt".to_string(),
             None,
             None,
             None,
-            None,
         )
-        .expect_err("ignored file");
-        assert_eq!(ignored.code, "gitignored");
-
-        let visible = tool_read_file(
-            temp.to_string_lossy().into_owned(),
-            "visible.txt".to_string(),
-            None,
-            None,
-            None,
-            None,
-        )
-        .expect("visible file");
-        assert_eq!(visible.content, "1 | ok\n");
+        .expect("read gitignored file");
+        assert_eq!(result.content, "1 | secret\n");
         let _ = fs::remove_dir_all(temp);
     }
 
@@ -371,7 +344,6 @@ mod tests {
             "sample.txt".to_string(),
             None,
             None,
-            Some(false),
             Some(false),
         )
         .expect("read file");
@@ -435,5 +407,31 @@ mod tests {
         assert_eq!(total, 3);
         assert_eq!(selected.len(), 2);
         assert!(truncated);
+    }
+
+    #[test]
+    fn reads_file_outside_workspace_when_unbounded() {
+        let ws = temp_workspace("read-outside");
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let outside = std::env::temp_dir().join(format!("coder-read-outside-{}", suffix));
+        std::fs::create_dir_all(&outside).expect("create outside");
+        let outside_file = outside.join("note.txt");
+        std::fs::write(&outside_file, "hello from outside").expect("write outside");
+
+        let result = tool_read_file(
+            ws.to_string_lossy().into_owned(),
+            outside_file.to_string_lossy().into_owned(),
+            None,
+            None,
+            Some(false),
+        )
+        .expect("read outside workspace");
+        assert!(result.content.contains("hello from outside"));
+
+        let _ = std::fs::remove_dir_all(&outside);
+        let _ = std::fs::remove_dir_all(&ws);
     }
 }
