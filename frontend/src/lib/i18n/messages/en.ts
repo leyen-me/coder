@@ -769,6 +769,8 @@ export const enMessages = {
     userSectionTitle: "My skills",
     badgeUser: "User",
     badgeWorkspace: "Workspace",
+    badgeBuiltin: "Built-in",
+    builtinPathNote: "Built-in skill (compiled into the binary, read-only)",
     estimatedTokens: "~{count} tokens",
     skillDetailTokenEstimate: "Loaded content: ~{count} tokens",
     viewDetails: "View details",

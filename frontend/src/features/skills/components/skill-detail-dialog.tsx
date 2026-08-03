@@ -35,14 +35,22 @@ export function SkillDetailDialog({
           <div className="flex flex-wrap items-center gap-2 pr-8">
             <DialogTitle>{skill.name}</DialogTitle>
             <Badge variant="secondary">
-              {skill.source === "workspace"
-                ? t("skills.badgeWorkspace")
-                : t("skills.badgeUser")}
+              {skill.source === "builtin"
+                ? t("skills.badgeBuiltin")
+                : skill.source === "workspace"
+                  ? t("skills.badgeWorkspace")
+                  : t("skills.badgeUser")}
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground">{skill.description}</p>
           <p className="font-mono text-xs text-muted-foreground">{`/${skill.slug}`}</p>
-          <p className="font-mono text-[11px] text-muted-foreground">{skill.path}</p>
+          {skill.source === "builtin" ? (
+            <p className="font-mono text-[11px] text-muted-foreground">
+              {t("skills.builtinPathNote")}
+            </p>
+          ) : (
+            <p className="font-mono text-[11px] text-muted-foreground">{skill.path}</p>
+          )}
           <p className="text-xs text-muted-foreground">
             {t("skills.skillDetailTokenEstimate", { count: skill.estimatedTokens })}
           </p>

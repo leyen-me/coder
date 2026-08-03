@@ -702,6 +702,8 @@ export type Messages = {
     userSectionTitle: string;
     badgeUser: string;
     badgeWorkspace: string;
+    badgeBuiltin: string;
+    builtinPathNote: string;
     estimatedTokens: string;
     skillDetailTokenEstimate: string;
     viewDetails: string;

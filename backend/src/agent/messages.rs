@@ -812,7 +812,8 @@ fn build_skill_catalog_section(runtime: &RuntimeEnvironmentResponse, agent_mode:
             "- Workspace skills root: {}",
             runtime.skill_roots.workspace.clone().unwrap_or_else(|| "unavailable".to_string())
         ),
-        "- Use the listed skill file path with `read_file` when the task clearly matches a skill or the user explicitly references `/slug`.".to_string(),
+        "- User/Workspace skills: when the task clearly matches a skill or the user explicitly references `/slug`, read that skill's file path with `read_file`.".to_string(),
+        "- Built-in skills (source=`builtin`) are compiled into the assistant and injected automatically when referenced; do not call `read_file` on their `builtin://` path.".to_string(),
         "- A user `/slug` reference is an explicit request to load that skill before following it.".to_string(),
     ];
     if can_write_skills {

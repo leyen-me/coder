@@ -152,10 +152,18 @@ export function SkillsPage() {
                     {userSkills.map((skill) => (
                       <SkillCard
                         key={`${skill.source}:${skill.slug}`}
-                        onDelete={() => {
-                          setDeleteTarget(skill);
-                        }}
-                        onOpenFolder={() => void handleOpenSkillFolder(skill.directoryPath)}
+                        onDelete={
+                          skill.source === "builtin"
+                            ? undefined
+                            : () => {
+                                setDeleteTarget(skill);
+                              }
+                        }
+                        onOpenFolder={
+                          skill.source === "builtin"
+                            ? undefined
+                            : () => void handleOpenSkillFolder(skill.directoryPath)
+                        }
                         onView={() => setViewingSkill(skill)}
                         skill={skill}
                       />

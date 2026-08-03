@@ -33,7 +33,8 @@ export function SkillCard({
   onDelete,
 }: SkillCardProps) {
   const { t } = useTranslation();
-  const hasMenu = Boolean(onOpenFolder || onDelete);
+  const isBuiltin = skill.source === "builtin";
+  const hasMenu = Boolean((onOpenFolder && !isBuiltin) || (onDelete && !isBuiltin));
 
   return (
     <Card className="h-full" size="sm">
@@ -43,9 +44,11 @@ export function SkillCard({
             {skill.name}
           </CardTitle>
           <Badge className="shrink-0 text-[10px]" variant="secondary">
-            {skill.source === "workspace"
-              ? t("skills.badgeWorkspace")
-              : t("skills.badgeUser")}
+            {skill.source === "builtin"
+              ? t("skills.badgeBuiltin")
+              : skill.source === "workspace"
+                ? t("skills.badgeWorkspace")
+                : t("skills.badgeUser")}
           </Badge>
         </div>
       </CardHeader>
@@ -89,13 +92,13 @@ export function SkillCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-36">
-              {onOpenFolder ? (
+              {onOpenFolder && !isBuiltin ? (
                 <DropdownMenuItem onSelect={onOpenFolder}>
                   <FolderOpenIcon />
                   {t("skills.openFolder")}
                 </DropdownMenuItem>
               ) : null}
-              {onDelete ? (
+              {onDelete && !isBuiltin ? (
                 <DropdownMenuItem onSelect={onDelete} variant="destructive">
                   <Trash2Icon />
                   {t("skills.delete")}

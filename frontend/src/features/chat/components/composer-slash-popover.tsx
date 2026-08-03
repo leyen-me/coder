@@ -181,9 +181,11 @@ export function ComposerSlashPopover({
                         /{item.skill.slug}
                       </span>
                       <span className="shrink-0 rounded-full bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                        {item.skill.source === "workspace"
-                          ? t("skills.badgeWorkspace")
-                          : t("skills.badgeUser")}
+                        {item.skill.source === "builtin"
+                          ? t("skills.badgeBuiltin")
+                          : item.skill.source === "workspace"
+                            ? t("skills.badgeWorkspace")
+                            : t("skills.badgeUser")}
                       </span>
                     </CommandItem>
                   );

@@ -7,7 +7,7 @@ export type SystemModuleDefinition = {
   category?: string;
 };
 
-export type SkillSource = "user" | "workspace";
+export type SkillSource = "user" | "workspace" | "builtin";
 
 export type AvailableSkill = {
   slug: string;

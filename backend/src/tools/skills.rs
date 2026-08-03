@@ -10,11 +10,51 @@ use super::workspace_path::{format_absolute_path, workspace_coder_subdir};
 
 const SKILL_FILE_NAME: &str = "SKILL.md";
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum SkillSource {
     User,
     Workspace,
+    /// Compiled into the binary; read-only and not scannable from disk.
+    Builtin,
+}
+
+/// Built-in skills are embedded at compile time (see `builtin_skill_entries`) and form the
+/// lowest-priority skill layer. They are read-only: not importable and not deletable.
+fn builtin_skill_entries() -> &'static [(&'static str, &'static str)] {
+    &[("commit", include_str!("builtin_skills/commit.md"))]
+}
+
+fn builtin_skills() -> Vec<DiscoveredSkill> {
+    builtin_skill_entries()
+        .iter()
+        .filter_map(|(slug, content)| parse_builtin_skill(slug, content))
+        .collect()
+}
+
+fn parse_builtin_skill(slug: &str, content: &str) -> Option<DiscoveredSkill> {
+    let frontmatter = parse_skill_frontmatter(content).ok()?;
+    if frontmatter.name != slug {
+        return None;
+    }
+    Some(DiscoveredSkill {
+        summary: SkillSummary {
+            slug: frontmatter.name.clone(),
+            name: frontmatter.name,
+            description: frontmatter.description,
+            source: SkillSource::Builtin,
+            path: format!("builtin://{slug}"),
+            directory_path: format!("builtin://{slug}"),
+        },
+        content: content.to_string(),
+    })
+}
+
+fn resolve_builtin_skill_reference(slug: &str) -> Option<DiscoveredSkill> {
+    builtin_skill_entries()
+        .iter()
+        .find(|(entry_slug, _)| *entry_slug == slug)
+        .and_then(|(entry_slug, content)| parse_builtin_skill(entry_slug, content))
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -99,6 +139,11 @@ pub fn list_available_skills(workspace_dir: Option<&str>) -> Result<SkillCatalog
         .unwrap_or_default();
 
     let mut merged = BTreeMap::new();
+    // Built-in skills are the lowest-priority layer; they are only kept when no
+    // user/workspace skill claims the same slug.
+    for skill in builtin_skills() {
+        merged.entry(skill.summary.slug.clone()).or_insert(skill.summary);
+    }
     for skill in user_skills {
         merged.insert(skill.summary.slug.clone(), skill.summary);
     }
@@ -128,6 +173,14 @@ pub fn list_user_skills() -> Result<UserSkillListResult, String> {
             content: skill.content,
         })
         .collect::<Vec<_>>();
+
+    // Built-in skills are also surfaced here as read-only entries.
+    for builtin in builtin_skills() {
+        skills.push(SkillRecord {
+            summary: builtin.summary,
+            content: builtin.content,
+        });
+    }
 
     skills.sort_by(|left, right| left.summary.slug.cmp(&right.summary.slug));
 
@@ -278,7 +331,16 @@ fn resolve_skill_reference(
     }
 
     let user_candidate = roots.user_path.join(slug);
-    read_skill_from_dir(&user_candidate, SkillSource::User)
+    if let Some(skill) = read_skill_from_dir(&user_candidate, SkillSource::User)? {
+        return Ok(Some(skill));
+    }
+
+    // Built-in skills are the final fallback layer.
+    if let Some(skill) = resolve_builtin_skill_reference(slug) {
+        return Ok(Some(skill));
+    }
+
+    Ok(None)
 }
 
 fn scan_skill_root(root: &Path, source: SkillSource) -> Result<Vec<DiscoveredSkill>, String> {
@@ -533,3 +595,56 @@ fn write_imported_skill_files(root: &Path, files: &[NormalizedImportedFile]) -> 
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builtin_skills_are_compiled_in_and_read_only() {
+        let builtins = builtin_skills();
+        assert!(!builtins.is_empty(), "at least one built-in skill expected");
+
+        let commit = builtins
+            .iter()
+            .find(|skill| skill.summary.slug == "commit")
+            .expect("commit built-in skill should be present");
+        assert_eq!(commit.summary.source, SkillSource::Builtin);
+        assert_eq!(commit.summary.path, "builtin://commit");
+        assert_eq!(commit.summary.directory_path, "builtin://commit");
+        assert!(commit.content.contains("Conventional") || commit.content.contains("commit"));
+    }
+
+    #[test]
+    fn parse_builtin_skill_rejects_name_slug_mismatch() {
+        let mismatched = "---\nname: other\n.description: x\n---\nbody";
+        assert!(parse_builtin_skill("commit", mismatched).is_none());
+
+        let valid = include_str!("builtin_skills/commit.md");
+        let parsed = parse_builtin_skill("commit", valid).expect("valid built-in should parse");
+        assert_eq!(parsed.summary.source, SkillSource::Builtin);
+    }
+
+    #[test]
+    fn resolve_builtin_skill_reference_falls_back_by_slug() {
+        let found = resolve_builtin_skill_reference("commit");
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().summary.source, SkillSource::Builtin);
+
+        assert!(resolve_builtin_skill_reference("definitely-not-a-skill").is_none());
+    }
+
+    #[test]
+    fn list_available_skills_includes_builtin_layer() {
+        // Point at a temp workspace so we only assert on the built-in layer here.
+        let temp = std::env::temp_dir().join(format!("coder-skills-test-{}", uuid::Uuid::new_v4()));
+        let result = list_available_skills(Some(temp.to_str().unwrap())).expect("catalog");
+        let commit = result
+            .skills
+            .iter()
+            .find(|skill| skill.slug == "commit")
+            .expect("built-in commit skill in catalog");
+        assert_eq!(commit.source, SkillSource::Builtin);
+    }
+}
+

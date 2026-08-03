@@ -755,6 +755,8 @@ export const zhMessages = {
     userSectionTitle: "我的技能",
     badgeUser: "用户",
     badgeWorkspace: "工作区",
+    badgeBuiltin: "内置",
+    builtinPathNote: "内置技能（编译于二进制，只读）",
     estimatedTokens: "约 {count} tokens",
     skillDetailTokenEstimate: "完整内容约 {count} tokens",
     viewDetails: "查看详情",
