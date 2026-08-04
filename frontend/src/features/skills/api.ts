@@ -6,6 +6,7 @@ import type {
   AvailableSkill,
   ResolvedSkill,
   SkillRoots,
+  SkillSource,
   UserSkillCardViewModel,
 } from "./types";
 
@@ -39,6 +40,16 @@ export async function listAvailableSkills(
   });
 }
 
+/**
+ * Mirrors the backend ordering: built-in → user → workspace, then slug (asc).
+ * Keeps the composer catalog and the /skills page visually consistent.
+ */
+const SOURCE_RANK: Record<SkillSource, number> = {
+  builtin: 0,
+  user: 1,
+  workspace: 2,
+};
+
 export async function listUserSkills(): Promise<{
   rootPath: string;
   skills: UserSkillCardViewModel[];
@@ -51,7 +62,11 @@ export async function listUserSkills(): Promise<{
         ...skill,
         estimatedTokens: Math.ceil(skill.content.length / 4),
       }))
-      .sort((left, right) => left.slug.localeCompare(right.slug)),
+      .sort(
+        (left, right) =>
+          SOURCE_RANK[left.source] - SOURCE_RANK[right.source] ||
+          left.slug.localeCompare(right.slug)
+      ),
   };
 }
 

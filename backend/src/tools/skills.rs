@@ -128,6 +128,27 @@ struct DiscoveredSkill {
     content: String,
 }
 
+/// Ordering priority for the `source` field when sorting skill lists.
+/// Built-in skills come first, then user-global skills, then workspace-local
+/// skills; within each group skills are ordered alphabetically by slug.
+fn source_rank(source: SkillSource) -> u8 {
+    match source {
+        SkillSource::Builtin => 0,
+        SkillSource::User => 1,
+        SkillSource::Workspace => 2,
+    }
+}
+
+/// Sorts skill summaries by `source` (builtin → user → workspace) and then by
+/// `slug` (ascending). Used to keep every skill list consistently ordered.
+fn sort_skill_summaries_by_source_then_slug(summaries: &mut [SkillSummary]) {
+    summaries.sort_by(|left, right| {
+        source_rank(left.source)
+            .cmp(&source_rank(right.source))
+            .then_with(|| left.slug.cmp(&right.slug))
+    });
+}
+
 pub fn list_available_skills(workspace_dir: Option<&str>) -> Result<SkillCatalogResult, String> {
     let roots = skill_roots(workspace_dir)?;
     let user_skills = scan_skill_root(&roots.user_path, SkillSource::User)?;
@@ -152,6 +173,9 @@ pub fn list_available_skills(workspace_dir: Option<&str>) -> Result<SkillCatalog
         merged.insert(skill.summary.slug.clone(), skill.summary);
     }
 
+    let mut skills: Vec<SkillSummary> = merged.into_values().collect();
+    sort_skill_summaries_by_source_then_slug(&mut skills);
+
     Ok(SkillCatalogResult {
         roots: SkillRoots {
             user: format_absolute_path(&roots.user_path),
@@ -160,7 +184,7 @@ pub fn list_available_skills(workspace_dir: Option<&str>) -> Result<SkillCatalog
                 .as_ref()
                 .map(|path| format_absolute_path(path)),
         },
-        skills: merged.into_values().collect(),
+        skills,
     })
 }
 
@@ -182,7 +206,11 @@ pub fn list_user_skills() -> Result<UserSkillListResult, String> {
         });
     }
 
-    skills.sort_by(|left, right| left.summary.slug.cmp(&right.summary.slug));
+    skills.sort_by(|left, right| {
+        source_rank(left.summary.source)
+            .cmp(&source_rank(right.summary.source))
+            .then_with(|| left.summary.slug.cmp(&right.summary.slug))
+    });
 
     Ok(UserSkillListResult {
         root_path: format_absolute_path(&root),
