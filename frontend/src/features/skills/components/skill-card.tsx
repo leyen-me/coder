@@ -1,4 +1,4 @@
-import { EyeIcon, FolderOpenIcon, MoreHorizontalIcon, Trash2Icon } from "lucide-react";
+import { DownloadIcon, EyeIcon, FolderOpenIcon, MoreHorizontalIcon, Trash2Icon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ type SkillCardProps = {
   onView?: () => void;
   onOpenFolder?: () => void;
   onDelete?: () => void;
+  onExport?: () => void;
 };
 
 export function SkillCard({
@@ -31,10 +32,13 @@ export function SkillCard({
   onView,
   onOpenFolder,
   onDelete,
+  onExport,
 }: SkillCardProps) {
   const { t } = useTranslation();
   const isBuiltin = skill.source === "builtin";
-  const hasMenu = Boolean((onOpenFolder && !isBuiltin) || (onDelete && !isBuiltin));
+  const hasMenu = Boolean(
+    onExport || ((onOpenFolder || onDelete) && !isBuiltin)
+  );
 
   return (
     <Card className="h-full" size="sm">
@@ -92,6 +96,12 @@ export function SkillCard({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-36">
+              {onExport ? (
+                <DropdownMenuItem onSelect={onExport}>
+                  <DownloadIcon />
+                  {t("skills.export")}
+                </DropdownMenuItem>
+              ) : null}
               {onOpenFolder && !isBuiltin ? (
                 <DropdownMenuItem onSelect={onOpenFolder}>
                   <FolderOpenIcon />

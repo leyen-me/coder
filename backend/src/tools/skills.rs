@@ -109,6 +109,22 @@ pub struct DeleteSkillResult {
     pub deleted: bool,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportedFile {
+    /// Path relative to the skill directory root (e.g. `my-skill/SKILL.md`).
+    pub path: String,
+    /// File contents encoded as standard base64.
+    pub data_base64: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportSkillResult {
+    pub slug: String,
+    pub files: Vec<ExportedFile>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportedSkillFile {
@@ -340,6 +356,89 @@ pub fn delete_user_skill(slug: &str) -> Result<DeleteSkillResult, String> {
 
     fs::remove_dir_all(&target).map_err(|error| format!("Failed to delete skill: {error}"))?;
     Ok(DeleteSkillResult { deleted: true })
+}
+
+/// Exports a skill as a list of files so the client can bundle them into a
+/// zip for sharing. Built-in skills have no on-disk directory, so they are
+/// reconstructed from their embedded `SKILL.md` content.
+pub fn export_skill(
+    workspace_dir: Option<&str>,
+    slug: &str,
+) -> Result<ExportSkillResult, String> {
+    if !is_valid_skill_slug(slug) {
+        return Err("Invalid skill slug.".to_string());
+    }
+
+    // Built-in skills live inside the binary; emit a single SKILL.md.
+    if let Some(builtin) = resolve_builtin_skill_reference(slug) {
+        return Ok(ExportSkillResult {
+            slug: slug.to_string(),
+            files: vec![ExportedFile {
+                path: format!("{}/SKILL.md", slug),
+                data_base64: base64::engine::general_purpose::STANDARD
+                    .encode(builtin.content.as_bytes()),
+            }],
+        });
+    }
+
+    let discovered = resolve_skill_reference(workspace_dir, slug)?
+        .ok_or_else(|| format!("Skill not found: {slug}"))?;
+    let directory_path = PathBuf::from(&discovered.summary.directory_path);
+    if !directory_path.is_dir() {
+        return Err(format!("Skill directory not found: {slug}"));
+    }
+
+    let files = read_skill_dir_files(&directory_path)?;
+    Ok(ExportSkillResult {
+        slug: slug.to_string(),
+        files,
+    })
+}
+
+/// Recursively reads every file under `root`, returning each one with a path
+/// relative to `root` and its contents as base64.
+fn read_skill_dir_files(root: &Path) -> Result<Vec<ExportedFile>, String> {
+    let mut files = Vec::new();
+    collect_skill_dir_files(root, root, &mut files)?;
+    Ok(files)
+}
+
+fn collect_skill_dir_files(
+    root: &Path,
+    current: &Path,
+    out: &mut Vec<ExportedFile>,
+) -> Result<(), String> {
+    let entries = fs::read_dir(current).map_err(|error| {
+        format!(
+            "Failed to read skill directory {}: {error}",
+            format_absolute_path(current)
+        )
+    })?;
+
+    for entry in entries {
+        let entry = entry.map_err(|error| format!("Failed to read directory entry: {error}"))?;
+        let path = entry.path();
+        let file_type = entry
+            .file_type()
+            .map_err(|error| format!("Failed to read file type: {error}"))?;
+
+        if file_type.is_dir() {
+            collect_skill_dir_files(root, &path, out)?;
+        } else if file_type.is_file() {
+            let bytes = fs::read(&path)
+                .map_err(|error| format!("Failed to read file {}: {error}", format_absolute_path(&path)))?;
+            let relative = path
+                .strip_prefix(root)
+                .map_err(|error| format!("Failed to relativize path: {error}"))?;
+            let relative_path = relative.to_string_lossy().replace('\\', "/");
+            out.push(ExportedFile {
+                path: relative_path,
+                data_base64: base64::engine::general_purpose::STANDARD.encode(&bytes),
+            });
+        }
+    }
+
+    Ok(())
 }
 
 fn resolve_skill_reference(

@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::sync::Arc;
 
 use crate::tools::{
-    delete_user_skill, import_user_skill, list_available_skills, list_user_skills,
+    delete_user_skill, export_skill, import_user_skill, list_available_skills, list_user_skills,
     resolve_skill_references, ImportedSkillFile,
 };
 use crate::AppState;
@@ -52,6 +52,13 @@ pub struct ImportSkillParams {
 #[serde(rename_all = "camelCase")]
 pub struct DeleteSkillParams {
     pub slug: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportSkillParams {
+    pub slug: String,
+    pub workspace_dir: Option<String>,
 }
 
 /// POST /api/skills/catalog
@@ -108,6 +115,19 @@ pub async fn handle_delete_skill(
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let result =
         delete_user_skill(params.slug.trim()).map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+    Ok(Json(serde_json::to_value(result).map_err(|error| {
+        (StatusCode::INTERNAL_SERVER_ERROR, error.to_string())
+    })?))
+}
+
+/// POST /api/skills/export
+pub async fn handle_export_skill(
+    State(state): State<Arc<AppState>>,
+    Json(params): Json<ExportSkillParams>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let workspace_dir = resolve_workspace_dir(params.workspace_dir, &state.workspace_dir);
+    let result = export_skill(workspace_dir.as_deref(), params.slug.trim())
+        .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
     Ok(Json(serde_json::to_value(result).map_err(|error| {
         (StatusCode::INTERNAL_SERVER_ERROR, error.to_string())
     })?))

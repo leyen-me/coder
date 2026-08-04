@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Spinner } from "@/components/ui/spinner";
-import { importUserSkillZip } from "@/features/skills/api";
+import { exportSkillAsZip, importUserSkillZip } from "@/features/skills/api";
 import { openPathInExplorer } from "@/features/workspace/open-path-in-explorer";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
@@ -83,6 +83,17 @@ export function SkillsPage() {
     await removeUserSkill(deleteTarget.slug);
     toast.success(t("skills.deleted", { name: deleteTarget.name }));
     setDeleteTarget(null);
+  };
+
+  const handleExport = async (skill: UserSkillCardViewModel) => {
+    try {
+      await exportSkillAsZip(skill.slug);
+      toast.success(t("skills.exported", { name: skill.name }));
+    } catch (cause) {
+      const message =
+        cause instanceof Error ? cause.message : t("skills.exportFailed");
+      toast.error(message);
+    }
   };
 
   return (
@@ -159,6 +170,7 @@ export function SkillsPage() {
                                 setDeleteTarget(skill);
                               }
                         }
+                        onExport={() => void handleExport(skill)}
                         onOpenFolder={
                           skill.source === "builtin"
                             ? undefined

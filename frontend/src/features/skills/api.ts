@@ -98,3 +98,34 @@ export async function importUserSkillZip(file: File): Promise<ResolvedSkill> {
 export async function deleteUserSkillBySlug(slug: string): Promise<DeleteSkillResponse> {
   return apiPost<DeleteSkillResponse>("/api/skills/delete", { slug });
 }
+
+type ExportSkillResponse = {
+  slug: string;
+  files: { path: string; dataBase64: string }[];
+};
+
+export async function exportSkill(slug: string): Promise<ExportSkillResponse> {
+  return apiPost<ExportSkillResponse>("/api/skills/export", { slug });
+}
+
+/**
+ * Fetches a skill's files from the backend, bundles them into a zip with
+ * JSZip (the reverse of `importUserSkillZip`), and triggers a browser
+ * download named `<slug>.zip`.
+ */
+export async function exportSkillAsZip(slug: string): Promise<void> {
+  const { files } = await exportSkill(slug);
+  const zip = new JSZip();
+  for (const file of files) {
+    zip.file(file.path, file.dataBase64, { base64: true });
+  }
+  const blob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${slug}.zip`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}

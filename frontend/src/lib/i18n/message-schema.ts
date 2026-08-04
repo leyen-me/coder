@@ -714,6 +714,9 @@ export type Messages = {
     importFailed: string;
     delete: string;
     deleted: string;
+    export: string;
+    exported: string;
+    exportFailed: string;
     cancel: string;
     emptyUserSkills: string;
     cardActions: string;

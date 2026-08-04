@@ -60,6 +60,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         )
         .route("/api/skills/import", post(routes_skills::handle_import_skill))
         .route("/api/skills/delete", post(routes_skills::handle_delete_skill))
+        .route("/api/skills/export", post(routes_skills::handle_export_skill))
         .route("/api/test_remote_connection", post(routes_tool::handle_test_remote_connection))
         .route("/api/mcp/list_tools", post(routes_mcp::handle_mcp_list_tools))
         .route("/api/mcp/call_tool", post(routes_mcp::handle_mcp_call_tool))

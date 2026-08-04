@@ -61,9 +61,9 @@ pub use replace_file::tool_replace_file;
 pub use runtime::{agent_get_runtime_environment, RuntimeEnvironmentResponse};
 pub use search_workspace::tool_search_workspace_paths;
 pub use skills::{
-    delete_user_skill, ensure_skill_roots, import_user_skill, list_available_skills,
+    delete_user_skill, ensure_skill_roots, export_skill, import_user_skill, list_available_skills,
     list_user_skills, resolve_available_skill_references, resolve_skill_references,
-    DeleteSkillResult, ImportedSkillFile,
+    DeleteSkillResult, ExportedFile, ExportSkillResult, ImportedSkillFile,
     ResolveSkillReferencesResult, SkillCatalogResult, SkillRecord, SkillRoots, SkillSource,
     SkillSummary, UserSkillListResult,
 };
