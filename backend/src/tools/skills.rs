@@ -22,7 +22,7 @@ pub enum SkillSource {
 /// Built-in skills are embedded at compile time (see `builtin_skill_entries`) and form the
 /// lowest-priority skill layer. They are read-only: not importable and not deletable.
 fn builtin_skill_entries() -> &'static [(&'static str, &'static str)] {
-    &[("commit", include_str!("builtin_skills/commit.md"))]
+    &[("commit", include_str!("builtin_skills/commit.md")), ("creating-skills", include_str!("builtin_skills/creating-skills.md"))]
 }
 
 fn builtin_skills() -> Vec<DiscoveredSkill> {
