@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
 use super::compact::{
-    apply_compact, build_compact_snapshot, compact_tool_result_messages,
+    apply_compact, build_compact_snapshot,
     count_compactable_messages, is_micro_compact_mode, persist_compact_summary, run_compact,
     should_trigger_compact, should_trigger_dev_auto_compact, CompactPersistOptions,
 };
@@ -124,7 +124,14 @@ pub async fn run_agent_loop(
             return Err(AgentLoopError::Cancelled);
         }
 
-        messages = compact_tool_result_messages(&messages);
+        // NOTE: Tool-result stubbing (`compact_tool_result_messages`) was
+        // intentionally removed. Running it every loop iteration mutated the
+        // context prefix on each turn, which destroyed prompt-cache hits and
+        // forced the model to re-read files (and re-reads then bloated the
+        // context further). Session bounds are already enforced by the 85%
+        // semantic compaction below; individual tool outputs are capped (e.g.
+        // read_file MAX_OUTPUT_BYTES). Keeping the full window stable is the
+        // better trade.
 
         // ── Auto-compact check (replaces the old session rollover mechanism) ──
         //

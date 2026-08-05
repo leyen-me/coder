@@ -137,9 +137,6 @@ impl CompactPersistOptions {
     }
 }
 
-/// How many recent full tool results to keep (structural, not LLM-driven).
-const COMPACT_TOOL_RESULT_KEEP: usize = 4;
-
 /// Max compaction retries with exponential backoff.
 const COMPACT_MAX_RETRIES: u32 = 3;
 const COMPACT_BASE_BACKOFF_MS: u64 = 1_500;
@@ -605,56 +602,6 @@ fn is_compact_summary_message(msg: &ChatMessage) -> bool {
 }
 
 // ---------------------------------------------------------------------------
-// Lightweight structural tool-result compaction
-// ---------------------------------------------------------------------------
-
-pub fn compact_tool_result_messages(messages: &[ChatMessage]) -> Vec<ChatMessage> {
-    let total = messages.len();
-    if total <= COMPACT_TOOL_RESULT_KEEP {
-        return messages.to_vec();
-    }
-
-    let preserve_start = total.saturating_sub(COMPACT_TOOL_RESULT_KEEP);
-
-    messages
-        .iter()
-        .enumerate()
-        .map(|(i, msg)| {
-            if msg.role != "tool" || i >= preserve_start {
-                return msg.clone();
-            }
-            let stub = build_tool_result_stub(msg);
-            ChatMessage {
-                role: "tool".to_string(),
-                content: Some(json!(stub)),
-                reasoning_content: None,
-                tool_calls: None,
-                tool_call_id: msg.tool_call_id.clone(),
-                name: msg.name.clone(),
-            }
-        })
-        .collect()
-}
-
-fn build_tool_result_stub(msg: &ChatMessage) -> String {
-    let preview = msg
-        .content
-        .as_ref()
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-
-    if preview.len() <= 200 {
-        return format!("[compacted tool result] {}", preview);
-    }
-
-    format!(
-        "[compacted] {}... [{} chars]",
-        truncate_with_ellipsis(preview, 200),
-        preview.len()
-    )
-}
-
-// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -704,25 +651,6 @@ mod tests {
         let truncated = truncate_with_ellipsis(&content, 500);
         assert!(truncated.ends_with("... [truncated]"));
         assert!(truncated.is_char_boundary(truncated.len()));
-    }
-
-    #[test]
-    fn compact_tool_results_keeps_tail() {
-        let msgs: Vec<ChatMessage> = (0..10)
-            .map(|i| make_msg("tool", &format!("result {i}")))
-            .collect();
-        let compacted = compact_tool_result_messages(&msgs);
-        assert_eq!(compacted.len(), 10);
-        for i in 6..10 {
-            assert_eq!(
-                compacted[i].content.as_ref().and_then(|v| v.as_str()),
-                Some(&*format!("result {i}"))
-            );
-        }
-        for i in 0..6 {
-            let c = compacted[i].content.as_ref().and_then(|v| v.as_str()).unwrap_or("");
-            assert!(c.contains("[compacted"), "expected stub at {i}, got: {c}");
-        }
     }
 
     #[test]
