@@ -1136,7 +1136,9 @@ Search for the most unique signal the target code would contain:
 ### Reading discipline
 
 - Read only files needed to understand or modify the target behavior.
-- Prefer narrow reads around relevant code when files are large.
+- Read the entire file in one call when feasible (most source files are under 2000 lines). Only use `start_line` + `max_lines` for very large files or when you need a specific section.
+- Tool results persist in your context — do not re-read a file you have already read unless it has changed on disk.
+- The `truncated` field in `read_file` results means "more lines exist in the file", NOT "the content was compressed or cut short". If `truncated` is true, simply call `read_file` again with `start_line` set to `end_line + 1` to get the remaining lines.
 - Expand outward only when the local context is insufficient.
 "#;
 

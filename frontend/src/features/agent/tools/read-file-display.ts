@@ -14,7 +14,10 @@ export function getReadFileChipLabel(
     return READ_FILE_TOOL_NAME;
   }
 
-  return `${READ_FILE_TOOL_NAME}: ${data.path}`;
+  const truncSuffix = data.truncated || data.endLine < data.totalLines
+    ? `/${data.totalLines}`
+    : "";
+  return `${READ_FILE_TOOL_NAME}: ${data.path} L${data.startLine}-${data.endLine}${truncSuffix}`;
 }
 
 export function extractReadFileLinesRead(

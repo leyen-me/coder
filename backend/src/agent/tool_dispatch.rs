@@ -412,7 +412,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                 "properties": {
                     "path": string_schema("Relative or absolute path to the file within the workspace."),
                     "start_line": int_schema("First line to read (1-based).", Some(1)),
-                    "max_lines": int_schema("Maximum number of lines to return.", Some(500)),
+                    "max_lines": int_schema("Maximum number of lines to return. Set to 2000 to read large files in one call. When omitted, reads up to 1000 lines. If `truncated` is true in the result, more lines exist — use `start_line` to read them.", Some(1000)),
                 },
                 "required": ["path"],
                 "additionalProperties": false

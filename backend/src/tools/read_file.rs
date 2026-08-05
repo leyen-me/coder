@@ -11,8 +11,8 @@ use super::workspace_path::{
     format_error_path, resolve_workspace_write_path_unbounded, workspace_relative_path,
 };
 
-const DEFAULT_MAX_LINES: u32 = 500;
-const ABSOLUTE_MAX_LINES: u32 = 1000;
+const DEFAULT_MAX_LINES: u32 = 1000;
+const ABSOLUTE_MAX_LINES: u32 = 2000;
 const MAX_OUTPUT_BYTES: usize = 256 * 1024;
 
 #[derive(Debug, Serialize)]
@@ -433,5 +433,202 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(&outside);
         let _ = std::fs::remove_dir_all(&ws);
+    }
+
+    // ── Production-scenario tests ──
+    // Mimics the real-world case that caused a model to *hallucinate*
+    // `[compacted]` / `[truncated]... [N chars]` markers in tool output.
+    // These tests prove the tool NEVER inserts such markers into `content`.
+
+    fn write_540_line_file(dir: &std::path::Path, name: &str) {
+        // ~35 chars/line, similar to a real .tsx source file
+        let content: String = (1..=540)
+            .map(|i| format!("line {i}: const item{i} = {{ id: {i} }};\n"))
+            .collect();
+        fs::write(dir.join(name), content).expect("write 540-line file");
+    }
+
+    fn write_n_line_file(dir: &std::path::Path, name: &str, n: u32) {
+        let content: String = (1..=n)
+            .map(|i| format!("line {i}: const item{i} = {{ id: {i} }};\n"))
+            .collect();
+        fs::write(dir.join(name), content).expect("write file");
+    }
+
+    /// 1200-line file, default max_lines (1000) → truncated by lines.
+    /// Content must be exactly lines 1-1000 with NO markers.
+    #[test]
+    fn content_has_no_markers_when_line_truncated() {
+        let temp = temp_workspace("markers-line-trunc");
+        write_n_line_file(&temp, "big.tsx", 1200);
+
+        let result = tool_read_file(
+            temp.to_string_lossy().into_owned(),
+            "big.tsx".to_string(),
+            None,
+            None, // default max_lines = 1000
+            None,
+        )
+        .expect("read file");
+
+        assert_eq!(result.total_lines, 1200);
+        assert_eq!(result.start_line, 1);
+        assert_eq!(result.end_line, 1000);
+        assert!(result.truncated, "truncated=true because 1000 < 1200");
+        // THE KEY ASSERTIONS — no markers anywhere in content
+        assert!(!result.content.contains("[compacted]"), "content must not contain [compacted]");
+        assert!(!result.content.contains("[truncated]"), "content must not contain [truncated]");
+        assert!(!result.content.contains("chars]"), "content must not contain chars]");
+        // Content is exactly lines 1-1000, nothing more
+        assert!(result.content.contains("1 | line 1:"));
+        assert!(result.content.contains("1000 | line 1000:"));
+        assert!(!result.content.contains("1001 |"), "must not contain line 1001+");
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    /// 540-line file, max_lines=150 (mimics production parameter).
+    /// Content must be exactly lines 1-150 with NO markers.
+    #[test]
+    fn content_has_no_markers_when_small_chunk() {
+        let temp = temp_workspace("markers-small-chunk");
+        write_540_line_file(&temp, "zones.tsx");
+
+        let result = tool_read_file(
+            temp.to_string_lossy().into_owned(),
+            "zones.tsx".to_string(),
+            Some(1),
+            Some(150),
+            None,
+        )
+        .expect("read file");
+
+        assert_eq!(result.total_lines, 540);
+        assert_eq!(result.end_line, 150);
+        assert!(result.truncated, "truncated=true because 150 < 540");
+        assert!(!result.content.contains("[compacted]"));
+        assert!(!result.content.contains("[truncated]"));
+        assert!(!result.content.contains("chars]"));
+        assert!(result.content.contains("1 | line 1:"));
+        assert!(result.content.contains("150 | line 150:"));
+        assert!(!result.content.contains("151 |"));
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    /// 540-line file, max_lines=1000 → reads entire file.
+    /// truncated must be false, content complete, no markers.
+    #[test]
+    fn full_read_has_truncated_false_and_no_markers() {
+        let temp = temp_workspace("markers-full-read");
+        write_540_line_file(&temp, "zones.tsx");
+
+        let result = tool_read_file(
+            temp.to_string_lossy().into_owned(),
+            "zones.tsx".to_string(),
+            None,
+            Some(1000),
+            None,
+        )
+        .expect("read file");
+
+        assert_eq!(result.total_lines, 540);
+        assert_eq!(result.end_line, 540);
+        assert!(!result.truncated, "truncated=false because all 540 lines read");
+        assert!(!result.content.contains("[compacted]"));
+        assert!(!result.content.contains("[truncated]"));
+        assert!(!result.content.contains("chars]"));
+        assert!(result.content.contains("1 | line 1:"));
+        assert!(result.content.contains("540 | line 540:"));
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    /// File with very long lines triggering the 256KB byte limit.
+    /// Even byte-truncation must NOT insert markers into content.
+    #[test]
+    fn byte_truncation_does_not_insert_markers() {
+        let temp = temp_workspace("markers-byte-trunc");
+        // 300 lines × ~1010 chars = ~303KB > 256KB limit
+        let long_line = "x".repeat(1000);
+        let content: String = (1..=300)
+            .map(|i| format!("line{i}:{long_line}\n"))
+            .collect();
+        fs::write(temp.join("big.txt"), content).expect("write big file");
+
+        let result = tool_read_file(
+            temp.to_string_lossy().into_owned(),
+            "big.txt".to_string(),
+            None,
+            Some(300), // request all 300 lines
+            None,
+        )
+        .expect("read file");
+
+        assert_eq!(result.total_lines, 300);
+        assert!(result.truncated, "should be truncated by 256KB byte limit");
+        assert!(!result.content.contains("[compacted]"));
+        assert!(!result.content.contains("[truncated]"));
+        assert!(!result.content.contains("chars]"));
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    /// Verifies the semantic meaning of `truncated: true`:
+    /// it means "more lines exist in the file", NOT "content was compressed".
+    /// Content must contain exactly the requested lines, fully and completely.
+    #[test]
+    fn truncated_true_means_more_lines_not_compression() {
+        let temp = temp_workspace("truncated-semantics");
+        let content: String = (1..=540)
+            .map(|i| format!("line {i}\n"))
+            .collect();
+        fs::write(temp.join("file.txt"), content).expect("write file");
+
+        let result = tool_read_file(
+            temp.to_string_lossy().into_owned(),
+            "file.txt".to_string(),
+            Some(1),
+            Some(100),
+            None,
+        )
+        .expect("read file");
+
+        assert!(result.truncated, "truncated=true because 100 < 540");
+        // Content must be EXACTLY 100 lines, complete, no markers
+        let line_count = result.content.lines().count();
+        assert_eq!(line_count, 100, "content must have exactly 100 lines");
+        assert!(result.content.contains("1 | line 1"));
+        assert!(result.content.contains("100 | line 100"));
+        assert!(!result.content.contains("101 |"));
+        assert!(!result.content.contains("[compacted]"));
+        assert!(!result.content.contains("[truncated]"));
+        assert!(!result.content.contains("chars]"));
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    /// Pagination: read lines 151-300 of a 540-line file.
+    /// Verifies content is exactly that range, no markers.
+    #[test]
+    fn paginated_read_has_no_markers() {
+        let temp = temp_workspace("markers-paginated");
+        write_540_line_file(&temp, "zones.tsx");
+
+        let result = tool_read_file(
+            temp.to_string_lossy().into_owned(),
+            "zones.tsx".to_string(),
+            Some(151),
+            Some(150),
+            None,
+        )
+        .expect("read file");
+
+        assert_eq!(result.start_line, 151);
+        assert_eq!(result.end_line, 300);
+        assert!(result.truncated, "truncated=true because 300 < 540");
+        assert!(!result.content.contains("[compacted]"));
+        assert!(!result.content.contains("[truncated]"));
+        assert!(!result.content.contains("chars]"));
+        assert!(result.content.contains("151 | line 151:"));
+        assert!(result.content.contains("300 | line 300:"));
+        assert!(!result.content.contains("150 |"));
+        assert!(!result.content.contains("301 |"));
+        let _ = fs::remove_dir_all(temp);
     }
 }
