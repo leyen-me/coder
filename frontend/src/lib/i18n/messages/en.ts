@@ -39,6 +39,12 @@ export const enMessages = {
     agentRunning: "Agent running",
     exportChat: "Export",
     exportChatJson: "Export full data (JSON)",
+    exportChatDialogTitle: "Export session",
+    exportChatDialogDescription: "Choose an export format",
+    exportChatMarkdown: "Markdown (readable summary)",
+    exportChatMarkdownDescription: "Messages, thinking, and tool calls",
+    exportChatJsonDescription:
+      "Complete raw data, uncompressed, all fields and sub-sessions",
     editChat: "Rename",
     editChatTitle: "Rename chat",
     editChatTitleLabel: "Chat name",

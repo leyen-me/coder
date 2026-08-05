@@ -37,6 +37,11 @@ export type Messages = {
     agentRunning: string;
     exportChat: string;
     exportChatJson: string;
+    exportChatDialogTitle: string;
+    exportChatDialogDescription: string;
+    exportChatMarkdown: string;
+    exportChatMarkdownDescription: string;
+    exportChatJsonDescription: string;
     editChat: string;
     editChatTitle: string;
     editChatTitleLabel: string;

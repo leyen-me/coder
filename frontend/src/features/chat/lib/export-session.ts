@@ -115,6 +115,81 @@ function downloadTextFile(
   URL.revokeObjectURL(url);
 }
 
+function formatDate(timestamp: number): string {
+  return new Date(timestamp).toISOString().replace("T", " ").slice(0, 19);
+}
+
+function formatRole(role: string): string {
+  return role === "user" ? "User" : "Assistant";
+}
+
+/**
+ * Export a session as a human-readable Markdown summary: title, key
+ * metadata, message content, thinking and tool call names/states. For full
+ * raw fidelity (tool inputs/outputs, errors, usage, sub-sessions…) use
+ * `exportSessionAsJson` instead. Returns `false` when the session does not
+ * exist.
+ */
+export async function exportSessionAsMarkdown(
+  sessionId: string
+): Promise<boolean> {
+  const session = await getSession(sessionId);
+  if (!session) {
+    return false;
+  }
+
+  const messages = await getMessagesBySession(sessionId);
+
+  const lines: string[] = [];
+
+  // Title
+  lines.push(`# ${session.title}`);
+  lines.push("");
+
+  // Metadata
+  lines.push(`- **Model**: ${session.model}`);
+  lines.push(`- **Created**: ${formatDate(session.createdAt)}`);
+  lines.push(`- **Messages**: ${messages.length}`);
+  if (session.workspaceDir) {
+    lines.push(`- **Workspace**: \`${session.workspaceDir}\``);
+  }
+  lines.push("");
+
+  // Messages
+  for (const message of messages) {
+    lines.push("---");
+    lines.push("");
+    lines.push(`## ${formatRole(message.role)}`);
+    lines.push("");
+
+    if (message.content) {
+      lines.push(message.content);
+      lines.push("");
+    }
+
+    if (message.thinking) {
+      lines.push("> **Thinking**");
+      lines.push(">");
+      lines.push(`> ${message.thinking.replace(/\n/g, "\\n> ")}`);
+      lines.push("");
+    }
+
+    if (message.toolInvocations && message.toolInvocations.length > 0) {
+      lines.push("### Tool Calls");
+      for (const tool of message.toolInvocations) {
+        lines.push(`- \`${tool.name}\` (${tool.state})`);
+      }
+      lines.push("");
+    }
+  }
+
+  const markdown = lines.join("\n");
+  const cleanTitle = sanitizeFilename(session.title || "");
+  const defaultName = cleanTitle ? `${cleanTitle}.md` : `${sessionId}.md`;
+  downloadTextFile(defaultName, markdown, "text/markdown;charset=utf-8");
+  return true;
+}
+
 /**
  * Export a session as a single uncompressed, pretty-printed JSON file with
  * full raw fidelity (no summarization, no field dropping, no compression).

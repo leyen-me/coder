@@ -39,6 +39,12 @@ export const zhMessages = {
     agentRunning: "Agent 运行中",
     exportChat: "导出",
     exportChatJson: "导出完整数据 (JSON)",
+    exportChatDialogTitle: "导出会话",
+    exportChatDialogDescription: "选择导出格式",
+    exportChatMarkdown: "Markdown（可读摘要）",
+    exportChatMarkdownDescription: "含消息、思考过程与工具调用",
+    exportChatJsonDescription:
+      "完整原始数据，未压缩，含全部字段与子会话",
     editChat: "编辑标题",
     editChatTitle: "编辑聊天标题",
     editChatTitleLabel: "聊天名称",

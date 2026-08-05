@@ -22,8 +22,9 @@ import {
   SESSION_EXPORT_VERSION,
   buildSessionExport,
   exportSessionAsJson,
+  exportSessionAsMarkdown,
   sanitizeFilename,
-} from "./export-session-json";
+} from "./export-session";
 
 const session = (id: string, overrides: Record<string, unknown> = {}) => ({
   id,
@@ -229,5 +230,83 @@ describe("exportSessionAsJson", () => {
   it("returns false when the session does not exist", async () => {
     vi.mocked(getSession).mockResolvedValue(null);
     await expect(exportSessionAsJson("missing")).resolves.toBe(false);
+  });
+});
+
+describe("exportSessionAsMarkdown", () => {
+  let click: ReturnType<typeof vi.fn>;
+  let anchor: { click: typeof click; download: string; href: string };
+  let createdBlobs: { parts: unknown[]; opts: unknown }[];
+
+  beforeEach(() => {
+    click = vi.fn();
+    anchor = { click, download: "", href: "" };
+    createdBlobs = [];
+    vi.stubGlobal("URL", {
+      createObjectURL: vi.fn(() => "blob:export"),
+      revokeObjectURL: vi.fn(),
+    });
+    vi.stubGlobal("Blob", class {
+      parts: unknown[];
+      opts: unknown;
+      constructor(parts: unknown[], opts: unknown) {
+        this.parts = parts;
+        this.opts = opts;
+        createdBlobs.push(this);
+      }
+    });
+    vi.stubGlobal("document", {
+      createElement: vi.fn(() => anchor),
+      body: { appendChild: vi.fn(), removeChild: vi.fn() },
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("writes a readable summary with metadata, thinking, and tool calls", async () => {
+    vi.mocked(getSession).mockResolvedValue(
+      session("s1", { title: "My Chat", createdAt: 1_700_000_000_000 })
+    );
+    vi.mocked(getMessagesBySession).mockResolvedValue([
+      {
+        ...message("m1", "s1"),
+        role: "user",
+        content: "Hello",
+        thinking: "",
+        toolInvocations: [],
+      },
+      message("m1", "s1"),
+    ]);
+    vi.mocked(getAgentTodosBySession).mockResolvedValue([]);
+    vi.mocked(getDb).mockResolvedValue({
+      getAll: vi.fn().mockResolvedValue([]),
+    } as never);
+
+    const ok = await exportSessionAsMarkdown("s1");
+    expect(ok).toBe(true);
+
+    const markdown = createdBlobs[0].parts[0] as string;
+    expect(markdown).toContain("# My Chat");
+    expect(markdown).toContain("- **Model**: test-model");
+    expect(markdown).toContain("- **Messages**: 2");
+    expect(markdown).toContain("- **Workspace**: `/workspace`");
+    expect(markdown).toContain("## User");
+    expect(markdown).toContain("Hello");
+    expect(markdown).toContain("## Assistant");
+    expect(markdown).toContain("answer");
+    expect(markdown).toContain("> **Thinking**");
+    expect(markdown).toContain("> step by step");
+    expect(markdown).toContain("### Tool Calls");
+    expect(markdown).toContain("- `read_file` (output-available)");
+
+    expect(anchor.download).toBe("My Chat.md");
+    expect(click).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns false when the session does not exist", async () => {
+    vi.mocked(getSession).mockResolvedValue(null);
+    await expect(exportSessionAsMarkdown("missing")).resolves.toBe(false);
   });
 });

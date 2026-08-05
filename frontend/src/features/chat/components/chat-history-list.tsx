@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, FileJson, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
+import { Download, Pencil, Pin, PinOff, Trash2 } from "lucide-react";
 
 import { paths } from "@/app/paths";
 import {
@@ -51,7 +51,6 @@ type ChatHistoryListProps = {
   runningSessionIds?: ReadonlySet<string>;
   onDeleteSession: (sessionId: string) => void;
   onExportSession: (sessionId: string) => void;
-  onExportSessionJson: (sessionId: string) => void;
   onRenameSession: (sessionId: string, title: string) => void;
   onPinSession?: (sessionId: string) => void;
   onUnpinSession?: (sessionId: string) => void;
@@ -69,7 +68,6 @@ export function ChatHistoryList({
   runningSessionIds,
   onDeleteSession,
   onExportSession,
-  onExportSessionJson,
   onRenameSession,
   onPinSession,
   onUnpinSession,
@@ -170,10 +168,6 @@ export function ChatHistoryList({
                       <ContextMenuItem onClick={() => onExportSession(item.id)}>
                         <Download className="size-4" />
                         {t("sidebar.exportChat")}
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => onExportSessionJson(item.id)}>
-                        <FileJson className="size-4" />
-                        {t("sidebar.exportChatJson")}
                       </ContextMenuItem>
                       {!isRunning && onPinSession && onUnpinSession && (
                         <ContextMenuItem

@@ -16,9 +16,9 @@ import { Separator } from "@/components/ui/separator";
 import { useGeneratingSessionTitles } from "@/features/agent/session-title-store";
 import { useRunningSessionIds } from "@/features/agent/store/agent-store";
 import { useChatSessions } from "@/features/chat/hooks/use-chat-sessions";
-import { exportSessionAsJson } from "@/features/chat/lib/export-session-json";
+import { ExportSessionDialog } from "@/features/chat/components/export-session-dialog";
 import { listActiveScheduledRuns } from "@/features/scheduled-jobs/lib/api";
-import { deleteSession, getMessagesBySession, getSession, pinSession, unpinSession, updateSessionTitle } from "@/lib/db";
+import { deleteSession, pinSession, unpinSession, updateSessionTitle } from "@/lib/db";
 import { useLocale } from "@/lib/i18n/locale-provider";
 
 import { useSearchDialog } from "@/features/keyboard-shortcuts/search-dialog-context";
@@ -34,88 +34,6 @@ type AppSidebarProps = {
 
 const ACTIVE_RUNS_POLL_MS = 3000;
 
-function formatDate(timestamp: number): string {
-  return new Date(timestamp).toISOString().replace("T", " ").slice(0, 19);
-}
-
-function formatRole(role: string): string {
-  return role === "user" ? "User" : "Assistant";
-}
-
-/** Strip characters that are invalid or undesirable in filenames. */
-function sanitizeFilename(name: string): string {
-  return name
-    .replaceAll(/[/\\:*?"<>|…]/g, "") // remove OS-invalid filename chars & ellipsis
-    .replaceAll(/\s+/g, " ") // collapse whitespace
-    .trim();
-}
-
-async function exportSessionAsMarkdown(sessionId: string): Promise<boolean> {
-  const session = await getSession(sessionId);
-  if (!session) return false;
-
-  const messages = await getMessagesBySession(sessionId);
-
-  const lines: string[] = [];
-
-  // Title
-  lines.push(`# ${session.title}`);
-  lines.push("");
-
-  // Metadata
-  lines.push(`- **Model**: ${session.model}`);
-  lines.push(`- **Created**: ${formatDate(session.createdAt)}`);
-  lines.push(`- **Messages**: ${messages.length}`);
-  if (session.workspaceDir) {
-    lines.push(`- **Workspace**: \`${session.workspaceDir}\``);
-  }
-  lines.push("");
-
-  // Messages
-  for (const message of messages) {
-    lines.push("---");
-    lines.push("");
-    lines.push(`## ${formatRole(message.role)}`);
-    lines.push("");
-
-    if (message.content) {
-      lines.push(message.content);
-      lines.push("");
-    }
-
-    if (message.thinking) {
-      lines.push("> **Thinking**");
-      lines.push(">");
-      lines.push(`> ${message.thinking.replace(/\n/g, "\\n> ")}`);
-      lines.push("");
-    }
-
-    if (message.toolInvocations && message.toolInvocations.length > 0) {
-      lines.push("### Tool Calls");
-      for (const tool of message.toolInvocations) {
-        lines.push(`- \`${tool.name}\` (${tool.state})`);
-      }
-      lines.push("");
-    }
-  }
-
-  const markdown = lines.join("\n");
-  const cleanTitle = sanitizeFilename(session.title || "");
-  const defaultName = cleanTitle ? `${cleanTitle}.md` : `${sessionId}.md`;
-
-  // Download via blob URL (browser-compatible)
-  const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = defaultName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  return true;
-}
-
 export function AppSidebar({ open, onOpenChange }: AppSidebarProps) {
   const { t } = useLocale();
   const { sessions, refresh } = useChatSessions();
@@ -124,6 +42,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps) {
   const [automationRunningSessionIds, setAutomationRunningSessionIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
+  const [exportSessionId, setExportSessionId] = useState<string | null>(null);
   const { open: openSearch } = useSearchDialog();
 
   const chatMatch = useMatch("/chat/:chatId");
@@ -141,33 +60,9 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps) {
     [refresh, t]
   );
 
-  const handleExportSession = useCallback(
-    async (sessionId: string) => {
-      try {
-        const exported = await exportSessionAsMarkdown(sessionId);
-        if (exported) {
-          toast.success(t("sidebar.exportChatSuccess"));
-        }
-      } catch (error) {
-        console.error("Failed to export session:", error);
-      }
-    },
-    [t]
-  );
-
-  const handleExportSessionJson = useCallback(
-    async (sessionId: string) => {
-      try {
-        const exported = await exportSessionAsJson(sessionId);
-        if (exported) {
-          toast.success(t("sidebar.exportChatJsonSuccess"));
-        }
-      } catch (error) {
-        console.error("Failed to export full session:", error);
-      }
-    },
-    [t]
-  );
+  const handleExportSession = useCallback((sessionId: string) => {
+    setExportSessionId(sessionId);
+  }, []);
 
   const handleRenameSession = useCallback(
     async (sessionId: string, title: string) => {
@@ -282,10 +177,17 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps) {
         runningSessionIds={combinedRunningSessionIds}
         onDeleteSession={handleDeleteSession}
         onExportSession={handleExportSession}
-        onExportSessionJson={handleExportSessionJson}
         onRenameSession={handleRenameSession}
         onPinSession={handlePinSession}
         onUnpinSession={handleUnpinSession}
+      />
+
+      <ExportSessionDialog
+        sessionId={exportSessionId}
+        open={exportSessionId !== null}
+        onOpenChange={(open) => {
+          if (!open) setExportSessionId(null);
+        }}
       />
 
       <div className="flex shrink-0 flex-col gap-0.5 border-t border-sidebar-border p-2">
