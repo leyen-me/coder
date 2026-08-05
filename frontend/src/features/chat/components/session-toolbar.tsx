@@ -1,5 +1,6 @@
 import {
   DownloadIcon,
+  FileJson,
   FolderOpenIcon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -26,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ProviderUsageTag } from "@/features/lab/provider-usage-tag";
 import { openWorkspaceInExplorer } from "@/features/workspace/open-workspace-in-explorer";
+import { exportSessionAsJson } from "@/features/chat/lib/export-session-json";
 import { getMessagesBySession, getSession, pinSession, unpinSession, updateSessionTitle } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
@@ -119,6 +121,19 @@ export function SessionTitleActions({
     })();
   }, [chatId, title, t]);
 
+  const handleExportJson = useCallback(() => {
+    if (!chatId) return;
+    void (async () => {
+      try {
+        const exported = await exportSessionAsJson(chatId);
+        if (!exported) throw new Error("Session not found");
+        toast.success(t("sidebar.exportChatJsonSuccess"));
+      } catch {
+        toast.error(t("sidebar.exportChatJsonFailed"));
+      }
+    })();
+  }, [chatId, t]);
+
   const handleRenameSave = useCallback(() => {
     if (!chatId || !renameValue.trim()) return;
     void (async () => {
@@ -163,6 +178,10 @@ export function SessionTitleActions({
               <DropdownMenuItem onSelect={handleExport}>
                 <DownloadIcon />
                 {t("sidebar.exportChat")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleExportJson}>
+                <FileJson />
+                {t("sidebar.exportChatJson")}
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={handleTogglePin}>
                 {isPinned ? <PinOffIcon /> : <PinIcon />}

@@ -36,6 +36,7 @@ export type Messages = {
     noMatchingChats: string;
     agentRunning: string;
     exportChat: string;
+    exportChatJson: string;
     editChat: string;
     editChatTitle: string;
     editChatTitleLabel: string;
@@ -45,6 +46,8 @@ export type Messages = {
     deleteChatConfirmDescription: string;
     exportChatSuccess: string;
     exportChatFailed: string;
+    exportChatJsonSuccess: string;
+    exportChatJsonFailed: string;
     deleteChatSuccess: string;
     pinChat: string;
     unpinChat: string;

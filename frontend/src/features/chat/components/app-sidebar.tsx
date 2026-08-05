@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { useGeneratingSessionTitles } from "@/features/agent/session-title-store";
 import { useRunningSessionIds } from "@/features/agent/store/agent-store";
 import { useChatSessions } from "@/features/chat/hooks/use-chat-sessions";
+import { exportSessionAsJson } from "@/features/chat/lib/export-session-json";
 import { listActiveScheduledRuns } from "@/features/scheduled-jobs/lib/api";
 import { deleteSession, getMessagesBySession, getSession, pinSession, unpinSession, updateSessionTitle } from "@/lib/db";
 import { useLocale } from "@/lib/i18n/locale-provider";
@@ -154,6 +155,20 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps) {
     [t]
   );
 
+  const handleExportSessionJson = useCallback(
+    async (sessionId: string) => {
+      try {
+        const exported = await exportSessionAsJson(sessionId);
+        if (exported) {
+          toast.success(t("sidebar.exportChatJsonSuccess"));
+        }
+      } catch (error) {
+        console.error("Failed to export full session:", error);
+      }
+    },
+    [t]
+  );
+
   const handleRenameSession = useCallback(
     async (sessionId: string, title: string) => {
       await updateSessionTitle(sessionId, title);
@@ -267,6 +282,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps) {
         runningSessionIds={combinedRunningSessionIds}
         onDeleteSession={handleDeleteSession}
         onExportSession={handleExportSession}
+        onExportSessionJson={handleExportSessionJson}
         onRenameSession={handleRenameSession}
         onPinSession={handlePinSession}
         onUnpinSession={handleUnpinSession}
