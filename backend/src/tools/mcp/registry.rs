@@ -8,7 +8,7 @@ use super::session::McpSession;
 use super::stdio_client::config_hash;
 use super::types::{
     McpCallToolResult, McpListToolsResult, McpOAuthStartResult, McpOAuthStatusResult,
-    McpServerConfig, McpTestConnectionResult,
+    McpServerConfig, McpTestConnectionResult, McpToolDefinition,
 };
 
 struct CachedSession {
@@ -16,8 +16,21 @@ struct CachedSession {
     client: McpSession,
 }
 
+/// Last successfully fetched tool list for a server, guarded by the config hash.
+///
+/// When a live `list_tools` call fails (connection or protocol error), the
+/// registry falls back to this snapshot so transient MCP outages do not
+/// silently drop tools from agent requests. A config change invalidates the
+/// cache because `config_hash` no longer matches.
+#[derive(Clone)]
+struct CachedToolList {
+    config_hash: u64,
+    tools: Vec<McpToolDefinition>,
+}
+
 pub struct McpRegistry {
     sessions: Mutex<HashMap<String, CachedSession>>,
+    tools_cache: Mutex<HashMap<String, CachedToolList>>,
     pub oauth_store: Arc<McpOAuthStore>,
 }
 
@@ -25,20 +38,77 @@ impl McpRegistry {
     pub fn new() -> Self {
         Self {
             sessions: Mutex::new(HashMap::new()),
+            tools_cache: Mutex::new(HashMap::new()),
             oauth_store: Arc::new(McpOAuthStore::new()),
         }
     }
 
     pub async fn list_tools(&self, config: McpServerConfig) -> Result<McpListToolsResult, String> {
-        let mut client = self.get_or_connect(&config).await?;
-        let tools = client.list_tools().await?;
-        self.store_session(&config, client);
+        let hash = config_hash(&config);
+        match self.fetch_live_tools(&config).await {
+            Ok(tools) => {
+                self.store_tools_cache(&config, hash, tools.clone());
+                Ok(McpListToolsResult {
+                    server_id: config.id.clone(),
+                    server_name: config.name.clone(),
+                    tools,
+                })
+            }
+            Err(error) => {
+                // Reuse the last successful tool list for this exact config so a
+                // transient MCP outage does not change the tool set seen by the
+                // agent (a suddenly smaller catalog would break prompt-cache
+                // hits and confuse the model).
+                let cached = self.read_tools_cache(&config.id, hash);
+                match cached {
+                    Some(tools) => {
+                        log::warn!(
+                            "mcp_list_tools_fallback server_id={} cached_tools={} error={}",
+                            config.id,
+                            tools.len(),
+                            error
+                        );
+                        Ok(McpListToolsResult {
+                            server_id: config.id.clone(),
+                            server_name: config.name.clone(),
+                            tools,
+                        })
+                    }
+                    None => Err(error),
+                }
+            }
+        }
+    }
 
-        Ok(McpListToolsResult {
-            server_id: config.id.clone(),
-            server_name: config.name.clone(),
-            tools,
-        })
+    async fn fetch_live_tools(
+        &self,
+        config: &McpServerConfig,
+    ) -> Result<Vec<McpToolDefinition>, String> {
+        let mut client = self.get_or_connect(config).await?;
+        let tools = client.list_tools().await?;
+        self.store_session(config, client);
+        Ok(tools)
+    }
+
+    fn store_tools_cache(&self, config: &McpServerConfig, hash: u64, tools: Vec<McpToolDefinition>) {
+        if let Ok(mut cache) = self.tools_cache.lock() {
+            cache.insert(
+                config.id.clone(),
+                CachedToolList {
+                    config_hash: hash,
+                    tools,
+                },
+            );
+        }
+    }
+
+    fn read_tools_cache(&self, server_id: &str, hash: u64) -> Option<Vec<McpToolDefinition>> {
+        self.tools_cache
+            .lock()
+            .ok()
+            .and_then(|cache| cache.get(server_id).cloned())
+            .filter(|cached| cached.config_hash == hash)
+            .map(|cached| cached.tools)
     }
 
     pub async fn call_tool(
@@ -178,5 +248,86 @@ impl McpRegistry {
 impl Default for McpRegistry {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use serde_json::json;
+
+    use super::*;
+
+    /// A config that fails fast in `StdioMcpClient::connect` (empty command),
+    /// so tests exercise the failure path without network or processes.
+    fn unreachable_config(id: &str) -> McpServerConfig {
+        McpServerConfig {
+            id: id.to_string(),
+            name: id.to_string(),
+            transport: "stdio".to_string(),
+            command: String::new(),
+            args: Vec::new(),
+            env: HashMap::new(),
+            url: String::new(),
+            headers: Default::default(),
+            enabled: true,
+        }
+    }
+
+    fn sample_tool(name: &str) -> McpToolDefinition {
+        McpToolDefinition {
+            name: name.to_string(),
+            description: Some("test tool".to_string()),
+            input_schema: json!({ "type": "object", "properties": {} }),
+        }
+    }
+
+    fn seed_cache(registry: &McpRegistry, config: &McpServerConfig, tools: Vec<McpToolDefinition>) {
+        registry.store_tools_cache(config, config_hash(config), tools);
+    }
+
+    #[tokio::test]
+    async fn list_tools_falls_back_to_cached_tools_on_connect_failure() {
+        let registry = McpRegistry::new();
+        let config = unreachable_config("srv");
+        seed_cache(&registry, &config, vec![sample_tool("read"), sample_tool("write")]);
+
+        let result = registry
+            .list_tools(config)
+            .await
+            .expect("should reuse the last successful tool list");
+        assert_eq!(result.server_id, "srv");
+        assert_eq!(result.tools.len(), 2);
+        assert_eq!(result.tools[0].name, "read");
+        assert_eq!(result.tools[1].name, "write");
+    }
+
+    #[tokio::test]
+    async fn list_tools_returns_error_when_no_cache_exists() {
+        let registry = McpRegistry::new();
+        let config = unreachable_config("srv");
+
+        let error = registry
+            .list_tools(config)
+            .await
+            .expect_err("without a cache the failure must be surfaced");
+        assert!(!error.is_empty());
+    }
+
+    #[tokio::test]
+    async fn list_tools_cache_is_invalidated_by_config_change() {
+        let registry = McpRegistry::new();
+        let cached_config = unreachable_config("srv");
+        seed_cache(&registry, &cached_config, vec![sample_tool("read")]);
+
+        let mut changed = cached_config.clone();
+        changed.url = "http://changed.example".to_string();
+
+        let error = registry
+            .list_tools(changed)
+            .await
+            .expect_err("a config mismatch must not reuse the cache");
+        assert!(!error.is_empty());
     }
 }
