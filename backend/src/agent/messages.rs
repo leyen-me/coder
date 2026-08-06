@@ -1,6 +1,5 @@
 use std::sync::MutexGuard;
 
-use chrono::Local;
 use regex::Regex;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -768,7 +767,6 @@ fn build_identity_and_environment_section(
         &format!("- os: {}", runtime.os.trim()),
         &format!("- shell: {}", runtime.shell.trim()),
         &format!("- gitRepository: {}", git_line),
-        &format!("- date: {}", format_today()),
         &format!("- mode: {}", mode_line),
     ]
     .join("\n")
@@ -924,12 +922,6 @@ fn build_mode_guidance_section(agent_mode: Option<&str>, workspace_dir: Option<&
         }
         _ => Vec::new(),
     }
-}
-
-fn format_today() -> String {
-    Local::now()
-        .format("%A, %m/%d/%Y, UTC%:z")
-        .to_string()
 }
 
 fn build_titled_prompt_block(title: &str, body_lines: &[String]) -> String {
