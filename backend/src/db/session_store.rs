@@ -2,8 +2,8 @@ use uuid::Uuid;
 
 use super::{
     records::{
-        current_timestamp_ms, normalize_todo_status, AgentTodoRecord, MessageRecord, SessionRecord,
-        AGENT_TODOS_STORE, MESSAGES_STORE, SESSIONS_STORE,
+        current_timestamp_ms, normalize_todo_status, AgentTodoRecord, MessageProcessStep,
+        MessageRecord, SessionRecord, AGENT_TODOS_STORE, MESSAGES_STORE, SESSIONS_STORE,
     },
     Database, IndexEntry,
 };
@@ -300,7 +300,50 @@ pub struct CompactPersistResult {
 }
 
 fn estimate_record_tokens(record: &MessageRecord) -> u32 {
-    (record.content.len() as f64 / 2.0).ceil() as u32
+    // 模型上下文组装会展开 tool_invocations / process_steps / thinking，
+    // 这里必须同步计入，否则压缩持久化会低估真实窗口。
+    let content_len = record.content.len();
+    let thinking_len = record.thinking.len();
+    let tools_len: usize = record
+        .tool_invocations
+        .iter()
+        .map(|invocation| {
+            let input_len = serde_json::to_string(&invocation.input)
+                .map(|value| value.len())
+                .unwrap_or(2);
+            let output_len = invocation
+                .output
+                .as_ref()
+                .map(|value| {
+                    serde_json::to_string(value)
+                        .map(|serialized| serialized.len())
+                        .unwrap_or(2)
+                })
+                .unwrap_or(0);
+            let error_len = invocation.error_text.as_deref().map(str::len).unwrap_or(0);
+            input_len.saturating_add(output_len).saturating_add(error_len)
+        })
+        .sum();
+    let steps_len: usize = record
+        .process_steps
+        .as_ref()
+        .map(|steps| {
+            steps
+                .iter()
+                .map(|step| match step {
+                    MessageProcessStep::Reasoning { text, .. } => text.len(),
+                    MessageProcessStep::Answer { text, .. } => text.len(),
+                    _ => 0,
+                })
+                .sum()
+        })
+        .unwrap_or(0);
+
+    let total = content_len
+        .saturating_add(thinking_len)
+        .saturating_add(tools_len)
+        .saturating_add(steps_len);
+    (total as f64 / 2.0).ceil() as u32
 }
 
 fn select_tail_record_count(records: &[&MessageRecord], max_tokens: u32) -> usize {
