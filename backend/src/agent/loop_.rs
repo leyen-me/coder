@@ -94,8 +94,10 @@ pub async fn run_agent_loop(
     let mut last_tool_signature: Option<String> = None;
     let mut repeated_tool_signature_count = 0_i32;
     let mut turn_index = 0_u32;
-    // Baseline for CODER_AUTO_COMPACT_EVERY_N_MESSAGES (dev-only cadence).
-    let mut last_dev_auto_compact_message_count = 0usize;
+    // dev 自动压缩基线：从当前 run 可见的历史消息数开始，而不是从 0 开始。
+    // 否则压缩后保留的历史消息会在新 run 的首轮就满足“每 N 条消息”条件，
+    // 导致上下文占用很低时也立刻再次自动压缩。
+    let mut last_dev_auto_compact_message_count = count_compactable_messages(&messages);
     // Sub-agent concurrency cap. Override via CODER_SUBAGENT_MAX_CONCURRENT
     // (defaults to 3). Values below 1 are treated as 1 so the store never
     // rejects every spawn.
@@ -1520,4 +1522,3 @@ fn strip_private_fields(value: &mut serde_json::Value) {
         _ => {}
     }
 }
-

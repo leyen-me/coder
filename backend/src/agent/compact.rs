@@ -82,11 +82,11 @@ pub fn count_compactable_messages(messages: &[ChatMessage]) -> usize {
         .count()
 }
 
-/// Whether the dev cadence says we should compact now.
+/// 判断 dev 消息数节奏是否应触发自动压缩。
 ///
-/// `baseline` is the conversation size right after the previous compact in
-/// this agent run (0 before the first one), so we don't immediately re-enter
-/// compact on the next loop iteration.
+/// `baseline` 是当前 run 开始时的可见历史消息数，或上一次压缩后的消息数；
+/// 只有新增消息达到 `CODER_AUTO_COMPACT_EVERY_N_MESSAGES` 时才触发。
+/// 这样压缩后保留的历史消息不会在新 run 首轮立即再次触发压缩。
 pub fn should_trigger_dev_auto_compact(
     messages: &[ChatMessage],
     baseline: usize,
