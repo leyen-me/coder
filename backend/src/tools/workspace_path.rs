@@ -431,7 +431,7 @@ mod tests {
 
     #[test]
     fn workspace_coder_subdir_groups_under_coder_dir() {
-        use super::{workspace_coder_dir, workspace_coder_subdir, CODER_DIR_NAME};
+        use super::{workspace_coder_dir, workspace_coder_subdir};
 
         let temp = temp_workspace("coder-subdir");
         assert_eq!(workspace_coder_dir(&temp), temp.join(".coder"));
@@ -441,9 +441,10 @@ mod tests {
             temp.join(".coder/history")
         );
         // The subdir name must be nested under .coder, not appended to it.
-        assert!(workspace_coder_subdir(&temp, "skills")
-            .to_string_lossy()
-            .ends_with(&format!("{CODER_DIR_NAME}/skills")));
+        assert_eq!(
+            workspace_coder_subdir(&temp, "skills"),
+            temp.join(".coder/skills")
+        );
         let _ = fs::remove_dir_all(temp);
     }
 

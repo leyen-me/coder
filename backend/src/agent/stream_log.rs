@@ -187,9 +187,22 @@ mod tests {
     #[test]
     fn log_file_path_uses_coder_logs_dir() {
         let path = log_file_path("agent-diagnostic.log");
-        let path_text = path.to_string_lossy();
-        assert!(path_text.contains(".coder/logs/"));
-        assert!(path_text.ends_with("/agent-diagnostic.log"));
+
+        // Ends with the requested file name — assert on the Path, not on a
+        // hard-coded "/" separator, so this works on both Windows and Unix.
+        assert_eq!(
+            path.file_name().and_then(|name| name.to_str()),
+            Some("agent-diagnostic.log")
+        );
+
+        // Lives under the coder logs root.
+        let logs_dir = crate::get_coder_logs_dir();
+        assert!(path.starts_with(&logs_dir));
+
+        // With a dated YYYY-MM-DD sub-directory in between.
+        let date_dir = path.parent().and_then(Path::file_name).and_then(|name| name.to_str());
+        assert_eq!(date_dir.map(str::len), Some(10));
+        assert!(date_dir.is_some_and(|name| name.chars().all(|ch| ch == '-' || ch.is_ascii_digit())));
     }
 
     #[test]

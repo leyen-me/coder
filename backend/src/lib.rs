@@ -191,21 +191,11 @@ mod tests {
     #[test]
     fn user_coder_subdir_nests_under_coder() {
         // Location resolution is single-sourced; every user-level subdir must
-        // live under <home>/.coder regardless of where HOME resolves.
-        assert!(
-            user_coder_subdir("skills")
-                .to_string_lossy()
-                .ends_with(".coder/skills")
-        );
-        assert!(
-            user_coder_subdir("mcp-oauth")
-                .to_string_lossy()
-                .ends_with(".coder/mcp-oauth")
-        );
-        assert!(
-            user_coder_subdir("logs")
-                .to_string_lossy()
-                .ends_with(".coder/logs")
-        );
+        // live under <home>/.coder regardless of where HOME resolves. Compare
+        // paths (not stringified copies) so this holds on any OS separator.
+        let coder_dir = crate::get_coder_data_dir();
+        assert_eq!(user_coder_subdir("skills"), coder_dir.join("skills"));
+        assert_eq!(user_coder_subdir("mcp-oauth"), coder_dir.join("mcp-oauth"));
+        assert_eq!(user_coder_subdir("logs"), coder_dir.join("logs"));
     }
 }
