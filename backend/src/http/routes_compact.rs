@@ -203,7 +203,7 @@ pub async fn handle_compact(
     .await
     {
         Ok(summary) => {
-            let summary_preview = summary.text.chars().take(200).collect::<String>();
+            let summary_preview = summary.text.clone();
             match persist_compact_summary(
                 &state.db,
                 Some(session_id),
