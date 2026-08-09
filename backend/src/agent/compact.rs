@@ -591,7 +591,10 @@ pub fn estimate_prompt_tokens(messages: &[ChatMessage]) -> u32 {
 
 /// Check if a message IS an existing compact summary — we skip these to
 /// prevent nested summaries.
-fn is_compact_summary_message(msg: &ChatMessage) -> bool {
+///
+/// Shared by compaction itself and by system-prompt preview building, so the
+/// notion of "a summary message" stays in one place.
+pub fn is_compact_summary_message(msg: &ChatMessage) -> bool {
     if msg.role != "system" {
         return false;
     }

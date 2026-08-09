@@ -4,6 +4,7 @@ use regex::Regex;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+use super::compact::is_compact_summary_message;
 use super::types::{AgentToolDefinition, ApiToolCall, ApiToolCallFunction, ChatMessage};
 use crate::db::{
     records::{MessageImageAttachment, MessageProcessStep, MessageRecord, SessionRecord},
@@ -85,9 +86,14 @@ pub fn build_system_prompt_preview(
         effective_session.workspace_dir = Some(workspace_dir.to_string());
     }
     let messages = assemble_agent_messages(app_state, &effective_session, agent_mode)?;
+    // Only surface true system instructions in the "System prompt" panel.
+    // Compact summaries are also system-role messages inside the conversation,
+    // but they are dynamic context (already shown in the timeline), not
+    // instructions — exclude them so the panel stays a faithful "system prompt".
     let system_blocks = messages
         .into_iter()
         .take_while(|message| message.role == "system")
+        .filter(|message| !is_compact_summary_message(message))
         .filter_map(|message| message.content.and_then(|value| value.as_str().map(str::to_string)))
         .collect::<Vec<_>>();
     Ok(join_prompt_blocks(system_blocks))
@@ -1933,5 +1939,71 @@ Prefer deterministic test scaffolding.
                 .and_then(Value::as_str)
                 .is_some_and(|text| text.contains("ancient history"))
         }));
+    }
+
+    #[test]
+    fn build_system_prompt_preview_excludes_compact_summary() {
+        let workspace_dir = temp_dir("sys-prompt-preview");
+        let state = create_test_state(&workspace_dir);
+        let session = sample_session(&workspace_dir);
+        let db = state.db.lock().expect("db");
+        put_session(&db, &session).expect("put session");
+        let kept_id = new_message_id();
+        put_message(
+            &db,
+            &MessageRecord {
+                id: kept_id.clone(),
+                session_id: session.id.clone(),
+                role: "user".to_string(),
+                message_kind: None,
+                content: "continue from here".to_string(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: None,
+                error: None,
+                created_at: 200,
+                duration_ms: None,
+                usage: None,
+            },
+            true,
+        )
+        .expect("put kept");
+        put_message(
+            &db,
+            &MessageRecord {
+                id: new_message_id(),
+                session_id: session.id.clone(),
+                role: "assistant".to_string(),
+                message_kind: Some(crate::db::records::MESSAGE_KIND_COMPACT.to_string()),
+                content: "## Context Compaction Summary\n\ncompacted context".to_string(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: Some(kept_id),
+                error: None,
+                created_at: 201,
+                duration_ms: None,
+                usage: None,
+            },
+            true,
+        )
+        .expect("put compact");
+        drop(db);
+
+        let preview = build_system_prompt_preview(&state, &session, Some("agent"), None)
+            .expect("system prompt preview");
+
+        // Real system instructions are surfaced...
+        assert!(preview.contains("## Environment"));
+        // ...but the compact summary (dynamic context) is not mixed in.
+        assert!(!preview.contains("compacted context"));
+        assert!(!preview.contains("Context Compaction Summary"));
     }
 }
