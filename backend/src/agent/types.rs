@@ -231,6 +231,30 @@ pub struct AgentStartParams {
     pub decision_model: Option<String>,
 }
 
+impl AgentStartParams {
+    /// Whether the active model (identified by `self.model`) supports multimodal
+    /// (vision) input, derived from the frontend-provided `models` catalog.
+    /// Defaults to `false` when the capability is unknown so text-only paths
+    /// are the safe fallback (never guess a model can see images).
+    pub fn active_model_supports_multimodal(&self) -> bool {
+        let Some(models) = self.models.as_deref() else {
+            return false;
+        };
+        let active_id = self.model.trim();
+        if active_id.is_empty() {
+            return false;
+        }
+        models.iter().any(|m| {
+            let id = m.get("id").and_then(serde_json::Value::as_str).unwrap_or("");
+            let supports = m
+                .get("supportsMultimodal")
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false);
+            id == active_id && supports
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentStatusResponse {

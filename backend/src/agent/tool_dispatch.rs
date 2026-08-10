@@ -17,8 +17,9 @@ use crate::tools::{
     send_email, shell_kill, shell_list, shell_read_logs, tool_await, tool_browse_page,
     tool_edit_file, tool_get_workspace_tree, tool_glob, tool_grep, tool_list_dir,
     tool_plan_create, tool_plan_delete, tool_plan_edit, tool_plan_list, tool_plan_read,
-    tool_plan_update, tool_read_file, tool_remote_shell, tool_replace_file,
-    tool_replace_lines, tool_shell, tool_web_search, tool_create_file, PageCache,
+    tool_plan_update, tool_read_file, tool_read_image, tool_remote_shell,
+    tool_replace_file, tool_replace_lines, tool_shell, tool_web_search,
+    tool_create_file, PageCache,
     RemoteConnectionPool, ShellRegistry,
 };
 
@@ -189,7 +190,7 @@ pub struct ToolErrorPayload {
 }
 
 pub fn serialize_tool_result(result: &ToolResultEnvelope) -> Value {
-    // If the tool returned a multimodal image payload (read_file on an image),
+    // If the tool returned a multimodal image payload (read_image with vision),
     // feed it to the model as vision input instead of a raw JSON string.
     if let Some(image_content) = result
         .data
@@ -210,9 +211,10 @@ pub fn serialize_tool_result(result: &ToolResultEnvelope) -> Value {
     )
 }
 
-/// When `data` carries a base64 image data URL (e.g. `read_file` of an image),
-/// returns an OpenAI-compatible multimodal content array the model can "see".
-/// Otherwise returns `None`, and the caller falls back to plain string output.
+/// When `data` carries a base64 image data URL (e.g. `read_image` of an image
+/// for a vision-capable model), returns an OpenAI-compatible multimodal content
+/// array the model can "see". Otherwise returns `None`, and the caller falls
+/// back to plain string output.
 pub fn image_multimodal_content(tool: &str, data: &Value) -> Option<Value> {
     let image_data_url = data.get("imageDataUrl")?.as_str()?;
     let path = data.get("path").and_then(Value::as_str).unwrap_or("");
@@ -266,6 +268,7 @@ pub async fn execute_tool_call(
     }
     match name {
         "read_file" => execute_read_file(args, ctx),
+        "read_image" => execute_read_image(args, ctx),
         "create_file" | "write_file" => execute_create_file(args, ctx),
         "replace_file" => execute_replace_file(args, ctx),
         "edit_file" => execute_edit_file(args, ctx),
@@ -323,6 +326,7 @@ fn parse_mcp_tool_name(name: &str) -> Option<(String, String)> {
 pub fn all_tool_names() -> Vec<String> {
     [
         "read_file",
+        "read_image",
         "create_file",
         "replace_file",
         "edit_file",
@@ -405,6 +409,7 @@ pub fn tool_names(mode: Option<&str>) -> Vec<String> {
                         | "plan_delete"
                         | "plan_list"
                         | "read_file"
+                        | "read_image"
                         | "read_shell_logs"
                         | "search"
                         | "spawn_subagent"
@@ -446,6 +451,18 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "path": string_schema("Relative or absolute path to the file within the workspace."),
                     "start_line": int_schema("First line to read (1-based).", Some(1)),
                     "max_lines": int_schema("Maximum number of lines to return. Set to 2000 to read large files in one call. When omitted, reads up to 1000 lines. If `truncated` is true in the result, more lines exist — use `start_line` to read them.", Some(1000)),
+                },
+                "required": ["path"],
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
+            "read_image",
+            "Read an image file from the workspace. If the active model supports vision, the image is fed to the model as visual (multimodal) input so it can actually see the contents. For text-only models, returns the image's metadata (path, mime type, size) since the model cannot receive pixel data.",
+            json!({
+                "type": "object",
+                "properties": {
+                    "path": string_schema("Relative or absolute path to an image file within the workspace."),
                 },
                 "required": ["path"],
                 "additionalProperties": false
@@ -933,6 +950,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
             let allowed = [
                 "list_dir",
                 "read_file",
+                "read_image",
                 "todo_read",
                 "ask_question",
                 "glob",
@@ -948,6 +966,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
             let allowed = [
                 "list_dir",
                 "read_file",
+                "read_image",
                 "todo_read",
                 "todo_write",
                 "ask_question",
@@ -1114,6 +1133,29 @@ fn execute_read_file(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<Tool
     ) {
         Ok(result) => tool_success("read_file", result),
         Err(error) => tool_failure("read_file", "execution_failed", error.to_string()),
+    })
+}
+
+#[derive(Deserialize)]
+struct ReadImageArgs {
+    path: String,
+}
+
+fn execute_read_image(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
+    let args: ReadImageArgs = match parse_from_value("read_image", args) {
+        Ok(value) => value,
+        Err(error) => return Ok(error),
+    };
+    let workspace_dir = match require_workspace_dir(ctx, "read_image") {
+        Ok(value) => value,
+        Err(error) => return Ok(error),
+    };
+    // Multi-line intent: whether to embed the pixel data as vision input
+    // depends on the *active model's* capability, not a global assumption.
+    let emit_vision = ctx.parent_start_params.active_model_supports_multimodal();
+    Ok(match tool_read_image(workspace_dir, args.path, emit_vision) {
+        Ok(result) => tool_success("read_image", result),
+        Err(error) => tool_failure("read_image", "execution_failed", error.to_string()),
     })
 }
 
@@ -3601,6 +3643,7 @@ mod tests {
                 "list_dir",
                 "list_shells",
                 "read_file",
+                "read_image",
                 "read_shell_logs",
                 "remote_shell",
                 "replace_file",
@@ -3624,6 +3667,7 @@ mod tests {
                 "list_dir",
                 "list_shells",
                 "read_file",
+                "read_image",
                 "todo_read",
                 "web_search",
             ]
@@ -3645,6 +3689,7 @@ mod tests {
                 "plan_read",
                 "plan_update",
                 "read_file",
+                "read_image",
                 "todo_read",
                 "todo_write",
                 "web_search",

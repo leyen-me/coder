@@ -20,6 +20,7 @@ mod plan;
 mod project_instructions;
 mod read_editor_file;
 mod read_file;
+mod read_image;
 pub mod remote_connection;
 mod replace_file;
 mod runtime;
@@ -56,6 +57,7 @@ pub use plan::{
 };
 pub use read_editor_file::tool_read_editor_file;
 pub use read_file::tool_read_file;
+pub use read_image::tool_read_image;
 pub use remote_connection::{test_remote_connection, RemoteConnectionPool, SshStreamEvent};
 pub use replace_file::tool_replace_file;
 pub use runtime::{agent_get_runtime_environment, RuntimeEnvironmentResponse};
