@@ -2754,6 +2754,7 @@ async fn execute_spawn_subagent(
             api_key_env_var: Some(parent.api_key_env_var.clone()),
             request_extensions: parent.request_extensions.clone(),
             max_context_tokens: parent.max_context_tokens,
+            compact_trigger_threshold: parent.compact_trigger_threshold,
             agent_mode: Some("agent".to_string()),
             thinking_enabled: parent.thinking_enabled,
             extra_tools: Some(allowed_tools),

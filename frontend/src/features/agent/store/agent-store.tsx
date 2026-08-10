@@ -45,6 +45,7 @@ import {
   findModelDefinition,
 } from "@/lib/model-provider/model-definition";
 import { resolveContextWindowForModel } from "../headless-runner";
+import { readAgentSessionThreshold } from "../session-settings";
 import { buildThinkingRequestExtensions, resolveDefaultThinkingEnabled } from "../thinking-preference";
 import {
   cancelAgent,
@@ -927,6 +928,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           thinkingEnabled,
         }),
         maxContextTokens,
+        compactTriggerThreshold: readAgentSessionThreshold(),
         agentMode: input.agentMode,
         thinkingEnabled,
         extraTools: input.extraTools,
@@ -1035,6 +1037,7 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           thinkingEnabled,
         }),
         maxContextTokens,
+        compactTriggerThreshold: readAgentSessionThreshold(),
         agentMode: resolvedAgentMode,
         thinkingEnabled,
       });
@@ -1263,4 +1266,3 @@ export function useChatRetryByMessageId(): ReadonlyMap<
     return retries;
   }, [activeTasks]);
 }
-

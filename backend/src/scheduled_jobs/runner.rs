@@ -54,6 +54,7 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
             api_key_env_var: Some(runtime.api_key_env_var),
             request_extensions: runtime.request_extensions,
             max_context_tokens: Some(runtime.max_context_tokens),
+            compact_trigger_threshold: None,
             agent_mode: Some(match job.agent_mode {
                 super::types::AgentMode::Agent => "agent".to_string(),
                 super::types::AgentMode::Ask => "ask".to_string(),

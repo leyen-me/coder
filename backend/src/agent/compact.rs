@@ -20,7 +20,9 @@ use super::types::ChatMessage;
 use crate::db::{session_store::persist_session_compact, Database};
 
 /// Token budget ratio where auto-compact triggers.
-const DEFAULT_COMPACT_THRESHOLD: f64 = 0.85;
+///
+/// Kept in sync with the frontend default (`DEFAULT_AGENT_SESSION_THRESHOLD`).
+const DEFAULT_COMPACT_THRESHOLD: f64 = 0.8;
 
 /// Reserve ratio for the compaction round-trip.
 const COMPACT_RESERVE_RATIO: f64 = 0.25;
@@ -627,8 +629,8 @@ mod tests {
 
     #[test]
     fn should_trigger_at_threshold() {
-        assert!(!should_trigger_compact(8000, 10000, None));
-        assert!(should_trigger_compact(8500, 10000, None));
+        assert!(!should_trigger_compact(7999, 10000, None));
+        assert!(should_trigger_compact(8000, 10000, None));
     }
 
     #[test]
