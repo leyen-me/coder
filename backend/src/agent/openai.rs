@@ -185,6 +185,8 @@ struct CompletionResponse {
 #[derive(Debug, Deserialize)]
 struct CompletionChoice {
     message: Option<CompletionMessage>,
+    #[serde(default)]
+    finish_reason: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -687,6 +689,18 @@ pub async fn complete_chat_completion(
         .json()
         .await
         .map_err(|error| format!("Failed to parse response: {error}"))?;
+
+    if parsed
+        .choices
+        .first()
+        .and_then(|choice| choice.finish_reason.as_deref())
+        == Some("length")
+    {
+        return Err(
+            "Completion stopped because max_tokens was reached; summary may be truncated"
+                .to_string(),
+        );
+    }
 
     Ok(parsed
         .choices

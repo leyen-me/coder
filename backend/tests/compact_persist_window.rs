@@ -152,3 +152,92 @@ fn compact_persist_must_account_for_tool_output() {
         "巨大的工具输出消息不应再进入模型窗口"
     );
 }
+
+#[test]
+fn compact_persist_falls_back_to_one_message_when_latest_exceeds_budget() {
+    let workspace = temp_dir("workspace-latest-large");
+    std::fs::create_dir_all(&workspace).expect("workspace");
+    let data_dir = temp_dir("data-latest-large");
+    std::fs::create_dir_all(&data_dir).expect("data dir");
+    let db = Database::new(&data_dir).expect("db");
+    let session = sample_session(&workspace);
+    put_session(&db, &session).expect("put session");
+
+    put_message(
+        &db,
+        &MessageRecord {
+            id: new_message_id(),
+            session_id: session.id.clone(),
+            role: "user".to_string(),
+            message_kind: None,
+            content: "old".to_string(),
+            images: None,
+            referenced_skills: None,
+            thinking: String::new(),
+            process_steps: None,
+            tool_invocations: Vec::new(),
+            status: "completed".to_string(),
+            task_id: None,
+            error: None,
+            created_at: 100,
+            duration_ms: None,
+            usage: None,
+        },
+        true,
+    )
+    .expect("put old user");
+
+    // 最新消息本身就超过 20k token 预算，选择器会返回 0。
+    let latest_user_id = new_message_id();
+    put_message(
+        &db,
+        &MessageRecord {
+            id: latest_user_id.clone(),
+            session_id: session.id.clone(),
+            role: "user".to_string(),
+            message_kind: None,
+            content: "x".repeat(200_000),
+            images: None,
+            referenced_skills: None,
+            thinking: String::new(),
+            process_steps: None,
+            tool_invocations: Vec::new(),
+            status: "completed".to_string(),
+            task_id: None,
+            error: None,
+            created_at: 200,
+            duration_ms: None,
+            usage: None,
+        },
+        true,
+    )
+    .expect("put latest user");
+
+    let persisted = persist_session_compact(
+        &db,
+        &session.id,
+        "Concise summary.",
+        COMPACT_USER_MESSAGE_MAX_TOKENS,
+        "## Context Compaction Summary\n\n",
+        false,
+    )
+    .expect("persist compact");
+
+    // 修复前 keep_count == 0 会直接 noop；修复后至少保留最新一条并建立 marker。
+    assert!(
+        persisted.removed_count > 0,
+        "最新消息超预算时也应建立 compact marker"
+    );
+    assert_eq!(
+        persisted.first_kept_message_id.as_deref(),
+        Some(latest_user_id.as_str())
+    );
+
+    let records = get_messages_by_session(&db, &session.id).expect("messages");
+    assert!(
+        records
+            .iter()
+            .any(|record| record.message_kind.as_deref() == Some("compact")),
+        "SQLite 中必须存在 compact marker"
+    );
+}

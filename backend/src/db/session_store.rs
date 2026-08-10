@@ -518,7 +518,12 @@ pub fn persist_session_compact(
     // Force must always split when possible — including the case where the
     // newest message alone exceeds the (often tiny) force budget and the
     // selector returns 0.
-    if force && conversation.len() >= 2 && (keep_count == 0 || keep_count >= conversation.len()) {
+    // 非 force 时，若最新消息单独超过预算，也至少保留一条并建立 compact
+    // marker，避免内存已压缩而 SQLite 仍保留全量历史，下次 run 再次压缩。
+    if conversation.len() >= 2 && keep_count == 0 {
+        keep_count = 1;
+    }
+    if force && conversation.len() >= 2 && keep_count >= conversation.len() {
         keep_count = 1;
     }
 
