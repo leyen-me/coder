@@ -1,7 +1,7 @@
 import type { LanguageModelUsage } from "ai";
 
 import { serializeInvocationToolContent } from "@/features/agent/process-steps";
-import type { MessageRecord } from "@/lib/db";
+import type { MessageRecord, SessionRecord } from "@/lib/db";
 import {
   DEFAULT_MODEL_CONTEXT_WINDOW,
   findModelDefinition,
@@ -10,6 +10,7 @@ import {
 import { parseModelValue } from "@/lib/model-provider/resolve-provider-config";
 
 const IMAGE_TOKEN_ESTIMATE = 765;
+const SNAPSHOT_TOKEN_ESTIMATE = 2;
 const CJK_PATTERN = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g;
 /** Matches backend `COMPACT_USER_MESSAGE_MAX_TOKENS` for first_kept recovery. */
 const COMPACT_TAIL_TOKEN_BUDGET = 20_000;
@@ -240,6 +241,7 @@ export function estimateSessionContextUsage(input: {
   modelId: string;
   models: readonly ModelDefinition[];
   editingMessageId?: string | null;
+  contextUsageSnapshot?: SessionRecord["contextUsageSnapshot"] | null;
 }): SessionContextUsage | null {
   const effectiveMessages = resolveEffectiveMessages(
     input.messages,
@@ -255,6 +257,47 @@ export function estimateSessionContextUsage(input: {
     parseModelValue(input.modelId).modelId
   );
   const maxTokens = selectedModel?.contextWindow ?? DEFAULT_MODEL_CONTEXT_WINDOW;
+
+  // 后端每次收到真实 usage 或压缩后都会写入 session 快照。快照存在时，
+  // composer 直接使用同一份 used/max/triggerThreshold，只对快照之后新增的
+  // 消息做增量估算，避免 UI 与压缩判断口径不一致。
+  const editingIndex = input.editingMessageId
+    ? effectiveMessages.findIndex((message) => message.id === input.editingMessageId)
+    : -1;
+  const snapshot = input.contextUsageSnapshot;
+  const snapshotUsable =
+    snapshot != null &&
+    snapshot.usedTokens > 0 &&
+    snapshot.maxTokens > 0 &&
+    snapshot.triggerThreshold > 0 &&
+    snapshot.updatedAt > 0 &&
+    (editingIndex === -1 ||
+      effectiveMessages[editingIndex]?.createdAt >= snapshot.updatedAt);
+  if (snapshotUsable && snapshot) {
+    const boundaryIndex = snapshot.lastMessageId
+      ? effectiveMessages.findIndex(
+          (message) => message.id === snapshot.lastMessageId
+        )
+      : -1;
+    const newerMessages =
+      boundaryIndex >= 0
+        ? effectiveMessages.slice(boundaryIndex + 1)
+        : effectiveMessages.filter(
+            (message) => message.createdAt > snapshot.updatedAt
+          );
+    const inputTokens =
+      snapshot.usedTokens + estimateBackendStyleDeltaTokens(newerMessages);
+    return {
+      modelId: input.modelId,
+      maxTokens: snapshot.maxTokens,
+      usedTokens: inputTokens,
+      usage: createUsage({
+        inputTokens,
+        outputTokens: 0,
+        reasoningTokens: 0,
+      }),
+    };
+  }
 
   const compactMessage = effectiveMessages.find(
     (message) => message.messageKind === "compact"
@@ -344,7 +387,8 @@ export function estimateSessionContextUsage(input: {
     inputTokens += estimateTextTokens(systemPrompt);
   }
 
-  const usedTokens = inputTokens + outputTokens + reasoningTokens;
+  // 压缩判断只看 prompt 占用，因此百分比也应只按 inputTokens 计算。
+  const usedTokens = inputTokens;
 
   return {
     modelId: input.modelId,
@@ -352,4 +396,80 @@ export function estimateSessionContextUsage(input: {
     usedTokens,
     usage: createUsage({ inputTokens, outputTokens, reasoningTokens }),
   };
+}
+
+function estimateBackendStyleDeltaTokens(
+  messages: readonly MessageRecord[]
+): number {
+  return messages.reduce(
+    (total, message) => total + estimateBackendStyleRecordTokens(message),
+    0
+  );
+}
+
+function estimateBackendStyleRecordTokens(message: MessageRecord): number {
+  let chars = 0;
+
+  if (message.role === "user") {
+    chars += utf8Length(message.content);
+    if (message.images && message.images.length > 0) {
+      chars += utf8Length(
+        JSON.stringify(
+          message.images.map((image) => ({
+            type: "image_url",
+            image_url: { url: image.url, detail: "auto" },
+          }))
+        )
+      );
+    }
+    return Math.ceil(chars / SNAPSHOT_TOKEN_ESTIMATE);
+  }
+
+  if (message.role === "assistant") {
+    const answerText = (message.processSteps ?? [])
+      .map((step) => (step.kind === "answer" ? step.text : ""))
+      .join("");
+    chars += utf8Length(answerText.length > 0 ? answerText : message.content);
+    for (const invocation of message.toolInvocations ?? []) {
+      chars += utf8Length(serializeToolOutputLikeBackend(invocation));
+    }
+  }
+
+  return Math.ceil(chars / SNAPSHOT_TOKEN_ESTIMATE);
+}
+
+function serializeToolOutputLikeBackend(
+  invocation: NonNullable<MessageRecord["toolInvocations"]>[number]
+): string {
+  const output = invocation.output;
+  if (
+    output !== null &&
+    typeof output === "object" &&
+    "imageDataUrl" in output &&
+    typeof output.imageDataUrl === "string"
+  ) {
+    const data = output as {
+      imageDataUrl: string;
+      path?: unknown;
+      mimeType?: unknown;
+    };
+    const path = typeof data.path === "string" ? data.path : "";
+    const mimeType =
+      typeof data.mimeType === "string" ? data.mimeType : "image";
+    return JSON.stringify([
+      {
+        type: "text",
+        text: `[${invocation.name}] Read image: ${path} (${mimeType})`,
+      },
+      {
+        type: "image_url",
+        image_url: { url: data.imageDataUrl, detail: "auto" },
+      },
+    ]);
+  }
+  return JSON.stringify(output ?? null);
+}
+
+function utf8Length(value: string): number {
+  return new TextEncoder().encode(value).length;
 }

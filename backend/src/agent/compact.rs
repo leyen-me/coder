@@ -22,7 +22,7 @@ use crate::db::{session_store::persist_session_compact, Database};
 /// Token budget ratio where auto-compact triggers.
 ///
 /// Kept in sync with the frontend default (`DEFAULT_AGENT_SESSION_THRESHOLD`).
-const DEFAULT_COMPACT_THRESHOLD: f64 = 0.8;
+pub const DEFAULT_COMPACT_THRESHOLD: f64 = 0.8;
 
 /// Reserve ratio for the compaction round-trip.
 const COMPACT_RESERVE_RATIO: f64 = 0.25;
@@ -592,6 +592,22 @@ pub fn estimate_prompt_tokens(messages: &[ChatMessage]) -> u32 {
     messages.iter().map(estimate_message_tokens).sum()
 }
 
+/// 以最后一次真实 `prompt_tokens` 为基线，只对基线之后新增的消息做估算。
+///
+/// 这样已由模型返回的真实 usage 优先，估算只覆盖自上次请求以来新增的
+/// 消息；当基线长度已失效（例如压缩后历史被替换）时回退到全量估算。
+pub fn estimate_prompt_usage(
+    messages: &[ChatMessage],
+    baseline_prompt_tokens: Option<u32>,
+    baseline_message_len: usize,
+) -> u32 {
+    match baseline_prompt_tokens {
+        Some(tokens) if baseline_message_len <= messages.len() => tokens
+            .saturating_add(estimate_prompt_tokens(&messages[baseline_message_len..])),
+        _ => estimate_prompt_tokens(messages),
+    }
+}
+
 /// Check if a message IS an existing compact summary — we skip these to
 /// prevent nested summaries.
 ///
@@ -771,6 +787,26 @@ mod tests {
         let tokens = estimate_prompt_tokens(&msgs);
         assert!(tokens > 0);
         assert!(tokens < 50);
+    }
+
+    #[test]
+    fn prompt_usage_uses_real_baseline_and_only_estimates_delta() {
+        let msgs = vec![
+            make_msg("system", "hi"),
+            make_msg("user", "hello"),
+            make_msg("assistant", "123456"),
+        ];
+        // 基线 100 对应前两条消息，新增 "123456" 按字符/2 估算为 3。
+        let usage = estimate_prompt_usage(&msgs, Some(100), 2);
+        assert_eq!(usage, 103);
+    }
+
+    #[test]
+    fn prompt_usage_falls_back_when_baseline_len_exceeds_messages() {
+        let msgs = vec![make_msg("user", "hello")];
+        // 压缩等场景会让消息列表短于基线，此时应回退到全量估算。
+        let usage = estimate_prompt_usage(&msgs, Some(100), 5);
+        assert_eq!(usage, estimate_prompt_tokens(&msgs));
     }
 
     #[test]

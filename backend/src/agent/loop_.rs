@@ -5,9 +5,10 @@ use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
 use super::compact::{
-    apply_compact, build_compact_snapshot,
-    count_compactable_messages, is_micro_compact_mode, persist_compact_summary, run_compact,
-    should_trigger_compact, should_trigger_dev_auto_compact, CompactPersistOptions,
+    apply_compact, build_compact_snapshot, compact_reserve, estimate_prompt_tokens,
+    estimate_prompt_usage, count_compactable_messages, is_micro_compact_mode,
+    persist_compact_summary, run_compact, should_trigger_compact,
+    should_trigger_dev_auto_compact, CompactPersistOptions, DEFAULT_COMPACT_THRESHOLD,
 };
 use super::decision::{
     build_final_answer_decision_request, build_proxy_continuation_message, request_proxy_decision,
@@ -21,9 +22,11 @@ use super::types::{AgentEvent, AgentStartParams, ChatMessage, TokenUsage, ToolCa
 use crate::db::{
     records::{
         current_timestamp_ms, DecisionOptionRecord, DecisionResponseRecord, MessageProcessStep,
-        MessageToolInvocation,
+        MessageToolInvocation, SessionContextUsageSnapshot,
     },
-    session_store::{find_assistant_message_by_task_id, get_session, CompactPersistResult},
+    session_store::{
+        find_assistant_message_by_task_id, get_session, update_session, CompactPersistResult,
+    },
     Database,
 };
 
@@ -98,6 +101,14 @@ pub async fn run_agent_loop(
     // 否则压缩后保留的历史消息会在新 run 的首轮就满足“每 N 条消息”条件，
     // 导致上下文占用很低时也立刻再次自动压缩。
     let mut last_dev_auto_compact_message_count = count_compactable_messages(&messages);
+    // 压缩判断与 composer 共用同一份上下文占用口径：优先使用最近一次模型
+    // 返回的真实 prompt_tokens，只对之后新增的消息做增量估算。
+    let max_tokens = params.max_context_tokens.unwrap_or(96_000);
+    let trigger_threshold = params
+        .compact_trigger_threshold
+        .unwrap_or(DEFAULT_COMPACT_THRESHOLD);
+    let mut last_real_prompt_tokens: Option<u32> = None;
+    let mut last_real_usage_message_len = 0_usize;
     // Sub-agent concurrency cap. Override via CODER_SUBAGENT_MAX_CONCURRENT
     // (defaults to 3). Values below 1 are treated as 1 so the store never
     // rejects every spawn.
@@ -130,10 +141,10 @@ pub async fn run_agent_loop(
         // intentionally removed. Running it every loop iteration mutated the
         // context prefix on each turn, which destroyed prompt-cache hits and
         // forced the model to re-read files (and re-reads then bloated the
-        // context further). Session bounds are already enforced by the 85%
-        // semantic compaction below; individual tool outputs are capped (e.g.
-        // read_file MAX_OUTPUT_BYTES). Keeping the full window stable is the
-        // better trade.
+        // context further). Session bounds are already enforced by the
+        // threshold-based semantic compaction below; individual tool outputs
+        // are capped (e.g. read_file MAX_OUTPUT_BYTES). Keeping the full window
+        // stable is the better trade.
 
         // ── Auto-compact check (replaces the old session rollover mechanism) ──
         //
@@ -145,12 +156,15 @@ pub async fn run_agent_loop(
         //
         // This avoids the cost of creating a new DB session and keeps agent
         // continuity within the same window.
-        let max_tokens = params.max_context_tokens.unwrap_or(96_000);
-        let prompt_estimate = estimate_prompt_size(&messages);
+        let prompt_estimate = estimate_prompt_usage(
+            &messages,
+            last_real_prompt_tokens,
+            last_real_usage_message_len,
+        );
         let token_trigger = should_trigger_compact(
             prompt_estimate,
             max_tokens,
-            params.compact_trigger_threshold,
+            Some(trigger_threshold),
         );
         let dev_trigger = should_trigger_dev_auto_compact(
             &messages,
@@ -240,6 +254,17 @@ pub async fn run_agent_loop(
                         summary.micro_mode
                     );
                     messages = result.messages;
+                    last_real_prompt_tokens = None;
+                    last_real_usage_message_len = 0;
+                    persist_context_usage_snapshot(
+                        &app_state.db,
+                        params.session_id.as_deref(),
+                        estimate_prompt_tokens(&messages),
+                        max_tokens,
+                        trigger_threshold,
+                        "estimated",
+                        None,
+                    );
                     let persisted = persist_compact_for_task(
                         &app_state.db,
                         &params.task_id,
@@ -332,6 +357,17 @@ pub async fn run_agent_loop(
                                 result.removed_count
                             );
                             messages = result.messages;
+                            last_real_prompt_tokens = None;
+                            last_real_usage_message_len = 0;
+                            persist_context_usage_snapshot(
+                                &app_state.db,
+                                params.session_id.as_deref(),
+                                estimate_prompt_tokens(&messages),
+                                max_tokens,
+                                trigger_threshold,
+                                "estimated",
+                                None,
+                            );
                             let persisted = persist_compact_for_task(
                                 &app_state.db,
                                 &params.task_id,
@@ -460,6 +496,17 @@ pub async fn run_agent_loop(
                         result.removed_count
                     );
                     messages = result.messages;
+                    last_real_prompt_tokens = None;
+                    last_real_usage_message_len = 0;
+                    persist_context_usage_snapshot(
+                        &app_state.db,
+                        params.session_id.as_deref(),
+                        estimate_prompt_tokens(&messages),
+                        max_tokens,
+                        trigger_threshold,
+                        "estimated",
+                        None,
+                    );
                     let persisted = persist_compact_for_task(
                         &app_state.db,
                         &params.task_id,
@@ -506,10 +553,24 @@ pub async fn run_agent_loop(
 
         if let Some(usage) = &turn.usage {
             latest_prompt_tokens = Some(usage.prompt_tokens);
+            last_real_prompt_tokens = Some(usage.prompt_tokens);
+            last_real_usage_message_len = messages.len();
             cumulative_usage = Some(match cumulative_usage.as_ref() {
                 Some(acc) => merge_usage(acc, usage),
                 None => usage.clone(),
             });
+            let last_message_id = persisted_state
+                .as_ref()
+                .map(|state| state.message_id.as_str());
+            persist_context_usage_snapshot(
+                &app_state.db,
+                params.session_id.as_deref(),
+                usage.prompt_tokens,
+                max_tokens,
+                trigger_threshold,
+                "provider",
+                last_message_id,
+            );
 
             // Persist the latest token usage to DB now so the Composer uses real
             // values during the agent loop instead of heuristic estimates.
@@ -1423,28 +1484,37 @@ fn is_stream_retryable(message: &str) -> bool {
     message.contains("timed out") || message.contains("Stream read failed")
 }
 
-/// Estimate the current prompt size by summing character counts across all
-/// messages. This is a zero-allocation heuristic — it is fast and adequate
-/// for triggering compaction before we overrun the context window.
-fn estimate_prompt_size(messages: &[ChatMessage]) -> u32 {
-    messages
-        .iter()
-        .map(|msg| {
-            let content_len = msg
-                .content
-                .as_ref()
-                .map(|v| match v {
-                    Value::String(s) => s.len(),
-                    other => other.to_string().len(),
-                })
-                .unwrap_or(0);
-            // Rough character-to-token ratio: ~3.5 chars per token for English,
-            // ~1.5 chars per token for CJK. We use 2.0 as a conservative
-            // midpoint — it slightly overestimates for mixed content, which is
-            // preferable to underestimating and risking overflow.
-            (content_len as f64 / 2.0).ceil() as u32
-        })
-        .sum()
+/// 把当前上下文占用快照写入 session，composer 与压缩判断共用同一口径。
+///
+/// `source` 为 `provider` 时 `used_tokens` 是模型真实返回的 prompt tokens；
+/// 为 `estimated` 时是压缩后对剩余消息的估算。
+fn persist_context_usage_snapshot(
+    db: &Arc<Mutex<Database>>,
+    session_id: Option<&str>,
+    used_tokens: u32,
+    max_tokens: u32,
+    trigger_threshold: f64,
+    source: &str,
+    last_message_id: Option<&str>,
+) {
+    let Some(session_id) = session_id.map(str::trim).filter(|value| !value.is_empty()) else {
+        return;
+    };
+    let Ok(db) = db.lock() else {
+        return;
+    };
+    let _ = update_session(&db, session_id, |session| {
+        session.context_usage_snapshot = Some(SessionContextUsageSnapshot {
+            used_tokens,
+            max_tokens,
+            remaining_tokens: max_tokens.saturating_sub(used_tokens),
+            reserved_tokens: compact_reserve(max_tokens),
+            trigger_threshold,
+            source: source.to_string(),
+            updated_at: current_timestamp_ms(),
+            last_message_id: last_message_id.map(str::to_string),
+        });
+    });
 }
 
 fn build_stream_idle_recovery_messages(messages: &[ChatMessage]) -> Vec<ChatMessage> {

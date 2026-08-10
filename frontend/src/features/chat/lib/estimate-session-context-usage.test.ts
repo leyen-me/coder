@@ -75,11 +75,93 @@ describe("estimateSessionContextUsage", () => {
     expect(usage?.usage.inputTokens).toBeGreaterThan(0);
     expect(usage?.usage.outputTokens).toBeGreaterThan(0);
     expect(usage?.usage.reasoningTokens).toBeGreaterThan(0);
-    expect(usage?.usedTokens).toBe(
-      (usage?.usage.inputTokens ?? 0) +
-        (usage?.usage.outputTokens ?? 0) +
-        (usage?.usage.reasoningTokens ?? 0)
-    );
+    // 压缩判断只看 prompt 占用，百分比也应只按 inputTokens 计算。
+    expect(usage?.usedTokens).toBe(usage?.usage.inputTokens ?? 0);
+  });
+
+  it("prefers backend context snapshot and estimates only newer messages", () => {
+    const usage = estimateSessionContextUsage({
+      messages: [
+        createMessage({
+          id: "user-1",
+          role: "user",
+          content: "hello",
+          createdAt: 10,
+        }),
+        createMessage({
+          id: "assistant-1",
+          role: "assistant",
+          content: "hi",
+          createdAt: 20,
+        }),
+        createMessage({
+          id: "user-2",
+          role: "user",
+          content: "world",
+          createdAt: 30,
+        }),
+      ],
+      modelId: "gpt-4o",
+      models,
+      contextUsageSnapshot: {
+        usedTokens: 100,
+        maxTokens: 200_000,
+        remainingTokens: 199_900,
+        reservedTokens: 1_000,
+        triggerThreshold: 0.8,
+        source: "provider",
+        updatedAt: 20,
+      },
+    });
+
+    expect(usage).not.toBeNull();
+    // 快照 maxTokens 与后端实际判断一致，而不是模型目录值。
+    expect(usage?.maxTokens).toBe(200_000);
+    // 基线 100 + 快照之后 "world"（5 字节，后端字符/2 口径）增量 3。
+    expect(usage?.usedTokens).toBe(103);
+    expect(usage?.usage.outputTokens).toBe(0);
+  });
+
+  it("uses snapshot lastMessageId as the incremental boundary", () => {
+    const usage = estimateSessionContextUsage({
+      messages: [
+        createMessage({
+          id: "assistant-1",
+          role: "assistant",
+          content: "hi",
+          createdAt: 100,
+        }),
+        // createdAt 早于快照 updatedAt，但 id 在边界之后，仍应计入增量。
+        createMessage({
+          id: "user-2",
+          role: "user",
+          content: "Second",
+          createdAt: 10,
+        }),
+        createMessage({
+          id: "user-3",
+          role: "user",
+          content: "Third",
+          createdAt: 200,
+        }),
+      ],
+      modelId: "gpt-4o",
+      models,
+      contextUsageSnapshot: {
+        usedTokens: 100,
+        maxTokens: 200_000,
+        remainingTokens: 199_900,
+        reservedTokens: 1_000,
+        triggerThreshold: 0.8,
+        source: "provider",
+        updatedAt: 1_000,
+        lastMessageId: "assistant-1",
+      },
+    });
+
+    expect(usage).not.toBeNull();
+    // "Second"（6 字节）+"Third"（5 字节）按字符/2 估算为 3 + 3。
+    expect(usage?.usedTokens).toBe(106);
   });
 
   it("truncates messages after the message being edited", () => {

@@ -99,8 +99,16 @@ function normalizeContextUsageSnapshot(
     remainingTokens,
     reservedTokens,
     triggerThreshold,
-    source: "session",
+    source:
+      snapshot.source === "provider" || snapshot.source === "estimated"
+        ? snapshot.source
+        : "session",
     updatedAt,
+    lastMessageId:
+      typeof snapshot.lastMessageId === "string" &&
+      snapshot.lastMessageId.trim().length > 0
+        ? snapshot.lastMessageId
+        : null,
   };
 }
 

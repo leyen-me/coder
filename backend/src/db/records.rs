@@ -23,6 +23,9 @@ pub struct SessionContextUsageSnapshot {
     pub trigger_threshold: f64,
     pub source: String,
     pub updated_at: u64,
+    /// 快照覆盖到的最后一条已持久化消息 id，供前端定位增量边界。
+    #[serde(default)]
+    pub last_message_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

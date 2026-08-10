@@ -23,8 +23,10 @@ export type SessionContextUsageSnapshot = {
   remainingTokens: number;
   reservedTokens: number;
   triggerThreshold: number;
-  source: "session";
+  source: "session" | "provider" | "estimated";
   updatedAt: number;
+  /** 快照覆盖到的最后一条已持久化消息 id，用于定位增量边界。 */
+  lastMessageId?: string | null;
 };
 
 export type MessageStatus =

@@ -35,6 +35,7 @@ describe("normalizeSessionRecord", () => {
         triggerThreshold: 0.8,
         source: "session",
         updatedAt: 123,
+        lastMessageId: "msg-1",
       },
     } as never);
 
@@ -46,6 +47,7 @@ describe("normalizeSessionRecord", () => {
       triggerThreshold: 0.8,
       source: "session",
       updatedAt: 123,
+      lastMessageId: "msg-1",
     });
   });
 });

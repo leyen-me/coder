@@ -550,6 +550,7 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
         modelId: model,
         models: allModels,
         editingMessageId,
+        contextUsageSnapshot: session?.contextUsageSnapshot,
       });
     },
     [
