@@ -1,11 +1,12 @@
 use std::fs;
 use std::path::PathBuf;
 
+use base64::Engine;
 use serde::Serialize;
 
 use super::text_file::{
-    decode_text, detect_binary, guess_text_mime_type, read_binary_sample, sha256_hex,
-    TextFileToolError, MAX_READ_BYTES,
+    decode_text, detect_binary, guess_image_mime_type, guess_text_mime_type, read_binary_sample,
+    sha256_hex, TextFileToolError, MAX_READ_BYTES,
 };
 use super::workspace_path::{
     format_error_path, resolve_workspace_write_path_unbounded, workspace_relative_path,
@@ -14,6 +15,10 @@ use super::workspace_path::{
 const DEFAULT_MAX_LINES: u32 = 1000;
 const ABSOLUTE_MAX_LINES: u32 = 2000;
 const MAX_OUTPUT_BYTES: usize = 256 * 1024;
+/// Images are binary and never go through line-based truncation. A generous
+/// cap keeps a single read from bloating the model context; larger images
+/// should be resized or downsampled by the agent first.
+const MAX_IMAGE_READ_BYTES: u64 = 10 * 1024 * 1024;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -22,11 +27,22 @@ pub struct ReadFileResult {
     pub encoding: String,
     pub mime_type: String,
     pub sha256: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_data_url: Option<String>,
     pub total_lines: u32,
     pub start_line: u32,
     pub end_line: u32,
     pub truncated: bool,
     pub content: String,
+}
+
+impl ReadFileResult {
+    /// True when this result carries a multimodal image payload (base64 data
+    /// URL) that should be fed to the model as vision input rather than shown
+    /// as text.
+    pub fn is_image(&self) -> bool {
+        self.image_data_url.is_some()
+    }
 }
 
 pub type ReadFileToolError = TextFileToolError;
@@ -95,11 +111,17 @@ pub fn tool_read_file(
     }
 
     let sample = read_binary_sample(&target)?;
+    // If the file is an image, return it as a multimodal vision input so the
+    // model can actually "see" it — the same way a pasted image reaches the
+    // model. Any other binary file is still rejected.
+    if let Some(image_mime) = guess_image_mime_type(&path, &sample) {
+        return read_image_result(&canonical_workspace, &target, &image_mime, file_size);
+    }
     if let Some(mime_type) = detect_binary(&sample) {
         return Err(ReadFileToolError {
             code: "binary_file".to_string(),
             message: format!(
-                "Binary file detected ({mime_type}). read_file only supports text files; do not use it for images or other binary files."
+                "Binary file detected ({mime_type}). read_file only supports text files and images; do not use it for other binary files."
             ),
             mime_type: Some(mime_type),
             size: Some(file_size),
@@ -146,11 +168,56 @@ pub fn tool_read_file(
         encoding: encoding.to_string(),
         mime_type,
         sha256: sha256_hex(&bytes),
+        image_data_url: None,
         total_lines,
         start_line,
         end_line,
         truncated: truncated_by_lines || truncated_by_bytes,
         content,
+    })
+}
+
+/// Reads an image file and returns it as a base64 data URL so the model can
+/// consume it as vision input. Large images are rejected instead of being
+/// allowed to bloat the context window.
+fn read_image_result(
+    canonical_workspace: &PathBuf,
+    target: &PathBuf,
+    mime_type: &str,
+    file_size: u64,
+) -> Result<ReadFileResult, ReadFileToolError> {
+    if file_size > MAX_IMAGE_READ_BYTES {
+        return Err(ReadFileToolError {
+            code: "file_too_large".to_string(),
+            message: format!(
+                "Image exceeds the {MAX_IMAGE_READ_BYTES} byte read limit ({file_size} bytes); resize or downsample it before reading."
+            ),
+            mime_type: Some(mime_type.to_string()),
+            size: Some(file_size),
+            file_snippet_hex: None,
+        });
+    }
+
+    let bytes = fs::read(target).map_err(|error| {
+        ReadFileToolError::new("io_error", format!("Failed to read image file: {error}"))
+    })?;
+    let relative_path = workspace_relative_path(canonical_workspace, target);
+    let data_url = format!(
+        "data:{mime_type};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(&bytes)
+    );
+
+    Ok(ReadFileResult {
+        path: relative_path,
+        encoding: String::from("binary"),
+        mime_type: mime_type.to_string(),
+        sha256: sha256_hex(&bytes),
+        image_data_url: Some(data_url),
+        total_lines: 0,
+        start_line: 1,
+        end_line: 0,
+        truncated: false,
+        content: String::new(),
     })
 }
 
@@ -298,13 +365,39 @@ mod tests {
     }
 
     #[test]
-    fn rejects_binary_files() {
+    fn reads_image_file_as_multimodal_vision_input() {
+        let temp = temp_workspace("image-read");
+        // A PNG with its magic bytes is now detected as an image and returned
+        // to the model as vision input instead of being rejected as binary.
+        fs::write(temp.join("image.png"), b"\x89PNG\r\n\x1a\n\x00\x00\x00\x0dIHDR").expect("write image");
+
+        let result = tool_read_file(
+            temp.to_string_lossy().into_owned(),
+            "image.png".to_string(),
+            None,
+            None,
+            None,
+        )
+        .expect("read image");
+
+        assert_eq!(result.mime_type, "image/png");
+        assert!(result.is_image(), "should be flagged as an image result");
+        let url = result.image_data_url.as_deref().expect("image data url");
+        assert!(url.starts_with("data:image/png;base64,"), "url prefix: {url}");
+        assert_eq!(result.encoding, "binary");
+        let _ = fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn rejects_non_image_binary_files() {
         let temp = temp_workspace("binary");
-        fs::write(temp.join("image.png"), b"\x89PNG\r\n\x1a\n\x00").expect("write binary");
+        // A ZIP archive (PK\x03\x04 magic) is not an image, so it is still
+        // rejected as a binary file.
+        fs::write(temp.join("archive.zip"), b"PK\x03\x04\x00\x00\x00\x00").expect("write binary");
 
         let error = tool_read_file(
             temp.to_string_lossy().into_owned(),
-            "image.png".to_string(),
+            "archive.zip".to_string(),
             None,
             None,
             None,
@@ -312,7 +405,7 @@ mod tests {
         .expect_err("binary file");
 
         assert_eq!(error.code, "binary_file");
-        assert_eq!(error.mime_type.as_deref(), Some("image/png"));
+        assert_eq!(error.mime_type.as_deref(), Some("application/zip"));
         let _ = fs::remove_dir_all(temp);
     }
 

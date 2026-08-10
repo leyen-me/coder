@@ -5,6 +5,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use super::compact::is_compact_summary_message;
+use super::tool_dispatch::image_multimodal_content;
 use super::types::{AgentToolDefinition, ApiToolCall, ApiToolCallFunction, ChatMessage};
 use crate::db::{
     records::{MessageImageAttachment, MessageProcessStep, MessageRecord, SessionRecord},
@@ -580,7 +581,7 @@ fn build_agent_messages_from_process_steps(
                 if let Some(invocation) = tool_invocations.iter().find(|item| item.id == *tool_call_id) {
                     messages.push(ChatMessage {
                         role: "tool".to_string(),
-                        content: Some(Value::String(serialize_invocation_tool_content(invocation))),
+                        content: Some(serialize_invocation_tool_content(invocation)),
                         reasoning_content: None,
                         tool_calls: None,
                         tool_call_id: Some(invocation.id.clone()),
@@ -637,7 +638,7 @@ fn build_legacy_assistant_messages(message: &MessageRecord, include_reasoning: b
     let mut result = vec![assistant];
     result.extend(message.tool_invocations.iter().map(|invocation| ChatMessage {
         role: "tool".to_string(),
-        content: Some(Value::String(serialize_invocation_tool_content(invocation))),
+        content: Some(serialize_invocation_tool_content(invocation)),
         reasoning_content: None,
         tool_calls: None,
         tool_call_id: Some(invocation.id.clone()),
@@ -657,9 +658,14 @@ fn to_api_tool_call(invocation: &crate::db::records::MessageToolInvocation) -> A
     }
 }
 
-fn serialize_invocation_tool_content(invocation: &crate::db::records::MessageToolInvocation) -> String {
+fn serialize_invocation_tool_content(invocation: &crate::db::records::MessageToolInvocation) -> Value {
     if let Some(output) = invocation.output.clone() {
-        return serde_json::to_string(&output).unwrap_or_else(|_| "null".to_string());
+        // Multimodal image payloads (read_file of an image) are fed to the
+        // model as vision input, mirroring how a pasted image reaches it.
+        if let Some(multimodal) = image_multimodal_content(&invocation.name, &output) {
+            return multimodal;
+        }
+        return Value::String(serde_json::to_string(&output).unwrap_or_else(|_| "null".to_string()));
     }
     if let Some(error_text) = invocation.error_text.as_deref().filter(|value| !value.trim().is_empty()) {
         return json!({
@@ -670,7 +676,7 @@ fn serialize_invocation_tool_content(invocation: &crate::db::records::MessageToo
                 "message": error_text
             }
         })
-        .to_string();
+        .into();
     }
     json!({
         "ok": false,
@@ -680,7 +686,7 @@ fn serialize_invocation_tool_content(invocation: &crate::db::records::MessageToo
             "message": "Tool result was not persisted."
         }
     })
-    .to_string()
+    .into()
 }
 
 fn system_message(content: String) -> ChatMessage {

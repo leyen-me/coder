@@ -1040,7 +1040,7 @@ async fn execute_and_append_tool_results(
 
         next_messages.push(ChatMessage {
             role: "tool".to_string(),
-            content: Some(Value::String(serialize_tool_result(&tool_result))),
+            content: Some(serialize_tool_result(&tool_result)),
             reasoning_content: None,
             tool_calls: None,
             tool_call_id: Some(call.id.clone()),

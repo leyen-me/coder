@@ -188,15 +188,48 @@ pub struct ToolErrorPayload {
     pub message: String,
 }
 
-pub fn serialize_tool_result(result: &ToolResultEnvelope) -> String {
-    serde_json::to_string(result).unwrap_or_else(|_| {
-        json!({
-            "ok": false,
-            "tool": result.tool,
-            "error": { "code": "serialization_failed", "message": "Failed to serialize tool result" }
-        })
-        .to_string()
-    })
+pub fn serialize_tool_result(result: &ToolResultEnvelope) -> Value {
+    // If the tool returned a multimodal image payload (read_file on an image),
+    // feed it to the model as vision input instead of a raw JSON string.
+    if let Some(image_content) = result
+        .data
+        .as_ref()
+        .and_then(|data| image_multimodal_content(&result.tool, data))
+    {
+        return image_content;
+    }
+    Value::String(
+        serde_json::to_string(result).unwrap_or_else(|_| {
+            json!({
+                "ok": false,
+                "tool": result.tool,
+                "error": { "code": "serialization_failed", "message": "Failed to serialize tool result" }
+            })
+            .to_string()
+        }),
+    )
+}
+
+/// When `data` carries a base64 image data URL (e.g. `read_file` of an image),
+/// returns an OpenAI-compatible multimodal content array the model can "see".
+/// Otherwise returns `None`, and the caller falls back to plain string output.
+pub fn image_multimodal_content(tool: &str, data: &Value) -> Option<Value> {
+    let image_data_url = data.get("imageDataUrl")?.as_str()?;
+    let path = data.get("path").and_then(Value::as_str).unwrap_or("");
+    let mime_type = data
+        .get("mimeType")
+        .and_then(Value::as_str)
+        .unwrap_or("image");
+    Some(json!([
+        {
+            "type": "text",
+            "text": format!("[{tool}] Read image: {path} ({mime_type})")
+        },
+        {
+            "type": "image_url",
+            "image_url": { "url": image_data_url, "detail": "auto" }
+        }
+    ]))
 }
 
 pub async fn execute_tool_call(
