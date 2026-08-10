@@ -278,6 +278,7 @@ pub async fn generate_session_title(
         params.model.trim(),
         &messages,
         SESSION_TITLE_MAX_TOKENS,
+        true,
     )
     .await
 }
@@ -349,6 +350,7 @@ pub async fn refine_prompt(
         params.model.trim(),
         &messages,
         REFINE_PROMPT_MAX_TOKENS,
+        true,
     )
     .await
 }

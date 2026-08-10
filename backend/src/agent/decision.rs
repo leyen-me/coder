@@ -161,6 +161,7 @@ pub async fn request_proxy_decision(
         model,
         &messages,
         2048,
+        false,
     )
     .await?
     .ok_or_else(|| "Decision model returned empty content".to_string())?;

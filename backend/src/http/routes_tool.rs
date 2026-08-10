@@ -1862,6 +1862,7 @@ pub async fn handle_enhance_prompt(
                 cancel_inner,
                 emit,
                 "enhance-prompt",
+                true,
             )
             .await
         });

@@ -915,6 +915,7 @@ async fn run_single_turn_attempt(
             }
         },
         &params.task_id,
+        params.active_model_supports_multimodal(),
     )
     .await;
 

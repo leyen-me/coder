@@ -301,6 +301,7 @@ pub async fn run_compact(
             model,
             &compact_messages,
             COMPACT_SUMMARY_MAX_TOKENS,
+            false,
         )
         .await
         {

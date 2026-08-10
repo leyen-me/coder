@@ -4,7 +4,7 @@ use std::time::Duration;
 use futures::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use tokio::time::{timeout, Duration as TokioDuration};
 use tokio_util::sync::CancellationToken;
 
@@ -132,6 +132,48 @@ struct ChatCompletionRequest<'a> {
     tool_choice: Option<&'static str>,
 }
 
+/// Strips `image_url` content parts from messages before they reach the LLM.
+///
+/// History assembled while a multimodal model was active can carry
+/// OpenAI-style `image_url` parts. If the user later switches to a text-only
+/// model, those parts must be removed from the request body — publishing an
+/// `image_url` block to a non-vision endpoint is a 400 deserialization error
+/// (`unknown variant 'image_url', expected 'text'`).
+///
+/// The original stored history is left untouched; this only shapes what is
+/// serialized for the current request. Content that is a plain string passes
+/// through. A content array has its `image_url`-typed entries dropped; if that
+/// leaves the array empty it is replaced with a short text note so the message
+/// stays structurally valid.
+pub fn strip_image_urls(messages: &[ChatMessage]) -> Vec<ChatMessage> {
+    messages
+        .iter()
+        .map(|message| {
+            let Some(content) = message.content.as_ref().and_then(Value::as_array) else {
+                return message.clone();
+            };
+            let kept = content
+                .iter()
+                .filter(|part| part.get("type").and_then(Value::as_str) != Some("image_url"))
+                .cloned()
+                .collect::<Vec<_>>();
+            if kept.len() == content.len() {
+                return message.clone();
+            }
+            let mut stripped = message.clone();
+            stripped.content = Some(Value::Array(if kept.is_empty() {
+                vec![json!({
+                    "type": "text",
+                    "text": "[Image omitted: the current model does not support image input.]"
+                })]
+            } else {
+                kept
+            }));
+            stripped
+        })
+        .collect()
+}
+
 pub const SESSION_TITLE_MAX_TOKENS: u32 = 128;
 pub const REFINE_PROMPT_MAX_TOKENS: u32 = 2048;
 
@@ -224,6 +266,7 @@ pub async fn stream_chat_completion(
     cancel: CancellationToken,
     mut emit: impl FnMut(AgentEvent) + Send,
     task_id: &str,
+    supports_multimodal: bool,
 ) -> Result<(), String> {
     agent_stream_log(format!(
         "start task_id={} model={} messages={} tools={} request_extensions={}",
@@ -241,9 +284,21 @@ pub async fn stream_chat_completion(
         request_extensions.is_some()
     ));
 
+    // When the active model is text-only, drop any leftover `image_url`
+    // content parts so a non-vision endpoint never receives an `image_url`
+    // block. The original shared slice is kept when multimodal is supported,
+    // otherwise we borrow a freshly filtered clone for the request body.
+    let filtered_messages;
+    let effective_messages: &[ChatMessage] = if supports_multimodal {
+        messages
+    } else {
+        filtered_messages = strip_image_urls(messages);
+        &filtered_messages
+    };
+
     let request_body = ChatCompletionRequest {
         model,
-        messages,
+        messages: effective_messages,
         stream: true,
         max_tokens: None,
         temperature: None,
@@ -590,10 +645,19 @@ pub async fn complete_chat_completion(
     model: &str,
     messages: &[ChatMessage],
     max_tokens: u32,
+    supports_multimodal: bool,
 ) -> Result<Option<String>, String> {
+    let filtered_messages;
+    let effective_messages: &[ChatMessage] = if supports_multimodal {
+        messages
+    } else {
+        filtered_messages = strip_image_urls(messages);
+        &filtered_messages
+    };
+
     let request_body = ChatCompletionRequest {
         model,
-        messages,
+        messages: effective_messages,
         stream: false,
         max_tokens: Some(max_tokens),
         temperature: Some(0.3),
@@ -644,7 +708,63 @@ pub fn build_http_client() -> Result<Client, String> {
 mod tests {
     use std::collections::BTreeMap;
 
-    use super::{process_sse_line, ToolCallAccumulator};
+    use serde_json::json;
+
+    use super::{process_sse_line, strip_image_urls, ToolCallAccumulator, ChatMessage};
+
+    #[test]
+    fn strip_image_urls_removes_image_parts_but_keeps_text() {
+        let message = ChatMessage {
+            role: "user".to_string(),
+            content: Some(json!([
+                { "type": "text", "text": "hello" },
+                { "type": "image_url", "image_url": { "url": "data:image/png;base64,AAA", "detail": "auto" } }
+            ])),
+            reasoning_content: None,
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        };
+        let stripped = strip_image_urls(&[message]);
+        assert_eq!(stripped.len(), 1);
+        let parts = stripped[0].content.as_ref().and_then(serde_json::Value::as_array).unwrap();
+        assert_eq!(parts.len(), 1);
+        assert_eq!(parts[0]["type"], "text");
+        assert_eq!(parts[0]["text"], "hello");
+    }
+
+    #[test]
+    fn strip_image_urls_leaves_string_content_unmodified() {
+        let message = ChatMessage {
+            role: "user".to_string(),
+            content: Some(json!("plain text only")),
+            reasoning_content: None,
+            tool_calls: None,
+            tool_call_id: None,
+            name: None,
+        };
+        let stripped = strip_image_urls(&[message]);
+        assert_eq!(stripped[0].content, Some(json!("plain text only")));
+    }
+
+    #[test]
+    fn strip_image_urls_fills_empty_array_with_text_placeholder() {
+        let message = ChatMessage {
+            role: "tool".to_string(),
+            content: Some(json!([
+                { "type": "image_url", "image_url": { "url": "data:image/png;base64,BBB", "detail": "auto" } }
+            ])),
+            reasoning_content: None,
+            tool_calls: None,
+            tool_call_id: Some("call_1".to_string()),
+            name: Some("read_image".to_string()),
+        };
+        let stripped = strip_image_urls(&[message]);
+        let parts = stripped[0].content.as_ref().and_then(serde_json::Value::as_array).unwrap();
+        assert_eq!(parts.len(), 1);
+        assert_eq!(parts[0]["type"], "text");
+        assert!(parts[0]["text"].as_str().unwrap().contains("Image omitted"));
+    }
 
     #[test]
     fn parses_content_delta_from_sse_line() {
