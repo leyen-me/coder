@@ -1,11 +1,9 @@
-//! 复现生产环境的核心问题：压缩持久化按 `record.content` 估算窗口，
-//! 而模型上下文重建会展开 `tool_invocations` / `process_steps`。
-//! 当上下文体积主要在工具输出时，压缩后 SQLite 可能不插入 compact marker，
-//! 用户下一条消息会让后端重新组装全量历史并再次触发自动压缩。
+//! 验证压缩持久化始终写入压缩记录：
+//! 即使保留窗口使用字符预算，工具输出巨大的消息也会被移出模型窗口。
 
 use std::path::PathBuf;
 
-use coder_lib::agent::compact::COMPACT_USER_MESSAGE_MAX_TOKENS;
+use coder_lib::agent::compact::COMPACT_TAIL_MAX_CHARS;
 use coder_lib::db::records::{
     current_timestamp_ms, MessageRecord, MessageToolInvocation, SessionRecord,
 };
@@ -122,17 +120,14 @@ fn compact_persist_must_account_for_tool_output() {
         &db,
         &session.id,
         "Concise summary.",
-        COMPACT_USER_MESSAGE_MAX_TOKENS,
+        COMPACT_TAIL_MAX_CHARS,
         "## Context Compaction Summary\n\n",
-        false,
     )
     .expect("persist compact");
 
-    // 修复前：只按 content 估算，两条消息加起来很小，keep_count 等于总数，
-    // 返回 removed_count = 0，SQLite 不建立 marker，下一条消息会重建全量历史。
     assert!(
         persisted.removed_count > 0,
-        "必须把巨大的工具输出消息压缩出模型窗口，当前却 noop"
+        "必须把巨大的工具输出消息压缩出模型窗口"
     );
     assert_eq!(
         persisted.first_kept_message_id.as_deref(),
@@ -187,7 +182,7 @@ fn compact_persist_falls_back_to_one_message_when_latest_exceeds_budget() {
     )
     .expect("put old user");
 
-    // 最新消息本身就超过 20k token 预算，选择器会返回 0。
+    // 最新消息本身就超过字符预算，选择器也会至少保留它一条。
     let latest_user_id = new_message_id();
     put_message(
         &db,
@@ -217,16 +212,14 @@ fn compact_persist_falls_back_to_one_message_when_latest_exceeds_budget() {
         &db,
         &session.id,
         "Concise summary.",
-        COMPACT_USER_MESSAGE_MAX_TOKENS,
+        COMPACT_TAIL_MAX_CHARS,
         "## Context Compaction Summary\n\n",
-        false,
     )
     .expect("persist compact");
 
-    // 修复前 keep_count == 0 会直接 noop；修复后至少保留最新一条并建立 marker。
     assert!(
         persisted.removed_count > 0,
-        "最新消息超预算时也应建立 compact marker"
+        "最新消息超预算时也应建立压缩记录"
     );
     assert_eq!(
         persisted.first_kept_message_id.as_deref(),

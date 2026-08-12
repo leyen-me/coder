@@ -27,6 +27,10 @@ struct Cli {
     #[arg(long)]
     no_open: bool,
 
+    /// 启动前修复“有压缩过程但缺压缩记录”的历史 session
+    #[arg(long)]
+    repair_compact: bool,
+
     /// Show version information
     #[arg(short = 'v', long, action = ArgAction::SetTrue)]
     version: bool,
@@ -114,6 +118,18 @@ async fn main() {
 
     if cli.version {
         println!("coder {}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
+
+    if cli.repair_compact {
+        let data_dir = cli
+            .workspace_dir
+            .clone()
+            .unwrap_or_else(coder_lib::get_coder_data_dir);
+        let db = coder_lib::db::Database::new(&data_dir).expect("Failed to open database");
+        let repaired = coder_lib::db::session_store::repair_missing_compact_markers(&db)
+            .expect("Failed to repair compact records");
+        println!("repaired_compact_sessions={repaired}");
         return;
     }
 

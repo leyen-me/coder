@@ -1,6 +1,6 @@
 import type { MessageRecord } from "@/lib/db";
 
-/** Matches backend `COMPACT_USER_MESSAGE_MAX_TOKENS`. */
+/** UI 临时定位用的近似预算，不参与 composer 用量计算。 */
 export const COMPACT_TAIL_TOKEN_BUDGET = 20_000;
 
 function estimateRecordTokens(record: MessageRecord): number {

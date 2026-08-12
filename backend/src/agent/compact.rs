@@ -1,27 +1,17 @@
-//! Context Compaction — Codex-style in-window natural language compression.
+//! Context Compaction — 自动 80% / 手动随时压缩。
 //!
-//! When the agent approaches its token budget, we ask the LLM to write a
-//! concise summary in natural language. Old messages are replaced by that
-//! summary, freeing context space without a session switch.
-//!
-//! Key improvements over the original session rollover mechanism (learned from Codex & Claude Code):
-//!  - Token-budget-aware user message selection (not blind "keep 20")
-//!  - Summary deduplication (no nested summaries)
-//!  - Initial context injected before last real user message (model-expected boundary)
-//!  - Exponential backoff on compaction failures
-//!  - Token estimate recomputed after compaction
+//! 压缩判断只依赖模型真实返回的 `prompt_tokens`，不做 token 估算；
+//! 压缩时保留最近一段对话（字符预算），并在数据库写入压缩记录。
 
 use serde_json::json;
 use std::sync::{Arc, Mutex};
 
-use super::compact_prompt::{COMPACT_SUMMARY_PREFIX, MICRO_COMPACT_PROMPT, SUMMARIZATION_PROMPT};
+use super::compact_prompt::{COMPACT_SUMMARY_PREFIX, SUMMARIZATION_PROMPT};
 use super::openai::complete_chat_completion;
 use super::types::ChatMessage;
 use crate::db::{session_store::persist_session_compact, Database};
 
 /// Token budget ratio where auto-compact triggers.
-///
-/// Kept in sync with the frontend default (`DEFAULT_AGENT_SESSION_THRESHOLD`).
 pub const DEFAULT_COMPACT_THRESHOLD: f64 = 0.8;
 
 /// Reserve ratio for the compaction round-trip.
@@ -33,115 +23,14 @@ const MIN_COMPACT_RESERVE_TOKENS: u32 = 4_000;
 /// Maximum tokens for the compact summary response.
 const COMPACT_SUMMARY_MAX_TOKENS: u32 = 2_048;
 
-/// Maximum tokens to spend on user messages in the compacted replacement
-/// history. Messages are selected from newest to oldest until this budget is
-/// exhausted — same approach Codex uses (COMPACT_USER_MESSAGE_MAX_TOKENS).
-pub const COMPACT_USER_MESSAGE_MAX_TOKENS: u32 = 20_000;
-
-/// Tail budget used when force-compacting in dev/test (keep only recent tail).
-const FORCE_COMPACT_TAIL_TOKEN_BUDGET: u32 = 512;
-
-/// Controls whether `/api/compact` may honor `force: true`.
-pub fn allow_force_compact() -> bool {
-    cfg!(debug_assertions)
-        || std::env::var("CODER_ALLOW_FORCE_COMPACT")
-            .ok()
-            .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "yes"))
-}
-
-/// Dev-only auto-compact cadence.
+/// 压缩后保留的最近对话字符预算（约等于旧 2 万 token 的字符量）。
 ///
-/// Set both `CODER_ALLOW_DEV_AUTO_COMPACT=1` and
-/// `CODER_AUTO_COMPACT_EVERY_N_MESSAGES=N` to trigger auto-compact after
-/// every N conversation messages (excluding system / compact-summary rows).
-/// Unset either variable to disable.
-///
-/// This guard applies to **all** builds — debug and release. Use the
-/// `dev:server:auto-compact` npm script to set both variables together.
-pub fn dev_auto_compact_every_n_messages() -> Option<usize> {
-    // Require explicit opt-in in all builds (debug or release).  Relying on
-    // cfg!(debug_assertions) was brittle: CODER_AUTO_COMPACT_EVERY_N_MESSAGES
-    // could leak from the shell environment and activate auto-compact even
-    // with `dev:server` – exactly what you don't want when testing.
-    let allowed = std::env::var("CODER_ALLOW_DEV_AUTO_COMPACT")
-        .ok()
-        .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "yes"));
-    if !allowed {
-        return None;
-    }
+/// 只用于选择“保留起点”，不参与上下文占用判断。
+pub const COMPACT_TAIL_MAX_CHARS: usize = 40_000;
 
-    std::env::var("CODER_AUTO_COMPACT_EVERY_N_MESSAGES")
-        .ok()
-        .and_then(|value| value.trim().parse::<usize>().ok())
-        .filter(|value| *value >= 2)
-}
-
-/// Count messages that participate in the compact trigger window.
-pub fn count_compactable_messages(messages: &[ChatMessage]) -> usize {
-    messages
-        .iter()
-        .filter(|message| message.role != "system" && !is_compact_summary_message(message))
-        .count()
-}
-
-/// 判断 dev 消息数节奏是否应触发自动压缩。
-///
-/// `baseline` 是当前 run 开始时的可见历史消息数，或上一次压缩后的消息数；
-/// 只有新增消息达到 `CODER_AUTO_COMPACT_EVERY_N_MESSAGES` 时才触发。
-/// 这样压缩后保留的历史消息不会在新 run 首轮立即再次触发压缩。
-pub fn should_trigger_dev_auto_compact(
-    messages: &[ChatMessage],
-    baseline: usize,
-) -> bool {
-    let Some(every_n) = dev_auto_compact_every_n_messages() else {
-        return false;
-    };
-    let count = count_compactable_messages(messages);
-    count >= 2 && count >= baseline.saturating_add(every_n)
-}
-
-pub fn resolve_compact_tail_token_budget(force: bool) -> u32 {
-    if force && allow_force_compact() {
-        return std::env::var("CODER_FORCE_COMPACT_TAIL_TOKEN_BUDGET")
-            .ok()
-            .and_then(|value| value.parse().ok())
-            .unwrap_or(FORCE_COMPACT_TAIL_TOKEN_BUDGET);
-    }
-
-    std::env::var("CODER_COMPACT_TAIL_TOKEN_BUDGET")
-        .ok()
-        .and_then(|value| value.parse().ok())
-        .unwrap_or(COMPACT_USER_MESSAGE_MAX_TOKENS)
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct CompactPersistOptions {
-    pub max_tail_tokens: u32,
-    pub force: bool,
-}
-
-impl Default for CompactPersistOptions {
-    fn default() -> Self {
-        Self {
-            max_tail_tokens: COMPACT_USER_MESSAGE_MAX_TOKENS,
-            force: false,
-        }
-    }
-}
-
-impl CompactPersistOptions {
-    pub fn for_manual(force: bool) -> Self {
-        let effective_force = force && allow_force_compact();
-        Self {
-            max_tail_tokens: resolve_compact_tail_token_budget(effective_force),
-            force: effective_force,
-        }
-    }
-}
-
-/// Max compaction retries with exponential backoff.
+/// Max compaction retries with short backoff.
 const COMPACT_MAX_RETRIES: u32 = 3;
-const COMPACT_BASE_BACKOFF_MS: u64 = 1_500;
+const COMPACT_BASE_BACKOFF_MS: u64 = 500;
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -161,7 +50,6 @@ pub struct CompactContextSnapshot {
 #[derive(Debug, Clone)]
 pub struct CompactSummary {
     pub text: String,
-    pub micro_mode: bool,
 }
 
 /// What `apply_compact` returns — the new message list plus metadata.
@@ -169,7 +57,6 @@ pub struct CompactSummary {
 pub struct CompactResult {
     pub messages: Vec<ChatMessage>,
     pub removed_count: usize,
-    pub estimated_tokens_after: u32,
 }
 
 /// Persist a compaction summary into the session message timeline.
@@ -190,10 +77,22 @@ pub fn persist_compact_summary(
         &db,
         session_id,
         summary.text.trim(),
-        options.max_tail_tokens,
+        options.max_tail_chars,
         COMPACT_SUMMARY_PREFIX,
-        options.force,
     )
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct CompactPersistOptions {
+    pub max_tail_chars: usize,
+}
+
+impl Default for CompactPersistOptions {
+    fn default() -> Self {
+        Self {
+            max_tail_chars: COMPACT_TAIL_MAX_CHARS,
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -216,8 +115,11 @@ pub fn compact_reserve(max_tokens: u32) -> u32 {
     reserve.max(MIN_COMPACT_RESERVE_TOKENS)
 }
 
-pub fn is_micro_compact_mode(remaining_tokens: u32) -> bool {
-    remaining_tokens < COMPACT_SUMMARY_MAX_TOKENS * 2
+pub fn count_compactable_messages(messages: &[ChatMessage]) -> usize {
+    messages
+        .iter()
+        .filter(|message| message.role != "system" && !is_compact_summary_message(message))
+        .count()
 }
 
 // ---------------------------------------------------------------------------
@@ -241,13 +143,10 @@ pub fn build_compact_snapshot(
 }
 
 // ---------------------------------------------------------------------------
-// Compaction execution (with backoff retry)
+// Compaction execution (with bounded retry)
 // ---------------------------------------------------------------------------
 
-/// Run the compaction LLM call with exponential backoff retry.
-///
-/// On failure, retries up to `COMPACT_MAX_RETRIES` times with increasing
-/// delays. Falls back to micro mode on the last attempt.
+/// Run the compaction LLM call. Retries up to `COMPACT_MAX_RETRIES` times.
 pub async fn run_compact(
     client: &reqwest::Client,
     base_url: &str,
@@ -255,24 +154,12 @@ pub async fn run_compact(
     model: &str,
     messages: &[ChatMessage],
     snapshot: &CompactContextSnapshot,
-    micro_mode: bool,
 ) -> Result<CompactSummary, String> {
     let url = super::openai::chat_completions_url(base_url);
     let mut last_error: Option<String> = None;
 
-    for attempt in 0..=COMPACT_MAX_RETRIES {
-        // Use normal prompt first, micro prompt on final retry
-        let use_micro = micro_mode || attempt == COMPACT_MAX_RETRIES;
-        let prompt = if use_micro {
-            MICRO_COMPACT_PROMPT
-        } else {
-            SUMMARIZATION_PROMPT
-        };
-
+    for attempt in 0..COMPACT_MAX_RETRIES {
         let user_context = build_compact_user_context(messages, snapshot);
-        // Wrap in a code block to visually separate "content to summarize"
-        // from "instruction to follow", reducing the chance the model
-        // treats it as a new task assignment.
         let wrapped_context = format!(
             "Please summarize the following conversation:\n\n```text\n{user_context}\n```"
         );
@@ -280,7 +167,7 @@ pub async fn run_compact(
         let compact_messages = vec![
             ChatMessage {
                 role: "system".to_string(),
-                content: Some(json!(prompt)),
+                content: Some(json!(SUMMARIZATION_PROMPT)),
                 reasoning_content: None,
                 tool_calls: None,
                 tool_call_id: None,
@@ -307,24 +194,24 @@ pub async fn run_compact(
         )
         .await
         {
-            Ok(Some(text)) => {
-                return Ok(CompactSummary {
-                    text,
-                    micro_mode: use_micro,
-                });
-            }
+            Ok(Some(text)) => return Ok(CompactSummary { text }),
             Ok(None) => {
                 return Ok(CompactSummary {
-                    text: "Task is in progress. Continue from the messages above."
-                        .to_string(),
-                    micro_mode: use_micro,
+                    text: "Task is in progress. Continue from the messages above.".to_string(),
                 });
             }
-            Err(e) => {
-                last_error = Some(e);
-                if attempt < COMPACT_MAX_RETRIES {
-                    let delay_ms = COMPACT_BASE_BACKOFF_MS * 2u64.pow(attempt);
-                    tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+            Err(error) => {
+                last_error = Some(error.clone());
+                log::warn!(
+                    "compact_summary_failed attempt={} error={}",
+                    attempt + 1,
+                    error
+                );
+                if attempt + 1 < COMPACT_MAX_RETRIES {
+                    tokio::time::sleep(std::time::Duration::from_millis(
+                        COMPACT_BASE_BACKOFF_MS * 2u64.pow(attempt),
+                    ))
+                    .await;
                 }
             }
         }
@@ -444,27 +331,21 @@ fn collect_recent_context(messages: &[ChatMessage]) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Apply compaction to message list  (revised — 6 Codex-grade improvements)
+// Apply compaction to message list
 // ---------------------------------------------------------------------------
 
-/// Replace old messages with a compact summary.
+/// Replace old messages with a compact summary and a recent tail.
 ///
-/// Algorithm (revised to match Codex quality):
-/// 1. Keep initial system messages.
-/// 2. Filter out any *existing* compact summaries (dedup — no nested summaries).
-/// 3. Select user messages with token-budget awareness (not blind count).
-/// 4. Inject initial context *before* the last real user message, so the
-///    compact summary stays at the end (Codex's preferred layout).
-/// 5. Append the compact summary as the last item.
-/// 6. Recompute the token estimate.
+/// 1. Keep leading real system prompts only.
+/// 2. Filter out any existing compact summaries (no nested summaries).
+/// 3. Select the newest messages that fit the character tail budget.
+/// 4. Result = system prompts + compact summary + selected tail.
 pub fn apply_compact(
     messages: &[ChatMessage],
     summary: &CompactSummary,
 ) -> CompactResult {
     let original_len = messages.len();
 
-    // Phase 1: Keep leading real system prompts only. Compact summaries that
-    // happen to be system-role must not be treated as sticky prefix context.
     let mut system_msgs: Vec<ChatMessage> = Vec::new();
     let mut consumed = 0usize;
     for msg in messages.iter() {
@@ -472,50 +353,25 @@ pub fn apply_compact(
             system_msgs.push(msg.clone());
             consumed += 1;
         } else if msg.role == "system" && is_compact_summary_message(msg) {
-            // Skip old compact markers in the leading stretch; they are
-            // filtered again below when scanning the remainder.
             consumed += 1;
         } else {
             break;
         }
     }
 
-    // Phase 2: Collect remaining messages, filtering out old compact
-    //          summaries to prevent summary-in-summary nesting.
     let non_system: Vec<&ChatMessage> = messages[consumed..]
         .iter()
         .filter(|msg| !is_compact_summary_message(msg))
         .collect();
 
-    // Phase 3: Select user messages within token budget (newest first).
-    //          Codex uses 20 000 token budget for user messages in the
-    //          compacted replacement history.
-    let selected = select_user_messages_with_token_budget(&non_system, COMPACT_USER_MESSAGE_MAX_TOKENS);
+    let tail = select_tail_messages_by_chars(&non_system, COMPACT_TAIL_MAX_CHARS);
 
-    // Phase 4: Build result — initial context injected before last real
-    //          user message, compact summary appended at end.
-    let mut result: Vec<ChatMessage> = system_msgs;
-
-    // Find the last real user message position (skip compact summaries).
-    let last_user_idx = selected.iter().rposition(|msg| msg.role == "user");
-
-    // Insert system context before the last real user message, so the
-    // compact summary (which is a system message) stays at the very end.
-    // When there are no real user messages, just put context up front.
-    let context_insert_pos = match last_user_idx {
-        Some(pos) => pos,
-        None => 0,
-    };
-
-    // Split: everything before the last user message, then the rest.
-    let tail: Vec<ChatMessage> = selected[context_insert_pos..].to_vec();
-    let head: Vec<ChatMessage> = selected[..context_insert_pos].to_vec();
-
-    // Insert system context (our compact prefix) before the last user message.
     let summary_content = format!(
         "{}## Context Compaction Summary\n\n{}",
         COMPACT_SUMMARY_PREFIX, summary.text
     );
+
+    let mut result = system_msgs;
     result.push(ChatMessage {
         role: "system".to_string(),
         content: Some(json!(summary_content)),
@@ -524,95 +380,58 @@ pub fn apply_compact(
         tool_call_id: None,
         name: None,
     });
-
-    // Now add head, then tail (which starts with last real user msg)
-    result.extend(head);
     result.extend(tail);
 
     let removed = original_len.saturating_sub(result.len());
-    let estimated_tokens = estimate_prompt_tokens(&result);
-
     CompactResult {
         messages: result,
         removed_count: removed,
-        estimated_tokens_after: estimated_tokens,
     }
 }
 
-/// Token-budget-aware user message selection (Codex-style).
+/// Select the newest messages that fit the tail character budget.
 ///
-/// Selects messages from newest to oldest, stopping when the token budget
-/// is exhausted. Older messages are dropped. This is far more precise than
-/// a fixed window size.
-fn select_user_messages_with_token_budget(
+/// The newest message is always kept, even if it alone exceeds the budget.
+fn select_tail_messages_by_chars(
     messages: &[&ChatMessage],
-    max_tokens: u32,
+    max_chars: usize,
 ) -> Vec<ChatMessage> {
-    if max_tokens == 0 {
+    if messages.is_empty() {
         return Vec::new();
     }
 
     let mut selected: Vec<ChatMessage> = Vec::new();
-    let mut remaining = max_tokens;
+    let mut remaining = max_chars;
 
-    // Iterate newest-first
     for msg in messages.iter().rev() {
-        if remaining == 0 {
-            break;
-        }
-        let tokens = estimate_message_tokens(msg);
-        if tokens <= remaining {
+        let chars = message_chars(msg);
+        if selected.is_empty() {
             selected.push((*msg).clone());
-            remaining = remaining.saturating_sub(tokens);
-        } else {
-            // Budget exhausted — drop this and earlier messages
+            remaining = remaining.saturating_sub(chars);
+            continue;
+        }
+        if chars > remaining {
             break;
         }
+        selected.push((*msg).clone());
+        remaining -= chars;
     }
 
-    selected.reverse(); // restore original order
+    selected.reverse();
     selected
 }
 
-/// Estimate tokens for a single message (character-based heuristic, ~2 chars/token).
-fn estimate_message_tokens(msg: &ChatMessage) -> u32 {
-    let content_len = msg
-        .content
+fn message_chars(msg: &ChatMessage) -> usize {
+    msg.content
         .as_ref()
         .map(|v| match v {
             serde_json::Value::String(s) => s.len(),
             other => other.to_string().len(),
         })
-        .unwrap_or(0);
-    (content_len as f64 / 2.0).ceil() as u32
+        .unwrap_or(0)
 }
 
-/// Estimate the total token count for a message list.
-pub fn estimate_prompt_tokens(messages: &[ChatMessage]) -> u32 {
-    messages.iter().map(estimate_message_tokens).sum()
-}
-
-/// 以最后一次真实 `prompt_tokens` 为基线，只对基线之后新增的消息做估算。
-///
-/// 这样已由模型返回的真实 usage 优先，估算只覆盖自上次请求以来新增的
-/// 消息；当基线长度已失效（例如压缩后历史被替换）时回退到全量估算。
-pub fn estimate_prompt_usage(
-    messages: &[ChatMessage],
-    baseline_prompt_tokens: Option<u32>,
-    baseline_message_len: usize,
-) -> u32 {
-    match baseline_prompt_tokens {
-        Some(tokens) if baseline_message_len <= messages.len() => tokens
-            .saturating_add(estimate_prompt_tokens(&messages[baseline_message_len..])),
-        _ => estimate_prompt_tokens(messages),
-    }
-}
-
-/// Check if a message IS an existing compact summary — we skip these to
-/// prevent nested summaries.
-///
-/// Shared by compaction itself and by system-prompt preview building, so the
-/// notion of "a summary message" stays in one place.
+/// Check if a message IS an existing compact summary.
 pub fn is_compact_summary_message(msg: &ChatMessage) -> bool {
     if msg.role != "system" {
         return false;
@@ -662,12 +481,6 @@ mod tests {
     }
 
     #[test]
-    fn micro_mode_on_tight_budget() {
-        assert!(!is_micro_compact_mode(5000));
-        assert!(is_micro_compact_mode(2000));
-    }
-
-    #[test]
     fn truncate_with_ellipsis_respects_utf8_char_boundaries() {
         let content = "已提交 `46ed33c`。\n\n---\n\n".repeat(40);
         let truncated = truncate_with_ellipsis(&content, 500);
@@ -676,11 +489,8 @@ mod tests {
     }
 
     #[test]
-    fn apply_compact_uses_token_budget_not_blind_count() {
-        let mut msgs = vec![
-            make_msg("system", "You are an AI agent."),
-        ];
-        // Large messages so the 20k-token user-message budget cannot keep all.
+    fn apply_compact_uses_tail_char_budget() {
+        let mut msgs = vec![make_msg("system", "You are an AI agent.")];
         let bulky = "lorem ipsum dolor sit amet ".repeat(400);
         for i in 0..50 {
             msgs.push(make_msg(
@@ -691,22 +501,17 @@ mod tests {
 
         let summary = CompactSummary {
             text: "50-message conversation.".to_string(),
-            micro_mode: false,
         };
-
         let result = apply_compact(&msgs, &summary);
         assert!(result.removed_count > 0);
-
-        // Token budget (20K) should select fewer than 50 messages
         assert!(
             result.messages.len() < msgs.len(),
-            "should have removed some messages via token budget"
+            "字符预算应裁剪部分旧消息"
         );
     }
 
     #[test]
     fn summary_deduplication_filters_old_compacts() {
-        // Simulate a message list that already has a compact summary
         let msgs = vec![
             make_msg("system", "You are an AI agent."),
             make_msg("system", "## Context Compaction Summary\n\nold summary"),
@@ -716,11 +521,8 @@ mod tests {
 
         let summary = CompactSummary {
             text: "new compact.".to_string(),
-            micro_mode: false,
         };
-
         let result = apply_compact(&msgs, &summary);
-        // Only one compact summary should remain (the new one)
         let compact_count = result
             .messages
             .iter()
@@ -735,7 +537,7 @@ mod tests {
     }
 
     #[test]
-    fn initial_context_injected_before_last_user_msg() {
+    fn compact_summary_injected_before_tail() {
         let msgs = vec![
             make_msg("system", "AGENTS.md: be excellent"),
             make_msg("user", "Quest 1"),
@@ -746,12 +548,9 @@ mod tests {
 
         let summary = CompactSummary {
             text: "compacted 2 turns.".to_string(),
-            micro_mode: false,
         };
-
         let result = apply_compact(&msgs, &summary);
 
-        // System message preserved
         assert_eq!(result.messages[0].role, "system");
         assert!(result.messages[0]
             .content
@@ -760,7 +559,6 @@ mod tests {
             .unwrap_or("")
             .contains("AGENTS.md"));
 
-        // Compact summary injected (before last user msg per Codex pattern)
         let compact_pos = result.messages.iter().position(|m| {
             m.content
                 .as_ref()
@@ -768,45 +566,12 @@ mod tests {
                 .is_some_and(|s| s.contains("Context Compaction Summary"))
         });
         assert!(compact_pos.is_some(), "compact summary should be present");
-
-        // Last user message should appear AFTER the compact summary
         let last_user_pos = result.messages.iter().rposition(|m| m.role == "user");
         assert!(last_user_pos.is_some());
         assert!(
             compact_pos.unwrap() < last_user_pos.unwrap(),
-            "compact summary should be before last user message"
+            "compact summary should be before the kept tail"
         );
-    }
-
-    #[test]
-    fn estimate_prompt_tokens_sums_all_messages() {
-        let msgs = vec![
-            make_msg("system", "hi"),
-            make_msg("user", "hello world"),
-        ];
-        let tokens = estimate_prompt_tokens(&msgs);
-        assert!(tokens > 0);
-        assert!(tokens < 50);
-    }
-
-    #[test]
-    fn prompt_usage_uses_real_baseline_and_only_estimates_delta() {
-        let msgs = vec![
-            make_msg("system", "hi"),
-            make_msg("user", "hello"),
-            make_msg("assistant", "123456"),
-        ];
-        // 基线 100 对应前两条消息，新增 "123456" 按字符/2 估算为 3。
-        let usage = estimate_prompt_usage(&msgs, Some(100), 2);
-        assert_eq!(usage, 103);
-    }
-
-    #[test]
-    fn prompt_usage_falls_back_when_baseline_len_exceeds_messages() {
-        let msgs = vec![make_msg("user", "hello")];
-        // 压缩等场景会让消息列表短于基线，此时应回退到全量估算。
-        let usage = estimate_prompt_usage(&msgs, Some(100), 5);
-        assert_eq!(usage, estimate_prompt_tokens(&msgs));
     }
 
     #[test]
@@ -818,14 +583,15 @@ mod tests {
     }
 
     #[test]
-    fn token_budget_selection_smaller_than_total() {
-        let mut msgs = Vec::new();
-        for i in 0..20 {
-            msgs.push(make_msg("user", &format!("msg{i}: some padding text here")));
-        }
-        let refs: Vec<&ChatMessage> = msgs.iter().collect();
-        let selected = select_user_messages_with_token_budget(&refs, 50); // tiny budget
-        assert!(selected.len() < msgs.len(), "tiny budget should select fewer");
-        assert!(!selected.is_empty(), "should select at least one message");
+    fn tail_selection_keeps_newest_even_when_oversized() {
+        let oversized = "x".repeat(100_000);
+        let messages = vec![
+            make_msg("user", "short old"),
+            make_msg("assistant", &oversized),
+        ];
+        let refs: Vec<&ChatMessage> = messages.iter().collect();
+        let selected = select_tail_messages_by_chars(&refs, 100);
+        assert_eq!(selected.len(), 1);
+        assert_eq!(selected[0].role, "assistant");
     }
 }

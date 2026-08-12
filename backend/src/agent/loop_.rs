@@ -5,10 +5,8 @@ use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
 use super::compact::{
-    apply_compact, build_compact_snapshot, compact_reserve, estimate_prompt_tokens,
-    estimate_prompt_usage, count_compactable_messages, is_micro_compact_mode,
-    persist_compact_summary, run_compact, should_trigger_compact,
-    should_trigger_dev_auto_compact, CompactPersistOptions, DEFAULT_COMPACT_THRESHOLD,
+    apply_compact, build_compact_snapshot, compact_reserve, persist_compact_summary, run_compact,
+    should_trigger_compact, CompactPersistOptions, DEFAULT_COMPACT_THRESHOLD,
 };
 use super::decision::{
     build_final_answer_decision_request, build_proxy_continuation_message, request_proxy_decision,
@@ -94,27 +92,20 @@ pub async fn run_agent_loop(
     let mut persisted_state =
         find_persisted_message_state(&app_state.db, params.session_id.as_deref(), &params.task_id);
     let mut cumulative_usage: Option<TokenUsage> = None;
-    // 新 run 的首轮也要恢复数据库里最近一次 provider 真实 usage 作为基线，
-    // 否则会退化为全量启发式估算（工具输出按字符/2 高估），
-    // 造成“UI 显示 30%，用户发消息后第一轮却立刻压缩”。
+    // 新 run 的首轮恢复数据库里最近一次 provider 真实 usage，
+    // 没有真实用量时不自动压缩。
     let mut latest_prompt_tokens =
         latest_provider_prompt_tokens(&app_state.db, params.session_id.as_deref());
     let mut last_tool_signature: Option<String> = None;
     let mut repeated_tool_signature_count = 0_i32;
     let mut turn_index = 0_u32;
-    // dev 自动压缩基线：从当前 run 可见的历史消息数开始，而不是从 0 开始。
-    // 否则压缩后保留的历史消息会在新 run 的首轮就满足“每 N 条消息”条件，
-    // 导致上下文占用很低时也立刻再次自动压缩。
-    let mut last_dev_auto_compact_message_count = count_compactable_messages(&messages);
-    // 压缩判断与 composer 共用同一份上下文占用口径：优先使用最近一次模型
-    // 返回的真实 prompt_tokens，只对之后新增的消息做增量估算。
+    // 压缩判断与 composer 共用同一份真实 usage 口径：
+    // 没有真实用量时不自动压缩，等下一次模型返回后再判断。
     let max_tokens = params.max_context_tokens.unwrap_or(96_000);
     let trigger_threshold = params
         .compact_trigger_threshold
         .unwrap_or(DEFAULT_COMPACT_THRESHOLD);
     let mut last_real_prompt_tokens = latest_prompt_tokens;
-    let mut last_real_usage_message_len =
-        if latest_prompt_tokens.is_some() { messages.len() } else { 0 };
     // Sub-agent concurrency cap. Override via CODER_SUBAGENT_MAX_CONCURRENT
     // (defaults to 3). Values below 1 are treated as 1 so the store never
     // rejects every spawn.
@@ -162,29 +153,23 @@ pub async fn run_agent_loop(
         //
         // This avoids the cost of creating a new DB session and keeps agent
         // continuity within the same window.
-        let prompt_estimate = estimate_prompt_usage(
-            &messages,
-            last_real_prompt_tokens,
-            last_real_usage_message_len,
-        );
-        let token_trigger = should_trigger_compact(
-            prompt_estimate,
-            max_tokens,
-            Some(trigger_threshold),
-        );
-        let dev_trigger = should_trigger_dev_auto_compact(
-            &messages,
-            last_dev_auto_compact_message_count,
-        );
-        if token_trigger || dev_trigger {
-            log::info!(
-                "auto_compact_triggered task_id={} estimated_tokens={} max_tokens={} token_trigger={} dev_trigger={} compactable_messages={}",
-                params.task_id,
+        // 只用真实 usage 判断；没有真实用量时不自动压缩，
+        // 等下一次模型返回后再判断。
+        let prompt_estimate = last_real_prompt_tokens.unwrap_or(0);
+        let token_trigger = last_real_prompt_tokens.is_some()
+            && should_trigger_compact(
                 prompt_estimate,
                 max_tokens,
-                token_trigger,
-                dev_trigger,
-                count_compactable_messages(&messages)
+                Some(trigger_threshold),
+            );
+        if token_trigger {
+            log::info!(
+                "auto_compact_triggered task_id={} session_id={:?} used_tokens={} max_tokens={} threshold={}",
+                params.task_id,
+                params.session_id,
+                prompt_estimate,
+                max_tokens,
+                trigger_threshold
             );
 
             emit_event(
@@ -228,17 +213,6 @@ pub async fn run_agent_loop(
                 Vec::new(),  // background_tasks
             );
 
-            let micro = is_micro_compact_mode(
-                max_tokens.saturating_sub(prompt_estimate),
-            );
-            // Short-chat DEV cadence needs force persist, otherwise the 20k-token
-            // tail budget treats the whole transcript as "already fits" and noops.
-            let persist_options = if dev_trigger && !token_trigger {
-                CompactPersistOptions::for_manual(true)
-            } else {
-                CompactPersistOptions::default()
-            };
-
             match run_compact(
                 &http_client,
                 &params.base_url,
@@ -246,57 +220,41 @@ pub async fn run_agent_loop(
                 &params.model,
                 &messages,
                 &snapshot,
-                micro,
             )
             .await
             {
                 Ok(summary) => {
                     let result = apply_compact(&messages, &summary);
                     log::info!(
-                        "auto_compact_applied task_id={} removed={} remaining={} micro={}",
+                        "auto_compact_applied task_id={} session_id={:?} removed={} remaining={}",
                         params.task_id,
+                        params.session_id,
                         result.removed_count,
-                        result.messages.len(),
-                        summary.micro_mode
+                        result.messages.len()
                     );
-                    messages = result.messages;
-                    last_real_prompt_tokens = None;
-                    last_real_usage_message_len = 0;
-                    persist_context_usage_snapshot(
+                    let persisted = match persist_compact_for_task(
                         &app_state.db,
-                        params.session_id.as_deref(),
-                        estimate_prompt_tokens(&messages),
-                        max_tokens,
-                        trigger_threshold,
-                        "estimated",
-                        None,
-                    );
-                    let persisted = persist_compact_for_task(
-                        &app_state.db,
-                        &params.task_id,
                         params.session_id.as_deref(),
                         &summary,
-                        persist_options,
-                    );
-                    let db_removed = persisted
-                        .as_ref()
-                        .map(|value| value.removed_count)
-                        .unwrap_or(0);
-                    if db_removed == 0 {
-                        log::info!(
-                            "auto_compact_db_noop task_id={} in_memory_removed={}",
-                            params.task_id,
-                            result.removed_count
-                        );
-                    }
-                    last_dev_auto_compact_message_count =
-                        count_compactable_messages(&messages);
+                    ) {
+                        Ok(persisted) => persisted,
+                        Err(error) => {
+                            log::error!(
+                                "auto_compact_persist_failed task_id={} session_id={:?} error={}",
+                                params.task_id,
+                                params.session_id,
+                                error
+                            );
+                            return Err(AgentLoopError::Other(format!(
+                                "compact persist failed: {error}"
+                            )));
+                        }
+                    };
+                    messages = result.messages;
 
                     if let Some(state) = persisted_state.as_mut() {
                         let effective_removed = persisted
-                            .as_ref()
-                            .map(|value| value.removed_count)
-                            .unwrap_or(0)
+                            .removed_count
                             .max(result.removed_count);
                         upsert_compact_process_step(
                             &mut state.process_steps,
@@ -304,10 +262,8 @@ pub async fn run_agent_loop(
                                 state: "completed",
                                 removed_count: effective_removed as u32,
                                 preview: &summary.text,
-                                compact_message_id: persisted
-                                    .as_ref()
-                                    .map(|value| value.compact_message_id.as_str())
-                                    .filter(|value| !value.is_empty()),
+                                compact_message_id: (!persisted.compact_message_id.is_empty())
+                                    .then_some(persisted.compact_message_id.as_str()),
                             },
                         );
                         let _ = persist_message_snapshot(
@@ -329,131 +285,42 @@ pub async fn run_agent_loop(
                             &params.task_id,
                             &summary.text,
                             result.removed_count,
-                            persisted.as_ref(),
+                            Some(&persisted),
                             "auto",
                         ),
                     )?;
                 }
                 Err(error) => {
-                    log::warn!(
-                        "auto_compact_failed task_id={} error={} — retrying once",
+                    log::error!(
+                        "auto_compact_failed task_id={} session_id={:?} error={}",
                         params.task_id,
+                        params.session_id,
                         error
                     );
-
-                    // Retry compaction once with the micro prompt (tighter budget).
-                    // On second failure, continue with existing messages — compaction
-                    // is best-effort, the session keeps running either way.
-                    match run_compact(
-                        &http_client,
-                        &params.base_url,
-                        params.api_key.as_deref().unwrap_or_default(),
-                        &params.model,
-                        &messages,
-                        &snapshot,
-                        true, // micro mode on retry
-                    )
-                    .await
-                    {
-                        Ok(summary) => {
-                            let result = apply_compact(&messages, &summary);
-                            log::info!(
-                                "auto_compact_retry_succeeded task_id={} removed={}",
-                                params.task_id,
-                                result.removed_count
-                            );
-                            messages = result.messages;
-                            last_real_prompt_tokens = None;
-                            last_real_usage_message_len = 0;
-                            persist_context_usage_snapshot(
-                                &app_state.db,
-                                params.session_id.as_deref(),
-                                estimate_prompt_tokens(&messages),
-                                max_tokens,
-                                trigger_threshold,
-                                "estimated",
-                                None,
-                            );
-                            let persisted = persist_compact_for_task(
-                                &app_state.db,
-                                &params.task_id,
-                                params.session_id.as_deref(),
-                                &summary,
-                                persist_options,
-                            );
-                            last_dev_auto_compact_message_count =
-                                count_compactable_messages(&messages);
-                            if let Some(state) = persisted_state.as_mut() {
-                                let effective_removed = persisted
-                                    .as_ref()
-                                    .map(|value| value.removed_count)
-                                    .unwrap_or(0)
-                                    .max(result.removed_count);
-                                upsert_compact_process_step(
-                                    &mut state.process_steps,
-                                    CompactProcessStepPatch {
-                                        state: "completed",
-                                        removed_count: effective_removed as u32,
-                                        preview: &summary.text,
-                                        compact_message_id: persisted
-                                            .as_ref()
-                                            .map(|value| value.compact_message_id.as_str())
-                                            .filter(|value| !value.is_empty()),
-                                    },
-                                );
-                                let _ = persist_message_snapshot(
-                                    &app_state.db,
-                                    state,
-                                    MessageStatusPatch {
-                                        status: Some("streaming"),
-                                        error: None,
-                                        usage: None,
-                                        duration_ms: None,
-                                    },
-                                );
-                            }
-                            emit_event(
-                                &registry,
-                                &broadcaster,
-                                &params.task_id,
-                                compact_completed_event(
-                                    &params.task_id,
-                                    &summary.text,
-                                    result.removed_count,
-                                    persisted.as_ref(),
-                                    "auto",
-                                ),
-                            )?;
-                        }
-                        Err(retry_error) => {
-                            log::warn!(
-                                "auto_compact_retry_failed task_id={} error={} — continuing without compaction",
-                                params.task_id,
-                                retry_error
-                            );
-                            if let Some(state) = persisted_state.as_mut() {
-                                upsert_compact_process_step(
-                                    &mut state.process_steps,
-                                    CompactProcessStepPatch {
-                                        state: "error",
-                                        removed_count: 0,
-                                        preview: "",
-                                        compact_message_id: None,
-                                    },
-                                );
-                                let _ = persist_message_snapshot(
-                                    &app_state.db,
-                                    state,
-                                    MessageStatusPatch {
-                                        status: Some("streaming"),
-                                        error: None,
-                                        usage: None,
-                                        duration_ms: None,
-                                    },
-                                );
-                            }
-                        }
+                    if let Some(state) = persisted_state.as_mut() {
+                        upsert_compact_process_step(
+                            &mut state.process_steps,
+                            CompactProcessStepPatch {
+                                state: "error",
+                                removed_count: 0,
+                                preview: "",
+                                compact_message_id: None,
+                            },
+                        );
+                        let _ = persist_message_snapshot(
+                            &app_state.db,
+                            state,
+                            MessageStatusPatch {
+                                status: Some("streaming"),
+                                error: None,
+                                usage: None,
+                                duration_ms: None,
+                            },
+                        );
                     }
+                    return Err(AgentLoopError::Other(format!(
+                        "auto compact failed: {error}"
+                    )));
                 }
             }
         }
@@ -464,15 +331,16 @@ pub async fn run_agent_loop(
         // loop cycle we consume it and trigger an immediate compaction
         // regardless of token budget. This lets the user manually request
         // a compact via slash command or frontend action.
-        let manual_force = {
+        let manual_requested = {
             let mut reg = registry.lock().map_err(|_| AgentLoopError::Cancelled)?;
             reg.consume_compact_request(&params.task_id)
+                .is_some()
         };
-        if let Some(force) = manual_force {
+        if manual_requested {
             log::info!(
-                "manual_compact_requested task_id={} force={}",
+                "manual_compact_requested task_id={} session_id={:?}",
                 params.task_id,
-                force
+                params.session_id
             );
 
             let snapshot = build_compact_snapshot(
@@ -490,36 +358,36 @@ pub async fn run_agent_loop(
                 &params.model,
                 &messages,
                 &snapshot,
-                false,
             )
             .await
             {
                 Ok(summary) => {
                     let result = apply_compact(&messages, &summary);
                     log::info!(
-                        "manual_compact_applied task_id={} removed={}",
+                        "manual_compact_applied task_id={} session_id={:?} removed={}",
                         params.task_id,
+                        params.session_id,
                         result.removed_count
                     );
-                    messages = result.messages;
-                    last_real_prompt_tokens = None;
-                    last_real_usage_message_len = 0;
-                    persist_context_usage_snapshot(
+                    let persisted = match persist_compact_for_task(
                         &app_state.db,
-                        params.session_id.as_deref(),
-                        estimate_prompt_tokens(&messages),
-                        max_tokens,
-                        trigger_threshold,
-                        "estimated",
-                        None,
-                    );
-                    let persisted = persist_compact_for_task(
-                        &app_state.db,
-                        &params.task_id,
                         params.session_id.as_deref(),
                         &summary,
-                        CompactPersistOptions::for_manual(force),
-                    );
+                    ) {
+                        Ok(persisted) => persisted,
+                        Err(error) => {
+                            log::error!(
+                                "manual_compact_persist_failed task_id={} session_id={:?} error={}",
+                                params.task_id,
+                                params.session_id,
+                                error
+                            );
+                            return Err(AgentLoopError::Other(format!(
+                                "compact persist failed: {error}"
+                            )));
+                        }
+                    };
+                    messages = result.messages;
                     emit_event(
                         &registry,
                         &broadcaster,
@@ -528,17 +396,42 @@ pub async fn run_agent_loop(
                             &params.task_id,
                             &summary.text,
                             result.removed_count,
-                            persisted.as_ref(),
+                            Some(&persisted),
                             "manual",
                         ),
                     )?;
                 }
                 Err(error) => {
-                    log::warn!(
-                        "manual_compact_failed task_id={} error={}",
+                    log::error!(
+                        "manual_compact_failed task_id={} session_id={:?} error={}",
                         params.task_id,
+                        params.session_id,
                         error
                     );
+                    if let Some(state) = persisted_state.as_mut() {
+                        upsert_compact_process_step(
+                            &mut state.process_steps,
+                            CompactProcessStepPatch {
+                                state: "error",
+                                removed_count: 0,
+                                preview: "",
+                                compact_message_id: None,
+                            },
+                        );
+                        let _ = persist_message_snapshot(
+                            &app_state.db,
+                            state,
+                            MessageStatusPatch {
+                                status: Some("streaming"),
+                                error: None,
+                                usage: None,
+                                duration_ms: None,
+                            },
+                        );
+                    }
+                    return Err(AgentLoopError::Other(format!(
+                        "manual compact failed: {error}"
+                    )));
                 }
             }
         }
@@ -560,7 +453,6 @@ pub async fn run_agent_loop(
         if let Some(usage) = &turn.usage {
             latest_prompt_tokens = Some(usage.prompt_tokens);
             last_real_prompt_tokens = Some(usage.prompt_tokens);
-            last_real_usage_message_len = messages.len();
             cumulative_usage = Some(match cumulative_usage.as_ref() {
                 Some(acc) => merge_usage(acc, usage),
                 None => usage.clone(),
@@ -1172,24 +1064,13 @@ fn build_assistant_message(turn: &AgentTurnResult) -> ChatMessage {
     }
 }
 
-fn is_subagent_task(task_id: &str) -> bool {
-    task_id.contains("/sub-")
-}
-
-/// Persist compact markers for parent session tasks only.
-/// Subagent compact stays in-memory and surfaces through spawn_subagent steps.
+/// 把压缩摘要写入数据库压缩记录；失败时由调用方撤销内存压缩并停止任务。
 fn persist_compact_for_task(
     db: &Arc<Mutex<Database>>,
-    task_id: &str,
     session_id: Option<&str>,
     summary: &super::compact::CompactSummary,
-    options: CompactPersistOptions,
-) -> Option<CompactPersistResult> {
-    if is_subagent_task(task_id) {
-        log::info!("compact_persist_skipped_subagent task_id={task_id}");
-        return None;
-    }
-    persist_compact_summary(db, session_id, summary, options).ok()
+) -> Result<CompactPersistResult, String> {
+    persist_compact_summary(db, session_id, summary, CompactPersistOptions::default())
 }
 
 /// 取该 session 最近一条带 provider usage 的 assistant 消息的 prompt_tokens。

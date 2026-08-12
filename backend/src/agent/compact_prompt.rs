@@ -46,12 +46,6 @@ Include:
 
 This summary will be stored and may be referenced by future sessions working on the same project."#;
 
-/// Micro-compaction prompt for very short context windows.
-///
-/// When space is extremely tight, this ultra-concise prompt produces
-/// the densest possible summary.
-pub const MICRO_COMPACT_PROMPT: &str = "Summarize the work so far in 3-5 bullet points. Focus on what was done, key decisions, and next steps. Be extremely concise.";
-
 #[cfg(test)]
 mod tests {
     use super::*;

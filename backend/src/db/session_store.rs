@@ -299,9 +299,14 @@ pub struct CompactPersistResult {
     pub first_kept_message_id: Option<String>,
 }
 
-fn estimate_record_tokens(record: &MessageRecord) -> u32 {
+/// 压缩保留窗口使用的字符预算（约等于旧 2 万 token 的字符量）。
+///
+/// 只用于选择“保留起点”，不参与上下文占用判断。
+const COMPACT_TAIL_MAX_CHARS: usize = 40_000;
+
+fn record_chars(record: &MessageRecord) -> usize {
     // 模型上下文组装会展开 tool_invocations / process_steps / thinking，
-    // 这里必须同步计入，否则压缩持久化会低估真实窗口。
+    // 这里同步计入，避免保留窗口低估真实体积。
     let content_len = record.content.len();
     let thinking_len = record.thinking.len();
     let tools_len: usize = record
@@ -339,32 +344,27 @@ fn estimate_record_tokens(record: &MessageRecord) -> u32 {
         })
         .unwrap_or(0);
 
-    let total = content_len
+    content_len
         .saturating_add(thinking_len)
         .saturating_add(tools_len)
-        .saturating_add(steps_len);
-    (total as f64 / 2.0).ceil() as u32
+        .saturating_add(steps_len)
 }
 
-fn select_tail_record_count(records: &[&MessageRecord], max_tokens: u32) -> usize {
-    if max_tokens == 0 || records.is_empty() {
+fn select_tail_record_count(records: &[&MessageRecord], max_chars: usize) -> usize {
+    if records.is_empty() {
         return 0;
     }
 
     let mut selected = 0usize;
-    let mut remaining = max_tokens;
+    let mut remaining = max_chars;
 
     for record in records.iter().rev() {
-        if remaining == 0 {
+        let chars = record_chars(record);
+        if selected > 0 && chars > remaining {
             break;
         }
-        let tokens = estimate_record_tokens(record);
-        if tokens <= remaining {
-            selected += 1;
-            remaining = remaining.saturating_sub(tokens);
-        } else {
-            break;
-        }
+        selected += 1;
+        remaining = remaining.saturating_sub(chars);
     }
 
     selected
@@ -380,7 +380,7 @@ pub fn estimate_compact_anchor_after_message_id(records: &[MessageRecord]) -> Op
         return conversation.last().map(|record| record.id.clone());
     }
 
-    let keep_count = select_tail_record_count(&conversation, COMPACT_USER_MESSAGE_MAX_TOKENS);
+    let keep_count = select_tail_record_count(&conversation, COMPACT_TAIL_MAX_CHARS);
     if keep_count == 0 || keep_count >= conversation.len() {
         return conversation.last().map(|record| record.id.clone());
     }
@@ -392,8 +392,6 @@ pub fn estimate_compact_anchor_after_message_id(records: &[MessageRecord]) -> Op
 
     Some(conversation[first_kept_index - 1].id.clone())
 }
-
-const COMPACT_USER_MESSAGE_MAX_TOKENS: u32 = 20_000;
 
 /// Recover a first_kept index when the compact marker's cursor is missing.
 ///
@@ -426,7 +424,7 @@ fn recover_first_kept_start_idx(
             .iter()
             .map(|(_, record)| *record)
             .collect::<Vec<_>>(),
-        COMPACT_USER_MESSAGE_MAX_TOKENS,
+        COMPACT_TAIL_MAX_CHARS,
     );
     if keep_count == 0 {
         keep_count = 1;
@@ -492,9 +490,8 @@ pub fn persist_session_compact(
     db: &Database,
     session_id: &str,
     summary_text: &str,
-    max_tail_tokens: u32,
+    max_tail_chars: usize,
     summary_prefix: &str,
-    force: bool,
 ) -> Result<CompactPersistResult, String> {
     let records = get_messages_by_session(db, session_id)?;
     let conversation: Vec<(usize, &MessageRecord)> = records
@@ -512,42 +509,16 @@ pub fn persist_session_compact(
             .iter()
             .map(|(_, record)| *record)
             .collect::<Vec<_>>(),
-        max_tail_tokens,
+        max_tail_chars,
     );
 
-    // Force must always split when possible — including the case where the
-    // newest message alone exceeds the (often tiny) force budget and the
-    // selector returns 0.
-    // 非 force 时，若最新消息单独超过预算，也至少保留一条并建立 compact
-    // marker，避免内存已压缩而 SQLite 仍保留全量历史，下次 run 再次压缩。
-    if conversation.len() >= 2 && keep_count == 0 {
-        keep_count = 1;
-    }
-    if force && conversation.len() >= 2 && keep_count >= conversation.len() {
-        keep_count = 1;
-    }
-
+    // 只要执行压缩，就必须建立压缩记录，避免“内存已压缩但数据库没有记录”。
+    // 最新一条消息始终保留，即使它单独超出字符预算。
     if keep_count == 0 || keep_count >= conversation.len() {
-        return Ok(CompactPersistResult {
-            compact_message_id: String::new(),
-            deleted_message_ids: Vec::new(),
-            removed_count: 0,
-            anchor_after_message_id: None,
-            first_kept_message_id: None,
-        });
+        keep_count = 1;
     }
 
     let split_conversation_idx = conversation.len() - keep_count;
-    if split_conversation_idx == 0 {
-        return Ok(CompactPersistResult {
-            compact_message_id: String::new(),
-            deleted_message_ids: Vec::new(),
-            removed_count: 0,
-            anchor_after_message_id: None,
-            first_kept_message_id: None,
-        });
-    }
-
     let first_kept = conversation[split_conversation_idx].1.clone();
     let event_after = conversation[conversation.len() - 1].1;
     let compact_created_at = event_after.created_at.saturating_add(1);
@@ -585,6 +556,63 @@ pub fn persist_session_compact(
         anchor_after_message_id: Some(event_after.id.clone()),
         first_kept_message_id: Some(first_kept.id),
     })
+}
+
+/// 最小旧数据修复：为“有压缩过程但缺压缩记录”的历史 session 补写压缩记录。
+///
+/// 不改表结构、不删消息；返回补写的 session 数量。
+pub fn repair_missing_compact_markers(db: &Database) -> Result<usize, String> {
+    let sessions = db.get_all::<SessionRecord>(SESSIONS_STORE)?;
+    let mut repaired = 0usize;
+
+    for session in sessions {
+        let messages = get_messages_by_session(db, &session.id)?;
+        if messages
+            .iter()
+            .any(|message| message.message_kind.as_deref() == Some(super::records::MESSAGE_KIND_COMPACT))
+        {
+            continue;
+        }
+
+        let latest_summary = messages.iter().rev().find_map(|message| {
+            message.process_steps.as_deref().and_then(|steps| {
+                steps.iter().rev().find_map(|step| match step {
+                    MessageProcessStep::Compact { preview, .. } if !preview.trim().is_empty() => {
+                        Some(preview.clone())
+                    }
+                    _ => None,
+                })
+            })
+        });
+        let Some(summary) = latest_summary else {
+            continue;
+        };
+
+        match persist_session_compact(
+            db,
+            &session.id,
+            &summary,
+            COMPACT_TAIL_MAX_CHARS,
+            "## Context Compaction Summary\n\n",
+        ) {
+            Ok(_) => {
+                repaired += 1;
+                log::info!(
+                    "compact_repair session_id={} added_missing_record",
+                    session.id
+                );
+            }
+            Err(error) => {
+                log::error!(
+                    "compact_repair_failed session_id={} error={}",
+                    session.id,
+                    error
+                );
+            }
+        }
+    }
+
+    Ok(repaired)
 }
 
 #[cfg(test)]
@@ -673,11 +701,10 @@ mod compact_persist_tests {
             "summary body",
             20,
             "prefix\n\n",
-            false,
         )
         .expect("persist");
 
-        assert_eq!(result.removed_count, 2);
+        assert_eq!(result.removed_count, 3);
         assert!(result.deleted_message_ids.is_empty());
         assert!(!result.compact_message_id.is_empty());
         assert_eq!(
@@ -696,7 +723,7 @@ mod compact_persist_tests {
         assert_eq!(messages[4].created_at, 104);
         assert_eq!(
             messages[4].task_id.as_deref(),
-            result.first_kept_message_id.as_deref()
+            Some(last_id.as_str())
         );
     }
 
@@ -722,7 +749,6 @@ mod compact_persist_tests {
             "forced summary",
             20_000,
             "prefix\n\n",
-            true,
         )
         .expect("persist");
 
@@ -955,7 +981,6 @@ mod compact_persist_tests {
             "forced summary",
             512,
             "prefix\n\n",
-            true,
         )
         .expect("persist");
 

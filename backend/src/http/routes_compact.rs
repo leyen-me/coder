@@ -3,8 +3,7 @@
 //! POST /api/compact
 //! Body: { session_id, task_id?, force? }
 //!
-//! Idle session only — returns `agent_running` while an agent is active.
-//! (Mid-turn auto-compact still runs inside the agent loop.)
+//! Agent 运行中时排队给 loop 执行；空闲时直接执行。
 
 use axum::{extract::State, response::Json};
 use serde::{Deserialize, Serialize};
@@ -12,8 +11,7 @@ use std::sync::Arc;
 
 use crate::{
     agent::compact::{
-        allow_force_compact, build_compact_snapshot, persist_compact_summary,
-        run_compact, CompactPersistOptions,
+        build_compact_snapshot, persist_compact_summary, run_compact, CompactPersistOptions,
     },
     agent::registry::resolve_api_key,
     db::{
@@ -100,16 +98,27 @@ pub async fn handle_compact(
 
     let anchor_after_message_id = estimate_compact_anchor_after_message_id(&raw_messages);
 
-    let force = payload.force && allow_force_compact();
-
-    // Manual compact is idle-only. While an agent is running/pending/cancelling,
-    // refuse so the user must stop first (auto-compact still runs inside the loop).
+    // Agent 运行中时，把手动压缩请求交给 loop，下一轮立即执行；
+    // 空闲时直接在本路由执行。
     let agent_running = {
-        let registry = match state.agent_registry.lock() {
+        let mut registry = match state.agent_registry.lock() {
             Ok(registry) => registry,
             Err(_) => return Json(error_response("registry_unavailable")),
         };
-        registry.get_session_status(session_id).is_some()
+        match registry.request_compact_for_session(session_id, false) {
+            Some(_) => return Json(CompactTriggerResponse {
+                ok: true,
+                compacted: false,
+                code: "queued".to_string(),
+                removed_count: None,
+                remaining_count: None,
+                anchor_after_message_id,
+                first_kept_message_id: None,
+                compact_message_id: None,
+                summary_preview: None,
+            }),
+            None => registry.get_session_status(session_id).is_some(),
+        }
     };
 
     if agent_running {
@@ -198,7 +207,6 @@ pub async fn handle_compact(
         &session.model,
         &messages,
         &snapshot,
-        false,
     )
     .await
     {
@@ -208,7 +216,7 @@ pub async fn handle_compact(
                 &state.db,
                 Some(session_id),
                 &summary,
-                CompactPersistOptions::for_manual(force),
+                CompactPersistOptions::default(),
             ) {
                 Ok(result) if result.removed_count > 0 => {
                     let conversation_count = conversation_message_count(&raw_messages);
