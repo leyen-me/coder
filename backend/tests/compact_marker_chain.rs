@@ -9,7 +9,7 @@
 use std::path::PathBuf;
 
 use coder_lib::agent::compact::{
-    should_trigger_compact, COMPACT_USER_MESSAGE_MAX_TOKENS,
+    estimate_prompt_usage, should_trigger_compact, COMPACT_USER_MESSAGE_MAX_TOKENS,
 };
 use coder_lib::db::records::{
     current_timestamp_ms, MessageProcessStep, MessageRecord, MessageToolInvocation, SessionRecord,
@@ -19,9 +19,11 @@ use coder_lib::db::session_store::{
     persist_session_compact, put_message, put_session, update_message,
 };
 use coder_lib::db::Database;
+use coder_lib::agent::ChatMessage;
 use serde_json::json;
 
 const MAX_TOKENS: u32 = 96_000;
+const PROD_MAX_TOKENS: u32 = 1_000_000;
 const THRESHOLD: f64 = 0.8;
 
 fn temp_dir(label: &str) -> PathBuf {
@@ -360,7 +362,87 @@ fn production_db_missing_marker_matches_retrigger_chain() {
     );
     let used = total_tokens(&history);
     assert!(
-        should_trigger_compact(used, MAX_TOKENS, Some(THRESHOLD)),
-        "生产全量历史估算 {used} 应超过 80% 阈值"
+        should_trigger_compact(used, PROD_MAX_TOKENS, Some(THRESHOLD)),
+        "生产全量历史估算 {used} 应超过 1M 窗口的 80% 阈值"
+    );
+
+    // 但模型真实返回的 prompt_tokens 峰值也只有约 22%：
+    // 后端新 run 首轮若退化为全量启发式估算，就会在用户发消息后立即压缩，
+    // 与 UI 显示的真实 usage 完全不一致。
+    let real_prompt_tokens = records
+        .iter()
+        .rev()
+        .find_map(|record| {
+            if record.role != "assistant" {
+                return None;
+            }
+            record
+                .usage
+                .as_ref()
+                .map(|usage| usage.prompt_tokens)
+                .filter(|tokens| *tokens > 0)
+        })
+        .expect("生产 session 应存在 provider usage");
+    let peak_prompt_tokens = records
+        .iter()
+        .filter_map(|record| {
+            if record.role != "assistant" {
+                return None;
+            }
+            record
+                .usage
+                .as_ref()
+                .map(|usage| usage.prompt_tokens)
+                .filter(|tokens| *tokens > 0)
+        })
+        .max()
+        .expect("生产 session 应存在 provider usage");
+    assert_eq!(peak_prompt_tokens, 219_020);
+    assert!(
+        !should_trigger_compact(real_prompt_tokens, PROD_MAX_TOKENS, Some(THRESHOLD)),
+        "最新真实 usage {real_prompt_tokens} 远低于 1M 窗口的 80%，不应触发压缩"
+    );
+    assert!(
+        !should_trigger_compact(peak_prompt_tokens, PROD_MAX_TOKENS, Some(THRESHOLD)),
+        "峰值真实 usage {peak_prompt_tokens} 只占 1M 窗口的约 22%，不应触发压缩"
+    );
+}
+
+/// 修复验证：新 run 首轮恢复最近一次真实 usage 基线后，
+/// 即使 DB 中仍没有 compact marker，也不会在用户发消息后第一轮就压缩。
+#[test]
+fn new_run_restoring_real_usage_baseline_does_not_trigger_early() {
+    let messages = vec![ChatMessage {
+        role: "user".to_string(),
+        content: Some(json!("刚刚发送的新消息")),
+        reasoning_content: None,
+        tool_calls: None,
+        tool_call_id: None,
+        name: None,
+    }];
+
+    // 修复后：新 run 从 DB 恢复上次真实 usage，并把基线长度设为当前消息数，
+    // 首轮只沿用真实占用，不做全量启发式估算。
+    let baseline = Some(219_020);
+    let usage = estimate_prompt_usage(&messages, baseline, messages.len());
+    assert_eq!(usage, 219_020);
+    assert!(
+        !should_trigger_compact(usage, PROD_MAX_TOKENS, Some(THRESHOLD)),
+        "恢复真实基线后不应立即触发压缩"
+    );
+
+    // 对照组：没有基线时退化为全量估算，大工具输出会立刻触发压缩。
+    let huge = ChatMessage {
+        role: "tool".to_string(),
+        content: Some(json!("x".repeat(2_000_000))),
+        reasoning_content: None,
+        tool_calls: None,
+        tool_call_id: Some("tool-1".to_string()),
+        name: Some("read_file".to_string()),
+    };
+    let no_baseline_usage = estimate_prompt_usage(&[huge], None, 0);
+    assert!(
+        should_trigger_compact(no_baseline_usage, PROD_MAX_TOKENS, Some(THRESHOLD)),
+        "无基线时全量启发式估算 {no_baseline_usage} 会提前触发压缩"
     );
 }

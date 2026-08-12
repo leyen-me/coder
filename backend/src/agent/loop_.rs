@@ -25,7 +25,8 @@ use crate::db::{
         MessageToolInvocation, SessionContextUsageSnapshot,
     },
     session_store::{
-        find_assistant_message_by_task_id, get_session, update_session, CompactPersistResult,
+        find_assistant_message_by_task_id, get_messages_by_session, get_session, update_session,
+        CompactPersistResult,
     },
     Database,
 };
@@ -93,7 +94,11 @@ pub async fn run_agent_loop(
     let mut persisted_state =
         find_persisted_message_state(&app_state.db, params.session_id.as_deref(), &params.task_id);
     let mut cumulative_usage: Option<TokenUsage> = None;
-    let mut latest_prompt_tokens: Option<u32> = None;
+    // 新 run 的首轮也要恢复数据库里最近一次 provider 真实 usage 作为基线，
+    // 否则会退化为全量启发式估算（工具输出按字符/2 高估），
+    // 造成“UI 显示 30%，用户发消息后第一轮却立刻压缩”。
+    let mut latest_prompt_tokens =
+        latest_provider_prompt_tokens(&app_state.db, params.session_id.as_deref());
     let mut last_tool_signature: Option<String> = None;
     let mut repeated_tool_signature_count = 0_i32;
     let mut turn_index = 0_u32;
@@ -107,8 +112,9 @@ pub async fn run_agent_loop(
     let trigger_threshold = params
         .compact_trigger_threshold
         .unwrap_or(DEFAULT_COMPACT_THRESHOLD);
-    let mut last_real_prompt_tokens: Option<u32> = None;
-    let mut last_real_usage_message_len = 0_usize;
+    let mut last_real_prompt_tokens = latest_prompt_tokens;
+    let mut last_real_usage_message_len =
+        if latest_prompt_tokens.is_some() { messages.len() } else { 0 };
     // Sub-agent concurrency cap. Override via CODER_SUBAGENT_MAX_CONCURRENT
     // (defaults to 3). Values below 1 are treated as 1 so the store never
     // rejects every spawn.
@@ -1184,6 +1190,38 @@ fn persist_compact_for_task(
         return None;
     }
     persist_compact_summary(db, session_id, summary, options).ok()
+}
+
+/// 取该 session 最近一条带 provider usage 的 assistant 消息的 prompt_tokens。
+///
+/// 用于跨 run 恢复压缩判断基线：新 run 的第一轮不应重新用全量启发式估算，
+/// 而应延续上一次模型真实返回的 prompt 占用，只对新增消息做增量估算。
+fn latest_provider_prompt_tokens(
+    db: &Arc<Mutex<Database>>,
+    session_id: Option<&str>,
+) -> Option<u32> {
+    let session_id = session_id?.trim();
+    if session_id.is_empty() {
+        return None;
+    }
+    let db = db.lock().ok()?;
+    let messages = get_messages_by_session(&db, session_id).ok()?;
+    messages
+        .iter()
+        .rev()
+        .find_map(|message| {
+            if message.role != "assistant"
+                || message.message_kind.as_deref()
+                    == Some(crate::db::records::MESSAGE_KIND_COMPACT)
+            {
+                return None;
+            }
+            message
+                .usage
+                .as_ref()
+                .map(|usage| usage.prompt_tokens)
+                .filter(|tokens| *tokens > 0)
+        })
 }
 
 fn resolve_workspace_dir(
