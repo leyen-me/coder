@@ -218,12 +218,13 @@ pub async fn handle_compact(
                 &summary,
                 CompactPersistOptions::default(),
             ) {
-                Ok(result) if result.removed_count > 0 => {
+                Ok(result) => {
                     let conversation_count = conversation_message_count(&raw_messages);
                     let remaining = conversation_count.saturating_sub(result.removed_count);
                     log::info!(
-                        "direct_compact session={} removed={} remaining={}",
+                        "direct_compact session={} compact_message_id={} removed={} remaining={}",
                         session_id,
+                        result.compact_message_id,
                         result.removed_count,
                         remaining
                     );
@@ -239,17 +240,6 @@ pub async fn handle_compact(
                         summary_preview: Some(summary_preview),
                     })
                 }
-                Ok(_) => Json(CompactTriggerResponse {
-                    ok: true,
-                    compacted: false,
-                    code: "noop_already_fits".to_string(),
-                    removed_count: Some(0),
-                    remaining_count: Some(conversation_message_count(&raw_messages) as u32),
-                    anchor_after_message_id,
-                    first_kept_message_id: None,
-                    compact_message_id: None,
-                    summary_preview: None,
-                }),
                 Err(_) => Json(error_response("persist_failed")),
             }
         }

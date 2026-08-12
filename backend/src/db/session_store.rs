@@ -494,10 +494,35 @@ pub fn persist_session_compact(
     summary_prefix: &str,
 ) -> Result<CompactPersistResult, String> {
     let records = get_messages_by_session(db, session_id)?;
+    // 从最新压缩记录的 first_kept 开始构建当前窗口；
+    // 没有压缩记录时从第一条会话消息开始。
+    let window_start_idx = records
+        .iter()
+        .rposition(|record| {
+            record.message_kind.as_deref() == Some(super::records::MESSAGE_KIND_COMPACT)
+        })
+        .map(|compact_idx| {
+            let first_kept_id = records[compact_idx].task_id.clone();
+            first_kept_id
+                .as_deref()
+                .and_then(|id| {
+                    records.iter().position(|record| {
+                        record.id == id
+                            && record.message_kind.as_deref()
+                                != Some(super::records::MESSAGE_KIND_COMPACT)
+                    })
+                })
+                .unwrap_or_else(|| recover_first_kept_start_idx(&records, compact_idx))
+        })
+        .unwrap_or(0);
+
     let conversation: Vec<(usize, &MessageRecord)> = records
         .iter()
         .enumerate()
-        .filter(|(_, record)| record.message_kind.as_deref() != Some(super::records::MESSAGE_KIND_COMPACT))
+        .skip(window_start_idx)
+        .filter(|(_, record)| {
+            record.message_kind.as_deref() != Some(super::records::MESSAGE_KIND_COMPACT)
+        })
         .collect();
 
     if conversation.len() < 2 {
@@ -513,15 +538,18 @@ pub fn persist_session_compact(
     );
 
     // 只要执行压缩，就必须建立压缩记录，避免“内存已压缩但数据库没有记录”。
-    // 最新一条消息始终保留，即使它单独超出字符预算。
-    if keep_count == 0 || keep_count >= conversation.len() {
+    // 最新一条消息始终保留；预算能放下当前窗口时就全部保留。
+    if keep_count == 0 {
         keep_count = 1;
+    }
+    if keep_count >= conversation.len() {
+        keep_count = conversation.len();
     }
 
     let split_conversation_idx = conversation.len() - keep_count;
     let first_kept = conversation[split_conversation_idx].1.clone();
     let event_after = conversation[conversation.len() - 1].1;
-    let compact_created_at = event_after.created_at.saturating_add(1);
+    let compact_created_at = current_timestamp_ms();
 
     let compact_message = MessageRecord {
         id: new_message_id(),
@@ -720,7 +748,7 @@ mod compact_persist_tests {
         assert_eq!(messages[3].content, "second answer");
         assert_eq!(messages[4].message_kind.as_deref(), Some("compact"));
         assert!(messages[4].content.contains("summary body"));
-        assert_eq!(messages[4].created_at, 104);
+        assert!(messages[4].created_at > 103, "压缩记录使用真实当前时间");
         assert_eq!(
             messages[4].task_id.as_deref(),
             Some(last_id.as_str())
@@ -752,14 +780,14 @@ mod compact_persist_tests {
         )
         .expect("persist");
 
-        assert_eq!(result.removed_count, 1);
+        assert_eq!(result.removed_count, 0, "预算能放下时全部保留");
         assert!(result.deleted_message_ids.is_empty());
         let messages = get_messages_by_session(&db, session_id).expect("messages");
         assert_eq!(messages.len(), 3);
         assert_eq!(messages[0].content, "short");
         assert_eq!(messages[1].content, "reply");
         assert_eq!(messages[2].message_kind.as_deref(), Some("compact"));
-        assert_eq!(messages[2].created_at, 102);
+        assert!(messages[2].created_at > 101, "压缩记录使用真实当前时间");
         assert_eq!(
             result.anchor_after_message_id.as_deref(),
             Some(messages[1].id.as_str())

@@ -145,8 +145,8 @@ fn persist_always_writes_compact_record_when_tail_fits() {
     let session = sample_session(&workspace);
     put_session(&db, &session).expect("put session");
 
-    let last_id = seed_message(&db, &session.id, "assistant", "last", 200);
-    seed_message(&db, &session.id, "user", "first", 100);
+    let first_id = seed_message(&db, &session.id, "user", "first", 100);
+    seed_message(&db, &session.id, "assistant", "last", 200);
 
     let persisted = persist_session_compact(
         &db,
@@ -161,10 +161,10 @@ fn persist_always_writes_compact_record_when_tail_fits() {
         !persisted.compact_message_id.is_empty(),
         "只要执行压缩就必须写压缩记录"
     );
-    assert!(persisted.removed_count > 0);
+    assert_eq!(persisted.removed_count, 0, "预算能放下时全部保留");
     assert_eq!(
         persisted.first_kept_message_id.as_deref(),
-        Some(last_id.as_str())
+        Some(first_id.as_str())
     );
 
     let messages = get_messages_by_session(&db, &session.id).expect("messages");
@@ -173,6 +173,7 @@ fn persist_always_writes_compact_record_when_tail_fits() {
         model.iter().any(|record| record.message_kind.as_deref() == Some("compact")),
         "SQLite 中必须存在压缩记录"
     );
+    assert_eq!(model.len(), 3, "模型窗口 = 压缩记录 + 全部保留消息");
 }
 
 #[test]
@@ -203,7 +204,7 @@ fn stale_db_snapshot_no_longer_noops() {
         !persisted.compact_message_id.is_empty(),
         "DB 快照小也不允许 noop，必须写压缩记录"
     );
-    assert!(persisted.removed_count > 0);
+    assert_eq!(persisted.removed_count, 0, "预算能放下时全部保留");
 }
 
 #[test]
@@ -233,6 +234,83 @@ fn repair_adds_missing_compact_record_only_once() {
     // 第二次修复不应重复补写。
     let repaired_again = repair_missing_compact_markers(&db).expect("repair again");
     assert_eq!(repaired_again, 0);
+}
+
+#[test]
+fn consecutive_manual_compacts_keep_latest_window_and_distinct_timestamps() {
+    let workspace = temp_dir("workspace-twice");
+    std::fs::create_dir_all(&workspace).expect("workspace");
+    let data_dir = temp_dir("data-twice");
+    std::fs::create_dir_all(&data_dir).expect("data dir");
+    let db = Database::new(&data_dir).expect("db");
+    let session = sample_session(&workspace);
+    put_session(&db, &session).expect("put session");
+
+    let first = seed_message(&db, &session.id, "user", "first question", 100);
+    seed_message(&db, &session.id, "assistant", "first answer", 110);
+    seed_message(&db, &session.id, "user", "second question", 120);
+    let last = seed_message(&db, &session.id, "assistant", "second answer", 130);
+
+    let first_compact = persist_session_compact(
+        &db,
+        &session.id,
+        "First summary.",
+        COMPACT_TAIL_MAX_CHARS,
+        "## Context Compaction Summary\n\n",
+    )
+    .expect("first compact");
+    let second_compact = persist_session_compact(
+        &db,
+        &session.id,
+        "Second summary.",
+        COMPACT_TAIL_MAX_CHARS,
+        "## Context Compaction Summary\n\n",
+    )
+    .expect("second compact");
+
+    let messages = get_messages_by_session(&db, &session.id).expect("messages");
+    let compact_records: Vec<&MessageRecord> = messages
+        .iter()
+        .filter(|record| record.message_kind.as_deref() == Some("compact"))
+        .collect();
+    assert_eq!(compact_records.len(), 2, "两次手动压缩应留下两条压缩记录");
+
+    // 第二次压缩的窗口起点不应早于第一次：旧历史已经被第一次摘要覆盖。
+    assert!(
+        second_compact
+            .first_kept_message_id
+            .as_deref()
+            .map(|id| id == first.as_str() || id == last.as_str())
+            .unwrap_or(false),
+        "第二次压缩应基于第一次压缩后的窗口，而不是重新包含全部历史"
+    );
+
+    // 两次压缩记录的时间必须不同，否则前端边界定位会互相覆盖。
+    let first_created = messages
+        .iter()
+        .find(|record| record.id == first_compact.compact_message_id)
+        .expect("first compact record")
+        .created_at;
+    let second_created = messages
+        .iter()
+        .find(|record| record.id == second_compact.compact_message_id)
+        .expect("second compact record")
+        .created_at;
+    assert!(
+        second_created > first_created,
+        "第二次压缩记录时间必须晚于第一次"
+    );
+
+    // 模型窗口 = 最新摘要 + 当前窗口尾部，旧压缩记录不再参与。
+    let model = model_history_from_latest_compact(messages);
+    assert!(
+        model
+            .iter()
+            .filter(|record| record.message_kind.as_deref() == Some("compact"))
+            .count()
+            == 1,
+        "模型窗口只应包含最新一条压缩记录"
+    );
 }
 
 #[test]
