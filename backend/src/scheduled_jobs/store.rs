@@ -63,6 +63,7 @@ pub fn create_job(
             .unwrap_or_default(),
         agent_mode: input.agent_mode,
         thinking_enabled: input.thinking_enabled,
+        attached_mcp_servers: input.attached_mcp_servers,
         enabled: input.enabled.unwrap_or(true),
         runs: Vec::new(),
         created_at: now,
@@ -115,6 +116,9 @@ pub fn update_job(
             .unwrap_or(existing.provider),
         agent_mode: patch.agent_mode.unwrap_or(existing.agent_mode),
         thinking_enabled: patch.thinking_enabled.unwrap_or(existing.thinking_enabled),
+        attached_mcp_servers: patch
+            .attached_mcp_servers
+            .unwrap_or(existing.attached_mcp_servers),
         enabled: patch.enabled.unwrap_or(existing.enabled),
         runs: existing.runs,
         created_at: existing.created_at,
@@ -235,4 +239,68 @@ fn normalize_optional_string(value: Option<String>) -> Option<String> {
     value
         .map(|item| item.trim().to_string())
         .filter(|item| !item.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::Database;
+    use crate::scheduled_jobs::types::AgentMode;
+
+    fn temp_db() -> Arc<Mutex<Database>> {
+        let dir = std::env::temp_dir().join(format!(
+            "coder-scheduled-jobs-test-{}",
+            Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        Arc::new(Mutex::new(Database::new(&dir).expect("open db")))
+    }
+
+    #[test]
+    fn create_and_update_job_keep_attached_mcp_servers() {
+        let db = temp_db();
+        let input = CreateJobInput {
+            name: "mcp job".into(),
+            description: String::new(),
+            cron_expression: "0 9 * * *".into(),
+            prompt: "run".into(),
+            workspace_dir: None,
+            model: "m".into(),
+            provider: Some("deepseek".into()),
+            agent_mode: AgentMode::Agent,
+            thinking_enabled: false,
+            attached_mcp_servers: vec!["server-a".into(), "server-b".into()],
+            enabled: Some(true),
+        };
+
+        let created = create_job(&db, input).expect("create job");
+        assert_eq!(
+            created.attached_mcp_servers,
+            vec!["server-a", "server-b"]
+        );
+
+        let fetched = get_job(&db, &created.id)
+            .expect("read job")
+            .expect("job exists");
+        assert_eq!(
+            fetched.attached_mcp_servers,
+            vec!["server-a", "server-b"]
+        );
+
+        let updated = update_job(
+            &db,
+            &created.id,
+            UpdateJobInput {
+                attached_mcp_servers: Some(vec![
+                    "server-b".into(),
+                    "server-b".into(),
+                    " ".into(),
+                ]),
+                ..UpdateJobInput::default()
+            },
+        )
+        .expect("update job")
+        .expect("job exists");
+        assert_eq!(updated.attached_mcp_servers, vec!["server-b"]);
+    }
 }

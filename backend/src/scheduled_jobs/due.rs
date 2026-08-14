@@ -241,6 +241,7 @@ mod tests {
             provider: "deepseek".into(),
             agent_mode: AgentMode::Ask,
             thinking_enabled: false,
+            attached_mcp_servers: Vec::new(),
             enabled: true,
             runs,
             created_at: local_ts(8, 0),
@@ -272,6 +273,7 @@ mod tests {
             provider: "deepseek".into(),
             agent_mode: AgentMode::Ask,
             thinking_enabled: false,
+            attached_mcp_servers: Vec::new(),
             enabled: true,
             runs: vec![JobRunRecord {
                 id: "task-1".into(),

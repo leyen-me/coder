@@ -1,12 +1,14 @@
 import {
   BotIcon,
   BrainIcon,
+  CheckIcon,
   ChevronDownIcon,
   FileQuestionIcon,
   FolderOpenIcon,
+  ServerIcon,
   XIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
@@ -21,6 +23,7 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuLabel,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -38,6 +41,7 @@ import type { ProviderId } from "@/lib/model-provider/types";
 import { cn } from "@/lib/utils";
 import { PRESET_PROVIDER_LABELS } from "@/lib/model-provider/constants";
 import type { ScheduledJobAgentMode } from "@/features/scheduled-jobs/lib/api";
+import type { McpServerConfig } from "@/lib/db";
 
 function renderModelOptions(
   entries: readonly ModelProviderEntry[] | undefined,
@@ -96,6 +100,10 @@ type AutomationRunSettingsProps = {
   entries?: ModelProviderEntry[];
   /** Resolves a human-readable label for a provider id (preset or custom). */
   getProviderLabel?: (providerId: string) => string;
+  /** 已启用的 MCP 服务，创建/编辑自动化时可选择附带。 */
+  mcpServers?: McpServerConfig[];
+  attachedMcpServers?: string[];
+  onToggleMcpServer?: (serverId: string) => void;
   disabled?: boolean;
 };
 
@@ -110,11 +118,18 @@ export function AutomationRunSettings({
   onThinkingEnabledChange,
   entries,
   getProviderLabel,
+  mcpServers,
+  attachedMcpServers,
+  onToggleMcpServer,
   disabled = false,
 }: AutomationRunSettingsProps) {
   const { t } = useTranslation();
   const selectedModel = findModelEntry(entries, model)?.model;
   const showThinkingToggle = canToggleThinking(selectedModel);
+  const attachedMcpSet = useMemo(
+    () => new Set(attachedMcpServers ?? []),
+    [attachedMcpServers]
+  );
   const workspaceName = workspaceDir
     ? getWorkspaceDisplayName(workspaceDir)
     : null;
@@ -262,6 +277,58 @@ export function AutomationRunSettings({
             <span className="truncate">{t("chat.thinkingToggleLabel")}</span>
           </Toggle>
         ) : null}
+
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              disabled={disabled || (!mcpServers?.length && !attachedMcpServers?.length)}
+              className={cn(
+                composerFooterControlClassName,
+                "inline-flex min-w-0 items-center gap-1.5",
+                "data-[state=open]:bg-accent data-[state=open]:text-foreground data-[state=open]:dark:bg-input/50"
+              )}
+              title={t("chat.mcpServers")}
+            >
+              <ServerIcon className="size-3.5 shrink-0" />
+              <span className="truncate">{t("chat.mcpServers")}</span>
+              {attachedMcpServers?.length ? (
+                <span className="rounded-full bg-foreground/10 px-1.5 text-[10px] leading-4">
+                  {attachedMcpServers.length}
+                </span>
+              ) : null}
+              <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="max-h-[min(50vh,20rem)] w-[min(16rem,calc(100vw-5rem))] overflow-y-auto"
+          >
+            {mcpServers?.length ? (
+              mcpServers.map((server) => {
+                const active = attachedMcpSet.has(server.id);
+                return (
+                  <DropdownMenuItem
+                    key={server.id}
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      onToggleMcpServer?.(server.id);
+                    }}
+                  >
+                    <span className="min-w-0 flex-1 truncate" title={server.name}>
+                      {server.name}
+                    </span>
+                    {active ? <CheckIcon className="size-4 shrink-0" /> : null}
+                  </DropdownMenuItem>
+                );
+              })
+            ) : (
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                {t("chat.mcpServersEmpty")}
+              </DropdownMenuLabel>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

@@ -38,6 +38,8 @@ pub struct SpawnSessionOptions {
     pub compact_trigger_threshold: Option<f64>,
     pub agent_mode: Option<String>,
     pub thinking_enabled: Option<bool>,
+    /// 新会话初始附带的 MCP 服务 id；有父会话时仍由父会话继承。
+    pub attached_mcp_servers: Option<Vec<String>>,
     pub extra_tools: Option<Vec<AgentToolDefinition>>,
     pub denied_tools: Option<Vec<String>>,
     pub autonomy_mode: Option<String>,
@@ -76,7 +78,7 @@ pub async fn spawn_session(
     //    first turn (same as a normal session), satisfying "SubAgent == Session".
     //    A sub-agent inherits the parent's per-session MCP attachment (on-demand
     //    model): what the parent had toggled on carries into the child.
-    let mut attached_mcp_servers: Option<Vec<String>> = None;
+    let mut attached_mcp_servers = opts.attached_mcp_servers.clone();
     let session = SessionRecord {
         id: session_id.clone(),
         title: String::new(),

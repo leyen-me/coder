@@ -117,6 +117,7 @@ export type Messages = {
     countdownHoursMinutes: string;
     countdownDaysHours: string;
     thinkingEnabledBadge: string;
+    mcpBadge: string;
     deleteConfirmTitle: string;
     deleteConfirmDescription: string;
     runHistory: string;

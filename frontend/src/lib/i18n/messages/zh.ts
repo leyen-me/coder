@@ -122,6 +122,7 @@ export const zhMessages = {
     countdownHoursMinutes: "{hours}小时 {minutes}分",
     countdownDaysHours: "{days}天 {hours}小时",
     thinkingEnabledBadge: "已开启深度思考",
+    mcpBadge: "MCP {count} 个",
     deleteConfirmTitle: "删除自动化？",
     deleteConfirmDescription:
       "确定要删除 `{name}` 及其保存的定时配置吗？列表中的运行历史也会一起消失。",

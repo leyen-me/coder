@@ -29,6 +29,8 @@ export type ScheduledJobRecord = {
   provider: string;
   agentMode: ScheduledJobAgentMode;
   thinkingEnabled: boolean;
+  /** 每次运行时会话附带的 MCP 服务 id。 */
+  attachedMcpServers?: string[];
   enabled: boolean;
   runs: ScheduledJobRunRecord[];
   createdAt: number;
@@ -45,6 +47,7 @@ export type CreateScheduledJobInput = {
   provider?: string;
   agentMode: ScheduledJobAgentMode;
   thinkingEnabled: boolean;
+  attachedMcpServers: string[];
 };
 
 export type UpdateScheduledJobInput = Partial<

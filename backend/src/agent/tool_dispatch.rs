@@ -905,7 +905,12 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "workspace_dir": string_schema("Workspace directory for scheduled runs. Defaults to the current session workspace."),
                     "model": string_schema("Model id for scheduled runs. Defaults to the current session model."),
                     "agent_mode": enum_string_schema("Agent mode for scheduled runs.", &["agent", "ask"], Some("agent")),
-                    "thinking_enabled": bool_schema("Whether thinking mode is enabled when the model supports it.", Some(false))
+                    "thinking_enabled": bool_schema("Whether thinking mode is enabled when the model supports it.", Some(false)),
+                    "attached_mcp_servers": {
+                        "type": "array",
+                        "description": "Optional MCP server ids to attach to each scheduled run session.",
+                        "items": { "type": "string" }
+                    }
                 },
                 "required": ["name", "prompt", "cron_expression"],
                 "additionalProperties": false
@@ -925,7 +930,12 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "workspace_dir": string_schema("Updated workspace directory."),
                     "model": string_schema("Updated model id."),
                     "agent_mode": enum_string_schema("Updated agent mode.", &["agent", "ask"], None),
-                    "thinking_enabled": bool_schema("Updated thinking mode setting.", None)
+                    "thinking_enabled": bool_schema("Updated thinking mode setting.", None),
+                    "attached_mcp_servers": {
+                        "type": "array",
+                        "description": "Replacement MCP server ids to attach to each scheduled run session.",
+                        "items": { "type": "string" }
+                    }
                 },
                 "required": ["id"],
                 "additionalProperties": false
@@ -1887,6 +1897,8 @@ struct CreateAutomationArgs {
     agent_mode: Option<String>,
     #[serde(alias = "thinkingEnabled")]
     thinking_enabled: Option<bool>,
+    #[serde(alias = "attachedMcpServers")]
+    attached_mcp_servers: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]
@@ -1904,6 +1916,8 @@ struct UpdateAutomationArgs {
     agent_mode: Option<String>,
     #[serde(alias = "thinkingEnabled")]
     thinking_enabled: Option<bool>,
+    #[serde(alias = "attachedMcpServers")]
+    attached_mcp_servers: Option<Vec<String>>,
 }
 
 #[derive(Deserialize)]
@@ -2004,6 +2018,7 @@ fn execute_create_automation(
         provider: Some(infer_provider_for_model(&model)),
         agent_mode,
         thinking_enabled,
+        attached_mcp_servers: args.attached_mcp_servers.unwrap_or_default(),
         enabled: Some(false),
     };
 
@@ -2093,6 +2108,7 @@ fn execute_update_automation(
         provider,
         agent_mode,
         thinking_enabled: args.thinking_enabled,
+        attached_mcp_servers: args.attached_mcp_servers,
         enabled: None,
     };
 
@@ -2757,6 +2773,7 @@ async fn execute_spawn_subagent(
             compact_trigger_threshold: parent.compact_trigger_threshold,
             agent_mode: Some("agent".to_string()),
             thinking_enabled: parent.thinking_enabled,
+            attached_mcp_servers: None,
             extra_tools: Some(allowed_tools),
             denied_tools: Some(vec![
                 "spawn_subagent".to_string(),

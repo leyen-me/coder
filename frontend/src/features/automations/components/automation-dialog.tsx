@@ -14,6 +14,8 @@ import {
   type SimpleSchedule,
 } from "@/features/scheduled-jobs/lib/cron-expression";
 import { resolveInitialSessionWorkspaceDir } from "@/features/workspace/resolve-session-workspace";
+import { listMcpServers } from "@/lib/db/mcp-servers";
+import type { McpServerConfig } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -90,8 +92,35 @@ export function AutomationDialog({
   const [model, setModel] = useState(() => resolveDefaultModelValue(modelEntries));
   const [agentMode, setAgentMode] = useState<ScheduledJobAgentMode>("agent");
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
+  const [enabledMcpServers, setEnabledMcpServers] = useState<McpServerConfig[]>([]);
+  const [attachedMcpServers, setAttachedMcpServers] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    let cancelled = false;
+    void listMcpServers()
+      .then((servers) => {
+        if (!cancelled) {
+          setEnabledMcpServers(servers.filter((server) => server.enabled));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
+  const handleToggleMcpServer = useCallback((serverId: string) => {
+    setAttachedMcpServers((prev) =>
+      prev.includes(serverId)
+        ? prev.filter((id) => id !== serverId)
+        : [...prev, serverId],
+    );
+  }, []);
 
   const handleModelChange = useCallback(
     (nextModel: string) => {
@@ -163,6 +192,7 @@ export function AutomationDialog({
       setModel(runConfig.model);
       setAgentMode(runConfig.agentMode);
       setThinkingEnabled(runConfig.thinkingEnabled);
+      setAttachedMcpServers(editItem.attachedMcpServers ?? []);
     } else {
       const defaultModel = resolveDefaultModelValue(modelEntries);
       const defaultSchedule = createDefaultSimpleSchedule();
@@ -180,6 +210,7 @@ export function AutomationDialog({
           findModelEntry(modelEntries, defaultModel)?.model
         )
       );
+      setAttachedMcpServers([]);
     }
     setError(null);
     setSaving(false);
@@ -237,6 +268,7 @@ export function AutomationDialog({
       provider: inferredProvider,
       agentMode,
       thinkingEnabled,
+      attachedMcpServers,
     };
 
     setSaving(true);
@@ -258,6 +290,7 @@ export function AutomationDialog({
     }
   }, [
     agentMode,
+    attachedMcpServers,
     modelEntries,
     advancedOnly,
     cronExpression,
@@ -466,6 +499,9 @@ export function AutomationDialog({
               onThinkingEnabledChange={setThinkingEnabled}
               entries={modelEntries}
               getProviderLabel={getProviderLabel}
+              mcpServers={enabledMcpServers}
+              attachedMcpServers={attachedMcpServers}
+              onToggleMcpServer={handleToggleMcpServer}
               disabled={saving}
             />
 

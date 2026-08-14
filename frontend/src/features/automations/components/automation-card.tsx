@@ -165,6 +165,13 @@ export function AutomationCard({
             {runConfig.thinkingEnabled ? (
               <span>{t("automations.thinkingEnabledBadge")}</span>
             ) : null}
+            {item.attachedMcpServers?.length ? (
+              <span>
+                {t("automations.mcpBadge", {
+                  count: item.attachedMcpServers.length,
+                })}
+              </span>
+            ) : null}
           </div>
           <p className="line-clamp-3 text-sm text-foreground/90">{item.prompt}</p>
         </div>

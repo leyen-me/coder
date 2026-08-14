@@ -60,6 +60,11 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
                 super::types::AgentMode::Ask => "ask".to_string(),
             }),
             thinking_enabled: Some(job.thinking_enabled),
+            attached_mcp_servers: if job.attached_mcp_servers.is_empty() {
+                None
+            } else {
+                Some(job.attached_mcp_servers.clone())
+            },
             extra_tools: None,
             denied_tools: None,
             autonomy_mode: None,

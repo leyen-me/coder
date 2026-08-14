@@ -74,6 +74,9 @@ pub struct ScheduledJobRecord {
     pub provider: String,
     pub agent_mode: AgentMode,
     pub thinking_enabled: bool,
+    /// 每次运行时会话附带的 MCP 服务 id。
+    #[serde(default)]
+    pub attached_mcp_servers: Vec<String>,
     pub enabled: bool,
     #[serde(default)]
     pub runs: Vec<JobRunRecord>,
@@ -95,6 +98,14 @@ impl ScheduledJobRecord {
         self.model = self.model.trim().to_string();
         self.provider = self.provider.trim().to_string();
         self.runs = self.runs.into_iter().map(JobRunRecord::normalize).collect();
+        let mut seen = Vec::new();
+        self.attached_mcp_servers.retain(|server| {
+            let trimmed = server.trim().to_string();
+            !trimmed.is_empty() && !seen.contains(&trimmed) && {
+                seen.push(trimmed);
+                true
+            }
+        });
         self
     }
 }
@@ -112,6 +123,8 @@ pub struct AutomationRecord {
     pub provider: String,
     pub agent_mode: AgentMode,
     pub thinking_enabled: bool,
+    #[serde(default)]
+    pub attached_mcp_servers: Vec<String>,
     pub enabled: bool,
     pub created_at: i64,
     pub updated_at: i64,
@@ -130,6 +143,7 @@ impl From<ScheduledJobRecord> for AutomationRecord {
             provider: record.provider,
             agent_mode: record.agent_mode,
             thinking_enabled: record.thinking_enabled,
+            attached_mcp_servers: record.attached_mcp_servers,
             enabled: record.enabled,
             created_at: record.created_at,
             updated_at: record.updated_at,
@@ -150,6 +164,8 @@ pub struct CreateJobInput {
     pub agent_mode: AgentMode,
     pub thinking_enabled: bool,
     #[serde(default)]
+    pub attached_mcp_servers: Vec<String>,
+    #[serde(default)]
     pub enabled: Option<bool>,
 }
 
@@ -165,5 +181,6 @@ pub struct UpdateJobInput {
     pub provider: Option<String>,
     pub agent_mode: Option<AgentMode>,
     pub thinking_enabled: Option<bool>,
+    pub attached_mcp_servers: Option<Vec<String>>,
     pub enabled: Option<bool>,
 }

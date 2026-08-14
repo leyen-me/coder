@@ -122,6 +122,7 @@ export const enMessages = {
     countdownHoursMinutes: "{hours}h {minutes}m",
     countdownDaysHours: "{days}d {hours}h",
     thinkingEnabledBadge: "Thinking on",
+    mcpBadge: "{count} MCP",
     deleteConfirmTitle: "Delete automation?",
     deleteConfirmDescription:
       "Delete `{name}` and its saved schedule? Existing run history in the list will also disappear.",
