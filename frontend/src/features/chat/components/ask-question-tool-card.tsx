@@ -73,8 +73,19 @@ export function AskQuestionToolCard({
     });
   };
 
-  const setOtherText = (questionId: string, value: string) => {
+  // 单选下，输入自定义答案会取消已选选项，保证两项互斥。
+  const setOtherText = (questionId: string, value: string, allowMultiple: boolean) => {
     setOtherTexts((current) => ({ ...current, [questionId]: value }));
+    if (!allowMultiple && value.trim().length > 0) {
+      setSingleSelections((current) => {
+        if (!current[questionId]) {
+          return current;
+        }
+        const next = { ...current };
+        delete next[questionId];
+        return next;
+      });
+    }
   };
 
   const buildAnswers = (): {
@@ -202,6 +213,8 @@ export function AskQuestionToolCard({
                       ...current,
                       [question.id]: value,
                     }));
+                    // 单选选中预设选项时清空自定义答案。
+                    setOtherTexts((current) => ({ ...current, [question.id]: "" }));
                   }}
                   value={singleSelections[question.id] ?? ""}
                 >
@@ -231,7 +244,7 @@ export function AskQuestionToolCard({
                 </div>
                 <Textarea
                   onChange={(event) => {
-                    setOtherText(question.id, event.target.value);
+                    setOtherText(question.id, event.target.value, question.allow_multiple);
                   }}
                   placeholder={t("chat.askQuestionOtherPlaceholder")}
                   value={otherTexts[question.id] ?? ""}
