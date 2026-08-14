@@ -2,6 +2,7 @@ import {
   CREATE_AUTOMATION_TOOL_NAME,
   DELETE_AUTOMATION_TOOL_NAME,
   LIST_AUTOMATIONS_TOOL_NAME,
+  LIST_MCP_SERVERS_TOOL_NAME,
   UPDATE_AUTOMATION_TOOL_NAME,
 } from "./definitions";
 
@@ -28,6 +29,7 @@ export type AutomationCreateResult = {
 
 const AUTOMATION_TOOLS = new Set([
   LIST_AUTOMATIONS_TOOL_NAME,
+  LIST_MCP_SERVERS_TOOL_NAME,
   CREATE_AUTOMATION_TOOL_NAME,
   UPDATE_AUTOMATION_TOOL_NAME,
   DELETE_AUTOMATION_TOOL_NAME,
@@ -55,6 +57,15 @@ export function getAutomationChipLabel(
         return `list_automations: ${count} automation${count !== 1 ? "s" : ""}`;
       }
       return LIST_AUTOMATIONS_TOOL_NAME;
+    }
+
+    case LIST_MCP_SERVERS_TOOL_NAME: {
+      const data = extractListMcpServersData(output);
+      if (data) {
+        const count = data.mcpServers.length;
+        return `list_mcp_servers: ${count} server${count !== 1 ? "s" : ""}`;
+      }
+      return LIST_MCP_SERVERS_TOOL_NAME;
     }
 
     case CREATE_AUTOMATION_TOOL_NAME: {
@@ -98,6 +109,19 @@ export function extractListAutomationsData(
 
   return {
     automations: data.automations as AutomationRecord[],
+  };
+}
+
+export function extractListMcpServersData(
+  output: unknown,
+): { mcpServers: Array<{ id: string; name: string }> } | null {
+  const data = unwrapData(output);
+  if (!data || !Array.isArray(data.mcpServers)) {
+    return null;
+  }
+
+  return {
+    mcpServers: data.mcpServers as Array<{ id: string; name: string }>,
   };
 }
 

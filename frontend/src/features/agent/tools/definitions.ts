@@ -42,6 +42,7 @@ export const ASK_QUESTION_TOOL_NAME = "ask_question";
 export const SEND_EMAIL_TOOL_NAME = "send_email";
 
 export const LIST_AUTOMATIONS_TOOL_NAME = "list_automations";
+export const LIST_MCP_SERVERS_TOOL_NAME = "list_mcp_servers";
 export const CREATE_AUTOMATION_TOOL_NAME = "create_automation";
 export const UPDATE_AUTOMATION_TOOL_NAME = "update_automation";
 export const DELETE_AUTOMATION_TOOL_NAME = "delete_automation";

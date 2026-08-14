@@ -298,6 +298,7 @@ pub async fn execute_tool_call(
         "await_subagent" => execute_await_subagent(args, ctx).await,
         "send_email" => execute_send_email(args).await,
         "list_automations" => execute_list_automations(ctx),
+        "list_mcp_servers" => execute_list_mcp_servers(ctx),
         "create_automation" => execute_create_automation(args, ctx),
         "update_automation" => execute_update_automation(args, ctx),
         "delete_automation" => execute_delete_automation(args, ctx),
@@ -356,6 +357,7 @@ pub fn all_tool_names() -> Vec<String> {
         "await_subagent",
         "send_email",
         "list_automations",
+        "list_mcp_servers",
         "create_automation",
         "update_automation",
         "delete_automation",
@@ -884,8 +886,17 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
             json!({"type": "object", "properties": {"handle_ids": {"type": "array", "items": {"type": "string"}, "description": "Array of handle_ids returned by spawn_subagent calls."}}, "required": ["handle_ids"], "additionalProperties": false}),
         ),
         tool_definition(
+            "list_mcp_servers",
+            "List enabled MCP servers with their id and name. Use to choose valid ids for the attached_mcp_servers parameter of create_automation/update_automation.",
+            json!({
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+            }),
+        ),
+        tool_definition(
             "list_automations",
-            "List all scheduled automations with full configuration except run history. The response also includes availableMcpServers (enabled MCP servers with id/name) that can be passed to create_automation/update_automation as attached_mcp_servers. Use before create/update/delete to inspect existing jobs and avoid duplicates.",
+            "List all scheduled automations with full configuration except run history. Use before create/update/delete to inspect existing jobs and avoid duplicates.",
             json!({
                 "type": "object",
                 "properties": {},
@@ -908,7 +919,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "thinking_enabled": bool_schema("Whether thinking mode is enabled when the model supports it.", Some(false)),
                     "attached_mcp_servers": {
                         "type": "array",
-                        "description": "Optional enabled MCP server ids to attach to each scheduled run session. Call list_automations first; its response includes availableMcpServers.",
+                        "description": "Optional enabled MCP server ids to attach to each scheduled run session. Call list_mcp_servers first; its response includes mcpServers with valid id/name pairs.",
                         "items": { "type": "string" }
                     }
                 },
@@ -933,7 +944,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "thinking_enabled": bool_schema("Updated thinking mode setting.", None),
                     "attached_mcp_servers": {
                         "type": "array",
-                        "description": "Replacement enabled MCP server ids to attach to each scheduled run session. Call list_automations first; its response includes availableMcpServers.",
+                        "description": "Replacement enabled MCP server ids to attach to each scheduled run session. Call list_mcp_servers first; its response includes mcpServers with valid id/name pairs.",
                         "items": { "type": "string" }
                     }
                 },
@@ -1934,7 +1945,7 @@ struct AvailableMcpServer {
 
 /// 列出已启用的 MCP 服务，供 agent 在创建/更新自动化时挑选
 /// `attached_mcp_servers` 的合法 id。
-fn list_available_mcp_servers(
+fn list_enabled_mcp_servers(
     db: &Arc<Mutex<Database>>,
 ) -> Result<Vec<AvailableMcpServer>, String> {
     let db = db.lock().map_err(|e| e.to_string())?;
@@ -1950,36 +1961,38 @@ fn list_available_mcp_servers(
 }
 
 fn execute_list_automations(ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
-    let automations = match list_jobs(&ctx.db) {
-        Ok(jobs) => jobs
-            .into_iter()
-            .map(AutomationRecord::from)
-            .collect::<Vec<_>>(),
-        Err(error) => {
-            return Ok(tool_failure(
-                "list_automations",
-                "execution_failed",
-                error,
-            ))
-        }
-    };
-    let available_mcp_servers = match list_available_mcp_servers(&ctx.db) {
-        Ok(servers) => servers,
-        Err(error) => {
-            return Ok(tool_failure(
-                "list_automations",
-                "mcp_servers_load_failed",
-                error,
-            ))
-        }
-    };
-    Ok(tool_success(
-        "list_automations",
-        json!({
-            "automations": automations,
-            "availableMcpServers": available_mcp_servers
-        }),
-    ))
+    match list_jobs(&ctx.db) {
+        Ok(jobs) => Ok(tool_success(
+            "list_automations",
+            json!({
+                "automations": jobs
+                    .into_iter()
+                    .map(AutomationRecord::from)
+                    .collect::<Vec<_>>()
+            }),
+        )),
+        Err(error) => Ok(tool_failure(
+            "list_automations",
+            "execution_failed",
+            error,
+        )),
+    }
+}
+
+fn execute_list_mcp_servers(
+    ctx: &ToolExecutionContext<'_>,
+) -> Result<ToolResultEnvelope, String> {
+    match list_enabled_mcp_servers(&ctx.db) {
+        Ok(servers) => Ok(tool_success(
+            "list_mcp_servers",
+            json!({ "mcpServers": servers }),
+        )),
+        Err(error) => Ok(tool_failure(
+            "list_mcp_servers",
+            "mcp_servers_load_failed",
+            error,
+        )),
+    }
 }
 
 fn execute_create_automation(
@@ -3591,7 +3604,7 @@ fn current_timestamp_ms() -> u64 {
 mod tests {
     use super::{
         all_tool_names, ask_question_timeout_message, get_tool_definitions,
-        list_available_mcp_servers,
+        list_enabled_mcp_servers,
         resolve_ask_question_timeout_ms, terminal_status_from_payload, validate_ask_question_args,
         AskQuestionArgs, AskQuestionItem, AskQuestionOption, AutomationIdArgs, AvailableMcpServer,
         CreateAutomationArgs, DISABLED_AGENT_TOOL_NAMES, DEFAULT_ASK_QUESTION_TIMEOUT_MS,
@@ -3652,9 +3665,9 @@ mod tests {
     }
 
     #[test]
-    fn list_available_mcp_servers_only_returns_enabled() {
+    fn list_enabled_mcp_servers_only_returns_enabled() {
         let db = temp_db_with_mcp_servers();
-        let servers = list_available_mcp_servers(&db).expect("list servers");
+        let servers = list_enabled_mcp_servers(&db).expect("list servers");
         assert_eq!(
             servers,
             vec![AvailableMcpServer {
@@ -3706,6 +3719,7 @@ mod tests {
     fn agent_mode_includes_automation_tools() {
         let names = tool_names(Some("agent"));
         assert!(names.contains(&"list_automations".to_string()));
+        assert!(names.contains(&"list_mcp_servers".to_string()));
         assert!(names.contains(&"create_automation".to_string()));
         assert!(names.contains(&"update_automation".to_string()));
         assert!(names.contains(&"delete_automation".to_string()));
@@ -3755,6 +3769,7 @@ mod tests {
                 "kill_shell",
                 "list_automations",
                 "list_dir",
+                "list_mcp_servers",
                 "list_shells",
                 "read_file",
                 "read_image",
@@ -3833,6 +3848,7 @@ mod tests {
         let names = tool_names(Some("ask"));
         assert!(!names.contains(&"create_automation".to_string()));
         assert!(!names.contains(&"list_automations".to_string()));
+        assert!(!names.contains(&"list_mcp_servers".to_string()));
     }
 
     #[test]
