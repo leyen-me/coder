@@ -20,6 +20,7 @@ pnpm
 - 假设代码将长期维护，并由多人协作开发。避免重复代码、临时修补、过度设计和不必要的技术债。
 - 如存在多个方案，优先选择长期成本更低、可扩展性更好的方案；如必须折衷，应明确说明原因和影响。
 - 每完成一个逻辑完整且可工作的变更，主动创建 Git commit，仅提交与本次任务相关的文件，并使用规范的 commit message（如当前环境支持 Git 操作）。
+- Git commit message 使用英文（English），并遵循 Conventional Commits 格式。
 
 ## Task Report
 
