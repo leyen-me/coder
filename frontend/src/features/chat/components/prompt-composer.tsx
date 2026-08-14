@@ -42,12 +42,13 @@ import { processNativeFileDropItems } from "../lib/process-native-file-drop-item
 
 import { useRegisterHotkeyAction } from "@/features/keyboard-shortcuts/hotkey-actions-context";
 
-import { ComposerContextUsage } from "./composer-context-usage";
 import { ComposerEditTag } from "./composer-edit-tag";
-import { ComposerFooterControls } from "./composer-footer-controls";
+import {
+  ComposerFooterControls,
+  ComposerModelSelect,
+} from "./composer-footer-controls";
 import { ComposerRichInput } from "./composer-rich-input";
 import { extractSkillSlugsFromEditor, serializeEditorToAgentText } from "../lib/composer-serialize";
-import type { SessionContextUsage } from "../lib/estimate-session-context-usage";
 
 /** Images only until non-image parsing is implemented. */
 export const COMPOSER_ATTACHMENT_ACCEPT = "image/*";
@@ -94,7 +95,6 @@ type PromptComposerProps = {
   onCancelEdit?: () => void;
   /** Skill allowlist when editing an existing user or queued message. */
   initialReferencedSkills?: readonly string[];
-  contextUsage?: SessionContextUsage | null;
   /** Enabled MCP servers available to attach (selectable in the "+" menu). */
   mcpServers?: McpServerConfig[];
   /** Server ids currently attached to this session. */
@@ -282,7 +282,6 @@ export const PromptComposer = memo(function PromptComposer({
   initialFiles,
   onCancelEdit,
   initialReferencedSkills,
-  contextUsage,
   mcpServers,
   attachedMcpServers,
   onToggleMcpServer,
@@ -601,17 +600,10 @@ export const PromptComposer = memo(function PromptComposer({
         <ComposerFooterControls
           agentMode={agentMode}
           isRunning={isRunning}
-          model={model}
-          entries={entries}
-          getProviderLabel={getProviderLabel}
           onAgentModeChange={onAgentModeChange}
-          onModelChange={onModelChange}
           onSessionKindChange={onSessionKindChange}
-          onThinkingEnabledChange={onThinkingEnabledChange}
           planBuiltAt={planBuiltAt}
           sessionKind={sessionKind}
-          showThinkingToggle={showThinkingToggle}
-          thinkingEnabled={thinkingEnabled}
           inputText={value}
           enhancing={enhancing}
           onToggleEnhance={providerConfig ? toggleEnhance : undefined}
@@ -621,9 +613,16 @@ export const PromptComposer = memo(function PromptComposer({
         />
 
         <div className="ml-auto flex shrink-0 items-center justify-end gap-1 sm:gap-1.5">
-          {contextUsage ? (
-            <ComposerContextUsage contextUsage={contextUsage} />
-          ) : null}
+          <ComposerModelSelect
+            model={model}
+            entries={entries}
+            getProviderLabel={getProviderLabel}
+            onModelChange={onModelChange}
+            showThinkingToggle={showThinkingToggle}
+            thinkingEnabled={thinkingEnabled}
+            onThinkingEnabledChange={onThinkingEnabledChange}
+            isRunning={isRunning}
+          />
           <ComposerSubmit
             isRunning={isRunning}
             onStop={onStop}

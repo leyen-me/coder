@@ -71,6 +71,7 @@ import type { McpServerConfig, MessageRecord } from "@/lib/db";
 import { updateSession } from "@/lib/db/sessions";
 import { listMcpServers } from "@/lib/db/mcp-servers";
 import { updateSessionMcpServers } from "@/features/mcp/api";
+import { setSessionTitleBarContextUsage } from "../lib/session-title-bar-context-usage-store";
 
 type ChatSessionViewProps = {
   chatId: string;
@@ -563,6 +564,16 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
     ]
   );
 
+  // 把上下文用量共享给顶部标题栏；离开会话时清理对应 key。
+  useEffect(() => {
+    setSessionTitleBarContextUsage(chatId, contextUsage);
+  }, [chatId, contextUsage]);
+
+  useEffect(() => {
+    const boundSessionId = chatId;
+    return () => setSessionTitleBarContextUsage(boundSessionId, null);
+  }, [chatId]);
+
   // ── Compact command handler ──────────────────────────────────────────
   useEffect(() => {
     const handler = () => {
@@ -832,7 +843,6 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
             }}
             variant="compact"
             isRunning={isRunning}
-            contextUsage={contextUsage}
             agentMode={agentMode}
             onAgentModeChange={setAgentMode}
             planBuiltAt={session?.planBuiltAt ?? null}

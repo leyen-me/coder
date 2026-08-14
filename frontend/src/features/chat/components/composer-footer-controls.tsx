@@ -4,6 +4,7 @@ import {
   BrainIcon,
   BotIcon,
   CheckIcon,
+  ChevronDownIcon,
   ClipboardListIcon,
   FileQuestionIcon,
   ImageIcon,
@@ -97,15 +98,6 @@ type ComposerFooterControlsProps = {
   planBuiltAt?: number | null;
   sessionKind: SessionKind;
   onSessionKindChange?: (kind: SessionKind) => void;
-  model: string;
-  /** Provider-tagged model entries; each has a unique composite `value`. */
-  entries?: ModelProviderEntry[];
-  /** Resolves a human-readable label for a provider id (preset or custom). */
-  getProviderLabel?: (providerId: string) => string;
-  onModelChange: (model: string) => void;
-  showThinkingToggle: boolean;
-  thinkingEnabled: boolean;
-  onThinkingEnabledChange?: (enabled: boolean) => void;
   isRunning: boolean;
   /** Current composer text; the enhance icon shows only when non-empty. */
   inputText?: string;
@@ -121,19 +113,25 @@ type ComposerFooterControlsProps = {
   onToggleMcpServer?: (serverId: string) => void;
 };
 
+type ComposerModelSelectProps = {
+  model: string;
+  /** Provider-tagged model entries; each has a unique composite `value`. */
+  entries?: ModelProviderEntry[];
+  /** Resolves a human-readable label for a provider id (preset or custom). */
+  getProviderLabel?: (providerId: string) => string;
+  onModelChange: (model: string) => void;
+  showThinkingToggle: boolean;
+  thinkingEnabled: boolean;
+  onThinkingEnabledChange?: (enabled: boolean) => void;
+  isRunning: boolean;
+};
+
 export function ComposerFooterControls({
   agentMode,
   onAgentModeChange,
   planBuiltAt,
   sessionKind,
   onSessionKindChange,
-  model,
-  entries,
-  getProviderLabel,
-  onModelChange,
-  showThinkingToggle,
-  thinkingEnabled,
-  onThinkingEnabledChange,
   isRunning,
   inputText,
   enhancing = false,
@@ -184,10 +182,6 @@ export function ComposerFooterControls({
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   );
-  const selectedModel = findModelEntry(entries, model)?.model;
-  const modelLabel = selectedModel
-    ? getModelDisplayName(selectedModel)
-    : t("chat.noModel");
   const sessionKindLabel =
     sessionKind === "long_task"
       ? t("chat.sessionTypeLongTask")
@@ -218,22 +212,12 @@ export function ComposerFooterControls({
     </DropdownMenuRadioGroup>
   );
 
-  const modelMenu = (
-    <DropdownMenuRadioGroup value={model} onValueChange={onModelChange}>
-      {renderModelOptions(entries, getProviderLabel)}
-    </DropdownMenuRadioGroup>
-  );
-
   return (
     <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            disabled={
-              (isRunning && !showThinkingToggle) ||
-              (!onAgentModeChange && !onSessionKindChange && !entries?.length)
-            }
             className={cn(
               compactControlClassName,
               "group size-8 shrink-0 justify-center px-0"
@@ -255,41 +239,6 @@ export function ComposerFooterControls({
             <ImageIcon className="size-4" />
             <span>{t("chat.addAttachment")}</span>
           </DropdownMenuItem>
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger disabled={!entries?.length && !showThinkingToggle}>
-              <span className="min-w-0 flex-1 truncate">{t("chat.composerModelLabel")}</span>
-              <DropdownMenuShortcut className="max-w-16 truncate tracking-normal normal-case">
-                {modelLabel}
-              </DropdownMenuShortcut>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="max-h-[min(50vh,20rem)] w-[min(14rem,calc(100vw-5rem))] overflow-y-auto">
-              {entries?.length ? (
-                modelMenu
-              ) : (
-                <DropdownMenuLabel>{t("chat.noModel")}</DropdownMenuLabel>
-              )}
-              {showThinkingToggle ? (
-                <>
-                  {entries?.length ? <DropdownMenuSeparator /> : null}
-                  <DropdownMenuItem
-                    disabled={isRunning}
-                    onSelect={(event) => {
-                      event.preventDefault();
-                      onThinkingEnabledChange?.(!thinkingEnabled);
-                    }}
-                  >
-                    <BrainIcon className="size-4" />
-                    <span className="flex-1">{t("chat.thinkingToggleLabel")}</span>
-                    <Switch
-                      checked={thinkingEnabled}
-                      className="pointer-events-none"
-                      size="sm"
-                    />
-                  </DropdownMenuItem>
-                </>
-              ) : null}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
           {mcpServers?.length || attachedMcpServers?.length ? (
             <>
               <DropdownMenuSeparator />
@@ -344,5 +293,78 @@ export function ComposerFooterControls({
         </button>
       ) : null}
     </div>
+  );
+}
+
+export function ComposerModelSelect({
+  model,
+  entries,
+  getProviderLabel,
+  onModelChange,
+  showThinkingToggle,
+  thinkingEnabled,
+  onThinkingEnabledChange,
+  isRunning,
+}: ComposerModelSelectProps) {
+  const { t } = useTranslation();
+  const selectedModel = findModelEntry(entries, model)?.model;
+  const modelLabel = selectedModel
+    ? getModelDisplayName(selectedModel)
+    : t("chat.noModel");
+  const modelMenu = (
+    <DropdownMenuRadioGroup value={model} onValueChange={onModelChange}>
+      {renderModelOptions(entries, getProviderLabel)}
+    </DropdownMenuRadioGroup>
+  );
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          disabled={!entries?.length && !showThinkingToggle}
+          className={cn(
+            compactControlClassName,
+            "h-9 max-w-36 shrink-0 rounded-full px-2.5 sm:max-w-44",
+          )}
+          aria-label={t("chat.composerModelLabel")}
+          title={modelLabel}
+        >
+          <span className="truncate">{modelLabel}</span>
+          <ChevronDownIcon className="size-3.5 shrink-0 opacity-60" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="max-h-[min(50vh,20rem)] w-[min(14rem,calc(100vw-5rem))] overflow-y-auto"
+        side="top"
+      >
+        {entries?.length ? (
+          modelMenu
+        ) : (
+          <DropdownMenuLabel>{t("chat.noModel")}</DropdownMenuLabel>
+        )}
+        {showThinkingToggle ? (
+          <>
+            {entries?.length ? <DropdownMenuSeparator /> : null}
+            <DropdownMenuItem
+              disabled={isRunning}
+              onSelect={(event) => {
+                event.preventDefault();
+                onThinkingEnabledChange?.(!thinkingEnabled);
+              }}
+            >
+              <BrainIcon className="size-4" />
+              <span className="flex-1">{t("chat.thinkingToggleLabel")}</span>
+              <Switch
+                checked={thinkingEnabled}
+                className="pointer-events-none"
+                size="sm"
+              />
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

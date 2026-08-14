@@ -10,6 +10,7 @@ import { SessionTitleLabel } from "../components/session-title-label";
 import { SessionTitleActions, SessionToolbar } from "../components/session-toolbar";
 import { requestMessageListScrollToBottom } from "../components/message-list-scroll";
 import { useSessionMessages } from "./use-session-messages";
+import { useSessionTitleBarContextUsage } from "../lib/session-title-bar-context-usage-store";
 
 export function useSessionTitleBarSlots(pathname: string) {
   const { t } = useTranslation();
@@ -18,6 +19,7 @@ export function useSessionTitleBarSlots(pathname: string) {
     chatMatch?.params.chatId && chatMatch.params.chatId !== "new"
       ? chatMatch.params.chatId
       : null;
+  const titleBarContextUsage = useSessionTitleBarContextUsage(chatId);
   const { session } = useSessionMessages(chatId ?? "");
   const { workspaceDir: globalWorkspaceDir } = useWorkspace();
   const workspaceDir = session?.workspaceDir?.trim() || globalWorkspaceDir;
@@ -65,6 +67,7 @@ export function useSessionTitleBarSlots(pathname: string) {
     trailing: (
       <SessionToolbar
         sessionProvider={session?.provider ?? null}
+        contextUsage={titleBarContextUsage}
       />
     ),
   };

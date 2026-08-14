@@ -27,21 +27,28 @@ import { Input } from "@/components/ui/input";
 import { ProviderUsageTag } from "@/features/lab/provider-usage-tag";
 import { openWorkspaceInExplorer } from "@/features/workspace/open-workspace-in-explorer";
 import { ExportSessionDialog } from "@/features/chat/components/export-session-dialog";
+import { ComposerContextUsage } from "./composer-context-usage";
+import type { SessionContextUsage } from "../lib/estimate-session-context-usage";
 import { pinSession, unpinSession, updateSessionTitle } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 
 type SessionToolbarProps = {
   sessionProvider?: string | null;
+  contextUsage?: SessionContextUsage | null;
 };
 
 export function SessionToolbar({
   sessionProvider,
+  contextUsage,
 }: SessionToolbarProps) {
   return (
     <div className="flex min-w-0 shrink items-center gap-0.5 sm:gap-1">
       <div className="hidden sm:block">
         <ProviderUsageTag providerId={sessionProvider} />
       </div>
+      {contextUsage ? (
+        <ComposerContextUsage contextUsage={contextUsage} side="bottom" />
+      ) : null}
     </div>
   );
 }

@@ -13,6 +13,8 @@ import type { SessionContextUsage } from "../lib/estimate-session-context-usage"
 
 type ComposerContextUsageProps = {
   contextUsage: SessionContextUsage;
+  /** 悬浮/弹层出现的方向；顶部标题栏里通常用 bottom。 */
+  side?: "top" | "bottom";
 };
 
 function formatTokenCount(tokens: number): string {
@@ -39,6 +41,7 @@ function ContextTokenRow({ label, tokens }: ContextTokenRowProps) {
 
 export function ComposerContextUsage({
   contextUsage,
+  side = "top",
 }: ComposerContextUsageProps) {
   const { t } = useTranslation();
   const { maxTokens, usage } = contextUsage;
@@ -59,7 +62,7 @@ export function ComposerContextUsage({
         )}
         size="sm"
       />
-      <ContextContent align="end" side="top">
+      <ContextContent align="end" side={side}>
         <ContextContentHeader />
         <ContextContentBody className="space-y-2">
           <ContextTokenRow label={t("chat.contextUsageInput")} tokens={usage.inputTokens} />
