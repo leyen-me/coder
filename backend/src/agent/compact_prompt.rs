@@ -9,7 +9,7 @@
 //! - 摘要服务于后续继续任务，而不是写一段闲聊式复述。
 
 /// 追加到原始对话末尾的自然语言 user 指令。
-pub const COMPACT_REQUEST_MESSAGE: &str = "上下文快不够了，请总结当前进度、关键决定和接下来要做什么，这样我们可以在下一段对话里继续这个任务。";
+pub const COMPACT_REQUEST_MESSAGE: &str = "We are running low on context, so this conversation will be replaced with a summary. Write a handoff summary for the next model that continues this task without the full history. Include current progress, key decisions and their rationale, important files or data, and clear next steps. If a previous compaction summary exists in this conversation, carry its historical context forward. Write the summary in the language of the conversation, matching the user's language.";
 
 /// 压缩摘要重新进入模型上下文时使用的前缀。
 pub const COMPACT_SUMMARY_PREFIX: &str = "The previous conversation was compacted due to context limits. A summary of the work done so far is provided below. Use this summary to continue the task without duplicating effort:\n\n";
@@ -33,7 +33,8 @@ mod tests {
     #[test]
     fn compact_request_message_is_natural() {
         assert!(!COMPACT_REQUEST_MESSAGE.is_empty());
-        assert!(COMPACT_REQUEST_MESSAGE.contains("总结"));
+        assert!(COMPACT_REQUEST_MESSAGE.contains("handoff summary"));
+        assert!(COMPACT_REQUEST_MESSAGE.contains("language"));
         assert!(!COMPACT_REQUEST_MESSAGE.contains("CONTEXT CHECKPOINT"));
     }
 
