@@ -885,7 +885,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
         ),
         tool_definition(
             "list_automations",
-            "List all scheduled automations with full configuration except run history. Use before create/update/delete to inspect existing jobs and avoid duplicates.",
+            "List all scheduled automations with full configuration except run history. The response also includes availableMcpServers (enabled MCP servers with id/name) that can be passed to create_automation/update_automation as attached_mcp_servers. Use before create/update/delete to inspect existing jobs and avoid duplicates.",
             json!({
                 "type": "object",
                 "properties": {},
@@ -908,7 +908,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "thinking_enabled": bool_schema("Whether thinking mode is enabled when the model supports it.", Some(false)),
                     "attached_mcp_servers": {
                         "type": "array",
-                        "description": "Optional MCP server ids to attach to each scheduled run session.",
+                        "description": "Optional enabled MCP server ids to attach to each scheduled run session. Call list_automations first; its response includes availableMcpServers.",
                         "items": { "type": "string" }
                     }
                 },
@@ -933,7 +933,7 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "thinking_enabled": bool_schema("Updated thinking mode setting.", None),
                     "attached_mcp_servers": {
                         "type": "array",
-                        "description": "Replacement MCP server ids to attach to each scheduled run session.",
+                        "description": "Replacement enabled MCP server ids to attach to each scheduled run session. Call list_automations first; its response includes availableMcpServers.",
                         "items": { "type": "string" }
                     }
                 },
@@ -1925,23 +1925,61 @@ struct AutomationIdArgs {
     id: String,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct AvailableMcpServer {
+    id: String,
+    name: String,
+}
+
+/// 列出已启用的 MCP 服务，供 agent 在创建/更新自动化时挑选
+/// `attached_mcp_servers` 的合法 id。
+fn list_available_mcp_servers(
+    db: &Arc<Mutex<Database>>,
+) -> Result<Vec<AvailableMcpServer>, String> {
+    let db = db.lock().map_err(|e| e.to_string())?;
+    Ok(db
+        .get_all::<crate::tools::McpServerConfig>("mcpServers")?
+        .into_iter()
+        .filter(|server| server.enabled)
+        .map(|server| AvailableMcpServer {
+            id: server.id,
+            name: server.name,
+        })
+        .collect())
+}
+
 fn execute_list_automations(ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
-    match list_jobs(&ctx.db) {
-        Ok(jobs) => Ok(tool_success(
-            "list_automations",
-            json!({
-                "automations": jobs
-                    .into_iter()
-                    .map(AutomationRecord::from)
-                    .collect::<Vec<_>>()
-            }),
-        )),
-        Err(error) => Ok(tool_failure(
-            "list_automations",
-            "execution_failed",
-            error,
-        )),
-    }
+    let automations = match list_jobs(&ctx.db) {
+        Ok(jobs) => jobs
+            .into_iter()
+            .map(AutomationRecord::from)
+            .collect::<Vec<_>>(),
+        Err(error) => {
+            return Ok(tool_failure(
+                "list_automations",
+                "execution_failed",
+                error,
+            ))
+        }
+    };
+    let available_mcp_servers = match list_available_mcp_servers(&ctx.db) {
+        Ok(servers) => servers,
+        Err(error) => {
+            return Ok(tool_failure(
+                "list_automations",
+                "mcp_servers_load_failed",
+                error,
+            ))
+        }
+    };
+    Ok(tool_success(
+        "list_automations",
+        json!({
+            "automations": automations,
+            "availableMcpServers": available_mcp_servers
+        }),
+    ))
 }
 
 fn execute_create_automation(
@@ -3553,19 +3591,77 @@ fn current_timestamp_ms() -> u64 {
 mod tests {
     use super::{
         all_tool_names, ask_question_timeout_message, get_tool_definitions,
+        list_available_mcp_servers,
         resolve_ask_question_timeout_ms, terminal_status_from_payload, validate_ask_question_args,
-        AskQuestionArgs, AskQuestionItem, AskQuestionOption, AutomationIdArgs,
+        AskQuestionArgs, AskQuestionItem, AskQuestionOption, AutomationIdArgs, AvailableMcpServer,
         CreateAutomationArgs, DISABLED_AGENT_TOOL_NAMES, DEFAULT_ASK_QUESTION_TIMEOUT_MS,
         UpdateAutomationArgs,
     };
     use serde_json::{json, Value};
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeSet, HashMap};
+    use std::sync::{Arc, Mutex};
 
     fn tool_names(agent_mode: Option<&str>) -> Vec<String> {
         get_tool_definitions(agent_mode)
             .into_iter()
             .map(|tool| tool.function.name)
             .collect()
+    }
+
+    fn temp_db_with_mcp_servers() -> Arc<Mutex<crate::db::Database>> {
+        let dir = std::env::temp_dir().join(format!(
+            "coder-mcp-available-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        let db = Arc::new(Mutex::new(
+            crate::db::Database::new(&dir).expect("open db"),
+        ));
+        let enabled = crate::tools::McpServerConfig {
+            id: "github".into(),
+            name: "GitHub".into(),
+            transport: "stdio".into(),
+            command: "npx".into(),
+            args: Vec::new(),
+            env: HashMap::new(),
+            url: String::new(),
+            headers: HashMap::new(),
+            enabled: true,
+        };
+        let disabled = crate::tools::McpServerConfig {
+            id: "old".into(),
+            name: "Old".into(),
+            transport: "stdio".into(),
+            command: "npx".into(),
+            args: Vec::new(),
+            env: HashMap::new(),
+            url: String::new(),
+            headers: HashMap::new(),
+            enabled: false,
+        };
+        {
+            let guard = db.lock().expect("lock db");
+            guard
+                .put("mcpServers", &enabled.id, &enabled, &[])
+                .expect("put enabled server");
+            guard
+                .put("mcpServers", &disabled.id, &disabled, &[])
+                .expect("put disabled server");
+        }
+        db
+    }
+
+    #[test]
+    fn list_available_mcp_servers_only_returns_enabled() {
+        let db = temp_db_with_mcp_servers();
+        let servers = list_available_mcp_servers(&db).expect("list servers");
+        assert_eq!(
+            servers,
+            vec![AvailableMcpServer {
+                id: "github".into(),
+                name: "GitHub".into(),
+            }]
+        );
     }
 
     #[test]
