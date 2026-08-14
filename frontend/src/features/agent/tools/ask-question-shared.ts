@@ -1,5 +1,8 @@
 export const ASK_QUESTION_OTHER_OPTION_ID = "__other__";
 
+// 与后端 DEFAULT_ASK_QUESTION_TIMEOUT_MS 保持一致，用于前端超时兜底。
+export const DEFAULT_ASK_QUESTION_TIMEOUT_MS = 300_000;
+
 export type AskQuestionOption = {
   id: string;
   label: string;

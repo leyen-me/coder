@@ -299,6 +299,7 @@ export const enMessages = {
     askQuestionOtherLabel: "Custom answer (optional)",
     askQuestionOtherPlaceholder: "Enter your answer…",
     askQuestionSubmit: "Continue",
+    askQuestionAutoSubmitted: "Auto-submitted your answers so far.",
     askQuestionSelectRequired: "Select at least one option or enter a custom answer.",
     askQuestionSubmitError:
       "This question request is no longer active. Try asking the agent again.",

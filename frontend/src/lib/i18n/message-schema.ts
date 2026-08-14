@@ -281,6 +281,7 @@ export type Messages = {
     askQuestionOtherLabel: string;
     askQuestionOtherPlaceholder: string;
     askQuestionSubmit: string;
+    askQuestionAutoSubmitted: string;
     askQuestionSelectRequired: string;
     askQuestionSubmitError: string;
     decisionTitle: string;

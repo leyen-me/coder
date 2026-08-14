@@ -294,6 +294,7 @@ export const zhMessages = {
     askQuestionOtherLabel: "其他答案（可选）",
     askQuestionOtherPlaceholder: "请输入你的答案…",
     askQuestionSubmit: "继续",
+    askQuestionAutoSubmitted: "已自动提交已填写的内容。",
     askQuestionSelectRequired: "请至少选择一个选项，或填写其他答案。",
     askQuestionSubmitError: "这个问题请求已失效，请让智能体重新发起一次。",
     decisionTitle: "代理决策",

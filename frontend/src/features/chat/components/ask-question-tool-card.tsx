@@ -10,11 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import type { MessageToolInvocation } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import { CircleHelpIcon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  DEFAULT_ASK_QUESTION_TIMEOUT_MS,
   parseAskQuestionRequest,
   type AskQuestionAnswer,
+  type AskQuestionItem,
 } from "@/features/agent/tools/ask-question-shared";
 import {
   submitAskQuestionResponse,
@@ -47,6 +49,9 @@ export function AskQuestionToolCard({
   const [errors, setErrors] = useState<QuestionErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [autoSubmitted, setAutoSubmitted] = useState(false);
+  const autoSubmitTimerRef = useRef<number | null>(null);
+  const buildPartialAnswersRef = useRef<() => AskQuestionAnswer[]>(() => []);
 
   useEffect(() => {
     setSingleSelections({});
@@ -55,6 +60,7 @@ export function AskQuestionToolCard({
     setErrors({});
     setSubmitError(null);
     setIsSubmitting(false);
+    setAutoSubmitted(false);
   }, [invocation.id, request?.title, taskId]);
 
   if (!taskId || !request) {
@@ -88,6 +94,46 @@ export function AskQuestionToolCard({
     }
   };
 
+  const selectedIdsForQuestion = (question: AskQuestionItem): string[] =>
+    question.allow_multiple
+      ? (multiSelections[question.id] ?? [])
+      : singleSelections[question.id]
+        ? [singleSelections[question.id]]
+        : [];
+
+  const answerForQuestion = (
+    question: AskQuestionItem,
+    selectedOptionIds: string[],
+    otherText: string
+  ): AskQuestionAnswer => ({
+    question_id: question.id,
+    prompt: question.prompt,
+    allow_multiple: question.allow_multiple,
+    selected_option_ids: selectedOptionIds,
+    selected_option_labels: selectedOptionIds
+      .map((optionId) => question.options.find((option) => option.id === optionId)?.label)
+      .filter((label): label is string => Boolean(label)),
+    other_text: otherText || null,
+  });
+
+  // 超时兜底只提交已经回答的问题，未回答的保持未答。
+  buildPartialAnswersRef.current = () => {
+    if (!request) {
+      return [];
+    }
+
+    const answers: AskQuestionAnswer[] = [];
+    for (const question of request.questions) {
+      const otherText = otherTexts[question.id]?.trim() ?? "";
+      const selectedOptionIds = selectedIdsForQuestion(question);
+      if (selectedOptionIds.length === 0 && !otherText) {
+        continue;
+      }
+      answers.push(answerForQuestion(question, selectedOptionIds, otherText));
+    }
+    return answers;
+  };
+
   const buildAnswers = (): {
     ok: true;
     answers: AskQuestionAnswer[];
@@ -100,28 +146,14 @@ export function AskQuestionToolCard({
 
     for (const question of request.questions) {
       const otherText = otherTexts[question.id]?.trim() ?? "";
-      const selectedOptionIds = question.allow_multiple
-        ? (multiSelections[question.id] ?? [])
-        : singleSelections[question.id]
-          ? [singleSelections[question.id]]
-          : [];
-      const selectedOptionLabels = selectedOptionIds
-        .map((optionId) => question.options.find((option) => option.id === optionId)?.label)
-        .filter((label): label is string => Boolean(label));
+      const selectedOptionIds = selectedIdsForQuestion(question);
 
       if (selectedOptionIds.length === 0 && !otherText) {
         nextErrors[question.id] = t("chat.askQuestionSelectRequired");
         continue;
       }
 
-      answers.push({
-        question_id: question.id,
-        prompt: question.prompt,
-        allow_multiple: question.allow_multiple,
-        selected_option_ids: selectedOptionIds,
-        selected_option_labels: selectedOptionLabels,
-        other_text: otherText || null,
-      });
+      answers.push(answerForQuestion(question, selectedOptionIds, otherText));
     }
 
     if (Object.keys(nextErrors).length > 0) {
@@ -130,6 +162,47 @@ export function AskQuestionToolCard({
 
     return { ok: true, answers };
   };
+
+  const clearAutoSubmitTimer = () => {
+    if (autoSubmitTimerRef.current !== null) {
+      window.clearTimeout(autoSubmitTimerRef.current);
+      autoSubmitTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    if (!taskId || !request || invocation.output || invocation.errorText) {
+      return;
+    }
+
+    const timeoutMs = request.timeout_ms ?? DEFAULT_ASK_QUESTION_TIMEOUT_MS;
+    const leadMs = Math.min(2_000, Math.max(0, timeoutMs - 250));
+    autoSubmitTimerRef.current = window.setTimeout(() => {
+      autoSubmitTimerRef.current = null;
+      const answers = buildPartialAnswersRef.current();
+      if (answers.length === 0) {
+        return;
+      }
+
+      setAutoSubmitted(true);
+      setSubmitError(null);
+      const submitted = submitAskQuestionResponse(taskId, answers);
+      if (submitted) {
+        return;
+      }
+
+      apiPost("/api/agent/ask_question/respond", {
+        taskId,
+        answers,
+      }).catch(() => {
+        setSubmitError(t("chat.askQuestionSubmitError"));
+      });
+    }, Math.max(0, timeoutMs - leadMs));
+
+    return () => {
+      clearAutoSubmitTimer();
+    };
+  }, [invocation.errorText, invocation.id, invocation.output, request, taskId, t]);
 
   const handleSubmit = async () => {
     setSubmitError(null);
@@ -143,6 +216,9 @@ export function AskQuestionToolCard({
     setIsSubmitting(true);
     const submitted = submitAskQuestionResponse(taskId, built.answers);
     if (submitted) {
+      clearAutoSubmitTimer();
+      setAutoSubmitted(true);
+      setIsSubmitting(false);
       return;
     }
 
@@ -151,6 +227,9 @@ export function AskQuestionToolCard({
         taskId,
         answers: built.answers,
       });
+      clearAutoSubmitTimer();
+      setAutoSubmitted(true);
+      setIsSubmitting(false);
     } catch {
       setIsSubmitting(false);
       setSubmitError(t("chat.askQuestionSubmitError"));
@@ -190,6 +269,7 @@ export function AskQuestionToolCard({
                       >
                         <Checkbox
                           checked={checked}
+                          disabled={autoSubmitted}
                           onCheckedChange={(value) => {
                             toggleMultiOption(question.id, option.id, value === true);
                           }}
@@ -208,6 +288,7 @@ export function AskQuestionToolCard({
                 </div>
               ) : (
                 <RadioGroup
+                  disabled={autoSubmitted}
                   onValueChange={(value) => {
                     setSingleSelections((current) => ({
                       ...current,
@@ -243,6 +324,7 @@ export function AskQuestionToolCard({
                   {t("chat.askQuestionOtherLabel")}
                 </div>
                 <Textarea
+                  disabled={autoSubmitted}
                   onChange={(event) => {
                     setOtherText(question.id, event.target.value, question.allow_multiple);
                   }}
@@ -261,9 +343,19 @@ export function AskQuestionToolCard({
         {submitError ? (
           <div className="text-destructive text-xs">{submitError}</div>
         ) : null}
+        {autoSubmitted ? (
+          <div className="text-muted-foreground text-xs">
+            {t("chat.askQuestionAutoSubmitted")}
+          </div>
+        ) : null}
 
         <div className="flex justify-end">
-          <Button disabled={isSubmitting} onClick={handleSubmit} size="sm" type="button">
+          <Button
+            disabled={isSubmitting || autoSubmitted}
+            onClick={handleSubmit}
+            size="sm"
+            type="button"
+          >
             {t("chat.askQuestionSubmit")}
           </Button>
         </div>
