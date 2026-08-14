@@ -278,10 +278,10 @@ export type Messages = {
     askQuestionSingle: string;
     askQuestionMultiple: string;
     askQuestionOther: string;
+    askQuestionOtherLabel: string;
     askQuestionOtherPlaceholder: string;
     askQuestionSubmit: string;
     askQuestionSelectRequired: string;
-    askQuestionOtherRequired: string;
     askQuestionSubmitError: string;
     decisionTitle: string;
     decisionDescription: string;

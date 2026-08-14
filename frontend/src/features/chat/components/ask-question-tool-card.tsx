@@ -13,7 +13,6 @@ import { CircleHelpIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import {
-  ASK_QUESTION_OTHER_OPTION_ID,
   parseAskQuestionRequest,
   type AskQuestionAnswer,
 } from "@/features/agent/tools/ask-question-shared";
@@ -74,11 +73,8 @@ export function AskQuestionToolCard({
     });
   };
 
-  const setOtherText = (questionId: string, value: string, allowMultiple: boolean) => {
+  const setOtherText = (questionId: string, value: string) => {
     setOtherTexts((current) => ({ ...current, [questionId]: value }));
-    if (allowMultiple) {
-      toggleMultiOption(questionId, ASK_QUESTION_OTHER_OPTION_ID, value.trim().length > 0);
-    }
   };
 
   const buildAnswers = (): {
@@ -94,28 +90,13 @@ export function AskQuestionToolCard({
     for (const question of request.questions) {
       const otherText = otherTexts[question.id]?.trim() ?? "";
       const selectedOptionIds = question.allow_multiple
-        ? (multiSelections[question.id] ?? []).filter(
-            (optionId) => optionId !== ASK_QUESTION_OTHER_OPTION_ID
-          )
-        : (() => {
-            const selected = singleSelections[question.id];
-            if (!selected || selected === ASK_QUESTION_OTHER_OPTION_ID) {
-              return [];
-            }
-            return [selected];
-          })();
+        ? (multiSelections[question.id] ?? [])
+        : singleSelections[question.id]
+          ? [singleSelections[question.id]]
+          : [];
       const selectedOptionLabels = selectedOptionIds
         .map((optionId) => question.options.find((option) => option.id === optionId)?.label)
         .filter((label): label is string => Boolean(label));
-
-      const otherSelected = question.allow_multiple
-        ? (multiSelections[question.id] ?? []).includes(ASK_QUESTION_OTHER_OPTION_ID)
-        : singleSelections[question.id] === ASK_QUESTION_OTHER_OPTION_ID;
-
-      if (otherSelected && !otherText) {
-        nextErrors[question.id] = t("chat.askQuestionOtherRequired");
-        continue;
-      }
 
       if (selectedOptionIds.length === 0 && !otherText) {
         nextErrors[question.id] = t("chat.askQuestionSelectRequired");
@@ -176,10 +157,6 @@ export function AskQuestionToolCard({
       </CardHeader>
       <CardContent className="space-y-5 pt-1">
         {request.questions.map((question) => {
-          const otherSelected = question.allow_multiple
-            ? (multiSelections[question.id] ?? []).includes(ASK_QUESTION_OTHER_OPTION_ID)
-            : singleSelections[question.id] === ASK_QUESTION_OTHER_OPTION_ID;
-
           return (
             <div className="space-y-3" key={question.id}>
               <div className="space-y-1">
@@ -217,22 +194,6 @@ export function AskQuestionToolCard({
                       </label>
                     );
                   })}
-                  <label className="flex items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm">
-                    <Checkbox
-                      checked={otherSelected}
-                      onCheckedChange={(value) => {
-                        toggleMultiOption(
-                          question.id,
-                          ASK_QUESTION_OTHER_OPTION_ID,
-                          value === true
-                        );
-                        if (value !== true) {
-                          setOtherTexts((current) => ({ ...current, [question.id]: "" }));
-                        }
-                      }}
-                    />
-                    <span>{t("chat.askQuestionOther")}</span>
-                  </label>
                 </div>
               ) : (
                 <RadioGroup
@@ -241,9 +202,6 @@ export function AskQuestionToolCard({
                       ...current,
                       [question.id]: value,
                     }));
-                    if (value !== ASK_QUESTION_OTHER_OPTION_ID) {
-                      setOtherTexts((current) => ({ ...current, [question.id]: "" }));
-                    }
                   }}
                   value={singleSelections[question.id] ?? ""}
                 >
@@ -263,22 +221,22 @@ export function AskQuestionToolCard({
                       </div>
                     </label>
                   ))}
-                  <label className="flex items-center gap-2 rounded-md border border-border/60 px-3 py-2 text-sm">
-                    <RadioGroupItem value={ASK_QUESTION_OTHER_OPTION_ID} />
-                    <span>{t("chat.askQuestionOther")}</span>
-                  </label>
                 </RadioGroup>
               )}
 
-              {otherSelected ? (
+              {/* 常驻输入框，直接填写即作为自定义答案，无需先选择“其他”。 */}
+              <div className="space-y-1.5">
+                <div className="text-xs font-medium text-muted-foreground">
+                  {t("chat.askQuestionOtherLabel")}
+                </div>
                 <Textarea
                   onChange={(event) => {
-                    setOtherText(question.id, event.target.value, question.allow_multiple);
+                    setOtherText(question.id, event.target.value);
                   }}
                   placeholder={t("chat.askQuestionOtherPlaceholder")}
                   value={otherTexts[question.id] ?? ""}
                 />
-              ) : null}
+              </div>
 
               {errors[question.id] ? (
                 <div className="text-destructive text-xs">{errors[question.id]}</div>

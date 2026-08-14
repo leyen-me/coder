@@ -296,10 +296,10 @@ export const enMessages = {
     askQuestionSingle: "Choose one",
     askQuestionMultiple: "Choose one or more",
     askQuestionOther: "Other",
+    askQuestionOtherLabel: "Custom answer (optional)",
     askQuestionOtherPlaceholder: "Enter your answer…",
     askQuestionSubmit: "Continue",
-    askQuestionSelectRequired: "Select at least one option or use Other.",
-    askQuestionOtherRequired: "Enter your custom answer for Other.",
+    askQuestionSelectRequired: "Select at least one option or enter a custom answer.",
     askQuestionSubmitError:
       "This question request is no longer active. Try asking the agent again.",
     decisionTitle: "Proxy decision",
