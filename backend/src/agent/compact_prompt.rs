@@ -1,40 +1,20 @@
-//! Compact prompt templates — natural language summarisation for context compaction.
+//! 上下文压缩相关的提示词模板。
 //!
-//! When the agent's working context approaches the token budget limit, we ask the
-//! model to write a concise summary in natural language. The old messages are then
-//! replaced by that summary, freeing context space without creating a new session.
+//! 压缩时不把历史对话做成有损摘录：原始对话原样作为输入，末尾追加一条
+//! 自然语言的 user 指令，让模型像人工“停止会话、请求总结”一样输出摘要。
 //!
-//! Design principles:
-//! - Trust the LLM's natural language capabilities — a short prompt is enough.
-//! - The summary should read like a colleague's sticky note, not a database record.
-//! - No structured rules, no JSON schemas, no defensive checklists.
+//! 设计原则：
+//! - 输入保持全量，不截断、不展平、不发明新的消息结构；
+//! - 指令自然，不使用伪术语或长篇结构化要求；
+//! - 摘要服务于后续继续任务，而不是写一段闲聊式复述。
 
-/// The core compaction prompt sent to the model.
-///
-/// This is deliberately minimal. Codex proves that a short, clear prompt
-/// produces better summaries than a long, defensive one. The model knows best
-/// what the next LLM needs to continue the work.
-pub const SUMMARIZATION_PROMPT: &str = r#"You are performing a CONTEXT CHECKPOINT COMPACTION. Create a summary for another LLM that will resume the task.
+/// 追加到原始对话末尾的自然语言 user 指令。
+pub const COMPACT_REQUEST_MESSAGE: &str = "上下文快不够了，请总结当前进度、关键决定和接下来要做什么，这样我们可以在下一段对话里继续这个任务。";
 
-Include:
-- Current progress and key decisions made
-- Important context, constraints, or user preferences
-- What remains to be done (clear next steps)
-- Any critical data, examples, or references needed to continue
-
-Be concise, structured, and focused on helping the next LLM seamlessly continue the work."#;
-
-/// Injected before the compact summary when resuming after a compaction.
-///
-/// The new LLM receives this prefix followed by the summary. It tells the model
-/// to treat the summary as authoritative context from a previous session.
+/// 压缩摘要重新进入模型上下文时使用的前缀。
 pub const COMPACT_SUMMARY_PREFIX: &str = "The previous conversation was compacted due to context limits. A summary of the work done so far is provided below. Use this summary to continue the task without duplicating effort:\n\n";
 
-/// Prompt template for the final compaction at task completion.
-///
-/// When the agent successfully completes a task and the session is about to end,
-/// this prompt produces an archive-quality summary that can be used for future
-/// reference or for continuing related work.
+/// 任务完成时的最终归档摘要提示词。
 pub const FINAL_COMPACT_PROMPT: &str = r#"Create a final task summary for archival and potential future resumption.
 
 Include:
@@ -51,9 +31,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn summarization_prompt_is_non_empty() {
-        assert!(!SUMMARIZATION_PROMPT.is_empty());
-        assert!(SUMMARIZATION_PROMPT.contains("CONTEXT CHECKPOINT COMPACTION"));
+    fn compact_request_message_is_natural() {
+        assert!(!COMPACT_REQUEST_MESSAGE.is_empty());
+        assert!(COMPACT_REQUEST_MESSAGE.contains("总结"));
+        assert!(!COMPACT_REQUEST_MESSAGE.contains("CONTEXT CHECKPOINT"));
     }
 
     #[test]

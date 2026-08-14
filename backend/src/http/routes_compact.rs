@@ -18,7 +18,6 @@ use crate::{
         records::MESSAGE_KIND_COMPACT,
         session_store::{
             estimate_compact_anchor_after_message_id, get_messages_by_session, get_session,
-            model_history_from_latest_compact,
         },
     },
     scheduled_jobs::resolve_job_runtime,
@@ -106,17 +105,19 @@ pub async fn handle_compact(
             Err(_) => return Json(error_response("registry_unavailable")),
         };
         match registry.request_compact_for_session(session_id, false) {
-            Some(_) => return Json(CompactTriggerResponse {
-                ok: true,
-                compacted: false,
-                code: "queued".to_string(),
-                removed_count: None,
-                remaining_count: None,
-                anchor_after_message_id,
-                first_kept_message_id: None,
-                compact_message_id: None,
-                summary_preview: None,
-            }),
+            Some(_) => {
+                return Json(CompactTriggerResponse {
+                    ok: true,
+                    compacted: false,
+                    code: "queued".to_string(),
+                    removed_count: None,
+                    remaining_count: None,
+                    anchor_after_message_id,
+                    first_kept_message_id: None,
+                    compact_message_id: None,
+                    summary_preview: None,
+                })
+            }
             None => registry.get_session_status(session_id).is_some(),
         }
     };
@@ -166,27 +167,11 @@ pub async fn handle_compact(
         });
     }
 
-    // Summarize the current model-visible window, not the entire retained history.
-    let model_window = model_history_from_latest_compact(raw_messages.clone());
-    let messages: Vec<crate::agent::ChatMessage> = model_window
-        .iter()
-        .filter(|message| message.message_kind.as_deref() != Some(MESSAGE_KIND_COMPACT))
-        .map(|m| {
-            let content = if m.content.is_empty() {
-                None
-            } else {
-                Some(serde_json::Value::String(m.content.clone()))
-            };
-            crate::agent::ChatMessage {
-                role: m.role.clone(),
-                content,
-                reasoning_content: None,
-                tool_calls: None,
-                tool_call_id: None,
-                name: None,
-            }
-        })
-        .collect();
+    // 使用与 agent 完全一致的模型上下文，保留消息结构、工具调用和完整内容。
+    let messages = match crate::agent::assemble_agent_messages(&state, &session, None) {
+        Ok(messages) => messages,
+        Err(_) => return Json(error_response("messages_unavailable")),
+    };
 
     let client = match crate::agent::openai::build_http_client() {
         Ok(client) => client,

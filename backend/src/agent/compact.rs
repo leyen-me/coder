@@ -1,12 +1,13 @@
-//! Context Compaction — 自动 80% / 手动随时压缩。
+//! 上下文压缩——自动 80% / 手动随时压缩。
 //!
 //! 压缩判断只依赖模型真实返回的 `prompt_tokens`，不做 token 估算；
-//! 压缩时保留最近一段对话（字符预算），并在数据库写入压缩记录。
+//! 压缩请求保留完整原始对话，仅追加一条自然 user 指令让模型总结；
+//! 压缩后保留最近一段对话（字符预算），并在数据库写入压缩记录。
 
 use serde_json::json;
 use std::sync::{Arc, Mutex};
 
-use super::compact_prompt::{COMPACT_SUMMARY_PREFIX, SUMMARIZATION_PROMPT};
+use super::compact_prompt::{COMPACT_REQUEST_MESSAGE, COMPACT_SUMMARY_PREFIX};
 use super::openai::complete_chat_completion;
 use super::types::ChatMessage;
 use crate::db::{session_store::persist_session_compact, Database};
@@ -146,7 +147,61 @@ pub fn build_compact_snapshot(
 // Compaction execution (with bounded retry)
 // ---------------------------------------------------------------------------
 
-/// Run the compaction LLM call. Retries up to `COMPACT_MAX_RETRIES` times.
+/// 构建压缩请求：保留完整原始消息，仅追加一条自然 user 指令。
+fn build_compact_request_messages(
+    messages: &[ChatMessage],
+    snapshot: &CompactContextSnapshot,
+) -> Vec<ChatMessage> {
+    let mut compact_messages = messages.to_vec();
+    let mut request = COMPACT_REQUEST_MESSAGE.to_string();
+    let mut details: Vec<String> = Vec::new();
+
+    if !snapshot.working_files.is_empty() {
+        details.push(format!(
+            "最近修改或查看的文件：\n- {}",
+            snapshot.working_files.join("\n- ")
+        ));
+    }
+    if let Some(ref cwd) = snapshot.cwd_state {
+        if !cwd.is_empty() {
+            details.push(format!("当前工作目录：{cwd}"));
+        }
+    }
+    if !snapshot.recent_errors.is_empty() {
+        details.push(format!(
+            "最近遇到的错误：\n- {}",
+            snapshot.recent_errors.join("\n- ")
+        ));
+    }
+    if !snapshot.decisions.is_empty() {
+        details.push(format!(
+            "已做关键决定：\n- {}",
+            snapshot.decisions.join("\n- ")
+        ));
+    }
+    if !snapshot.background_tasks.is_empty() {
+        details.push(format!(
+            "仍在运行的后台任务：\n- {}",
+            snapshot.background_tasks.join("\n- ")
+        ));
+    }
+    if !details.is_empty() {
+        request.push_str("\n\n");
+        request.push_str(&details.join("\n\n"));
+    }
+
+    compact_messages.push(ChatMessage {
+        role: "user".to_string(),
+        content: Some(json!(request)),
+        reasoning_content: None,
+        tool_calls: None,
+        tool_call_id: None,
+        name: None,
+    });
+    compact_messages
+}
+
+/// 执行压缩摘要调用，失败时最多重试 `COMPACT_MAX_RETRIES` 次。
 pub async fn run_compact(
     client: &reqwest::Client,
     base_url: &str,
@@ -157,32 +212,9 @@ pub async fn run_compact(
 ) -> Result<CompactSummary, String> {
     let url = super::openai::chat_completions_url(base_url);
     let mut last_error: Option<String> = None;
+    let compact_messages = build_compact_request_messages(messages, snapshot);
 
     for attempt in 0..COMPACT_MAX_RETRIES {
-        let user_context = build_compact_user_context(messages, snapshot);
-        let wrapped_context = format!(
-            "Please summarize the following conversation:\n\n```text\n{user_context}\n```"
-        );
-
-        let compact_messages = vec![
-            ChatMessage {
-                role: "system".to_string(),
-                content: Some(json!(SUMMARIZATION_PROMPT)),
-                reasoning_content: None,
-                tool_calls: None,
-                tool_call_id: None,
-                name: None,
-            },
-            ChatMessage {
-                role: "user".to_string(),
-                content: Some(json!(wrapped_context)),
-                reasoning_content: None,
-                tool_calls: None,
-                tool_call_id: None,
-                name: None,
-            },
-        ];
-
         match complete_chat_completion(
             client,
             url.clone(),
@@ -220,116 +252,6 @@ pub async fn run_compact(
     Err(last_error.unwrap_or_else(|| "compaction exhausted retries".to_string()))
 }
 
-fn truncate_with_ellipsis(text: &str, max_bytes: usize) -> String {
-    if text.len() <= max_bytes {
-        return text.to_string();
-    }
-
-    let mut end = max_bytes;
-    while end > 0 && !text.is_char_boundary(end) {
-        end -= 1;
-    }
-
-    format!("{}... [truncated]", &text[..end])
-}
-
-fn build_compact_user_context(
-    messages: &[ChatMessage],
-    snapshot: &CompactContextSnapshot,
-) -> String {
-    let mut parts: Vec<String> = Vec::new();
-
-    if !snapshot.working_files.is_empty() {
-        let files = snapshot.working_files.join("\n- ");
-        parts.push(format!(
-            "Recently modified or examined files: \n- {files}"
-        ));
-    }
-
-    if let Some(ref cwd) = snapshot.cwd_state {
-        if !cwd.is_empty() {
-            parts.push(format!("Working directory state: {cwd}"));
-        }
-    }
-
-    if !snapshot.recent_errors.is_empty() {
-        let errors = snapshot.recent_errors.join("\n- ");
-        parts.push(format!("Recent errors encountered:\n- {errors}"));
-    }
-
-    if !snapshot.decisions.is_empty() {
-        let decisions = snapshot.decisions.join("\n- ");
-        parts.push(format!("Key decisions made:\n- {decisions}"));
-    }
-
-    if !snapshot.background_tasks.is_empty() {
-        let tasks = snapshot.background_tasks.join("\n- ");
-        parts.push(format!("Background tasks still running:\n- {tasks}"));
-    }
-
-    let recent = collect_recent_context(messages);
-    if !recent.is_empty() {
-        parts.push(format!("Recent conversation excerpt:\n{recent}"));
-    }
-
-    parts.join("\n\n---\n\n")
-}
-
-fn collect_recent_context(messages: &[ChatMessage]) -> String {
-    let start = if messages.len() > 30 {
-        messages.len() - 30
-    } else {
-        0
-    };
-
-    messages[start..]
-        .iter()
-        .filter_map(|msg| {
-            let role = &msg.role;
-            if role == "system" || role == "tool" {
-                return None;
-            }
-
-            let content = msg
-                .content
-                .as_ref()
-                .and_then(|v| {
-                    if let Some(s) = v.as_str() {
-                        Some(s.to_string())
-                    } else if let Some(arr) = v.as_array() {
-                        let texts: Vec<String> = arr
-                            .iter()
-                            .filter_map(|item| {
-                                item.get("text").and_then(|t| t.as_str()).map(|s| s.to_string())
-                            })
-                            .collect();
-                        if texts.is_empty() {
-                            None
-                        } else {
-                            Some(texts.join(" "))
-                        }
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or_default();
-
-            if content.is_empty() {
-                return None;
-            }
-
-            let truncated = if content.len() > 500 {
-                truncate_with_ellipsis(&content, 500)
-            } else {
-                content
-            };
-
-            Some(format!("[{role}]: {truncated}"))
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
 // ---------------------------------------------------------------------------
 // Apply compaction to message list
 // ---------------------------------------------------------------------------
@@ -340,10 +262,7 @@ fn collect_recent_context(messages: &[ChatMessage]) -> String {
 /// 2. Filter out any existing compact summaries (no nested summaries).
 /// 3. Select the newest messages that fit the character tail budget.
 /// 4. Result = system prompts + compact summary + selected tail.
-pub fn apply_compact(
-    messages: &[ChatMessage],
-    summary: &CompactSummary,
-) -> CompactResult {
+pub fn apply_compact(messages: &[ChatMessage], summary: &CompactSummary) -> CompactResult {
     let original_len = messages.len();
 
     let mut system_msgs: Vec<ChatMessage> = Vec::new();
@@ -392,10 +311,7 @@ pub fn apply_compact(
 /// Select the newest messages that fit the tail character budget.
 ///
 /// The newest message is always kept, even if it alone exceeds the budget.
-fn select_tail_messages_by_chars(
-    messages: &[&ChatMessage],
-    max_chars: usize,
-) -> Vec<ChatMessage> {
+fn select_tail_messages_by_chars(messages: &[&ChatMessage], max_chars: usize) -> Vec<ChatMessage> {
     if messages.is_empty() {
         return Vec::new();
     }
@@ -450,6 +366,7 @@ pub fn is_compact_summary_message(msg: &ChatMessage) -> bool {
 mod tests {
     use super::*;
     use serde_json::json;
+    use serde_json::Value;
 
     fn make_msg(role: &str, content: &str) -> ChatMessage {
         ChatMessage {
@@ -478,14 +395,6 @@ mod tests {
             make_msg("user", "again"),
         ];
         assert_eq!(count_compactable_messages(&messages), 3);
-    }
-
-    #[test]
-    fn truncate_with_ellipsis_respects_utf8_char_boundaries() {
-        let content = "已提交 `46ed33c`。\n\n---\n\n".repeat(40);
-        let truncated = truncate_with_ellipsis(&content, 500);
-        assert!(truncated.ends_with("... [truncated]"));
-        assert!(truncated.is_char_boundary(truncated.len()));
     }
 
     #[test]
@@ -593,5 +502,64 @@ mod tests {
         let selected = select_tail_messages_by_chars(&refs, 100);
         assert_eq!(selected.len(), 1);
         assert_eq!(selected[0].role, "assistant");
+    }
+
+    #[test]
+    fn compact_request_keeps_full_conversation_and_appends_user_instruction() {
+        let messages = vec![
+            make_msg("system", "AGENTS.md: use Simplified Chinese"),
+            make_msg("user", "实现 compact"),
+            make_msg("assistant", "好的，正在修改"),
+        ];
+        let snapshot = build_compact_snapshot(Vec::new(), None, Vec::new(), Vec::new(), Vec::new());
+
+        let request = build_compact_request_messages(&messages, &snapshot);
+        assert_eq!(request.len(), messages.len() + 1);
+
+        let source_roles: Vec<&str> = request[..messages.len()]
+            .iter()
+            .map(|message| message.role.as_str())
+            .collect();
+        assert_eq!(source_roles, vec!["system", "user", "assistant"]);
+        let source_contents: Vec<Option<Value>> = messages
+            .iter()
+            .map(|message| message.content.clone())
+            .collect();
+        let request_contents: Vec<Option<Value>> = request[..messages.len()]
+            .iter()
+            .map(|message| message.content.clone())
+            .collect();
+        assert_eq!(request_contents, source_contents);
+
+        let last = request.last().unwrap();
+        assert_eq!(last.role, "user");
+        assert!(last
+            .content
+            .as_ref()
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .contains("总结"));
+    }
+
+    #[test]
+    fn compact_request_includes_snapshot_details_when_present() {
+        let messages = vec![make_msg("user", "继续任务")];
+        let snapshot = build_compact_snapshot(
+            vec!["src/main.rs".to_string()],
+            Some("/workspace".to_string()),
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+        );
+
+        let request = build_compact_request_messages(&messages, &snapshot);
+        let last = request.last().unwrap();
+        let content = last
+            .content
+            .as_ref()
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        assert!(content.contains("/workspace"));
+        assert!(content.contains("src/main.rs"));
     }
 }
