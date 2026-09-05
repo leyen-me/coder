@@ -58,7 +58,6 @@ import {
 import type {
   ActiveTaskState,
   AgentEvent,
-  AgentMode,
   AgentStatus,
 } from "../types";
 import {
@@ -85,7 +84,6 @@ type AgentStoreValue = {
     thinkingEnabled?: boolean;
     images?: readonly FileUIPart[];
     editMessageId?: string;
-    agentMode?: AgentMode;
     skillSlugs?: string[];
     extraTools?: AgentToolDefinition[];
   }) => Promise<{ userMessageId: string; assistantMessageId: string; taskId: string }>;
@@ -94,7 +92,6 @@ type AgentStoreValue = {
     assistantMessageId: string;
     model: string;
     thinkingEnabled?: boolean;
-    agentMode?: AgentMode;
   }) => Promise<{ userMessageId: string; assistantMessageId: string; taskId: string }>;
   cancelTask: (taskId: string) => Promise<void>;
   resumeSessionTask: (sessionId: string) => Promise<void>;
@@ -599,7 +596,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       userContent: string;
       isFirstTurn: boolean;
       thinkingEnabled: boolean;
-      agentMode?: AgentMode;
       sessionKind: ActiveTaskState["sessionKind"];
       autonomyMode: ActiveTaskState["autonomyMode"];
       decisionPolicyVersion: ActiveTaskState["decisionPolicyVersion"];
@@ -617,7 +613,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         model: input.model,
         userContent: input.userContent,
         thinkingEnabled: input.thinkingEnabled,
-        agentMode: input.agentMode ?? "agent",
         sessionKind: input.sessionKind,
         autonomyMode: input.autonomyMode,
         decisionPolicyVersion: input.decisionPolicyVersion,
@@ -747,7 +742,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
               findModelDefinition(resolvedRef.current.models, modelId)
             )
           : true,
-        agentMode: assistantMessage.messageKind === "plan" ? "plan" : "agent",
         sessionKind: session?.sessionKind ?? "standard",
         autonomyMode:
           session?.autonomyMode ?? DEFAULT_SESSION_AUTONOMY_MODE,
@@ -824,7 +818,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       thinkingEnabled?: boolean;
       images?: readonly FileUIPart[];
       editMessageId?: string;
-      agentMode?: AgentMode;
       skillSlugs?: string[];
       extraTools?: AgentToolDefinition[];
     }) => {
@@ -929,7 +922,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         }),
         maxContextTokens,
         compactTriggerThreshold: readAgentSessionThreshold(),
-        agentMode: input.agentMode,
         thinkingEnabled,
         extraTools: input.extraTools,
       });
@@ -949,7 +941,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           "[image]",
         isFirstTurn,
         thinkingEnabled,
-        agentMode: input.agentMode,
         sessionKind: sessionPolicy.sessionKind,
         autonomyMode: sessionPolicy.autonomyMode,
         decisionPolicyVersion: sessionPolicy.decisionPolicyVersion,
@@ -971,7 +962,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       assistantMessageId: string;
       model: string;
       thinkingEnabled?: boolean;
-      agentMode?: AgentMode;
     }) => {
       writeLastSelectedModel(input.model);
       const { modelId } = parseModelValue(input.model);
@@ -1002,9 +992,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
 
       const userMessage = sessionMessages[userMessageIndex];
       const isFirstTurn = userMessageIndex === 0;
-      const resolvedAgentMode =
-        input.agentMode ??
-        (assistantMessage.messageKind === "plan" ? "plan" : "agent");
       const session = await getSession(input.sessionId);
       if (!session) {
         throw new Error(`Session not found: ${input.sessionId}`);
@@ -1038,7 +1025,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
         }),
         maxContextTokens,
         compactTriggerThreshold: readAgentSessionThreshold(),
-        agentMode: resolvedAgentMode,
         thinkingEnabled,
       });
       for (const messageId of started.deletedMessageIds ?? []) {
@@ -1057,7 +1043,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
           "[image]",
         isFirstTurn,
         thinkingEnabled,
-        agentMode: resolvedAgentMode,
         sessionKind: sessionPolicy.sessionKind,
         autonomyMode: sessionPolicy.autonomyMode,
         decisionPolicyVersion: sessionPolicy.decisionPolicyVersion,

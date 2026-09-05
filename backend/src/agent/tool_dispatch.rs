@@ -15,12 +15,9 @@ use crate::scheduled_jobs::{
 };
 use crate::tools::{
     send_email, shell_kill, shell_list, shell_read_logs, tool_await, tool_browse_page,
-    tool_edit_file, tool_get_workspace_tree, tool_glob, tool_grep, tool_list_dir,
-    tool_plan_create, tool_plan_delete, tool_plan_edit, tool_plan_list, tool_plan_read,
-    tool_plan_update, tool_read_file, tool_read_image, tool_remote_shell,
-    tool_replace_file, tool_replace_lines, tool_shell, tool_web_search,
-    tool_create_file, PageCache,
-    RemoteConnectionPool, ShellRegistry,
+    tool_edit_file, tool_get_workspace_tree, tool_glob, tool_grep, tool_list_dir, tool_read_file,
+    tool_read_image, tool_remote_shell, tool_replace_file, tool_replace_lines, tool_shell,
+    tool_web_search, tool_create_file, PageCache, RemoteConnectionPool, ShellRegistry,
 };
 
 #[derive(Clone)]
@@ -29,7 +26,6 @@ pub struct ToolExecutionContext<'a> {
     pub session_id: Option<String>,
     pub task_id: Option<String>,
     pub current_tool_call_id: Option<String>,
-    pub agent_mode: Option<String>,
     pub available_tools: Vec<AgentToolDefinition>,
     pub parent_start_params: super::types::AgentStartParams,
     pub allow_private_network_access: bool,
@@ -246,22 +242,6 @@ pub async fn execute_tool_call(
             format!("Tool `{name}` is temporarily disabled."),
         ));
     }
-    // Runtime mode enforcement: reject tools not allowed in the current mode.
-    // MCP tools (mcp__*) are dynamically registered by the user and always allowed
-    // in agent mode. Built-in tools are checked against the mode's allowlist.
-    if let Some(mode) = ctx.agent_mode.as_deref() {
-        let is_mcp_tool = name.starts_with("mcp__");
-        if !is_mcp_tool {
-            let allowed = tool_names(Some(mode));
-            if !allowed.contains(&name.to_string()) {
-                return Ok(tool_failure(
-                    name,
-                    "tool_not_allowed_in_mode",
-                    format!("Tool `{name}` is not allowed in `{mode}` mode."),
-                ));
-            }
-        }
-    }
     let args = parse_args(arguments)?;
     if let Some((server_id, tool_name)) = parse_mcp_tool_name(name) {
         return execute_mcp_tool_call(name, &server_id, &tool_name, args, ctx).await;
@@ -285,12 +265,6 @@ pub async fn execute_tool_call(
         "web_search" => execute_web_search(args, ctx).await,
         "browse_page" => execute_browse_page(args, ctx).await,
         "get_workspace_tree" => execute_get_workspace_tree(args, ctx),
-        "plan_create" => execute_plan_create(args, ctx),
-        "plan_read" => execute_plan_read(args, ctx),
-        "plan_update" => execute_plan_update(args, ctx),
-        "plan_edit" => execute_plan_edit(args, ctx),
-        "plan_delete" => execute_plan_delete(args, ctx),
-        "plan_list" => execute_plan_list_args(args, ctx),
         "todo_read" => execute_todo_read(ctx),
         "todo_write" => execute_todo_write(args, ctx),
         "ask_question" => execute_ask_question(args, ctx).await,
@@ -344,12 +318,6 @@ pub fn all_tool_names() -> Vec<String> {
         "web_search",
         "browse_page",
         "get_workspace_tree",
-        "plan_create",
-        "plan_read",
-        "plan_update",
-        "plan_edit",
-        "plan_delete",
-        "plan_list",
         "todo_read",
         "todo_write",
         "ask_question",
@@ -367,15 +335,6 @@ pub fn all_tool_names() -> Vec<String> {
     .collect()
 }
 
-const PLAN_TOOL_NAMES: &[&str] = &[
-    "plan_create",
-    "plan_read",
-    "plan_update",
-    "plan_edit",
-    "plan_delete",
-    "plan_list",
-];
-
 /// Agent tools kept in code but withheld from the model until re-enabled.
 const DISABLED_AGENT_TOOL_NAMES: &[&str] = &["replace_lines"];
 
@@ -383,51 +342,7 @@ fn is_disabled_agent_tool(name: &str) -> bool {
     DISABLED_AGENT_TOOL_NAMES.contains(&name)
 }
 
-/// Returns the tool names allowed in the given agent mode (None = agent mode).
-/// Used both for filtering the tool catalog and for runtime enforcement.
-pub fn tool_names(mode: Option<&str>) -> Vec<String> {
-    let mode = mode.unwrap_or("agent");
-    let all = all_tool_names();
-    match mode {
-        "ask" | "plan" => all
-            .into_iter()
-            .filter(|n| {
-                matches!(
-                    n.as_str(),
-                    "ask_question"
-                        | "await"
-                        | "await_subagent"
-                        | "browse_page"
-                        | "get_workspace_tree"
-                        | "glob"
-                        | "grep"
-                        | "list_automations"
-                        | "list_dir"
-                        | "list_shells"
-                        | "plan_create"
-                        | "plan_read"
-                        | "plan_update"
-                        | "plan_edit"
-                        | "plan_delete"
-                        | "plan_list"
-                        | "read_file"
-                        | "read_image"
-                        | "read_shell_logs"
-                        | "search"
-                        | "spawn_subagent"
-                        | "todo_read"
-                        | "todo_write"
-                        | "web_search"
-                        | "list_skills"
-                        | "read_skill"
-                )
-            })
-            .collect(),
-        _ => all,
-    }
-}
-
-pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition> {
+pub fn get_tool_definitions() -> Vec<AgentToolDefinition> {
     let mut tools = vec![
         tool_definition(
             "list_dir",
@@ -780,76 +695,6 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
             }),
         ),
         tool_definition(
-            "plan_create",
-            "Create a new plan markdown file in the .coder/plan/ directory.",
-            json!({
-                "type": "object",
-                "properties": {
-                    "name": string_schema("Plan filename ending with -plan.md."),
-                    "content": string_schema("Full plan content in Markdown.")
-                },
-                "required": ["name", "content"],
-                "additionalProperties": false
-            }),
-        ),
-        tool_definition(
-            "plan_read",
-            "Read a plan markdown file from the .coder/plan/ directory.",
-            json!({
-                "type": "object",
-                "properties": { "name": string_schema("Plan filename.") },
-                "required": ["name"],
-                "additionalProperties": false
-            }),
-        ),
-        tool_definition(
-            "plan_update",
-            "Replace the content of an existing plan file in the .coder/plan/ directory.",
-            json!({
-                "type": "object",
-                "properties": {
-                    "name": string_schema("Plan filename."),
-                    "content": string_schema("Full updated plan content in Markdown.")
-                },
-                "required": ["name", "content"],
-                "additionalProperties": false
-            }),
-        ),
-        tool_definition(
-            "plan_edit",
-            "Apply a targeted search-and-replace edit to an existing plan file in the .coder/plan/ directory.",
-            json!({
-                "type": "object",
-                "properties": {
-                    "name": string_schema("Plan filename."),
-                    "old_string": string_schema("Exact text to replace."),
-                    "new_string": string_schema("Replacement text."),
-                    "replace_all": bool_schema("Whether to replace every occurrence of old_string.", Some(false))
-                },
-                "required": ["name", "old_string", "new_string"],
-                "additionalProperties": false
-            }),
-        ),
-        tool_definition(
-            "plan_delete",
-            "Delete a plan markdown file from the .coder/plan/ directory.",
-            json!({
-                "type": "object",
-                "properties": { "name": string_schema("Plan filename to delete.") },
-                "required": ["name"],
-                "additionalProperties": false
-            }),
-        ),
-        tool_definition(
-            "plan_list",
-            "List all plan markdown files in the .coder/plan/ directory.",
-            json!({
-                "type": "object",
-                "properties": {},
-                "additionalProperties": false
-            }),
-        ),
-        tool_definition(
             "send_email",
             "Send an email to a recipient using configured email settings.",
             json!({
@@ -915,7 +760,6 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "description": string_schema("Optional description shown in the automations list."),
                     "workspace_dir": string_schema("Workspace directory for scheduled runs. Defaults to the current session workspace."),
                     "model": string_schema("Model id for scheduled runs. Defaults to the current session model."),
-                    "agent_mode": enum_string_schema("Agent mode for scheduled runs.", &["agent", "ask"], Some("agent")),
                     "thinking_enabled": bool_schema("Whether thinking mode is enabled when the model supports it.", Some(false)),
                     "attached_mcp_servers": {
                         "type": "array",
@@ -940,7 +784,6 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
                     "description": string_schema("Updated description."),
                     "workspace_dir": string_schema("Updated workspace directory."),
                     "model": string_schema("Updated model id."),
-                    "agent_mode": enum_string_schema("Updated agent mode.", &["agent", "ask"], None),
                     "thinking_enabled": bool_schema("Updated thinking mode setting.", None),
                     "attached_mcp_servers": {
                         "type": "array",
@@ -965,52 +808,6 @@ pub fn get_tool_definitions(agent_mode: Option<&str>) -> Vec<AgentToolDefinition
             }),
         ),
     ];
-
-    match agent_mode.unwrap_or("agent") {
-        "ask" => {
-            let allowed = [
-                "list_dir",
-                "read_file",
-                "read_image",
-                "todo_read",
-                "ask_question",
-                "glob",
-                "grep",
-                "web_search",
-                "browse_page",
-                "list_shells",
-                "get_workspace_tree",
-            ];
-            tools.retain(|tool| allowed.contains(&tool.function.name.as_str()));
-        }
-        "plan" => {
-            let allowed = [
-                "list_dir",
-                "read_file",
-                "read_image",
-                "todo_read",
-                "todo_write",
-                "ask_question",
-                "glob",
-                "grep",
-                "web_search",
-                "browse_page",
-                "list_shells",
-                "get_workspace_tree",
-                "plan_create",
-                "plan_read",
-                "plan_update",
-                "plan_edit",
-                "plan_delete",
-                "plan_list",
-            ];
-            tools.retain(|tool| allowed.contains(&tool.function.name.as_str()));
-        }
-        _ => {
-            // Plan file tools are exclusive to Plan mode; Agent mode implements directly.
-            tools.retain(|tool| !PLAN_TOOL_NAMES.contains(&tool.function.name.as_str()));
-        }
-    }
 
     tools.retain(|tool| !is_disabled_agent_tool(&tool.function.name));
 
@@ -1686,211 +1483,6 @@ fn execute_get_workspace_tree(
     })
 }
 
-#[derive(Deserialize)]
-struct PlanContentArgs {
-    name: String,
-    content: String,
-}
-
-#[derive(Deserialize)]
-struct PlanNameArgs {
-    name: String,
-}
-
-#[derive(Deserialize)]
-struct PlanEditArgs {
-    name: String,
-    old_string: String,
-    new_string: String,
-    replace_all: Option<bool>,
-}
-
-fn execute_plan_create(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
-    let args: PlanContentArgs = match parse_from_value("plan_create", args) {
-        Ok(value) => value,
-        Err(error) => return Ok(error),
-    };
-    let workspace_dir = match require_workspace_dir(ctx, "plan_create") {
-        Ok(value) => value,
-        Err(error) => return Ok(error),
-    };
-    Ok(match tool_plan_create(workspace_dir, args.name, args.content) {
-        Ok(result) => {
-            let _ = bind_plan_to_session(ctx, &result.name);
-            tool_success("plan_create", result)
-        }
-        Err(error) => tool_failure("plan_create", "execution_failed", error.to_string()),
-    })
-}
-
-fn execute_plan_read(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
-    let args: PlanNameArgs = match parse_from_value("plan_read", args) {
-        Ok(value) => value,
-        Err(error) => return Ok(error),
-    };
-    let workspace_dir = match require_workspace_dir(ctx, "plan_read") {
-        Ok(value) => value,
-        Err(error) => return Ok(error),
-    };
-    Ok(match tool_plan_read(workspace_dir, args.name) {
-        Ok(result) => tool_success("plan_read", result),
-        Err(error) => tool_failure("plan_read", "execution_failed", error.to_string()),
-    })
-}
-
-fn execute_plan_update(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
-    let args: PlanContentArgs = match parse_from_value("plan_update", args) {
-        Ok(value) => value,
-        Err(error) => return Ok(error),
-    };
-    let workspace_dir = match require_workspace_dir(ctx, "plan_update") {
-        Ok(value) => value,
-        Err(error) => return Ok(error),
-    };
-    Ok(match tool_plan_update(workspace_dir, args.name, args.content) {
-        Ok(result) => {
-            let _ = bind_plan_to_session(ctx, &result.name);
-            tool_success("plan_update", result)
-        }
-        Err(error) => tool_failure("plan_update", "execution_failed", error.to_string()),
-    })
-}
-
-fn execute_plan_edit(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
-    let args: PlanEditArgs = match parse_from_value("plan_edit", args) {
-        Ok(value) => value,
-        Err(error) => return Ok(error),
-    };
-    let workspace_dir = match require_workspace_dir(ctx, "plan_edit") {
-        Ok(value) => value,
-        Err(error) => return Ok(error),
-    };
-    Ok(match tool_plan_edit(
-        workspace_dir,
-        args.name,
-        args.old_string,
-        args.new_string,
-        args.replace_all,
-    ) {
-        Ok(result) => {
-            let _ = bind_plan_to_session(ctx, &result.name);
-            tool_success("plan_edit", result)
-        }
-        Err(error) => tool_failure("plan_edit", "execution_failed", error.to_string()),
-    })
-}
-
-fn execute_plan_delete(args: Value, ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
-    let args: PlanNameArgs = match parse_from_value("plan_delete", args) {
-        Ok(value) => value,
-        Err(error) => return Ok(error),
-    };
-    let workspace_dir = match require_workspace_dir(ctx, "plan_delete") {
-        Ok(value) => value,
-        Err(error) => return Ok(error),
-    };
-    Ok(match tool_plan_delete(workspace_dir, args.name) {
-        Ok(result) => {
-            let _ = clear_session_plan_binding_if_matches(ctx, &result.name);
-            tool_success("plan_delete", result)
-        }
-        Err(error) => tool_failure("plan_delete", "execution_failed", error.to_string()),
-    })
-}
-
-fn execute_plan_list(ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
-    let workspace_dir = match require_workspace_dir(ctx, "plan_list") {
-        Ok(value) => value,
-        Err(error) => return Ok(error),
-    };
-    Ok(match tool_plan_list(workspace_dir) {
-        Ok(result) => tool_success("plan_list", result),
-        Err(error) => tool_failure("plan_list", "execution_failed", error.to_string()),
-    })
-}
-
-fn bind_plan_to_session(ctx: &ToolExecutionContext<'_>, plan_file_name: &str) -> Result<(), String> {
-    let Some(session_id) = ctx
-        .session_id
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    else {
-        return Ok(());
-    };
-    update_session_plan_fields(ctx, session_id, Some(plan_file_name), Some(serde_json::Value::Null))
-}
-
-fn clear_session_plan_binding_if_matches(
-    ctx: &ToolExecutionContext<'_>,
-    plan_file_name: &str,
-) -> Result<(), String> {
-    let Some(session_id) = ctx
-        .session_id
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    else {
-        return Ok(());
-    };
-    let db = ctx.db.lock().map_err(|_| "Database lock poisoned.".to_string())?;
-    let Some(session) = db.get::<Value>("sessions", session_id)? else {
-        return Ok(());
-    };
-    let current_name = session
-        .get("planFileName")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .unwrap_or_default();
-    drop(db);
-    if current_name != plan_file_name {
-        return Ok(());
-    }
-    update_session_plan_fields(ctx, session_id, None, Some(serde_json::Value::Null))
-}
-
-fn update_session_plan_fields(
-    ctx: &ToolExecutionContext<'_>,
-    session_id: &str,
-    plan_file_name: Option<&str>,
-    plan_built_at: Option<Value>,
-) -> Result<(), String> {
-    let db = ctx.db.lock().map_err(|_| "Database lock poisoned.".to_string())?;
-    let Some(mut session) = db.get::<Value>("sessions", session_id)? else {
-        return Ok(());
-    };
-    let Some(object) = session.as_object_mut() else {
-        return Ok(());
-    };
-    object.insert(
-        "planFileName".to_string(),
-        plan_file_name
-            .map(|value| Value::String(value.to_string()))
-            .unwrap_or(Value::Null),
-    );
-    if let Some(value) = plan_built_at {
-        object.insert("planBuiltAt".to_string(), value);
-    }
-    let updated_at = current_timestamp_ms();
-    object.insert("updatedAt".to_string(), Value::from(updated_at));
-    db.put(
-        "sessions",
-        session_id,
-        &session,
-        &[crate::db::IndexEntry {
-            name: "by-updatedAt".to_string(),
-            value: updated_at.to_string(),
-        }],
-    )
-}
-
-fn execute_plan_list_args(
-    _args: Value,
-    ctx: &ToolExecutionContext<'_>,
-) -> Result<ToolResultEnvelope, String> {
-    execute_plan_list(ctx)
-}
-
 const AUTOMATION_ENABLE_HINT: &str =
     "Automation created in disabled state. Ask the user to review and enable it on the Automations page.";
 
@@ -1904,8 +1496,6 @@ struct CreateAutomationArgs {
     #[serde(alias = "workspaceDir")]
     workspace_dir: Option<String>,
     model: Option<String>,
-    #[serde(alias = "agentMode")]
-    agent_mode: Option<String>,
     #[serde(alias = "thinkingEnabled")]
     thinking_enabled: Option<bool>,
     #[serde(alias = "attachedMcpServers")]
@@ -1923,8 +1513,6 @@ struct UpdateAutomationArgs {
     #[serde(alias = "workspaceDir")]
     workspace_dir: Option<String>,
     model: Option<String>,
-    #[serde(alias = "agentMode")]
-    agent_mode: Option<String>,
     #[serde(alias = "thinkingEnabled")]
     thinking_enabled: Option<bool>,
     #[serde(alias = "attachedMcpServers")]
@@ -2043,18 +1631,6 @@ fn execute_create_automation(
         Err(error) => return Ok(error),
     };
 
-    let agent_mode = match parse_automation_agent_mode(args.agent_mode.as_deref(), AgentMode::Agent)
-    {
-        Ok(value) => value,
-        Err(error) => {
-            return Ok(tool_failure(
-                "create_automation",
-                "invalid_arguments",
-                error,
-            ))
-        }
-    };
-
     let thinking_enabled = args
         .thinking_enabled
         .unwrap_or_else(|| ctx.parent_start_params.thinking_enabled.unwrap_or(false));
@@ -2067,7 +1643,7 @@ fn execute_create_automation(
         workspace_dir: resolve_automation_workspace_dir(ctx, args.workspace_dir),
         model: model.clone(),
         provider: Some(infer_provider_for_model(&model)),
-        agent_mode,
+        agent_mode: AgentMode::Agent,
         thinking_enabled,
         attached_mcp_servers: args.attached_mcp_servers.unwrap_or_default(),
         enabled: Some(false),
@@ -2125,20 +1701,6 @@ fn execute_update_automation(
         }
     }
 
-    let agent_mode = match args.agent_mode.as_deref() {
-        Some(raw) => match parse_automation_agent_mode(Some(raw), AgentMode::Agent) {
-            Ok(value) => Some(value),
-            Err(error) => {
-                return Ok(tool_failure(
-                    "update_automation",
-                    "invalid_arguments",
-                    error,
-                ))
-            }
-        },
-        None => None,
-    };
-
     let model = args
         .model
         .as_ref()
@@ -2157,7 +1719,7 @@ fn execute_update_automation(
         workspace_dir: args.workspace_dir,
         model,
         provider,
-        agent_mode,
+        agent_mode: None,
         thinking_enabled: args.thinking_enabled,
         attached_mcp_servers: args.attached_mcp_servers,
         enabled: None,
@@ -2254,23 +1816,6 @@ fn resolve_automation_workspace_dir(
             }
         })
         .or_else(|| ctx.workspace_dir.clone())
-}
-
-fn parse_automation_agent_mode(
-    value: Option<&str>,
-    default: AgentMode,
-) -> Result<AgentMode, String> {
-    let Some(raw) = value else {
-        return Ok(default);
-    };
-    match raw.trim().to_ascii_lowercase().as_str() {
-        "agent" => Ok(AgentMode::Agent),
-        "ask" => Ok(AgentMode::Ask),
-        other if other.is_empty() => Ok(default),
-        other => Err(format!(
-            "Invalid agent_mode `{other}`. Use \"agent\" or \"ask\"."
-        )),
-    }
 }
 
 fn execute_todo_read(ctx: &ToolExecutionContext<'_>) -> Result<ToolResultEnvelope, String> {
@@ -2822,7 +2367,6 @@ async fn execute_spawn_subagent(
             request_extensions: parent.request_extensions.clone(),
             max_context_tokens: parent.max_context_tokens,
             compact_trigger_threshold: parent.compact_trigger_threshold,
-            agent_mode: Some("agent".to_string()),
             thinking_enabled: parent.thinking_enabled,
             attached_mcp_servers: None,
             extra_tools: Some(allowed_tools),
@@ -3614,8 +3158,8 @@ mod tests {
     use std::collections::{BTreeSet, HashMap};
     use std::sync::{Arc, Mutex};
 
-    fn tool_names(agent_mode: Option<&str>) -> Vec<String> {
-        get_tool_definitions(agent_mode)
+    fn tool_names() -> Vec<String> {
+        get_tool_definitions()
             .into_iter()
             .map(|tool| tool.function.name)
             .collect()
@@ -3717,7 +3261,7 @@ mod tests {
 
     #[test]
     fn agent_mode_includes_automation_tools() {
-        let names = tool_names(Some("agent"));
+        let names = tool_names();
         assert!(names.contains(&"list_automations".to_string()));
         assert!(names.contains(&"list_mcp_servers".to_string()));
         assert!(names.contains(&"create_automation".to_string()));
@@ -3727,30 +3271,20 @@ mod tests {
 
     #[test]
     fn agent_mode_includes_spawn_subagent() {
-        let names = tool_names(Some("agent"));
+        let names = tool_names();
         assert!(names.contains(&"spawn_subagent".to_string()));
     }
 
     #[test]
-    fn ask_and_plan_modes_exclude_spawn_subagent() {
-        assert!(!tool_names(Some("ask")).contains(&"spawn_subagent".to_string()));
-        assert!(!tool_names(Some("plan")).contains(&"spawn_subagent".to_string()));
-    }
-
-    #[test]
     fn agent_mode_excludes_disabled_tools() {
-        let names = tool_names(Some("agent"));
+        let names = tool_names();
         assert!(!names.contains(&"replace_lines".to_string()));
     }
 
     #[test]
-    fn mode_tool_catalogs_match_expected_allowlists() {
-        let mut agent = tool_names(Some("agent"));
-        let mut ask = tool_names(Some("ask"));
-        let mut plan = tool_names(Some("plan"));
+    fn mode_tool_catalog_matches_expected_allowlist() {
+        let mut agent = tool_names();
         agent.sort();
-        ask.sort();
-        plan.sort();
 
         assert_eq!(
             agent,
@@ -3785,70 +3319,20 @@ mod tests {
                 "web_search",
             ]
         );
-        assert_eq!(
-            ask,
-            vec![
-                "ask_question",
-                "browse_page",
-                "get_workspace_tree",
-                "glob",
-                "grep",
-                "list_dir",
-                "list_shells",
-                "read_file",
-                "read_image",
-                "todo_read",
-                "web_search",
-            ]
-        );
-        assert_eq!(
-            plan,
-            vec![
-                "ask_question",
-                "browse_page",
-                "get_workspace_tree",
-                "glob",
-                "grep",
-                "list_dir",
-                "list_shells",
-                "plan_create",
-                "plan_delete",
-                "plan_edit",
-                "plan_list",
-                "plan_read",
-                "plan_update",
-                "read_file",
-                "read_image",
-                "todo_read",
-                "todo_write",
-                "web_search",
-            ]
-        );
     }
 
     #[test]
-    fn every_named_tool_is_exposed_disabled_or_compact_only() {
+    fn every_named_tool_is_exposed_or_disabled() {
         // Catches tools that exist in all_tool_names()/execute but never reach
-        // any mode catalog (the spawn_subagent regression class).
+        // the tool catalog (the spawn_subagent regression class).
         let named: BTreeSet<_> = all_tool_names().into_iter().collect();
-        let mut covered = BTreeSet::new();
-        for mode in [Some("agent"), Some("ask"), Some("plan")] {
-            covered.extend(tool_names(mode));
-        }
+        let mut covered: BTreeSet<_> = tool_names().into_iter().collect();
         covered.extend(DISABLED_AGENT_TOOL_NAMES.iter().map(|name| (*name).to_string()));
 
         assert_eq!(
             covered, named,
-            "every all_tool_names() entry must appear in a mode catalog or be DISABLED"
+            "every all_tool_names() entry must appear in the catalog or be DISABLED"
         );
-    }
-
-    #[test]
-    fn ask_mode_excludes_automation_tools() {
-        let names = tool_names(Some("ask"));
-        assert!(!names.contains(&"create_automation".to_string()));
-        assert!(!names.contains(&"list_automations".to_string()));
-        assert!(!names.contains(&"list_mcp_servers".to_string()));
     }
 
     #[test]
@@ -3858,14 +3342,12 @@ mod tests {
             "prompt": "Review open PRs",
             "cron_expression": "0 9 * * 1-5",
             "workspace_dir": "/tmp/project",
-            "agent_mode": "agent",
             "thinking_enabled": false
         }))
         .expect("snake_case args should deserialize");
 
         assert_eq!(args.cron_expression, "0 9 * * 1-5");
         assert_eq!(args.workspace_dir.as_deref(), Some("/tmp/project"));
-        assert_eq!(args.agent_mode.as_deref(), Some("agent"));
         assert_eq!(args.thinking_enabled, Some(false));
     }
 
@@ -3876,14 +3358,12 @@ mod tests {
             "prompt": "Review open PRs",
             "cronExpression": "0 9 * * 1-5",
             "workspaceDir": "/tmp/project",
-            "agentMode": "ask",
             "thinkingEnabled": true
         }))
         .expect("camelCase aliases should deserialize");
 
         assert_eq!(args.cron_expression, "0 9 * * 1-5");
         assert_eq!(args.workspace_dir.as_deref(), Some("/tmp/project"));
-        assert_eq!(args.agent_mode.as_deref(), Some("ask"));
         assert_eq!(args.thinking_enabled, Some(true));
     }
 
@@ -3908,31 +3388,6 @@ mod tests {
         assert_eq!(args.id, "job-1");
     }
 
-    #[test]
-    fn agent_mode_excludes_plan_tools() {
-        let names = tool_names(Some("agent"));
-        assert!(names.contains(&"create_file".to_string()));
-        assert!(names.contains(&"shell".to_string()));
-        assert!(!names.contains(&"plan_create".to_string()));
-        assert!(!names.contains(&"plan_list".to_string()));
-    }
-
-    #[test]
-    fn plan_mode_includes_plan_tools() {
-        let names = tool_names(Some("plan"));
-        assert!(names.contains(&"plan_create".to_string()));
-        assert!(names.contains(&"plan_list".to_string()));
-        assert!(!names.contains(&"create_file".to_string()));
-        assert!(!names.contains(&"shell".to_string()));
-    }
-
-    #[test]
-    fn ask_mode_excludes_plan_and_write_tools() {
-        let names = tool_names(Some("ask"));
-        assert!(names.contains(&"read_file".to_string()));
-        assert!(!names.contains(&"plan_create".to_string()));
-        assert!(!names.contains(&"create_file".to_string()));
-    }
     #[test]
     fn ask_question_timeout_message_mentions_user_may_be_away() {
         let message = ask_question_timeout_message(30_000);

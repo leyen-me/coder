@@ -22,12 +22,6 @@ import {
   LIST_SHELLS_TOOL_NAME,
   LIST_AUTOMATIONS_TOOL_NAME,
   LIST_SKILLS_TOOL_NAME,
-  PLAN_CREATE_TOOL_NAME,
-  PLAN_DELETE_TOOL_NAME,
-  PLAN_EDIT_TOOL_NAME,
-  PLAN_LIST_TOOL_NAME,
-  PLAN_READ_TOOL_NAME,
-  PLAN_UPDATE_TOOL_NAME,
   READ_FILE_TOOL_NAME,
   READ_SHELL_LOGS_TOOL_NAME,
   READ_SKILL_TOOL_NAME,
@@ -51,7 +45,6 @@ import { getFileDiffChipLabel } from "@/features/agent/tools/file-diff-display";
 import { getGlobChipLabel } from "@/features/agent/tools/glob-display";
 import { getGrepChipLabel } from "@/features/agent/tools/grep-display";
 import { getListDirChipLabel } from "@/features/agent/tools/list-dir-display";
-import { getPlanChipLabel } from "@/features/agent/tools/plan-display";
 import {
   getReadFileChipLabel,
 } from "@/features/agent/tools/read-file-display";
@@ -90,7 +83,6 @@ import { GrepToolOutput } from "./grep-tool-output";
 import { KillShellToolOutput } from "./kill-shell-tool-output";
 import { ListDirToolOutput } from "./list-dir-tool-output";
 import { ListShellsToolOutput } from "./list-shells-tool-output";
-import { PlanToolOutput } from "./plan-tool-output";
 import { ReadFileToolOutput } from "./read-file-tool-output";
 import { ReadShellLogsToolOutput } from "./read-shell-logs-tool-output";
 
@@ -131,7 +123,6 @@ export function ToolInvocationChip({
     getGlobChipLabel(invocation.name, invocation.input, invocation.output) ??
     getListDirChipLabel(invocation.name, invocation.input, invocation.output) ??
     getTodoChipLabel(invocation.name, invocation.output) ??
-    getPlanChipLabel(invocation.name, invocation.input, invocation.output) ??
     getListShellsChipLabel(invocation.name, invocation.input, invocation.output) ??
     getReadShellLogsChipLabel(invocation.name, invocation.input, invocation.output) ??
     getKillShellChipLabel(invocation.name, invocation.input, invocation.output) ??
@@ -161,13 +152,6 @@ export function ToolInvocationChip({
   const isTodoTool =
     invocation.name === TODO_READ_TOOL_NAME ||
     invocation.name === TODO_WRITE_TOOL_NAME;
-  const isPlanTool =
-    invocation.name === PLAN_CREATE_TOOL_NAME ||
-    invocation.name === PLAN_READ_TOOL_NAME ||
-    invocation.name === PLAN_UPDATE_TOOL_NAME ||
-    invocation.name === PLAN_EDIT_TOOL_NAME ||
-    invocation.name === PLAN_DELETE_TOOL_NAME ||
-    invocation.name === PLAN_LIST_TOOL_NAME;
   const isListShellsTool = invocation.name === LIST_SHELLS_TOOL_NAME;
   const isReadShellLogsTool = invocation.name === READ_SHELL_LOGS_TOOL_NAME;
   const isKillShellTool = invocation.name === KILL_SHELL_TOOL_NAME;
@@ -279,15 +263,6 @@ export function ToolInvocationChip({
             />
           ) : isTodoTool ? (
             <TodoToolOutput
-              collapsible={false}
-              errorText={invocation.errorText}
-              input={invocation.input}
-              output={invocation.output}
-              toolName={invocation.name}
-              state={invocation.state as ToolUIPart["state"]}
-            />
-          ) : isPlanTool ? (
-            <PlanToolOutput
               collapsible={false}
               errorText={invocation.errorText}
               input={invocation.input}

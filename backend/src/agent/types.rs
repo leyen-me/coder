@@ -216,8 +216,6 @@ pub struct AgentStartParams {
     #[serde(default)]
     pub compact_trigger_threshold: Option<f64>,
     #[serde(default)]
-    pub agent_mode: Option<String>,
-    #[serde(default)]
     pub thinking_enabled: Option<bool>,
     #[serde(default)]
     pub models: Option<Vec<Value>>,

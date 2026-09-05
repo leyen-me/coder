@@ -15,7 +15,6 @@ export type AutomationRecord = {
   workspaceDir: string | null;
   model: string;
   provider: string;
-  agentMode: "agent" | "ask";
   thinkingEnabled: boolean;
   enabled: boolean;
   createdAt: number;

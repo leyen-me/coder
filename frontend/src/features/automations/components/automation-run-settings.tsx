@@ -1,9 +1,7 @@
 import {
-  BotIcon,
   BrainIcon,
   CheckIcon,
   ChevronDownIcon,
-  FileQuestionIcon,
   FolderOpenIcon,
   ServerIcon,
   XIcon,
@@ -40,7 +38,6 @@ import { findModelEntry } from "@/lib/model-provider/resolve-provider-config";
 import type { ProviderId } from "@/lib/model-provider/types";
 import { cn } from "@/lib/utils";
 import { PRESET_PROVIDER_LABELS } from "@/lib/model-provider/constants";
-import type { ScheduledJobAgentMode } from "@/features/scheduled-jobs/lib/api";
 import type { McpServerConfig } from "@/lib/db";
 
 function renderModelOptions(
@@ -91,8 +88,6 @@ function renderModelOptions(
 type AutomationRunSettingsProps = {
   workspaceDir: string | null;
   onWorkspaceDirChange: (workspaceDir: string | null) => void;
-  agentMode: ScheduledJobAgentMode;
-  onAgentModeChange: (agentMode: ScheduledJobAgentMode) => void;
   model: string;
   onModelChange: (model: string) => void;
   thinkingEnabled: boolean;
@@ -110,8 +105,6 @@ type AutomationRunSettingsProps = {
 export function AutomationRunSettings({
   workspaceDir,
   onWorkspaceDirChange,
-  agentMode,
-  onAgentModeChange,
   model,
   onModelChange,
   thinkingEnabled,
@@ -175,54 +168,6 @@ export function AutomationRunSettings({
       </div>
 
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              disabled={disabled}
-              className={cn(
-                composerFooterControlClassName,
-                "inline-flex min-w-0 items-center gap-1.5",
-                "data-[state=open]:bg-accent data-[state=open]:text-foreground data-[state=open]:dark:bg-input/50"
-              )}
-              title={
-                agentMode === "agent"
-                  ? t("chat.modeAgentLabel")
-                  : t("chat.modeAskLabel")
-              }
-            >
-              {agentMode === "agent" ? (
-                <BotIcon className="size-3.5 shrink-0" />
-              ) : (
-                <FileQuestionIcon className="size-3.5 shrink-0" />
-              )}
-              <span className="truncate">
-                {agentMode === "agent"
-                  ? t("chat.modeAgent")
-                  : t("chat.modeAsk")}
-              </span>
-              <ChevronDownIcon className="size-3 shrink-0 opacity-60" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="min-w-32">
-            <DropdownMenuRadioGroup
-              value={agentMode}
-              onValueChange={(value) =>
-                onAgentModeChange(value as ScheduledJobAgentMode)
-              }
-            >
-              <DropdownMenuRadioItem value="agent">
-                <BotIcon className="mr-2 size-4" />
-                <span>{t("chat.modeAgent")}</span>
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="ask">
-                <FileQuestionIcon className="mr-2 size-4" />
-                <span>{t("chat.modeAsk")}</span>
-              </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <button

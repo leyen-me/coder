@@ -384,7 +384,6 @@ pub struct AgentStartParams {
     pub emit_assistant_output: Option<bool>,
     pub max_context_tokens: Option<u32>,
     pub compact_trigger_threshold: Option<f64>,
-    pub agent_mode: Option<String>,
     pub thinking_enabled: Option<bool>,
     pub models: Option<Vec<Value>>,
     pub session_kind: Option<String>,
@@ -415,8 +414,6 @@ pub struct AgentSendParams {
     #[serde(default)]
     pub compact_trigger_threshold: Option<f64>,
     #[serde(default)]
-    pub agent_mode: Option<String>,
-    #[serde(default)]
     pub thinking_enabled: Option<bool>,
     #[serde(default)]
     pub models: Option<Vec<Value>>,
@@ -441,8 +438,6 @@ pub struct AgentRegenerateParams {
     pub max_context_tokens: Option<u32>,
     #[serde(default)]
     pub compact_trigger_threshold: Option<f64>,
-    #[serde(default)]
-    pub agent_mode: Option<String>,
     #[serde(default)]
     pub thinking_enabled: Option<bool>,
     #[serde(default)]
@@ -964,8 +959,6 @@ pub struct AgentSystemPromptParams {
     pub session_id: String,
     #[serde(default)]
     pub workspace_dir: Option<String>,
-    #[serde(default)]
-    pub agent_mode: Option<String>,
 }
 
 /// POST /api/runtime_environment
@@ -998,7 +991,6 @@ pub async fn handle_agent_system_prompt(
     let system_prompt = agent::build_system_prompt_preview(
         &state,
         &session,
-        params.agent_mode.as_deref(),
         params.workspace_dir.as_deref(),
     )
     .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
@@ -1188,15 +1180,13 @@ pub async fn handle_agent_start(
                     "messages or sessionId is required".to_string(),
                 )
             })?;
-            agent::assemble_agent_messages(&state, session, params.agent_mode.as_deref())
+            agent::assemble_agent_messages(&state, session)
                 .map_err(|error| (StatusCode::BAD_REQUEST, error))?
         }
     };
-    let agent_mode = params.agent_mode.clone();
     let tools = {
         let defaults = agent::resolve_agent_tool_definitions(
             &state,
-            agent_mode.as_deref(),
             params.tools.clone(),
             None,
             params.session_id.as_deref(),
@@ -1206,11 +1196,10 @@ pub async fn handle_agent_start(
     };
     if let Some((user_message_count, preview_chars, preview)) = summarize_latest_user_message(&messages) {
         log::info!(
-            "agent_start task_id={} session_id={:?} model={} agent_mode={:?} tools={} user_messages={} preview_chars={} preview={:?}",
+            "agent_start task_id={} session_id={:?} model={} tools={} user_messages={} preview_chars={} preview={:?}",
             params.task_id,
             params.session_id,
             params.model,
-            agent_mode,
             tools.as_ref().map(|items| items.len()).unwrap_or(0),
             user_message_count,
             preview_chars,
@@ -1218,11 +1207,10 @@ pub async fn handle_agent_start(
         );
     } else {
         log::info!(
-            "agent_start task_id={} session_id={:?} model={} agent_mode={:?} tools={} user_messages=0",
+            "agent_start task_id={} session_id={:?} model={} tools={} user_messages=0",
             params.task_id,
             params.session_id,
             params.model,
-            agent_mode,
             tools.as_ref().map(|items| items.len()).unwrap_or(0)
         );
     }
@@ -1240,7 +1228,6 @@ pub async fn handle_agent_start(
         emit_assistant_output: params.emit_assistant_output,
         max_context_tokens: params.max_context_tokens,
         compact_trigger_threshold: params.compact_trigger_threshold,
-        agent_mode: params.agent_mode,
         thinking_enabled: params.thinking_enabled,
         models: params.models,
         session_kind: params.session_kind,
@@ -1357,7 +1344,7 @@ pub async fn start_agent_send_with_task_id(
             id: new_message_id(),
             session_id: params.session_id.clone(),
             role: "assistant".to_string(),
-            message_kind: (params.agent_mode.as_deref() == Some("plan")).then_some("plan".to_string()),
+            message_kind: None,
             content: String::new(),
             images: None,
             referenced_skills: None,
@@ -1375,11 +1362,10 @@ pub async fn start_agent_send_with_task_id(
         (updated_session, user_message, assistant_message, deleted_message_ids)
     };
 
-    let history = agent::assemble_agent_messages(&state, &updated_session, params.agent_mode.as_deref())
+    let history = agent::assemble_agent_messages(&state, &updated_session)
         .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
     let tools = agent::resolve_agent_tool_definitions(
         &state,
-        params.agent_mode.as_deref(),
         params.extra_tools.clone(),
         params.denied_tools.clone(),
         Some(&params.session_id),
@@ -1399,7 +1385,6 @@ pub async fn start_agent_send_with_task_id(
         emit_assistant_output: Some(true),
         max_context_tokens: params.max_context_tokens,
         compact_trigger_threshold: params.compact_trigger_threshold,
-        agent_mode: params.agent_mode.clone(),
         thinking_enabled: params.thinking_enabled,
         models: params.models,
         session_kind: Some(updated_session.session_kind.clone()),
@@ -1458,7 +1443,7 @@ pub async fn handle_agent_regenerate(
     cancel_active_session_task(&state, &params.session_id).await;
 
     let task_id = Uuid::new_v4().to_string();
-    let (updated_session, user_message, assistant_message, resolved_agent_mode, deleted_message_ids) = {
+    let (updated_session, user_message, assistant_message, deleted_message_ids) = {
         let db = state
             .db
             .lock()
@@ -1488,10 +1473,6 @@ pub async fn handle_agent_regenerate(
                 )
             })?;
         let user_message = session_messages[user_index].clone();
-        let resolved_agent_mode = params
-            .agent_mode
-            .clone()
-            .or_else(|| (target_assistant.message_kind.as_deref() == Some("plan")).then_some("plan".to_string()));
         let deleted_message_ids = delete_messages_after(&db, &params.session_id, &user_message.id)
             .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
         let workspace_dir = session
@@ -1511,7 +1492,7 @@ pub async fn handle_agent_regenerate(
             id: new_message_id(),
             session_id: params.session_id.clone(),
             role: "assistant".to_string(),
-            message_kind: (resolved_agent_mode.as_deref() == Some("plan")).then_some("plan".to_string()),
+            message_kind: None,
             content: String::new(),
             images: None,
             referenced_skills: None,
@@ -1526,20 +1507,13 @@ pub async fn handle_agent_regenerate(
             usage: None,
         };
         put_message(&db, &assistant_message, true).map_err(|error| (StatusCode::BAD_REQUEST, error))?;
-        (
-            updated_session,
-            user_message,
-            assistant_message,
-            resolved_agent_mode,
-            deleted_message_ids,
-        )
+        (updated_session, user_message, assistant_message, deleted_message_ids)
     };
 
-    let history = agent::assemble_agent_messages(&state, &updated_session, resolved_agent_mode.as_deref())
+    let history = agent::assemble_agent_messages(&state, &updated_session)
         .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
     let tools = agent::resolve_agent_tool_definitions(
         &state,
-        resolved_agent_mode.as_deref(),
         params.extra_tools.clone(),
         None,
         Some(&params.session_id),
@@ -1559,7 +1533,6 @@ pub async fn handle_agent_regenerate(
         emit_assistant_output: Some(true),
         max_context_tokens: params.max_context_tokens,
         compact_trigger_threshold: params.compact_trigger_threshold,
-        agent_mode: resolved_agent_mode.clone(),
         thinking_enabled: params.thinking_enabled,
         models: params.models,
         session_kind: Some(updated_session.session_kind.clone()),
@@ -2116,7 +2089,6 @@ mod tests {
                     request_extensions: None,
                     max_context_tokens: Some(32000),
                     compact_trigger_threshold: Some(0.8),
-                    agent_mode: Some("agent".to_string()),
                     thinking_enabled: Some(false),
                     models: None,
                     extra_tools: None,
@@ -2217,7 +2189,6 @@ mod tests {
                     request_extensions: None,
                     max_context_tokens: Some(64000),
                     compact_trigger_threshold: Some(0.8),
-                    agent_mode: Some("agent".to_string()),
                     thinking_enabled: Some(false),
                     models: None,
                     extra_tools: None,
@@ -2252,111 +2223,4 @@ mod tests {
         assert_eq!(title, "自动化工具…");
         assert_eq!(title.chars().count(), 6);
     }
-}
-
-// ---------------------------------------------------------------------------
-// Plan handlers
-// ---------------------------------------------------------------------------
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PlanNameParams {
-    pub workspace_dir: String,
-    pub name: String,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PlanContentParams {
-    pub workspace_dir: String,
-    pub name: String,
-    pub content: String,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PlanEditParams {
-    pub workspace_dir: String,
-    pub name: String,
-    pub old_string: String,
-    pub new_string: String,
-    pub replace_all: Option<bool>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PlanListParams {
-    pub workspace_dir: String,
-}
-
-/// POST /api/tool_plan_create
-pub async fn handle_plan_create(
-    Json(params): Json<PlanContentParams>,
-) -> Result<Json<Value>, (StatusCode, String)> {
-    let result = tool_plan_create(params.workspace_dir, params.name, params.content)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| {
-        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-    })?))
-}
-
-/// POST /api/tool_plan_read
-pub async fn handle_plan_read(
-    Json(params): Json<PlanNameParams>,
-) -> Result<Json<Value>, (StatusCode, String)> {
-    let result = tool_plan_read(params.workspace_dir, params.name)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| {
-        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-    })?))
-}
-
-/// POST /api/tool_plan_update
-pub async fn handle_plan_update(
-    Json(params): Json<PlanContentParams>,
-) -> Result<Json<Value>, (StatusCode, String)> {
-    let result = tool_plan_update(params.workspace_dir, params.name, params.content)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| {
-        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-    })?))
-}
-
-/// POST /api/tool_plan_edit
-pub async fn handle_plan_edit(
-    Json(params): Json<PlanEditParams>,
-) -> Result<Json<Value>, (StatusCode, String)> {
-    let result = tool_plan_edit(
-        params.workspace_dir,
-        params.name,
-        params.old_string,
-        params.new_string,
-        params.replace_all,
-    )
-    .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| {
-        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-    })?))
-}
-
-/// POST /api/tool_plan_delete
-pub async fn handle_plan_delete(
-    Json(params): Json<PlanNameParams>,
-) -> Result<Json<Value>, (StatusCode, String)> {
-    let result = tool_plan_delete(params.workspace_dir, params.name)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| {
-        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-    })?))
-}
-
-/// POST /api/tool_plan_list
-pub async fn handle_plan_list(
-    Json(params): Json<PlanListParams>,
-) -> Result<Json<Value>, (StatusCode, String)> {
-    let result = tool_plan_list(params.workspace_dir)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
-    Ok(Json(serde_json::to_value(result).map_err(|e| {
-        (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-    })?))
 }

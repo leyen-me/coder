@@ -127,8 +127,6 @@ export type AgentStartInput = {
   maxContextTokens?: number;
   /** Ratio at which the agent proactively rolls over into a continuation session. */
   compactTriggerThreshold?: number;
-  /** Agent mode — controls which tools are available. Defaults to "agent". */
-  agentMode?: AgentMode;
   /** Whether deep thinking is enabled for this run. */
   thinkingEnabled?: boolean;
   /** Model definitions used to resolve provider capabilities (thinking, context window, etc.). */
@@ -162,15 +160,11 @@ export type ActiveTaskState = {
   userContent: string;
   thinkingEnabled: boolean;
   compact?: CompactState | null;
-  agentMode: AgentMode;
   sessionKind: SessionKind;
   autonomyMode: SessionAutonomyMode;
   decisionPolicyVersion: string;
   decisionModel: string | null;
 };
-
-/** Agent vs Ask vs Plan mode — controls which tools are available to the model. */
-export type AgentMode = "agent" | "ask" | "plan";
 
 export type AgentEventHandler = (event: AgentEvent) => void;
 

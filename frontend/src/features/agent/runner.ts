@@ -159,7 +159,6 @@ export async function startAgent(
           emitAssistantOutput: input.emitAssistantOutput ?? true,
           maxContextTokens: input.maxContextTokens ?? null,
           compactTriggerThreshold: input.compactTriggerThreshold ?? null,
-          agentMode: input.agentMode ?? null,
           thinkingEnabled: input.thinkingEnabled ?? null,
           models: input.models ?? null,
           sessionKind: input.sessionKind ?? null,
@@ -236,7 +235,6 @@ export async function sendAgentMessage(input: {
   requestExtensions?: Record<string, unknown>;
   maxContextTokens?: number;
   compactTriggerThreshold?: number;
-  agentMode?: string;
   thinkingEnabled?: boolean;
   models?: readonly unknown[];
   extraTools?: unknown[];
@@ -260,7 +258,6 @@ export async function sendAgentMessage(input: {
     requestExtensions: input.requestExtensions ?? null,
     maxContextTokens: input.maxContextTokens ?? null,
     compactTriggerThreshold: input.compactTriggerThreshold ?? null,
-    agentMode: input.agentMode ?? null,
     thinkingEnabled: input.thinkingEnabled ?? null,
     models: input.models ?? null,
     extraTools: input.extraTools ?? null,
@@ -278,7 +275,6 @@ export async function regenerateAgentMessage(input: {
   requestExtensions?: Record<string, unknown>;
   maxContextTokens?: number;
   compactTriggerThreshold?: number;
-  agentMode?: string;
   thinkingEnabled?: boolean;
   models?: readonly unknown[];
   extraTools?: unknown[];
@@ -299,7 +295,6 @@ export async function regenerateAgentMessage(input: {
     requestExtensions: input.requestExtensions ?? null,
     maxContextTokens: input.maxContextTokens ?? null,
     compactTriggerThreshold: input.compactTriggerThreshold ?? null,
-    agentMode: input.agentMode ?? null,
     thinkingEnabled: input.thinkingEnabled ?? null,
     models: input.models ?? null,
     extraTools: input.extraTools ?? null,

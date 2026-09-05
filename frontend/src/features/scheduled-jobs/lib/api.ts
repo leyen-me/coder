@@ -1,7 +1,5 @@
 import { apiPost } from "@/lib/api/client";
 
-export type ScheduledJobAgentMode = "agent" | "ask";
-
 export type ScheduledJobRunStatus =
   | "running"
   | "completed"
@@ -27,7 +25,6 @@ export type ScheduledJobRecord = {
   workspaceDir: string | null;
   model: string;
   provider: string;
-  agentMode: ScheduledJobAgentMode;
   thinkingEnabled: boolean;
   /** 每次运行时会话附带的 MCP 服务 id。 */
   attachedMcpServers?: string[];
@@ -45,7 +42,6 @@ export type CreateScheduledJobInput = {
   workspaceDir: string | null;
   model: string;
   provider?: string;
-  agentMode: ScheduledJobAgentMode;
   thinkingEnabled: boolean;
   attachedMcpServers: string[];
 };

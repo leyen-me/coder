@@ -1,4 +1,3 @@
-import type { AgentMode } from "@/features/agent/types";
 import type { FileUIPart } from "ai";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -43,7 +42,6 @@ export function NewChatView() {
     allModels
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [agentMode, setAgentMode] = useState<AgentMode>("agent");
   const [sessionKind, setSessionKind] = useState<SessionKind>("standard");
 
   // On-demand MCP attachment for the new session (selected before the first
@@ -112,7 +110,7 @@ export function NewChatView() {
         await updateSessionMcpServers(session.id, attachedMcpServers);
       }
       navigate(paths.chat(session.id), {
-        state: { agentMode, hideWorkspaceControls: true },
+        state: { hideWorkspaceControls: true },
       });
       await sendMessage({
         sessionId: session.id,
@@ -120,7 +118,6 @@ export function NewChatView() {
         images: payload.files,
         model,
         thinkingEnabled,
-        agentMode,
         skillSlugs: payload.skillSlugs,
       });
       requestMessageListScrollToBottom();
@@ -173,8 +170,6 @@ export function NewChatView() {
           onClearWorkspace={clearWorkspace}
           variant="compact"
           isRunning={isSubmitting}
-          agentMode={agentMode}
-          onAgentModeChange={setAgentMode}
           sessionKind={longTaskEnabled ? sessionKind : "standard"}
           onSessionKindChange={longTaskEnabled ? setSessionKind : undefined}
           mcpServers={enabledMcpServers}

@@ -46,7 +46,6 @@ import { cn } from "@/lib/utils";
 
 import type {
   CreateScheduledJobInput,
-  ScheduledJobAgentMode,
   ScheduledJobRecord,
   UpdateScheduledJobInput,
 } from "@/features/scheduled-jobs/lib/api";
@@ -90,7 +89,6 @@ export function AutomationDialog({
   const [prompt, setPrompt] = useState("");
   const [workspaceDir, setWorkspaceDir] = useState<string | null>(null);
   const [model, setModel] = useState(() => resolveDefaultModelValue(modelEntries));
-  const [agentMode, setAgentMode] = useState<ScheduledJobAgentMode>("agent");
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [enabledMcpServers, setEnabledMcpServers] = useState<McpServerConfig[]>([]);
   const [attachedMcpServers, setAttachedMcpServers] = useState<string[]>([]);
@@ -190,7 +188,6 @@ export function AutomationDialog({
       setPrompt(editItem.prompt);
       setWorkspaceDir(runConfig.workspaceDir);
       setModel(runConfig.model);
-      setAgentMode(runConfig.agentMode);
       setThinkingEnabled(runConfig.thinkingEnabled);
       setAttachedMcpServers(editItem.attachedMcpServers ?? []);
     } else {
@@ -204,7 +201,6 @@ export function AutomationDialog({
       setPrompt("");
       setWorkspaceDir(resolveInitialSessionWorkspaceDir());
       setModel(defaultModel);
-      setAgentMode("agent");
       setThinkingEnabled(
         resolveDefaultThinkingEnabled(
           findModelEntry(modelEntries, defaultModel)?.model
@@ -266,7 +262,6 @@ export function AutomationDialog({
       workspaceDir: workspaceDir?.trim() || null,
       model: parseModelValue(trimmedModel).modelId,
       provider: inferredProvider,
-      agentMode,
       thinkingEnabled,
       attachedMcpServers,
     };
@@ -289,7 +284,6 @@ export function AutomationDialog({
       setSaving(false);
     }
   }, [
-    agentMode,
     attachedMcpServers,
     modelEntries,
     advancedOnly,
@@ -491,8 +485,6 @@ export function AutomationDialog({
             <AutomationRunSettings
               workspaceDir={workspaceDir}
               onWorkspaceDirChange={setWorkspaceDir}
-              agentMode={agentMode}
-              onAgentModeChange={setAgentMode}
               model={model}
               onModelChange={handleModelChange}
               thinkingEnabled={thinkingEnabled}

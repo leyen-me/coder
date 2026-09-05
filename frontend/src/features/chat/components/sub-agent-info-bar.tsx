@@ -3,7 +3,6 @@ import {
   BotIcon,
   BrainIcon,
   ClipboardListIcon,
-  FileQuestionIcon,
   SquareIcon,
   ZapIcon,
 } from "lucide-react";
@@ -13,7 +12,6 @@ import {
   composerFooterControlActiveClassName,
 } from "@/components/ai-elements/composer-footer-control";
 import { ComposerContextUsage } from "./composer-context-usage";
-import type { AgentMode } from "@/features/agent/types";
 import {
   findModelDefinition,
   getModelDisplayName,
@@ -26,7 +24,6 @@ import { cn } from "@/lib/utils";
 type SubAgentInfoBarProps = {
   model: string;
   models?: readonly ModelDefinition[];
-  agentMode: AgentMode;
   thinkingEnabled: boolean;
   sessionKind?: SessionKind;
   autonomyMode?: SessionAutonomyMode;
@@ -34,22 +31,6 @@ type SubAgentInfoBarProps = {
   isRunning: boolean;
   onStop?: () => void;
 };
-
-const AGENT_MODE_LABEL: Record<AgentMode, string> = {
-  agent: "智能体",
-  ask: "问答",
-  plan: "计划",
-};
-
-function resolveAgentModeIcon(agentMode: AgentMode) {
-  if (agentMode === "agent") {
-    return BotIcon;
-  }
-  if (agentMode === "plan") {
-    return ClipboardListIcon;
-  }
-  return FileQuestionIcon;
-}
 
 function resolveModelLabel(
   model: string,
@@ -104,7 +85,6 @@ function ReadonlyPill({
 export function SubAgentInfoBar({
   model,
   models,
-  agentMode,
   thinkingEnabled,
   sessionKind,
   autonomyMode,
@@ -112,13 +92,12 @@ export function SubAgentInfoBar({
   isRunning,
   onStop,
 }: SubAgentInfoBarProps) {
-  const ModeIcon = resolveAgentModeIcon(agentMode);
   const modelLabel = resolveModelLabel(model, models);
 
   return (
     <div className="flex items-center gap-1.5">
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-        <ReadonlyPill icon={ModeIcon}>{AGENT_MODE_LABEL[agentMode] ?? agentMode}</ReadonlyPill>
+        <ReadonlyPill icon={BotIcon}>智能体</ReadonlyPill>
         {sessionKind === "long_task" ? (
           <ReadonlyPill icon={ClipboardListIcon} active>
             长任务

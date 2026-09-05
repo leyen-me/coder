@@ -16,7 +16,6 @@ mod page_cache;
 mod workspace_tree;
 mod network;
 mod open_in_explorer;
-mod plan;
 mod project_instructions;
 mod read_editor_file;
 mod read_file;
@@ -51,10 +50,6 @@ pub use mcp::{McpRegistry, McpServerConfig};
 pub use open_in_explorer::open_in_explorer;
 pub use mail::send_email;
 pub use page_cache::PageCache;
-pub use plan::{
-    tool_plan_create, tool_plan_delete, tool_plan_edit, tool_plan_list, tool_plan_read,
-    tool_plan_update,
-};
 pub use read_editor_file::tool_read_editor_file;
 pub use read_file::tool_read_file;
 pub use read_image::tool_read_image;

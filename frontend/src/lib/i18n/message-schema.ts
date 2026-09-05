@@ -249,13 +249,6 @@ export type Messages = {
     contextUsageOutput: string;
     contextUsageReasoning: string;
     contextUsageCache: string;
-    modeAgent: string;
-    modeAsk: string;
-    modePlan: string;
-    modeAgentLabel: string;
-    modeAskLabel: string;
-    modePlanLabel: string;
-    composerModeLabel: string;
     composerModelLabel: string;
     composerMoreActions: string;
     enhancePrompt: string;
@@ -267,7 +260,6 @@ export type Messages = {
     sessionTypeStandardLabel: string;
     sessionTypeLongTaskLabel: string;
     sessionTypeLongTaskHint: string;
-    composerPlanPlaceholder: string;
     planFileName: string;
     planGenerating: string;
     buildWithAgent: string;

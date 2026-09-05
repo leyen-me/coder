@@ -168,7 +168,7 @@ pub async fn handle_compact(
     }
 
     // 使用与 agent 完全一致的模型上下文，保留消息结构、工具调用和完整内容。
-    let messages = match crate::agent::assemble_agent_messages(&state, &session, None) {
+    let messages = match crate::agent::assemble_agent_messages(&state, &session) {
         Ok(messages) => messages,
         Err(_) => return Json(error_response("messages_unavailable")),
     };

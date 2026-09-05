@@ -124,13 +124,6 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .route("/api/shell_kill", post(routes_tool::handle_kill_shell))
         .route("/api/shell_kill_by_task", post(routes_tool::handle_kill_shell_by_task))
         .route("/api/shell_read_logs", post(routes_tool::handle_read_shell_logs))
-        // ── Plan endpoints (canonical + tool_ compat) ────────────────────
-        .route("/api/tool_plan_create", post(routes_tool::handle_plan_create))
-        .route("/api/tool_plan_read", post(routes_tool::handle_plan_read))
-        .route("/api/tool_plan_update", post(routes_tool::handle_plan_update))
-        .route("/api/tool_plan_edit", post(routes_tool::handle_plan_edit))
-        .route("/api/tool_plan_delete", post(routes_tool::handle_plan_delete))
-        .route("/api/tool_plan_list", post(routes_tool::handle_plan_list))
         // Agent streaming
         .route("/api/agent/start", post(routes_tool::handle_agent_start))
         .route("/api/agent/send", post(routes_tool::handle_agent_send))

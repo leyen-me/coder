@@ -11,7 +11,6 @@ export type ResolvedScheduledJobRunConfig = {
   workspaceDir: string | null;
   model: string;
   provider: string;
-  agentMode: ScheduledJobRecord["agentMode"];
   thinkingEnabled: boolean;
 };
 
@@ -31,7 +30,6 @@ export function resolveScheduledJobRunConfig(
     workspaceDir: job.workspaceDir?.trim() || readWorkspaceDir()?.trim() || null,
     model,
     provider: providerId || job.provider,
-    agentMode: job.agentMode,
     thinkingEnabled,
   };
 }

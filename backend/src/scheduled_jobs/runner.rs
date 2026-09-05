@@ -55,10 +55,6 @@ async fn execute_job(state: Arc<AppState>, job: ScheduledJobRecord) -> Result<()
             request_extensions: runtime.request_extensions,
             max_context_tokens: Some(runtime.max_context_tokens),
             compact_trigger_threshold: None,
-            agent_mode: Some(match job.agent_mode {
-                super::types::AgentMode::Agent => "agent".to_string(),
-                super::types::AgentMode::Ask => "ask".to_string(),
-            }),
             thinking_enabled: Some(job.thinking_enabled),
             attached_mcp_servers: if job.attached_mcp_servers.is_empty() {
                 None

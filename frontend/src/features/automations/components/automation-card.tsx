@@ -1,4 +1,4 @@
-import { BotIcon, FileQuestionIcon, Loader2, Play } from "lucide-react";
+import { Loader2, Play } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { getWorkspaceDisplayName } from "@/features/workspace/storage";
@@ -146,16 +146,6 @@ export function AutomationCard({
             <span className="text-xs">{countdownText}</span>
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-            <span className="inline-flex items-center gap-1">
-              {runConfig.agentMode === "agent" ? (
-                <BotIcon className="size-3.5 shrink-0" />
-              ) : (
-                <FileQuestionIcon className="size-3.5 shrink-0" />
-              )}
-              {runConfig.agentMode === "agent"
-                ? t("chat.modeAgent")
-                : t("chat.modeAsk")}
-            </span>
             <span>
               {modelDefinition
                 ? getModelDisplayName(modelDefinition)

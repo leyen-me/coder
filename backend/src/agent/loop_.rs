@@ -681,7 +681,6 @@ pub async fn run_agent_loop(
                 session_id: params.session_id.clone(),
                 task_id: Some(params.task_id.clone()),
                 current_tool_call_id: None,
-                agent_mode: params.agent_mode.clone(),
                 available_tools: tools.clone(),
                 parent_start_params: params.clone(),
                 allow_private_network_access: true,

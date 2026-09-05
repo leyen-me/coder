@@ -280,7 +280,6 @@ function AutomationSummaryCard({
     prompt: string;
     enabled: boolean;
     model: string;
-    agentMode: string;
   };
 }) {
   return (
@@ -313,7 +312,7 @@ function AutomationSummaryCard({
         </p>
         <p>
           <span className="font-medium text-foreground/80">Model</span>{" "}
-          {automation.model} · {automation.agentMode}
+          {automation.model}
         </p>
         <p className="whitespace-pre-wrap">
           <span className="font-medium text-foreground/80">Prompt</span>{" "}
