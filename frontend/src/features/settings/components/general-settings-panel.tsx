@@ -1,11 +1,14 @@
 import { useState } from "react";
 
+import { Switch } from "@/components/ui/switch";
 import {
   formatSessionThresholdPercent,
   MAX_AGENT_SESSION_THRESHOLD,
   MIN_AGENT_SESSION_THRESHOLD,
   readAgentSessionThreshold,
+  readAutoGenerateTitles,
   writeAgentSessionThreshold,
+  writeAutoGenerateTitles,
 } from "@/features/agent/session-settings";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { LOCALE_VALUES } from "@/lib/i18n/constants";
@@ -19,6 +22,14 @@ export function GeneralSettingsPanel() {
   const [sessionThresholdInput, setSessionThresholdInput] = useState(() =>
     formatSessionThresholdPercent(readAgentSessionThreshold())
   );
+  const [autoGenerateTitles, setAutoGenerateTitles] = useState(
+    readAutoGenerateTitles
+  );
+
+  const handleAutoGenerateTitlesChange = (checked: boolean) => {
+    writeAutoGenerateTitles(checked);
+    setAutoGenerateTitles(checked);
+  };
 
   const localeOptions = LOCALE_VALUES.map((value) => ({
     value,
@@ -56,6 +67,18 @@ export function GeneralSettingsPanel() {
             options={localeOptions}
             onValueChange={setLocale}
             aria-label={t("settings.general.languageAriaLabel")}
+          />
+        }
+      />
+
+      <SettingRow
+        label={t("settings.general.autoGenerateTitlesLabel")}
+        description={t("settings.general.autoGenerateTitlesDescription")}
+        control={
+          <Switch
+            checked={autoGenerateTitles}
+            onCheckedChange={handleAutoGenerateTitlesChange}
+            aria-label={t("settings.general.autoGenerateTitlesAriaLabel")}
           />
         }
       />

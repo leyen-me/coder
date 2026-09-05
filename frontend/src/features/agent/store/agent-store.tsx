@@ -45,7 +45,7 @@ import {
   findModelDefinition,
 } from "@/lib/model-provider/model-definition";
 import { resolveContextWindowForModel } from "../headless-runner";
-import { readAgentSessionThreshold } from "../session-settings";
+import { readAgentSessionThreshold, readAutoGenerateTitles } from "../session-settings";
 import { buildThinkingRequestExtensions, resolveDefaultThinkingEnabled } from "../thinking-preference";
 import {
   cancelAgent,
@@ -868,24 +868,27 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
       }
 
       // Set session title synchronously from user message on first turn,
-      // then fire-and-forget an LLM refinement
+      // then optionally fire-and-forget an LLM refinement when the user has
+      // enabled auto-generated titles in settings.
       if (isFirstTurn) {
         const derived = deriveSessionTitle(trimmed);
         if (derived) {
           updateSessionTitle(input.sessionId, derived).catch(() => {});
         }
-        const titleResolved = resolveProviderForValue(input.model) ?? resolved;
-        void applyGeneratedSessionTitle({
-          sessionId: input.sessionId,
-          baseUrl: titleResolved.baseUrl,
-          apiKey: resolveApiKey(titleResolved),
-          apiKeySource: titleResolved.apiKeySource,
-          apiKeyEnvVar: titleResolved.apiKeyEnvVar,
-          model: modelId,
-          userMessage: trimmed,
-        }).catch(() => {
-          // best-effort
-        });
+        if (readAutoGenerateTitles()) {
+          const titleResolved = resolveProviderForValue(input.model) ?? resolved;
+          void applyGeneratedSessionTitle({
+            sessionId: input.sessionId,
+            baseUrl: titleResolved.baseUrl,
+            apiKey: resolveApiKey(titleResolved),
+            apiKeySource: titleResolved.apiKeySource,
+            apiKeyEnvVar: titleResolved.apiKeyEnvVar,
+            model: modelId,
+            userMessage: trimmed,
+          }).catch(() => {
+            // best-effort
+          });
+        }
       }
 
       const session = await getSession(input.sessionId);

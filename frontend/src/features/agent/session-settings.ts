@@ -7,12 +7,18 @@ export const DEFAULT_AGENT_SESSION_THRESHOLD = 0.8;
 export const MIN_AGENT_SESSION_THRESHOLD = 0.5;
 export const MAX_AGENT_SESSION_THRESHOLD = 0.95;
 
+// Off by default: session titles are derived from the user's first message
+// unless the user opts into LLM-generated titles.
+export const DEFAULT_AUTO_GENERATE_TITLES = false;
+
 type AgentSessionSettings = {
   triggerThreshold: number;
+  autoGenerateTitles: boolean;
 };
 
 const DEFAULT_AGENT_SESSION_SETTINGS: AgentSessionSettings = {
   triggerThreshold: DEFAULT_AGENT_SESSION_THRESHOLD,
+  autoGenerateTitles: DEFAULT_AUTO_GENERATE_TITLES,
 };
 
 export function normalizeSessionThreshold(
@@ -36,7 +42,10 @@ export function readAgentSessionSettings(): AgentSessionSettings {
       return DEFAULT_AGENT_SESSION_SETTINGS;
     }
 
-    const parsed = JSON.parse(raw) as { triggerThreshold?: unknown };
+    const parsed = JSON.parse(raw) as {
+      triggerThreshold?: unknown;
+      autoGenerateTitles?: unknown;
+    };
     const triggerThreshold =
       typeof parsed.triggerThreshold === "number"
         ? parsed.triggerThreshold
@@ -44,6 +53,10 @@ export function readAgentSessionSettings(): AgentSessionSettings {
 
     return {
       triggerThreshold: normalizeSessionThreshold(triggerThreshold),
+      autoGenerateTitles:
+        typeof parsed.autoGenerateTitles === "boolean"
+          ? parsed.autoGenerateTitles
+          : DEFAULT_AUTO_GENERATE_TITLES,
     };
   } catch {
     return DEFAULT_AGENT_SESSION_SETTINGS;
@@ -59,6 +72,7 @@ export function writeAgentSessionSettings(
       triggerThreshold: normalizeSessionThreshold(
         settings.triggerThreshold
       ),
+      autoGenerateTitles: settings.autoGenerateTitles,
     })
   );
 }
@@ -68,7 +82,17 @@ export function readAgentSessionThreshold(): number {
 }
 
 export function writeAgentSessionThreshold(triggerThreshold: number): void {
-  writeAgentSessionSettings({ triggerThreshold });
+  const settings = readAgentSessionSettings();
+  writeAgentSessionSettings({ ...settings, triggerThreshold });
+}
+
+export function readAutoGenerateTitles(): boolean {
+  return readAgentSessionSettings().autoGenerateTitles;
+}
+
+export function writeAutoGenerateTitles(autoGenerateTitles: boolean): void {
+  const settings = readAgentSessionSettings();
+  writeAgentSessionSettings({ ...settings, autoGenerateTitles });
 }
 
 export function formatSessionThresholdPercent(value: number): string {
