@@ -160,6 +160,8 @@ export type Messages = {
     skillNoResults: string;
     slashCommandsHeading: string;
     slashSkillsHeading: string;
+    slashNewDescription: string;
+    slashCompactDescription: string;
     removeSkillReference: string;
     skillNotFound: string;
     attachmentErrorAccept: string;
@@ -249,13 +251,6 @@ export type Messages = {
     contextUsageOutput: string;
     contextUsageReasoning: string;
     contextUsageCache: string;
-    modeAgent: string;
-    modeAsk: string;
-    modePlan: string;
-    modeAgentLabel: string;
-    modeAskLabel: string;
-    modePlanLabel: string;
-    composerModeLabel: string;
     composerModelLabel: string;
     composerMoreActions: string;
     enhancePrompt: string;
@@ -267,7 +262,6 @@ export type Messages = {
     sessionTypeStandardLabel: string;
     sessionTypeLongTaskLabel: string;
     sessionTypeLongTaskHint: string;
-    composerPlanPlaceholder: string;
     planFileName: string;
     planGenerating: string;
     buildWithAgent: string;
@@ -358,6 +352,11 @@ export type Messages = {
       languageLabel: string;
       languageDescription: string;
       languageAriaLabel: string;
+      titleSourceLabel: string;
+      titleSourceDescription: string;
+      titleSourceAriaLabel: string;
+      titleSourceFirstMessage: string;
+      titleSourceModel: string;
       contextSessionThresholdLabel: string;
       contextSessionThresholdDescription: string;
       contextSessionThresholdAriaLabel: string;

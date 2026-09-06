@@ -4,7 +4,6 @@ use regex::Regex;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::compact::is_compact_summary_message;
 use super::tool_dispatch::image_multimodal_content;
 use super::types::{AgentToolDefinition, ApiToolCall, ApiToolCallFunction, ChatMessage};
 use crate::db::{
@@ -38,7 +37,6 @@ struct ResolvedSkillPrompt {
 pub fn assemble_agent_messages(
     app_state: &AppState,
     session: &SessionRecord,
-    agent_mode: Option<&str>,
 ) -> Result<Vec<ChatMessage>, String> {
     let workspace_dir = resolve_workspace_dir(app_state, session.workspace_dir.as_deref());
     let runtime = agent_get_runtime_environment(workspace_dir.clone())?;
@@ -65,7 +63,6 @@ pub fn assemble_agent_messages(
         &runtime,
         &remote_targets,
         workspace_dir.as_deref(),
-        agent_mode,
     )));
 
     if let Some(prompt) = build_session_policy_system_prompt(session) {
@@ -79,22 +76,17 @@ pub fn assemble_agent_messages(
 pub fn build_system_prompt_preview(
     app_state: &AppState,
     session: &SessionRecord,
-    agent_mode: Option<&str>,
     workspace_dir_override: Option<&str>,
 ) -> Result<String, String> {
     let mut effective_session = session.clone();
     if let Some(workspace_dir) = workspace_dir_override.map(str::trim).filter(|value| !value.is_empty()) {
         effective_session.workspace_dir = Some(workspace_dir.to_string());
     }
-    let messages = assemble_agent_messages(app_state, &effective_session, agent_mode)?;
+    let messages = assemble_agent_messages(app_state, &effective_session)?;
     // Only surface true system instructions in the "System prompt" panel.
-    // Compact summaries are also system-role messages inside the conversation,
-    // but they are dynamic context (already shown in the timeline), not
-    // instructions — exclude them so the panel stays a faithful "system prompt".
     let system_blocks = messages
         .into_iter()
         .take_while(|message| message.role == "system")
-        .filter(|message| !is_compact_summary_message(message))
         .filter_map(|message| message.content.and_then(|value| value.as_str().map(str::to_string)))
         .collect::<Vec<_>>();
     Ok(join_prompt_blocks(system_blocks))
@@ -102,13 +94,11 @@ pub fn build_system_prompt_preview(
 
 pub async fn resolve_agent_tool_definitions(
     app_state: &AppState,
-    agent_mode: Option<&str>,
     extra_tools: Option<Vec<AgentToolDefinition>>,
     denied_tools: Option<Vec<String>>,
     session_id: Option<&str>,
 ) -> Vec<AgentToolDefinition> {
-    let mut definitions =
-        super::tool_dispatch::get_tool_definitions(agent_mode);
+    let mut definitions = super::tool_dispatch::get_tool_definitions();
     definitions.extend(resolve_mcp_agent_tools(app_state, session_id).await);
     if let Some(extra) = extra_tools {
         definitions.extend(extra);
@@ -291,8 +281,16 @@ fn load_enabled_remote_targets(app_state: &AppState) -> Result<Vec<RemoteTargetR
 
 fn message_record_to_historical_messages(message: MessageRecord) -> Vec<HistoricalChatMessage> {
     if message.message_kind.as_deref() == Some(crate::db::records::MESSAGE_KIND_COMPACT) {
+        // Handoff 以 user 消息身份进入模型上下文。
         return vec![HistoricalChatMessage {
-            chat: system_message(message.content),
+            chat: ChatMessage {
+                role: "user".to_string(),
+                content: Some(Value::String(message.content.trim().to_string())),
+                reasoning_content: None,
+                tool_calls: None,
+                tool_call_id: None,
+                name: None,
+            },
             referenced_skills: Vec::new(),
         }];
     }
@@ -725,14 +723,13 @@ fn build_system_prompt(
     runtime: &RuntimeEnvironmentResponse,
     remote_targets: &[RemoteTargetRecord],
     workspace_dir: Option<&str>,
-    agent_mode: Option<&str>,
 ) -> String {
     let mut blocks = vec![
-        build_identity_and_environment_section(runtime, workspace_dir, agent_mode),
+        build_identity_and_environment_section(runtime, workspace_dir),
         build_core_rules_section().join("\n"),
     ];
     blocks.extend(build_system_module_sections());
-    blocks.push(build_skill_catalog_section(runtime, agent_mode).join("\n"));
+    blocks.push(build_skill_catalog_section(runtime).join("\n"));
 
     let project_instructions = build_project_instructions_section(runtime);
     if !project_instructions.is_empty() {
@@ -742,10 +739,6 @@ fn build_system_prompt(
     if !remote_section.is_empty() {
         blocks.push(remote_section.join("\n"));
     }
-    let mode_guidance = build_mode_guidance_section(agent_mode, workspace_dir);
-    if !mode_guidance.is_empty() {
-        blocks.push(mode_guidance.join("\n"));
-    }
 
     join_prompt_blocks(blocks)
 }
@@ -753,7 +746,6 @@ fn build_system_prompt(
 fn build_identity_and_environment_section(
     runtime: &RuntimeEnvironmentResponse,
     workspace_dir: Option<&str>,
-    agent_mode: Option<&str>,
 ) -> String {
     let workspace_line = workspace_dir.unwrap_or("not selected");
     let git_line = if runtime.is_git_repository {
@@ -762,11 +754,6 @@ fn build_identity_and_environment_section(
         "no"
     } else {
         "unknown"
-    };
-    let mode_line = match agent_mode.unwrap_or("agent") {
-        "ask" => "ask (read-only: can read files, search code, browse the web, and ask structured clarification questions - cannot modify files or run shell commands)",
-        "plan" => "plan (planning: can read files, search, browse, manage .coder/plan/ files and todos - cannot modify project files or run shell commands)",
-        _ => "agent (implementation: full file, shell, and workspace tool access — plan file tools are Plan-mode only)",
     };
 
     [
@@ -779,7 +766,6 @@ fn build_identity_and_environment_section(
         &format!("- os: {}", runtime.os.trim()),
         &format!("- shell: {}", runtime.shell.trim()),
         &format!("- gitRepository: {}", git_line),
-        &format!("- mode: {}", mode_line),
     ]
     .join("\n")
 }
@@ -811,8 +797,7 @@ fn build_system_module_sections() -> Vec<String> {
     ]
 }
 
-fn build_skill_catalog_section(runtime: &RuntimeEnvironmentResponse, agent_mode: Option<&str>) -> Vec<String> {
-    let can_write_skills = !matches!(agent_mode, Some("ask") | Some("plan"));
+fn build_skill_catalog_section(runtime: &RuntimeEnvironmentResponse) -> Vec<String> {
     let mut lines = vec![
         "## Skill Catalog".to_string(),
         String::new(),
@@ -825,10 +810,8 @@ fn build_skill_catalog_section(runtime: &RuntimeEnvironmentResponse, agent_mode:
         "- User/Workspace skills: when the task clearly matches a skill or the user explicitly references `/slug`, read that skill's file path with `read_file`.".to_string(),
         "- Built-in skills (source=`builtin`) are compiled into the assistant and injected automatically when referenced; do not call `read_file` on their `builtin://` path.".to_string(),
         "- A user `/slug` reference is an explicit request to load that skill before following it.".to_string(),
+        "- Create or update reusable skills by editing files under the user skills root or workspace skills root.".to_string(),
     ];
-    if can_write_skills {
-        lines.push("- Create or update reusable skills by editing files under the user skills root or workspace skills root.".to_string());
-    }
     if runtime.available_skills.is_empty() {
         lines.push(String::new());
         lines.push("No skills were discovered for the current environment.".to_string());
@@ -886,54 +869,6 @@ fn build_remote_targets_section(remote_targets: &[RemoteTargetRecord]) -> Vec<St
     lines.push(String::new());
     lines.push("Use `remote_shell(target: \"<alias>\", command: \"...\")` to execute commands on a remote machine. Set block_until_ms to 0 to run in background and use await to poll, or omit for default 30s timeout. Supports kill_shell and read_shell_logs for background shells. To run commands on the local machine, use the regular `shell` tool instead.".to_string());
     lines
-}
-
-fn build_mode_guidance_section(agent_mode: Option<&str>, workspace_dir: Option<&str>) -> Vec<String> {
-    match agent_mode.unwrap_or("agent") {
-        "ask" => vec![
-            "## Mode Guidance".to_string(),
-            String::new(),
-            "You are in Ask mode - stay read-only.".to_string(),
-            "- You may read files, search code, and browse.".to_string(),
-            "- Do not modify files, run shell commands, or perform write operations.".to_string(),
-            "- Use ask_question when key requirements or trade-offs are unclear; prefer one batched call over many small rounds.".to_string(),
-            "- If the task needs write access, say so clearly and tell the user to switch to Agent mode instead of silently refusing.".to_string(),
-            "- Use Mermaid diagrams (graph, sequenceDiagram, classDiagram, stateDiagram-v2, gantt, pie) to visually explain architectures, workflows, processes, and data flows when the topic benefits from visualization.".to_string(),
-        ],
-        "plan" => {
-            let mut lines = vec![
-                "## Mode Guidance".to_string(),
-                String::new(),
-                "You are in Plan mode - research, analyze, and write a structured Markdown plan to the .coder/plan/ directory.".to_string(),
-                "The plan file is the source of truth and is shown in the plan sheet above the message composer.".to_string(),
-                String::new(),
-                "### Plan file workflow".to_string(),
-                String::new(),
-                "- Check existing plans with plan_list and plan_read before creating or revising one.".to_string(),
-                "- Use plan_create for a new plan, plan_edit for targeted updates, and plan_update for major rewrites.".to_string(),
-                "- Update the current plan instead of creating duplicates.".to_string(),
-                "- Use plan_delete only when the user explicitly asks to remove an obsolete plan.".to_string(),
-                String::new(),
-                "### Chat reply".to_string(),
-                String::new(),
-                "- Briefly summarize which plan file was created or updated. Do NOT paste the full plan in chat.".to_string(),
-                "- Do NOT include greetings, process narration, tool-call commentary, or closing questions.".to_string(),
-                String::new(),
-                "### Execution".to_string(),
-                String::new(),
-                "- When the user asks to implement, tell them to click \"Build\" (执行) in the plan sheet above the composer to run the plan in Agent mode.".to_string(),
-                "- Do NOT silently attempt implementation.".to_string(),
-            ];
-            if workspace_dir.is_none() {
-                lines.push(String::new());
-                lines.push("### Workspace required".to_string());
-                lines.push(String::new());
-                lines.push("- plan_create/plan_update/plan_edit require a selected workspace. Ask the user to select one if plan file tools fail.".to_string());
-            }
-            lines
-        }
-        _ => Vec::new(),
-    }
 }
 
 fn build_titled_prompt_block(title: &str, body_lines: &[String]) -> String {
@@ -1463,7 +1398,7 @@ Prefer deterministic test scaffolding.
         .expect("put build user");
         drop(db);
 
-        let messages = assemble_agent_messages(&state, &session, Some("agent")).expect("assemble messages");
+        let messages = assemble_agent_messages(&state, &session).expect("assemble messages");
 
         assert!(messages.len() >= 3);
         assert_eq!(messages[0].role, "system");
@@ -1520,7 +1455,7 @@ Prefer deterministic test scaffolding.
         drop(db);
 
         let messages =
-            assemble_agent_messages(&state, &session, Some("agent")).expect("assemble messages");
+            assemble_agent_messages(&state, &session).expect("assemble messages");
         let user_message = messages
             .iter()
             .find(|message| message.role == "user")
@@ -1570,7 +1505,7 @@ Prefer deterministic test scaffolding.
         drop(db);
 
         let messages =
-            assemble_agent_messages(&state, &session, Some("agent")).expect("assemble messages");
+            assemble_agent_messages(&state, &session).expect("assemble messages");
         let user_message = messages
             .iter()
             .find(|message| message.role == "user")
@@ -1640,7 +1575,7 @@ Prefer deterministic test scaffolding.
         .expect("put assistant");
         drop(db);
 
-        let messages = assemble_agent_messages(&state, &session, Some("agent")).expect("assemble");
+        let messages = assemble_agent_messages(&state, &session).expect("assemble");
         let replay = messages.into_iter().filter(|message| message.role != "system").collect::<Vec<_>>();
         assert_eq!(replay.len(), 3);
         assert_eq!(replay[0].role, "assistant");
@@ -1659,7 +1594,7 @@ Prefer deterministic test scaffolding.
     }
 
     #[tokio::test]
-    async fn resolve_agent_tool_definitions_dedupes_and_respects_mode_filters() {
+    async fn resolve_agent_tool_definitions_dedupes_and_respects_denied_tools() {
         let workspace_dir = temp_dir("tools");
         let state = create_test_state(&workspace_dir);
         let extra = AgentToolDefinition {
@@ -1681,7 +1616,6 @@ Prefer deterministic test scaffolding.
 
         let tools = resolve_agent_tool_definitions(
             &state,
-            Some("ask"),
             Some(vec![extra, custom]),
             None,
             None,
@@ -1691,7 +1625,6 @@ Prefer deterministic test scaffolding.
 
         assert!(names.contains(&"read_file"));
         assert!(names.contains(&"custom_preview"));
-        assert!(!names.contains(&"create_file"));
         assert_eq!(names.iter().filter(|name| **name == "read_file").count(), 1);
     }
 
@@ -1741,7 +1674,7 @@ Prefer deterministic test scaffolding.
     }
 
     #[test]
-    fn model_history_from_latest_compact_keeps_summary_and_first_kept_tail() {
+    fn legacy_marker_window_uses_first_kept_tail() {
         let records = vec![
             MessageRecord {
                 id: "old-user".to_string(),
@@ -1828,7 +1761,7 @@ Prefer deterministic test scaffolding.
     }
 
     #[test]
-    fn assemble_agent_messages_cuts_at_latest_compact_marker() {
+    fn assemble_agent_messages_cuts_legacy_marker_at_first_kept() {
         let workspace_dir = temp_dir("compact-cut");
         let state = create_test_state(&workspace_dir);
         let session = sample_session(&workspace_dir);
@@ -1863,7 +1796,7 @@ Prefer deterministic test scaffolding.
             &MessageRecord {
                 id: kept_id.clone(),
                 session_id: session.id.clone(),
-                role: "user".to_string(),
+                role: "assistant".to_string(),
                 message_kind: None,
                 content: "continue from here".to_string(),
                 images: None,
@@ -1888,7 +1821,7 @@ Prefer deterministic test scaffolding.
                 session_id: session.id.clone(),
                 role: "assistant".to_string(),
                 message_kind: Some(crate::db::records::MESSAGE_KIND_COMPACT.to_string()),
-                content: "## Context Compaction Summary\n\ncompacted context".to_string(),
+                content: "# Handoff\n\ncompacted context".to_string(),
                 images: None,
                 referenced_skills: None,
                 thinking: String::new(),
@@ -1904,9 +1837,32 @@ Prefer deterministic test scaffolding.
             true,
         )
         .expect("put compact");
+        put_message(
+            &db,
+            &MessageRecord {
+                id: new_message_id(),
+                session_id: session.id.clone(),
+                role: "assistant".to_string(),
+                message_kind: None,
+                content: "Picking up from the handoff.".to_string(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: None,
+                error: None,
+                created_at: 202,
+                duration_ms: None,
+                usage: None,
+            },
+            true,
+        )
+        .expect("put post-handoff");
         drop(db);
 
-        let messages = assemble_agent_messages(&state, &session, Some("agent")).expect("assemble");
+        let messages = assemble_agent_messages(&state, &session).expect("assemble");
         let non_system = messages
             .iter()
             .filter(|message| {
@@ -1923,7 +1879,7 @@ Prefer deterministic test scaffolding.
             .collect::<Vec<_>>();
 
         assert!(non_system.iter().any(|message| {
-            message.role == "system"
+            message.role == "user"
                 && message
                     .content
                     .as_ref()
@@ -1931,7 +1887,7 @@ Prefer deterministic test scaffolding.
                     .is_some_and(|text| text.contains("compacted context"))
         }));
         assert!(non_system.iter().any(|message| {
-            message.role == "user"
+            message.role == "assistant"
                 && message
                     .content
                     .as_ref()
@@ -1960,7 +1916,7 @@ Prefer deterministic test scaffolding.
             &MessageRecord {
                 id: kept_id.clone(),
                 session_id: session.id.clone(),
-                role: "user".to_string(),
+                role: "assistant".to_string(),
                 message_kind: None,
                 content: "continue from here".to_string(),
                 images: None,
@@ -1985,7 +1941,7 @@ Prefer deterministic test scaffolding.
                 session_id: session.id.clone(),
                 role: "assistant".to_string(),
                 message_kind: Some(crate::db::records::MESSAGE_KIND_COMPACT.to_string()),
-                content: "## Context Compaction Summary\n\ncompacted context".to_string(),
+                content: "# Handoff\n\ncompacted context".to_string(),
                 images: None,
                 referenced_skills: None,
                 thinking: String::new(),
@@ -2003,7 +1959,7 @@ Prefer deterministic test scaffolding.
         .expect("put compact");
         drop(db);
 
-        let preview = build_system_prompt_preview(&state, &session, Some("agent"), None)
+        let preview = build_system_prompt_preview(&state, &session, None)
             .expect("system prompt preview");
 
         // Real system instructions are surfaced...

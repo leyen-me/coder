@@ -146,10 +146,9 @@ export function ComposerSlashPopover({
                       <span className="min-w-0 truncate font-medium">
                         /{item.command.slug}
                       </span>
-                      <span className="min-w-0 truncate text-muted-foreground text-xs">
-                        {item.command.description}
-                      </span>
-                    </CommandItem>
+                      <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs">
+                        {t(item.command.descriptionKey)}
+                      </span>                    </CommandItem>
                   );
                 })}
               </CommandGroup>
@@ -175,10 +174,10 @@ export function ComposerSlashPopover({
                     >
                       <Icon className="size-4 shrink-0 opacity-70" />
                       <span className="min-w-0 truncate font-medium">
-                        {item.skill.name}
-                      </span>
-                      <span className="min-w-0 truncate font-mono text-muted-foreground text-xs">
                         /{item.skill.slug}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs">
+                        {item.skill.description}
                       </span>
                       <span className="shrink-0 rounded-full bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                         {item.skill.source === "builtin"

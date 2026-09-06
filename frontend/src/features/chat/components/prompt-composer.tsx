@@ -33,7 +33,6 @@ import {
 } from "../lib/prompt-enhance";
 import { canToggleThinking } from "@/features/agent/thinking-preference";
 import { cn } from "@/lib/utils";
-import type { AgentMode } from "@/features/agent/types";
 import type { McpServerConfig, SessionKind } from "@/lib/db";
 
 import { collectNativeFileDropItems } from "@/lib/dnd/external-file-drop";
@@ -72,10 +71,6 @@ type PromptComposerProps = {
   /** Resolves a human-readable label for a provider id (preset or custom). */
   getProviderLabel?: (providerId: string) => string;
   onModelChange: (model: string) => void;
-  agentMode?: AgentMode;
-  onAgentModeChange?: (mode: AgentMode) => void;
-  /** When set, the plan has been built — Plan mode is no longer selectable. */
-  planBuiltAt?: number | null;
   sessionKind?: SessionKind;
   onSessionKindChange?: (kind: SessionKind) => void;
   thinkingEnabled?: boolean;
@@ -285,9 +280,6 @@ export const PromptComposer = memo(function PromptComposer({
   mcpServers,
   attachedMcpServers,
   onToggleMcpServer,
-  agentMode = "agent",
-  onAgentModeChange,
-  planBuiltAt,
   sessionKind = "standard",
   onSessionKindChange,
   getProviderLabel,
@@ -581,11 +573,7 @@ export const PromptComposer = memo(function PromptComposer({
           initialReferencedSkills={initialReferencedSkills}
           onCancelEdit={onCancelEdit}
           onChange={handleChange}
-          placeholder={
-            agentMode === "plan"
-              ? t("chat.composerPlanPlaceholder")
-              : t("chat.composerPlaceholder")
-          }
+          placeholder={t("chat.composerPlaceholder")}
           value={value}
           workspaceDir={workspaceDir}
           className={cn(
@@ -598,11 +586,8 @@ export const PromptComposer = memo(function PromptComposer({
 
       <PromptInputFooter className="flex-row flex-nowrap items-center gap-1 bg-card px-2 py-2 sm:gap-1.5 sm:px-3">
         <ComposerFooterControls
-          agentMode={agentMode}
           isRunning={isRunning}
-          onAgentModeChange={onAgentModeChange}
           onSessionKindChange={onSessionKindChange}
-          planBuiltAt={planBuiltAt}
           sessionKind={sessionKind}
           inputText={value}
           enhancing={enhancing}

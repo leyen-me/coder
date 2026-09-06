@@ -8,6 +8,5 @@ export type { ScheduledJobRunRecord } from "./api";
 export type {
   CreateScheduledJobInput,
   UpdateScheduledJobInput,
-  ScheduledJobAgentMode,
   ScheduledJobRunStatus,
 } from "./api";

@@ -125,14 +125,9 @@ fn debug_emit_log(event: &AgentEvent) {
                 "emit task_id={task_id} type=chat_retry attempt={attempt}/{max_attempts}"
             ));
         }
-        AgentEvent::CompactStarted {
-            task_id,
-            estimated_tokens,
-            max_tokens,
-            source,
-        } => {
+        AgentEvent::CompactStarted { task_id, source } => {
             agent_stream_log(format!(
-                "emit task_id={task_id} type=compact_started source={source} estimated_tokens={estimated_tokens} max_tokens={max_tokens}"
+                "emit task_id={task_id} type=compact_started source={source}"
             ));
         }
         AgentEvent::CompactCompleted {

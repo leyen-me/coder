@@ -35,11 +35,10 @@ function isConversationMessage(
 }
 
 /**
- * Resolve the UI event point for a persisted compact marker.
+ * Resolve the UI event point for a persisted compact handoff.
  *
- * New markers sit after the latest conversation message at compact time.
- * Legacy mid-inserted markers (first_kept chronologically after the marker)
- * are repaired to the end of that compact era.
+ * The handoff is a user message; render it after the last conversation
+ * message that precedes it chronologically.
  */
 function placementAfterCompactMessage(
   messages: readonly MessageRecord[],
@@ -50,26 +49,10 @@ function placementAfterCompactMessage(
     return null;
   }
 
-  const firstKept = conversation.find(
-    (message) => message.id === compactMessage.taskId,
-  );
+  // handoff（user 消息）插在它之前的最后一条会话消息之后。
   const chronologicalAfter = [...conversation]
     .reverse()
     .find((message) => message.createdAt < compactMessage.createdAt);
-
-  // Legacy bug: marker was inserted before the kept window.
-  if (firstKept && firstKept.createdAt > compactMessage.createdAt) {
-    const nextCompact = messages.find(
-      (message) =>
-        message.messageKind === "compact" &&
-        message.createdAt > compactMessage.createdAt,
-    );
-    const endBound = nextCompact?.createdAt ?? Number.POSITIVE_INFINITY;
-    return (
-      conversation.filter((message) => message.createdAt < endBound).at(-1)
-        ?.id ?? chronologicalAfter?.id ?? null
-    );
-  }
 
   return chronologicalAfter?.id ?? conversation.at(-1)?.id ?? null;
 }

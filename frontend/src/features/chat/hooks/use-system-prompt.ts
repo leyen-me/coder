@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { apiPost } from "@/lib/api/client";
-import type { AgentMode } from "@/features/agent/types";
 
 export function useSystemPrompt(
   workspaceDir: string | null | undefined,
-  sessionId?: string | null,
-  agentMode?: AgentMode
+  sessionId?: string | null
 ) {
   const [systemPrompt, setSystemPrompt] = useState<string | null>(null);
 
@@ -21,11 +19,10 @@ export function useSystemPrompt(
       {
         sessionId: normalizedSessionId,
         workspaceDir: workspaceDir?.trim() || null,
-        agentMode: agentMode ?? null,
       }
     );
     setSystemPrompt(response.systemPrompt?.trim() || null);
-  }, [workspaceDir, sessionId, agentMode]);
+  }, [workspaceDir, sessionId]);
 
   const refreshSystemPrompt = useCallback(async () => {
     await loadSystemPrompt();
@@ -47,7 +44,6 @@ export function useSystemPrompt(
         {
           sessionId: normalizedSessionId,
           workspaceDir: workspaceDir?.trim() || null,
-          agentMode: agentMode ?? null,
         }
       );
       if (active) {
@@ -58,7 +54,7 @@ export function useSystemPrompt(
     return () => {
       active = false;
     };
-  }, [workspaceDir, sessionId, agentMode]);
+  }, [workspaceDir, sessionId]);
 
   return { systemPrompt, refreshSystemPrompt };
 }

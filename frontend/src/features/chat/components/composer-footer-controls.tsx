@@ -2,11 +2,8 @@ import type { ReactElement } from "react";
 import { useMemo } from "react";
 import {
   BrainIcon,
-  BotIcon,
   CheckIcon,
   ChevronDownIcon,
-  ClipboardListIcon,
-  FileQuestionIcon,
   ImageIcon,
   Loader2Icon,
   PlusIcon,
@@ -30,7 +27,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { usePromptInputAttachments } from "@/components/ai-elements/prompt-input";
-import type { AgentMode } from "@/features/agent/types";
 import type { McpServerConfig, SessionKind } from "@/lib/db";
 import { useTranslation } from "@/lib/i18n/locale-provider";
 import {
@@ -93,9 +89,6 @@ function renderModelOptions(
 }
 
 type ComposerFooterControlsProps = {
-  agentMode: AgentMode;
-  onAgentModeChange?: (mode: AgentMode) => void;
-  planBuiltAt?: number | null;
   sessionKind: SessionKind;
   onSessionKindChange?: (kind: SessionKind) => void;
   isRunning: boolean;
@@ -127,9 +120,6 @@ type ComposerModelSelectProps = {
 };
 
 export function ComposerFooterControls({
-  agentMode,
-  onAgentModeChange,
-  planBuiltAt,
   sessionKind,
   onSessionKindChange,
   isRunning,
@@ -187,31 +177,6 @@ export function ComposerFooterControls({
       ? t("chat.sessionTypeLongTask")
       : t("chat.sessionTypeStandard");
 
-  const agentModeMenu = (
-    <DropdownMenuRadioGroup
-      value={agentMode}
-      onValueChange={(value) => {
-        onAgentModeChange?.(value as AgentMode);
-      }}
-    >
-      <DropdownMenuRadioItem value="agent" disabled={isRunning || !onAgentModeChange}>
-        <BotIcon className="mr-2 size-4" />
-        <span>{t("chat.modeAgent")}</span>
-      </DropdownMenuRadioItem>
-      <DropdownMenuRadioItem value="ask" disabled={isRunning || !onAgentModeChange}>
-        <FileQuestionIcon className="mr-2 size-4" />
-        <span>{t("chat.modeAsk")}</span>
-      </DropdownMenuRadioItem>
-      <DropdownMenuRadioItem
-        value="plan"
-        disabled={Boolean(planBuiltAt) || isRunning || !onAgentModeChange}
-      >
-        <ClipboardListIcon className="mr-2 size-4" />
-        <span>{t("chat.modePlan")}</span>
-      </DropdownMenuRadioItem>
-    </DropdownMenuRadioGroup>
-  );
-
   return (
     <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden">
       <DropdownMenu>
@@ -233,8 +198,6 @@ export function ComposerFooterControls({
           className="min-w-48 max-w-[calc(100vw-1.5rem)]"
           side="top"
         >
-          {agentModeMenu}
-          <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={() => attachments.openFileDialog()}>
             <ImageIcon className="size-4" />
             <span>{t("chat.addAttachment")}</span>

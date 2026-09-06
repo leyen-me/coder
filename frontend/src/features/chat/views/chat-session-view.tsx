@@ -1,4 +1,3 @@
-import type { AgentMode } from "@/features/agent/types";
 import type { FileUIPart } from "ai";
 import {
   useCallback,
@@ -30,7 +29,6 @@ import { ChatHotkeyActions } from "@/features/keyboard-shortcuts/chat-hotkey-act
 
 import { AgentStopConfirmBanner } from "../components/agent-stop-confirm-banner";
 import { AgentTodoList } from "../components/agent-todo-list";
-import { PlanSheet } from "../components/plan-sheet";
 import { useAgentStopConfirmation } from "../hooks/use-agent-stop-confirmation";
 import { ChatMessageList } from "../components/chat-message-list";
 import { requestMessageListScrollToBottom } from "../components/message-list-scroll";
@@ -38,8 +36,6 @@ import { PromptComposer } from "../components/prompt-composer";
 import { SubAgentInfoBar } from "../components/sub-agent-info-bar";
 import { QueuedMessageList } from "../components/queued-message-list";
 import { notifySendMessageError } from "../lib/notify-send-message-error";
-import { buildPlanExecutionPrompt } from "../lib/plan/build-plan-execution-prompt";
-import { resolvePlanContentForBuild } from "../lib/plan/resolve-plan-content";
 import {
   removeQueuedMessage,
   takeNextQueuedMessage,
@@ -184,14 +180,10 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
     allModels
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isBuildPending, setIsBuildPending] = useState(false);
   type ChatLocationState = {
-    agentMode?: AgentMode;
     hideWorkspaceControls?: boolean;
   } | null;
   const locationState = location.state as ChatLocationState;
-  const initialAgentModeFromState = locationState?.agentMode ?? "agent";
-  const [agentMode, setAgentMode] = useState<AgentMode>(initialAgentModeFromState);
   const [workspaceBarDismissed, setWorkspaceBarDismissed] = useState(
     () => locationState?.hideWorkspaceControls ?? false
   );
@@ -215,12 +207,11 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
   });
   const { systemPrompt, refreshSystemPrompt } = useSystemPrompt(
     workspaceBinding.workspaceDir,
-    chatId,
-    agentMode
+    chatId
   );
 
   const activeTask = getSessionTask(chatId);
-  const isRunning = isSessionRunning(chatId) || isSubmitting || isBuildPending;
+  const isRunning = isSessionRunning(chatId) || isSubmitting;
   const deferredContextMessages = useDeferredValue(
     activeTask ? messages : displayMessages
   );
@@ -298,7 +289,6 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
           model,
           thinkingEnabled,
           editMessageId: options?.editMessageId,
-          agentMode,
           skillSlugs: payload.skillSlugs,
         });
         requestMessageListScrollToBottom();
@@ -324,7 +314,7 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
         setIsSubmitting(false);
       }
     },
-    [agentMode, chatId, model, sendMessage, t, thinkingEnabled]
+    [chatId, model, sendMessage, t, thinkingEnabled]
   );
 
   const handleRegenerateAssistantMessage = useCallback(
@@ -343,67 +333,9 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
         assistantMessageId: message.id,
         model,
         thinkingEnabled,
-        agentMode:
-          message.messageKind === "plan"
-            ? "plan"
-            : agentMode,
       });
     },
-    [agentMode, cancelTask, chatId, getSessionTask, isRunning, model, regenerateMessage, thinkingEnabled]
-  );
-
-  const handleBuildFromPlan = useCallback(
-    async (planContent: string) => {
-      if (isRunning) {
-        return;
-      }
-
-      const isFirstMessage = messages.length === 0;
-      if (isFirstMessage) {
-        setWorkspaceBarDismissed(true);
-      }
-
-      setIsBuildPending(true);
-      setAgentMode("agent");
-      try {
-        const resolved = await resolvePlanContentForBuild(
-          workspaceBinding.workspaceDir,
-          planContent,
-          session?.planFileName ?? null
-        );
-        await sendMessage({
-          sessionId: chatId,
-          content: buildPlanExecutionPrompt(resolved.content, resolved.path),
-          model,
-          thinkingEnabled,
-          agentMode: "agent",
-          skillSlugs: [],
-        });
-
-        // Mark the plan as built so it cannot be re-executed
-        await updateSession(chatId, { planBuiltAt: Date.now() });
-      } catch (error) {
-        notifySendMessageError(error, (key, params) =>
-          t(`chat.${key}`, params)
-        );
-        if (isFirstMessage) {
-          setWorkspaceBarDismissed(false);
-        }
-      } finally {
-        setIsBuildPending(false);
-      }
-    },
-    [
-      chatId,
-      messages.length,
-      session?.planFileName,
-      isRunning,
-      model,
-      sendMessage,
-      t,
-      thinkingEnabled,
-      workspaceBinding.workspaceDir,
-    ]
+    [cancelTask, chatId, getSessionTask, isRunning, model, regenerateMessage, thinkingEnabled]
   );
 
   const handleSend = useCallback(
@@ -680,7 +612,6 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
         sessionId: string;
         removedCount: number;
         summaryPreview: string;
-        firstKeptMessageId?: string | null;
         compactMessageId?: string | null;
         anchorAfterMessageId?: string | null;
       }>).detail;
@@ -703,8 +634,6 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
             compactUiFromAgentCompleted(messages, {
               removedCount: detail.removedCount,
               summaryPreview: detail.summaryPreview,
-              firstKeptMessageId:
-                detail.firstKeptMessageId ?? compactMessage?.taskId ?? null,
               compactMessageId:
                 detail.compactMessageId ?? compactMessage?.id ?? null,
               anchorAfterMessageId: detail.anchorAfterMessageId ?? null,
@@ -792,20 +721,10 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
               onDismiss={dismissStopConfirm}
             />
           ) : null}
-          {!readOnly && !isLoading && session != null && session.id === chatId ? (
-          <PlanSheet
-            sessionId={chatId}
-            workspaceDir={workspaceBinding.workspaceDir}
-            planFileName={session.planFileName ?? null}
-            planBuiltAt={session.planBuiltAt ?? null}
-            planBuildActions={{ isRunning, isBuildPending, onBuild: () => { void handleBuildFromPlan(""); } }}
-          />
-          ) : null}
           {readOnly ? (
             <SubAgentInfoBar
               model={activeTask?.model ?? model}
               models={allModels}
-              agentMode={activeTask?.agentMode ?? "agent"}
               thinkingEnabled={activeTask?.thinkingEnabled ?? thinkingEnabled}
               sessionKind={session?.sessionKind}
               autonomyMode={session?.autonomyMode}
@@ -843,9 +762,6 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
             }}
             variant="compact"
             isRunning={isRunning}
-            agentMode={agentMode}
-            onAgentModeChange={setAgentMode}
-            planBuiltAt={session?.planBuiltAt ?? null}
             sessionKind={session?.sessionKind ?? "standard"}
             mcpServers={enabledMcpServers}
             attachedMcpServers={attachedMcpServers}

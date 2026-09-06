@@ -5,7 +5,9 @@ import {
   MAX_AGENT_SESSION_THRESHOLD,
   MIN_AGENT_SESSION_THRESHOLD,
   readAgentSessionThreshold,
+  readAutoGenerateTitles,
   writeAgentSessionThreshold,
+  writeAutoGenerateTitles,
 } from "@/features/agent/session-settings";
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { LOCALE_VALUES } from "@/lib/i18n/constants";
@@ -19,11 +21,19 @@ export function GeneralSettingsPanel() {
   const [sessionThresholdInput, setSessionThresholdInput] = useState(() =>
     formatSessionThresholdPercent(readAgentSessionThreshold())
   );
+  const [titleSource, setTitleSource] = useState<"firstMessage" | "model">(
+    readAutoGenerateTitles() ? "model" : "firstMessage"
+  );
 
   const localeOptions = LOCALE_VALUES.map((value) => ({
     value,
     label: t(`locale.${value}`),
   }));
+
+  const titleSourceOptions = [
+    { value: "firstMessage", label: t("settings.general.titleSourceFirstMessage") },
+    { value: "model", label: t("settings.general.titleSourceModel") },
+  ] as const;
 
   const minPercent = MIN_AGENT_SESSION_THRESHOLD * 100;
   const maxPercent = MAX_AGENT_SESSION_THRESHOLD * 100;
@@ -56,6 +66,22 @@ export function GeneralSettingsPanel() {
             options={localeOptions}
             onValueChange={setLocale}
             aria-label={t("settings.general.languageAriaLabel")}
+          />
+        }
+      />
+
+      <SettingRow
+        label={t("settings.general.titleSourceLabel")}
+        description={t("settings.general.titleSourceDescription")}
+        control={
+          <SettingSelect
+            value={titleSource}
+            options={titleSourceOptions}
+            onValueChange={(value) => {
+              writeAutoGenerateTitles(value === "model");
+              setTitleSource(value);
+            }}
+            aria-label={t("settings.general.titleSourceAriaLabel")}
           />
         }
       />

@@ -10,16 +10,10 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
-    agent::compact::{
-        build_compact_snapshot, persist_compact_summary, run_compact, CompactPersistOptions,
-    },
+    agent::compact::{persist_compact_summary, run_compact},
     agent::registry::resolve_api_key,
-    db::{
-        records::MESSAGE_KIND_COMPACT,
-        session_store::{
-            estimate_compact_anchor_after_message_id, get_messages_by_session, get_session,
-        },
-    },
+    db::records::MESSAGE_KIND_COMPACT,
+    db::session_store::{get_messages_by_session, get_session},
     scheduled_jobs::resolve_job_runtime,
     AppState,
 };
@@ -47,8 +41,6 @@ pub struct CompactTriggerResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub anchor_after_message_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub first_kept_message_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub compact_message_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub summary_preview: Option<String>,
@@ -69,10 +61,19 @@ fn error_response(code: &str) -> CompactTriggerResponse {
         removed_count: None,
         remaining_count: None,
         anchor_after_message_id: None,
-        first_kept_message_id: None,
         compact_message_id: None,
         summary_preview: None,
     }
+}
+
+fn last_conversation_message_id(
+    messages: &[crate::db::records::MessageRecord],
+) -> Option<String> {
+    messages
+        .iter()
+        .rev()
+        .find(|message| message.message_kind.as_deref() != Some(MESSAGE_KIND_COMPACT))
+        .map(|message| message.id.clone())
 }
 
 pub async fn handle_compact(
@@ -95,7 +96,7 @@ pub async fn handle_compact(
         }
     };
 
-    let anchor_after_message_id = estimate_compact_anchor_after_message_id(&raw_messages);
+    let anchor_after_message_id = last_conversation_message_id(&raw_messages);
 
     // Agent 运行中时，把手动压缩请求交给 loop，下一轮立即执行；
     // 空闲时直接在本路由执行。
@@ -113,7 +114,6 @@ pub async fn handle_compact(
                     removed_count: None,
                     remaining_count: None,
                     anchor_after_message_id,
-                    first_kept_message_id: None,
                     compact_message_id: None,
                     summary_preview: None,
                 })
@@ -161,14 +161,13 @@ pub async fn handle_compact(
             removed_count: None,
             remaining_count: None,
             anchor_after_message_id,
-            first_kept_message_id: None,
             compact_message_id: None,
             summary_preview: None,
         });
     }
 
     // 使用与 agent 完全一致的模型上下文，保留消息结构、工具调用和完整内容。
-    let messages = match crate::agent::assemble_agent_messages(&state, &session, None) {
+    let messages = match crate::agent::assemble_agent_messages(&state, &session) {
         Ok(messages) => messages,
         Err(_) => return Json(error_response("messages_unavailable")),
     };
@@ -177,50 +176,25 @@ pub async fn handle_compact(
         Ok(client) => client,
         Err(_) => return Json(error_response("http_client_unavailable")),
     };
-    let snapshot = build_compact_snapshot(
-        Vec::new(),
-        session.workspace_dir.clone(),
-        Vec::new(),
-        Vec::new(),
-        Vec::new(),
-    );
 
-    match run_compact(
-        &client,
-        &runtime.base_url,
-        &api_key,
-        &session.model,
-        &messages,
-        &snapshot,
-    )
-    .await
-    {
+    match run_compact(&client, &runtime.base_url, &api_key, &session.model, &messages).await {
         Ok(summary) => {
             let summary_preview = summary.text.clone();
-            match persist_compact_summary(
-                &state.db,
-                Some(session_id),
-                &summary,
-                CompactPersistOptions::default(),
-            ) {
+            match persist_compact_summary(&state.db, Some(session_id), &summary) {
                 Ok(result) => {
-                    let conversation_count = conversation_message_count(&raw_messages);
-                    let remaining = conversation_count.saturating_sub(result.removed_count);
                     log::info!(
-                        "direct_compact session={} compact_message_id={} removed={} remaining={}",
+                        "direct_compact session={} compact_message_id={} removed={}",
                         session_id,
                         result.compact_message_id,
-                        result.removed_count,
-                        remaining
+                        result.removed_count
                     );
                     Json(CompactTriggerResponse {
                         ok: true,
                         compacted: true,
                         code: "compacted".to_string(),
                         removed_count: Some(result.removed_count as u32),
-                        remaining_count: Some(remaining as u32),
+                        remaining_count: Some(0),
                         anchor_after_message_id: result.anchor_after_message_id,
-                        first_kept_message_id: result.first_kept_message_id,
                         compact_message_id: Some(result.compact_message_id),
                         summary_preview: Some(summary_preview),
                     })

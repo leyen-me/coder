@@ -1,4 +1,3 @@
-import type { AgentMode } from "../types";
 import type { ToolResultEnvelope } from "./result";
 
 export type JsonSchemaObject = {
@@ -291,8 +290,6 @@ export type ToolExecutionContext = {
   webSearchConfig?: WebSearchConfig | null;
   webSearchConfigError?: string;
   allowPrivateNetworkAccess?: boolean;
-  /** Agent mode used to enforce tool permission at execution time. */
-  agentMode?: AgentMode;
   /**
    * Tool names explicitly provided in this session's tool list.
    * When set, these tools bypass the agent-mode exclusion check,

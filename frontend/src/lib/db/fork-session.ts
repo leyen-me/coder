@@ -48,8 +48,7 @@ export async function forkSessionFromMessage(
     planBuiltAt: session.planBuiltAt ?? null,
   });
 
-  // Remap IDs so compact markers can keep a valid first_kept cursor
-  // (stored in taskId) inside the forked session.
+  // Remap IDs so messages keep unique ids inside the forked session.
   const idMap = new Map<string, string>();
   for (const message of messagesToCopy) {
     idMap.set(message.id, createMessageId());
@@ -61,12 +60,6 @@ export async function forkSessionFromMessage(
       if (!newId) {
         throw new Error(`Missing forked message id for ${message.id}`);
       }
-
-      const isCompact = message.messageKind === "compact";
-      const remappedFirstKept =
-        isCompact && message.taskId
-          ? (idMap.get(message.taskId) ?? null)
-          : null;
 
       return createMessage({
         id: newId,
@@ -80,9 +73,8 @@ export async function forkSessionFromMessage(
         processSteps: message.processSteps ?? [],
         toolInvocations: message.toolInvocations ?? [],
         status: normalizeForkedMessageStatus(message.status),
-        // Agent task ids must not be reused across sessions. Compact markers
-        // reuse taskId as the model-context first_kept cursor and need remap.
-        taskId: remappedFirstKept,
+        // Agent task ids must not be reused across sessions.
+        taskId: null,
         error: message.error,
         durationMs: message.durationMs,
         usage: message.usage,

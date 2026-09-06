@@ -36,7 +36,6 @@ pub struct SpawnSessionOptions {
     pub request_extensions: Option<Value>,
     pub max_context_tokens: Option<u32>,
     pub compact_trigger_threshold: Option<f64>,
-    pub agent_mode: Option<String>,
     pub thinking_enabled: Option<bool>,
     /// 新会话初始附带的 MCP 服务 id；有父会话时仍由父会话继承。
     pub attached_mcp_servers: Option<Vec<String>>,
@@ -141,7 +140,6 @@ pub async fn spawn_session(
             request_extensions: opts.request_extensions,
             max_context_tokens: opts.max_context_tokens,
             compact_trigger_threshold: opts.compact_trigger_threshold,
-            agent_mode: opts.agent_mode,
             thinking_enabled: opts.thinking_enabled,
             models: None,
             extra_tools: opts.extra_tools,

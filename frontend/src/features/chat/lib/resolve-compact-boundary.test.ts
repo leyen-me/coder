@@ -80,7 +80,7 @@ describe("resolveCompactBoundaryRenders", () => {
     expect(renders.map((render) => render.afterMessageId)).toEqual(["last-1"]);
   });
 
-  it("repairs legacy mid-inserted markers to the end of that compact era", () => {
+  it("renders legacy markers after the preceding conversation message", () => {
     const legacy = [
       message({ id: "a", role: "user", createdAt: 1 }),
       message({ id: "b", role: "user", createdAt: 2, content: "没事" }),
@@ -95,7 +95,8 @@ describe("resolveCompactBoundaryRenders", () => {
     ];
     const renders = resolveCompactBoundaryRenders(legacy, null);
     expect(renders).toHaveLength(1);
-    expect(renders[0]?.afterMessageId).toBe("c");
+    // handoff 模型下 banner 锚在它之前的最后一条会话消息之后。
+    expect(renders[0]?.afterMessageId).toBe("b");
   });
 
   it("keeps history markers while overlaying a temporary loading tip at the end", () => {
@@ -156,7 +157,6 @@ describe("compactUiFromApiResponse / compactUiFromAgentCompleted", () => {
       code: "compacted",
       removedCount: 1,
       remainingCount: 2,
-      firstKeptMessageId: "kept-1",
       compactMessageId: "compact-1",
       anchorAfterMessageId: "last",
       summaryPreview: "summary",
@@ -171,7 +171,6 @@ describe("compactUiFromApiResponse / compactUiFromAgentCompleted", () => {
     const state = compactUiFromAgentCompleted(messages, {
       removedCount: 1,
       summaryPreview: "summary",
-      firstKeptMessageId: "kept-1",
       compactMessageId: "compact-1",
       anchorAfterMessageId: "last",
     });

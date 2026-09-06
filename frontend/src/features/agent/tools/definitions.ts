@@ -31,12 +31,6 @@ export const CREATE_SKILL_TOOL_NAME = "create_skill";
 export const UPDATE_SKILL_TOOL_NAME = "update_skill";
 export const TODO_READ_TOOL_NAME = "todo_read";
 export const TODO_WRITE_TOOL_NAME = "todo_write";
-export const PLAN_CREATE_TOOL_NAME = "plan_create";
-export const PLAN_READ_TOOL_NAME = "plan_read";
-export const PLAN_UPDATE_TOOL_NAME = "plan_update";
-export const PLAN_EDIT_TOOL_NAME = "plan_edit";
-export const PLAN_DELETE_TOOL_NAME = "plan_delete";
-export const PLAN_LIST_TOOL_NAME = "plan_list";
 export const ASK_QUESTION_TOOL_NAME = "ask_question";
 
 export const SEND_EMAIL_TOOL_NAME = "send_email";
@@ -860,140 +854,6 @@ export const ASK_QUESTION_TOOL: AgentToolDefinition = {
   },
 };
 
-export const PLAN_CREATE_TOOL: AgentToolDefinition = {
-  type: "function",
-  function: {
-    name: PLAN_CREATE_TOOL_NAME,
-    description:
-      "Create a new plan markdown file in the .coder/plan/ directory. Filename must be descriptive and end with -plan.md (e.g. refactor-auth-plan.md). Fails if the plan already exists — use plan_update instead.",
-    parameters: {
-      type: "object",
-      properties: {
-        name: {
-          type: "string",
-          description:
-            'Plan filename ending with -plan.md, e.g. "refactor-auth-plan.md". Use lowercase letters, numbers, and hyphens only.',
-        },
-        content: {
-          type: "string",
-          description: "Full plan content in Markdown.",
-        },
-      },
-      required: ["name", "content"],
-      additionalProperties: false,
-    },
-  },
-};
-
-export const PLAN_READ_TOOL: AgentToolDefinition = {
-  type: "function",
-  function: {
-    name: PLAN_READ_TOOL_NAME,
-    description: "Read a plan markdown file from the .coder/plan/ directory.",
-    parameters: {
-      type: "object",
-      properties: {
-        name: {
-          type: "string",
-          description: 'Plan filename, e.g. "refactor-auth-plan.md".',
-        },
-      },
-      required: ["name"],
-      additionalProperties: false,
-    },
-  },
-};
-
-export const PLAN_UPDATE_TOOL: AgentToolDefinition = {
-  type: "function",
-  function: {
-    name: PLAN_UPDATE_TOOL_NAME,
-    description:
-      "Replace the content of an existing plan file in the .coder/plan/ directory.",
-    parameters: {
-      type: "object",
-      properties: {
-        name: {
-          type: "string",
-          description: 'Plan filename, e.g. "refactor-auth-plan.md".',
-        },
-        content: {
-          type: "string",
-          description: "Full updated plan content in Markdown.",
-        },
-      },
-      required: ["name", "content"],
-      additionalProperties: false,
-    },
-  },
-};
-
-export const PLAN_EDIT_TOOL: AgentToolDefinition = {
-  type: "function",
-  function: {
-    name: PLAN_EDIT_TOOL_NAME,
-    description:
-      "Apply a targeted search-and-replace edit to an existing plan file in the .coder/plan/ directory. Prefer this over plan_update for small changes.",
-    parameters: {
-      type: "object",
-      properties: {
-        name: {
-          type: "string",
-          description: 'Plan filename, e.g. "refactor-auth-plan.md".',
-        },
-        old_string: {
-          type: "string",
-          description: "Exact text to replace. Must match uniquely unless replace_all is true.",
-        },
-        new_string: {
-          type: "string",
-          description: "Replacement text.",
-        },
-        replace_all: {
-          type: "boolean",
-          description: "Whether to replace every occurrence of old_string.",
-          default: false,
-        },
-      },
-      required: ["name", "old_string", "new_string"],
-      additionalProperties: false,
-    },
-  },
-};
-
-export const PLAN_DELETE_TOOL: AgentToolDefinition = {
-  type: "function",
-  function: {
-    name: PLAN_DELETE_TOOL_NAME,
-    description: "Delete a plan markdown file from the .coder/plan/ directory.",
-    parameters: {
-      type: "object",
-      properties: {
-        name: {
-          type: "string",
-          description: 'Plan filename to delete, e.g. "refactor-auth-plan.md".',
-        },
-      },
-      required: ["name"],
-      additionalProperties: false,
-    },
-  },
-};
-
-export const PLAN_LIST_TOOL: AgentToolDefinition = {
-  type: "function",
-  function: {
-    name: PLAN_LIST_TOOL_NAME,
-    description:
-      "List all plan markdown files in the .coder/plan/ directory, sorted by most recently modified.",
-    parameters: {
-      type: "object",
-      properties: {},
-      additionalProperties: false,
-    },
-  },
-};
-
 export const UPDATE_SKILL_TOOL: AgentToolDefinition = {
   type: "function",
   function: {
@@ -1283,12 +1143,6 @@ export const AGENT_TOOL_DEFINITIONS: AgentToolDefinition[] = [
   TODO_WRITE_TOOL,
   ASK_QUESTION_TOOL,
   GET_WORKSPACE_TREE_TOOL,
-  PLAN_CREATE_TOOL,
-  PLAN_READ_TOOL,
-  PLAN_UPDATE_TOOL,
-  PLAN_EDIT_TOOL,
-  PLAN_DELETE_TOOL,
-  PLAN_LIST_TOOL,
   LIST_AUTOMATIONS_TOOL,
   CREATE_AUTOMATION_TOOL,
   UPDATE_AUTOMATION_TOOL,
