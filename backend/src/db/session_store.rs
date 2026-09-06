@@ -390,7 +390,7 @@ pub fn persist_session_compact(
     let records = get_messages_by_session(db, session_id)?;
     let conversation_count = records
         .iter()
-        .filter(|record| record.message_kind.as_deref() != Some(super::records::MESSAGE_KIND_COMPACT))
+        .filter(|record| record.message_kind.as_deref() != Some(MESSAGE_KIND_COMPACT))
         .count();
 
     if conversation_count < 2 {
@@ -400,7 +400,7 @@ pub fn persist_session_compact(
     let event_after = records
         .iter()
         .rev()
-        .find(|record| record.message_kind.as_deref() != Some(super::records::MESSAGE_KIND_COMPACT))
+        .find(|record| record.message_kind.as_deref() != Some(MESSAGE_KIND_COMPACT))
         .map(|record| record.id.clone());
 
     let baseline = crate::agent::compact::post_compact_usage_baseline();
@@ -408,7 +408,7 @@ pub fn persist_session_compact(
         id: new_message_id(),
         session_id: session_id.to_string(),
         role: "user".to_string(),
-        message_kind: Some(super::records::MESSAGE_KIND_COMPACT.to_string()),
+        message_kind: Some(MESSAGE_KIND_COMPACT.to_string()),
         content: summary_text.trim().to_string(),
         images: None,
         referenced_skills: None,
@@ -442,7 +442,7 @@ pub fn model_history_from_latest_compact(
     records: Vec<crate::db::records::MessageRecord>,
 ) -> Vec<crate::db::records::MessageRecord> {
     let latest_compact_idx = records.iter().rposition(|message| {
-        message.message_kind.as_deref() == Some(super::records::MESSAGE_KIND_COMPACT)
+        message.message_kind.as_deref() == Some(MESSAGE_KIND_COMPACT)
     });
     let Some(compact_idx) = latest_compact_idx else {
         return records;
@@ -477,7 +477,7 @@ fn legacy_model_history_from_latest_compact(
             records.iter().position(|message| {
                 message.id == id
                     && message.message_kind.as_deref()
-                        != Some(super::records::MESSAGE_KIND_COMPACT)
+                        != Some(MESSAGE_KIND_COMPACT)
             })
         })
         .unwrap_or_else(|| legacy_recover_first_kept_start_idx(&records, compact_idx));
@@ -485,7 +485,7 @@ fn legacy_model_history_from_latest_compact(
     let mut result = Vec::with_capacity(records.len().saturating_sub(start_idx).saturating_add(1));
     result.push(records[compact_idx].clone());
     for message in records.into_iter().skip(start_idx) {
-        if message.message_kind.as_deref() == Some(super::records::MESSAGE_KIND_COMPACT) {
+        if message.message_kind.as_deref() == Some(MESSAGE_KIND_COMPACT) {
             continue;
         }
         result.push(message);
@@ -508,7 +508,7 @@ fn legacy_recover_first_kept_start_idx(
         .enumerate()
         .filter(|(index, record)| {
             *index < compact_idx
-                && record.message_kind.as_deref() != Some(super::records::MESSAGE_KIND_COMPACT)
+                && record.message_kind.as_deref() != Some(MESSAGE_KIND_COMPACT)
                 && record.created_at <= compact_created_at
         })
         .map(|(index, record)| (index, record))

@@ -4,7 +4,6 @@ import type { MessageRecord } from "@/lib/db";
 
 import {
   estimateSessionContextUsage,
-  estimateTextTokens,
   modelHistoryFromLatestCompact,
 } from "./estimate-session-context-usage";
 
@@ -24,20 +23,6 @@ function createMessage(
     ...overrides,
   };
 }
-
-describe("estimateTextTokens", () => {
-  it("returns zero for empty text", () => {
-    expect(estimateTextTokens("")).toBe(0);
-  });
-
-  it("estimates latin text with a 4-char heuristic", () => {
-    expect(estimateTextTokens("hello world")).toBe(3);
-  });
-
-  it("estimates cjk text closer to one token per character", () => {
-    expect(estimateTextTokens("你好世界")).toBe(4);
-  });
-});
 
 describe("estimateSessionContextUsage", () => {
   it("returns null without a backend snapshot", () => {

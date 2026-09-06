@@ -4,27 +4,12 @@ import type { MessageRecord, SessionRecord } from "@/lib/db";
 import type { ModelDefinition } from "@/lib/model-provider/model-definition";
 import { parseModelValue } from "@/lib/model-provider/resolve-provider-config";
 
-const CJK_PATTERN = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff]/g;
-
 export type SessionContextUsage = {
   usedTokens: number;
   maxTokens: number;
   usage: LanguageModelUsage;
   modelId: string;
 };
-
-/** 纯展示用的字符→token 近似，仍给 agent 诊断面板使用。 */
-export function estimateTextTokens(text: string): number {
-  if (!text) {
-    return 0;
-  }
-
-  const cjkMatches = text.match(CJK_PATTERN);
-  const cjkCount = cjkMatches?.length ?? 0;
-  const nonCjkCount = text.length - cjkCount;
-
-  return Math.ceil(cjkCount + nonCjkCount / 4);
-}
 
 function createUsage(inputTokens: number): LanguageModelUsage {
   return {
