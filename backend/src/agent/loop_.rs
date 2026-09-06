@@ -5,8 +5,8 @@ use serde_json::{json, Value};
 use tokio_util::sync::CancellationToken;
 
 use super::compact::{
-    apply_compact, build_compact_snapshot, compact_reserve, persist_compact_summary, run_compact,
-    should_trigger_compact, CompactPersistOptions, DEFAULT_COMPACT_THRESHOLD,
+    apply_compact, persist_compact_summary, post_compact_usage_baseline, run_compact,
+    should_trigger_compact, DEFAULT_COMPACT_THRESHOLD,
 };
 use super::decision::{
     build_final_answer_decision_request, build_proxy_continuation_message, request_proxy_decision,
@@ -22,10 +22,8 @@ use crate::db::{
         current_timestamp_ms, DecisionOptionRecord, DecisionResponseRecord, MessageProcessStep,
         MessageToolInvocation, SessionContextUsageSnapshot,
     },
-    session_store::{
-        find_assistant_message_by_task_id, get_messages_by_session, get_session, update_session,
-        CompactPersistResult,
-    },
+    session_store::{find_assistant_message_by_task_id, get_messages_by_session, get_session,
+        update_session},
     Database,
 };
 
@@ -145,14 +143,14 @@ pub async fn run_agent_loop(
 
         // ── Auto-compact check (replaces the old session rollover mechanism) ──
         //
-        // When estimated token usage exceeds the threshold we compact in-place:
-        //  1. Take a snapshot of the current working context
-        //  2. Ask the LLM to write a concise summary (natural language)
-        //  3. Replace old messages with the summary + recent tail
-        //  4. Continue the loop with the compacted message list
+        // When real provider usage crosses the threshold we compact in-place:
+        //  1. Ask the LLM for a structured handoff (natural language, no tools)
+        //  2. Replace the model context with system prompts + the handoff as a
+        //     USER message — the next turn reads it like a user handoff note
+        //  3. Persist the handoff (kind=compact) and continue the loop
         //
-        // This avoids the cost of creating a new DB session and keeps agent
-        // continuity within the same window.
+        // No recent-tail is kept: the handoff describes progress and next
+        // steps, and the agent re-reads what it needs via tools.
         // 只用真实 usage 判断；没有真实用量时不自动压缩，
         // 等下一次模型返回后再判断。
         let prompt_estimate = last_real_prompt_tokens.unwrap_or(0);
@@ -165,164 +163,23 @@ pub async fn run_agent_loop(
         if token_trigger {
             log::info!(
                 "auto_compact_triggered task_id={} session_id={:?} used_tokens={} max_tokens={} threshold={}",
-                params.task_id,
-                params.session_id,
+                params.task_id, params.session_id,
                 prompt_estimate,
                 max_tokens,
                 trigger_threshold
             );
 
-            emit_event(
+            messages = execute_compaction(
+                &http_client,
+                &params,
+                &messages,
                 &registry,
                 &broadcaster,
-                &params.task_id,
-                AgentEvent::CompactStarted {
-                    task_id: params.task_id.clone(),
-                    estimated_tokens: prompt_estimate,
-                    max_tokens,
-                    source: "auto".to_string(),
-                },
-            )?;
-            if let Some(state) = persisted_state.as_mut() {
-                upsert_compact_process_step(
-                    &mut state.process_steps,
-                    CompactProcessStepPatch {
-                        state: "running",
-                        removed_count: 0,
-                        preview: "",
-                        compact_message_id: None,
-                    },
-                );
-                let _ = persist_message_snapshot(
-                    &app_state.db,
-                    state,
-                    MessageStatusPatch {
-                        status: Some("streaming"),
-                        error: None,
-                        usage: None,
-                        duration_ms: None,
-                    },
-                );
-            }
-
-            let snapshot = build_compact_snapshot(
-                Vec::new(),  // working_files — populated downstream if needed
-                workspace_dir.clone(),
-                Vec::new(),  // recent_errors
-                Vec::new(),  // decisions
-                Vec::new(),  // background_tasks
-            );
-
-            match run_compact(
-                &http_client,
-                &params.base_url,
-                params.api_key.as_deref().unwrap_or_default(),
-                &params.model,
-                &messages,
-                &snapshot,
+                persisted_state.as_mut(),
+                &app_state.db,
+                "auto",
             )
-            .await
-            {
-                Ok(summary) => {
-                    let result = apply_compact(&messages, &summary);
-                    log::info!(
-                        "auto_compact_applied task_id={} session_id={:?} removed={} remaining={}",
-                        params.task_id,
-                        params.session_id,
-                        result.removed_count,
-                        result.messages.len()
-                    );
-                    let persisted = match persist_compact_for_task(
-                        &app_state.db,
-                        params.session_id.as_deref(),
-                        &summary,
-                    ) {
-                        Ok(persisted) => persisted,
-                        Err(error) => {
-                            log::error!(
-                                "auto_compact_persist_failed task_id={} session_id={:?} error={}",
-                                params.task_id,
-                                params.session_id,
-                                error
-                            );
-                            return Err(AgentLoopError::Other(format!(
-                                "compact persist failed: {error}"
-                            )));
-                        }
-                    };
-                    messages = result.messages;
-
-                    if let Some(state) = persisted_state.as_mut() {
-                        let effective_removed = persisted
-                            .removed_count
-                            .max(result.removed_count);
-                        upsert_compact_process_step(
-                            &mut state.process_steps,
-                            CompactProcessStepPatch {
-                                state: "completed",
-                                removed_count: effective_removed as u32,
-                                preview: &summary.text,
-                                compact_message_id: (!persisted.compact_message_id.is_empty())
-                                    .then_some(persisted.compact_message_id.as_str()),
-                            },
-                        );
-                        let _ = persist_message_snapshot(
-                            &app_state.db,
-                            state,
-                            MessageStatusPatch {
-                                status: Some("streaming"),
-                                error: None,
-                                usage: None,
-                                duration_ms: None,
-                            },
-                        );
-                    }
-                    emit_event(
-                        &registry,
-                        &broadcaster,
-                        &params.task_id,
-                        compact_completed_event(
-                            &params.task_id,
-                            &summary.text,
-                            result.removed_count,
-                            Some(&persisted),
-                            "auto",
-                        ),
-                    )?;
-                }
-                Err(error) => {
-                    log::error!(
-                        "auto_compact_failed task_id={} session_id={:?} error={}",
-                        params.task_id,
-                        params.session_id,
-                        error
-                    );
-                    if let Some(state) = persisted_state.as_mut() {
-                        upsert_compact_process_step(
-                            &mut state.process_steps,
-                            CompactProcessStepPatch {
-                                state: "error",
-                                removed_count: 0,
-                                preview: "",
-                                compact_message_id: None,
-                            },
-                        );
-                        let _ = persist_message_snapshot(
-                            &app_state.db,
-                            state,
-                            MessageStatusPatch {
-                                status: Some("streaming"),
-                                error: None,
-                                usage: None,
-                                duration_ms: None,
-                            },
-                        );
-                    }
-                    return Err(AgentLoopError::Other(format!(
-                        "auto compact failed: {error}"
-                    )));
-                }
-            }
+            .await?;
         }
 
         // ── Manual compact check ──
@@ -339,101 +196,20 @@ pub async fn run_agent_loop(
         if manual_requested {
             log::info!(
                 "manual_compact_requested task_id={} session_id={:?}",
-                params.task_id,
-                params.session_id
+                params.task_id, params.session_id
             );
 
-            let snapshot = build_compact_snapshot(
-                Vec::new(),
-                workspace_dir.clone(),
-                Vec::new(),
-                Vec::new(),
-                Vec::new(),
-            );
-
-            match run_compact(
+            messages = execute_compaction(
                 &http_client,
-                &params.base_url,
-                params.api_key.as_deref().unwrap_or_default(),
-                &params.model,
+                &params,
                 &messages,
-                &snapshot,
+                &registry,
+                &broadcaster,
+                persisted_state.as_mut(),
+                &app_state.db,
+                "manual",
             )
-            .await
-            {
-                Ok(summary) => {
-                    let result = apply_compact(&messages, &summary);
-                    log::info!(
-                        "manual_compact_applied task_id={} session_id={:?} removed={}",
-                        params.task_id,
-                        params.session_id,
-                        result.removed_count
-                    );
-                    let persisted = match persist_compact_for_task(
-                        &app_state.db,
-                        params.session_id.as_deref(),
-                        &summary,
-                    ) {
-                        Ok(persisted) => persisted,
-                        Err(error) => {
-                            log::error!(
-                                "manual_compact_persist_failed task_id={} session_id={:?} error={}",
-                                params.task_id,
-                                params.session_id,
-                                error
-                            );
-                            return Err(AgentLoopError::Other(format!(
-                                "compact persist failed: {error}"
-                            )));
-                        }
-                    };
-                    messages = result.messages;
-                    emit_event(
-                        &registry,
-                        &broadcaster,
-                        &params.task_id,
-                        compact_completed_event(
-                            &params.task_id,
-                            &summary.text,
-                            result.removed_count,
-                            Some(&persisted),
-                            "manual",
-                        ),
-                    )?;
-                }
-                Err(error) => {
-                    log::error!(
-                        "manual_compact_failed task_id={} session_id={:?} error={}",
-                        params.task_id,
-                        params.session_id,
-                        error
-                    );
-                    if let Some(state) = persisted_state.as_mut() {
-                        upsert_compact_process_step(
-                            &mut state.process_steps,
-                            CompactProcessStepPatch {
-                                state: "error",
-                                removed_count: 0,
-                                preview: "",
-                                compact_message_id: None,
-                            },
-                        );
-                        let _ = persist_message_snapshot(
-                            &app_state.db,
-                            state,
-                            MessageStatusPatch {
-                                status: Some("streaming"),
-                                error: None,
-                                usage: None,
-                                duration_ms: None,
-                            },
-                        );
-                    }
-                    return Err(AgentLoopError::Other(format!(
-                        "manual compact failed: {error}"
-                    )));
-                }
-            }
+            .await?;
         }
 
         let turn = run_single_turn_with_retry(
@@ -715,13 +491,11 @@ async fn run_single_turn_with_retry(
     broadcaster: &Arc<crate::SseBroadcaster>,
     cancel_token: &CancellationToken,
     registry: &Arc<Mutex<super::registry::AgentRegistry>>,
-    persisted_state: Option<&mut PersistedMessageState>,
+    mut persisted_state: Option<&mut PersistedMessageState>,
     db: &Arc<Mutex<Database>>,
 ) -> Result<AgentTurnResult, AgentLoopError> {
     let mut turn_messages = messages.to_vec();
     let mut last_error = None;
-    let mut persisted_state = persisted_state;
-
     for attempt in 1..=MAX_RETRY_ATTEMPTS {
         match run_single_turn_attempt(
             params,
@@ -1063,13 +837,167 @@ fn build_assistant_message(turn: &AgentTurnResult) -> ChatMessage {
     }
 }
 
-/// 把压缩摘要写入数据库压缩记录；失败时由调用方撤销内存压缩并停止任务。
-fn persist_compact_for_task(
+/// 把 compact process step 写入状态并持久化快照；state 为 None 时只跳过。
+fn mark_compact_step(
     db: &Arc<Mutex<Database>>,
-    session_id: Option<&str>,
-    summary: &super::compact::CompactSummary,
-) -> Result<CompactPersistResult, String> {
-    persist_compact_summary(db, session_id, summary, CompactPersistOptions::default())
+    state: &mut PersistedMessageState,
+    patch: CompactProcessStepPatch,
+) {
+    upsert_compact_process_step(&mut state.process_steps, patch);
+    let _ = persist_message_snapshot(
+        db,
+        state,
+        MessageStatusPatch {
+            status: Some("streaming"),
+            error: None,
+            usage: None,
+            duration_ms: None,
+        },
+    );
+}
+
+/// 执行一次压缩（自动/手动共用）：请求 handoff → 落库 → 重置内存上下文。
+///
+/// 成功后 `messages` 变为 system prompts + handoff user 消息；
+/// 失败（handoff 调用失败或落库失败）返回错误，由调用方终止任务。
+async fn execute_compaction(
+    http_client: &reqwest::Client,
+    params: &AgentStartParams,
+    messages: &[ChatMessage],
+    registry: &Arc<Mutex<super::registry::AgentRegistry>>,
+    broadcaster: &Arc<crate::SseBroadcaster>,
+    mut persisted_state: Option<&mut PersistedMessageState>,
+    db: &Arc<Mutex<Database>>,
+    source: &str,
+) -> Result<Vec<ChatMessage>, AgentLoopError> {
+    emit_event(
+        registry,
+        broadcaster,
+        &params.task_id,
+        AgentEvent::CompactStarted {
+            task_id: params.task_id.clone(),
+            source: source.to_string(),
+        },
+    )?;
+
+    if let Some(state) = &mut persisted_state {
+        mark_compact_step(
+            db,
+            state,
+            CompactProcessStepPatch {
+                state: "running",
+                removed_count: 0,
+                preview: "",
+                compact_message_id: None,
+            },
+        );
+    }
+
+    let summary = match run_compact(
+        http_client,
+        &params.base_url,
+        params.api_key.as_deref().unwrap_or_default(),
+        &params.model,
+        messages,
+    )
+    .await
+    {
+        Ok(summary) => summary,
+        Err(error) => {
+            log::error!(
+                "compact_failed task_id={} session_id={:?} source={} error={}",
+                params.task_id, params.session_id, source, error
+            );
+            if let Some(state) = &mut persisted_state {
+                mark_compact_step(
+                    db,
+                    state,
+                    CompactProcessStepPatch {
+                        state: "error",
+                        removed_count: 0,
+                        preview: "",
+                        compact_message_id: None,
+                    },
+                );
+            }
+            return Err(AgentLoopError::Other(format!("compact failed: {error}")));
+        }
+    };
+
+    let persisted = match persist_compact_summary(db, params.session_id.as_deref(), &summary) {
+        Ok(persisted) => persisted,
+        Err(error) => {
+            log::error!(
+                "compact_persist_failed task_id={} session_id={:?} source={} error={}",
+                params.task_id, params.session_id, source, error
+            );
+            if let Some(state) = &mut persisted_state {
+                mark_compact_step(
+                    db,
+                    state,
+                    CompactProcessStepPatch {
+                        state: "error",
+                        removed_count: 0,
+                        preview: "",
+                        compact_message_id: None,
+                    },
+                );
+            }
+            return Err(AgentLoopError::Other(format!(
+                "compact persist failed: {error}"
+            )));
+        }
+    };
+
+    let next_messages = apply_compact(messages, &summary);
+    log::info!(
+        "compact_applied task_id={} session_id={:?} source={} removed={} remaining={}",
+        params.task_id,
+        params.session_id,
+        source,
+        persisted.removed_count,
+        next_messages.len()
+    );
+
+    // 完成态同时写入小 usage 基线，跨 run 的压缩判断从新窗口重新起算。
+    if let Some(state) = &mut persisted_state {
+        mark_compact_step(
+            db,
+            state,
+            CompactProcessStepPatch {
+                state: "completed",
+                removed_count: persisted.removed_count as u32,
+                preview: &summary.text,
+                compact_message_id: Some(persisted.compact_message_id.as_str()),
+            },
+        );
+        let _ = persist_message_snapshot(
+            db,
+            state,
+            MessageStatusPatch {
+                status: Some("streaming"),
+                error: None,
+                usage: Some(post_compact_usage_baseline()),
+                duration_ms: None,
+            },
+        );
+    }
+
+    emit_event(
+        registry,
+        broadcaster,
+        &params.task_id,
+        AgentEvent::CompactCompleted {
+            task_id: params.task_id.clone(),
+            removed_count: persisted.removed_count as u32,
+            summary_preview: summary.text.clone(),
+            source: source.to_string(),
+            compact_message_id: Some(persisted.compact_message_id),
+            anchor_after_message_id: persisted.anchor_after_message_id,
+        },
+    )?;
+
+    Ok(next_messages)
 }
 
 /// 取该 session 最近一条带 provider usage 的 assistant 消息的 prompt_tokens。
@@ -1267,40 +1195,6 @@ fn maybe_persist_stream_snapshot(
     );
 }
 
-fn compact_completed_event(
-    task_id: &str,
-    summary_text: &str,
-    in_memory_removed: usize,
-    persisted: Option<&CompactPersistResult>,
-    source: &str,
-) -> AgentEvent {
-    let db_removed = persisted.map(|value| value.removed_count).unwrap_or(0);
-    let removed_count = db_removed.max(in_memory_removed) as u32;
-    let (first_kept_message_id, compact_message_id, anchor_after_message_id) = match persisted {
-        Some(value) if value.removed_count > 0 => (
-            value.first_kept_message_id.clone(),
-            if value.compact_message_id.is_empty() {
-                None
-            } else {
-                Some(value.compact_message_id.clone())
-            },
-            value.anchor_after_message_id.clone(),
-        ),
-        // Persist failed or was a noop — leave placement unset so the UI can
-        // fall back to an estimate instead of inventing a false history point.
-        _ => (None, None, None),
-    };
-
-    AgentEvent::CompactCompleted {
-        task_id: task_id.to_string(),
-        removed_count,
-        summary_preview: summary_text.to_string(),
-        source: source.to_string(),
-        first_kept_message_id,
-        compact_message_id,
-        anchor_after_message_id,
-    }
-}
 
 struct CompactProcessStepPatch<'a> {
     state: &'a str,
@@ -1426,7 +1320,7 @@ fn persist_context_usage_snapshot(
             used_tokens,
             max_tokens,
             remaining_tokens: max_tokens.saturating_sub(used_tokens),
-            reserved_tokens: compact_reserve(max_tokens),
+            reserved_tokens: 0,
             trigger_threshold,
             source: source.to_string(),
             updated_at: current_timestamp_ms(),

@@ -198,7 +198,7 @@ describe("forkSessionFromMessage", () => {
     );
   });
 
-  it("remaps compact first_kept taskId onto forked message ids", async () => {
+  it("does not reuse agent task ids in forked messages", async () => {
     vi.mocked(getSession).mockResolvedValue({
       id: "source-session",
       title: "Chat",
@@ -213,10 +213,10 @@ describe("forkSessionFromMessage", () => {
     });
     vi.mocked(getMessagesBySession).mockResolvedValue([
       {
-        id: "kept-old",
+        id: "user-old",
         sessionId: "source-session",
         role: "user",
-        content: "kept",
+        content: "question",
         thinking: "",
         toolInvocations: [],
         status: "completed",
@@ -225,29 +225,16 @@ describe("forkSessionFromMessage", () => {
         createdAt: 1,
       },
       {
-        id: "tail-old",
+        id: "assistant-old",
         sessionId: "source-session",
         role: "assistant",
-        content: "tail",
+        content: "answer",
         thinking: "",
         toolInvocations: [],
         status: "completed",
         taskId: "agent-task",
         error: null,
         createdAt: 2,
-      },
-      {
-        id: "compact-old",
-        sessionId: "source-session",
-        role: "assistant",
-        messageKind: "compact",
-        content: "summary",
-        thinking: "",
-        toolInvocations: [],
-        status: "completed",
-        taskId: "kept-old",
-        error: null,
-        createdAt: 3,
       },
     ]);
     vi.mocked(createSession).mockResolvedValue({
@@ -263,19 +250,14 @@ describe("forkSessionFromMessage", () => {
       updatedAt: 2,
     });
 
-    await forkSessionFromMessage("source-session", "compact-old", "Fork");
+    await forkSessionFromMessage("source-session", "assistant-old", "Fork");
 
     const createCalls = vi.mocked(createMessage).mock.calls.map(
       ([payload]) => payload
     );
-    const forkedKept = createCalls.find((payload) => payload.content === "kept");
-    const forkedCompact = createCalls.find(
-      (payload) => payload.messageKind === "compact"
-    );
-    const forkedTail = createCalls.find((payload) => payload.content === "tail");
-
-    expect(forkedKept?.id).toBeTruthy();
-    expect(forkedCompact?.taskId).toBe(forkedKept?.id);
-    expect(forkedTail?.taskId).toBeNull();
+    expect(createCalls.length).toBe(2);
+    for (const payload of createCalls) {
+      expect(payload.taskId).toBeNull();
+    }
   });
 });

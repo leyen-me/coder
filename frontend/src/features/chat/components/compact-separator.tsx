@@ -21,8 +21,6 @@ export type CompactBoundary = {
   preview: string;
 };
 
-const COMPACT_SUMMARY_MARKER = "## Context Compaction Summary";
-
 export function isCompactMessage(message: {
   messageKind?: string | null;
   role?: string;
@@ -41,13 +39,8 @@ export function isCompactMessage(message: {
 }
 
 export function compactPreviewFromContent(content: string): string {
-  const summaryStart = content.indexOf(COMPACT_SUMMARY_MARKER);
-  const previewSource =
-    summaryStart >= 0
-      ? content.slice(summaryStart + COMPACT_SUMMARY_MARKER.length)
-      : content;
-
-  return previewSource.trim();
+  // handoff 内容即预览，直接 trim。
+  return content.trim();
 }
 
 export function detectCompactBoundaries(

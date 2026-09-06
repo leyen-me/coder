@@ -612,7 +612,6 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
         sessionId: string;
         removedCount: number;
         summaryPreview: string;
-        firstKeptMessageId?: string | null;
         compactMessageId?: string | null;
         anchorAfterMessageId?: string | null;
       }>).detail;
@@ -635,8 +634,6 @@ export function ChatSessionView({ chatId, readOnly = false }: ChatSessionViewPro
             compactUiFromAgentCompleted(messages, {
               removedCount: detail.removedCount,
               summaryPreview: detail.summaryPreview,
-              firstKeptMessageId:
-                detail.firstKeptMessageId ?? compactMessage?.taskId ?? null,
               compactMessageId:
                 detail.compactMessageId ?? compactMessage?.id ?? null,
               anchorAfterMessageId: detail.anchorAfterMessageId ?? null,

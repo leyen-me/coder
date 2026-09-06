@@ -334,7 +334,6 @@ export function AgentStoreProvider({ children }: AgentStoreProviderProps) {
                 removedCount: event.removedCount,
                 summaryPreview: event.summaryPreview,
                 source: event.source ?? "manual",
-                firstKeptMessageId: event.firstKeptMessageId ?? null,
                 compactMessageId: event.compactMessageId ?? null,
                 anchorAfterMessageId: event.anchorAfterMessageId ?? null,
               },

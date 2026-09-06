@@ -38,8 +38,6 @@ export type AgentEvent = (
   | {
       type: "compact_started";
       taskId: string;
-      estimatedTokens: number;
-      maxTokens: number;
       /** `auto` mid-turn vs `manual` user/slash. */
       source?: "auto" | "manual";
     }
@@ -50,7 +48,6 @@ export type AgentEvent = (
       summaryPreview: string;
       /** `auto` mid-turn vs `manual` user/slash. */
       source?: "auto" | "manual";
-      firstKeptMessageId?: string | null;
       compactMessageId?: string | null;
       anchorAfterMessageId?: string | null;
     }

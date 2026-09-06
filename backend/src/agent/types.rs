@@ -156,8 +156,6 @@ pub enum AgentEvent {
     #[serde(rename = "compact_started")]
     CompactStarted {
         task_id: String,
-        estimated_tokens: u32,
-        max_tokens: u32,
         /// `auto` (mid-turn) or `manual` (user/slash). Affects UI placement.
         #[serde(default = "default_compact_source")]
         source: String,
@@ -170,8 +168,6 @@ pub enum AgentEvent {
         /// `auto` (mid-turn) or `manual` (user/slash). Affects UI placement.
         #[serde(default = "default_compact_source")]
         source: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        first_kept_message_id: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         compact_message_id: Option<String>,
         /// UI event point: render the compact banner after this message.

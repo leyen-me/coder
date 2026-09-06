@@ -10,7 +10,6 @@ export type CompactApiResponse = {
   removedCount?: number;
   remainingCount?: number;
   anchorAfterMessageId?: string | null;
-  firstKeptMessageId?: string | null;
   compactMessageId?: string | null;
   summaryPreview?: string | null;
 };
@@ -124,7 +123,6 @@ export function compactUiFromAgentCompleted(
   input: {
     removedCount: number;
     summaryPreview: string;
-    firstKeptMessageId?: string | null;
     compactMessageId?: string | null;
     anchorAfterMessageId?: string | null;
   },

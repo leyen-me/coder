@@ -103,28 +103,68 @@ describe("estimateSessionContextUsage", () => {
 });
 
 describe("modelHistoryFromLatestCompact", () => {
-  it("keeps summary plus first_kept tail", () => {
+  it("keeps handoff plus everything after it", () => {
     const messages = [
       createMessage({ id: "old", role: "user", content: "old", createdAt: 1 }),
-      createMessage({ id: "kept", role: "user", content: "kept", createdAt: 2 }),
       createMessage({
-        id: "tail",
-        role: "assistant",
-        content: "tail",
+        id: "compact",
+        role: "user",
+        messageKind: "compact",
+        content: "# Handoff",
+        createdAt: 2,
+      }),
+      createMessage({
+        id: "after-user",
+        role: "user",
+        content: "continue",
         createdAt: 3,
       }),
       createMessage({
-        id: "compact",
+        id: "after-assistant",
         role: "assistant",
-        messageKind: "compact",
-        content: "summary",
-        taskId: "kept",
+        content: "ok",
         createdAt: 4,
       }),
     ];
 
     expect(
       modelHistoryFromLatestCompact(messages).map((message) => message.id)
-    ).toEqual(["compact", "kept", "tail"]);
+    ).toEqual(["compact", "after-user", "after-assistant"]);
+  });
+
+  it("skips older handoffs", () => {
+    const messages = [
+      createMessage({ id: "old", role: "user", content: "old", createdAt: 1 }),
+      createMessage({
+        id: "compact-1",
+        role: "user",
+        messageKind: "compact",
+        content: "# Handoff 1",
+        createdAt: 2,
+      }),
+      createMessage({
+        id: "mid",
+        role: "user",
+        content: "mid",
+        createdAt: 3,
+      }),
+      createMessage({
+        id: "compact-2",
+        role: "user",
+        messageKind: "compact",
+        content: "# Handoff 2",
+        createdAt: 4,
+      }),
+      createMessage({
+        id: "tail",
+        role: "assistant",
+        content: "tail",
+        createdAt: 5,
+      }),
+    ];
+
+    expect(
+      modelHistoryFromLatestCompact(messages).map((message) => message.id)
+    ).toEqual(["compact-2", "tail"]);
   });
 });

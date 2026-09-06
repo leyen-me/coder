@@ -4,7 +4,6 @@ use regex::Regex;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::compact::is_compact_summary_message;
 use super::tool_dispatch::image_multimodal_content;
 use super::types::{AgentToolDefinition, ApiToolCall, ApiToolCallFunction, ChatMessage};
 use crate::db::{
@@ -85,13 +84,9 @@ pub fn build_system_prompt_preview(
     }
     let messages = assemble_agent_messages(app_state, &effective_session)?;
     // Only surface true system instructions in the "System prompt" panel.
-    // Compact summaries are also system-role messages inside the conversation,
-    // but they are dynamic context (already shown in the timeline), not
-    // instructions — exclude them so the panel stays a faithful "system prompt".
     let system_blocks = messages
         .into_iter()
         .take_while(|message| message.role == "system")
-        .filter(|message| !is_compact_summary_message(message))
         .filter_map(|message| message.content.and_then(|value| value.as_str().map(str::to_string)))
         .collect::<Vec<_>>();
     Ok(join_prompt_blocks(system_blocks))
@@ -286,8 +281,16 @@ fn load_enabled_remote_targets(app_state: &AppState) -> Result<Vec<RemoteTargetR
 
 fn message_record_to_historical_messages(message: MessageRecord) -> Vec<HistoricalChatMessage> {
     if message.message_kind.as_deref() == Some(crate::db::records::MESSAGE_KIND_COMPACT) {
+        // Handoff 以 user 消息身份进入模型上下文。
         return vec![HistoricalChatMessage {
-            chat: system_message(message.content),
+            chat: ChatMessage {
+                role: "user".to_string(),
+                content: Some(Value::String(message.content.trim().to_string())),
+                reasoning_content: None,
+                tool_calls: None,
+                tool_call_id: None,
+                name: None,
+            },
             referenced_skills: Vec::new(),
         }];
     }
@@ -1671,7 +1674,7 @@ Prefer deterministic test scaffolding.
     }
 
     #[test]
-    fn model_history_from_latest_compact_keeps_summary_and_first_kept_tail() {
+    fn legacy_marker_window_uses_first_kept_tail() {
         let records = vec![
             MessageRecord {
                 id: "old-user".to_string(),
@@ -1758,7 +1761,7 @@ Prefer deterministic test scaffolding.
     }
 
     #[test]
-    fn assemble_agent_messages_cuts_at_latest_compact_marker() {
+    fn assemble_agent_messages_cuts_legacy_marker_at_first_kept() {
         let workspace_dir = temp_dir("compact-cut");
         let state = create_test_state(&workspace_dir);
         let session = sample_session(&workspace_dir);
@@ -1793,7 +1796,7 @@ Prefer deterministic test scaffolding.
             &MessageRecord {
                 id: kept_id.clone(),
                 session_id: session.id.clone(),
-                role: "user".to_string(),
+                role: "assistant".to_string(),
                 message_kind: None,
                 content: "continue from here".to_string(),
                 images: None,
@@ -1818,7 +1821,7 @@ Prefer deterministic test scaffolding.
                 session_id: session.id.clone(),
                 role: "assistant".to_string(),
                 message_kind: Some(crate::db::records::MESSAGE_KIND_COMPACT.to_string()),
-                content: "## Context Compaction Summary\n\ncompacted context".to_string(),
+                content: "# Handoff\n\ncompacted context".to_string(),
                 images: None,
                 referenced_skills: None,
                 thinking: String::new(),
@@ -1834,6 +1837,29 @@ Prefer deterministic test scaffolding.
             true,
         )
         .expect("put compact");
+        put_message(
+            &db,
+            &MessageRecord {
+                id: new_message_id(),
+                session_id: session.id.clone(),
+                role: "assistant".to_string(),
+                message_kind: None,
+                content: "Picking up from the handoff.".to_string(),
+                images: None,
+                referenced_skills: None,
+                thinking: String::new(),
+                process_steps: None,
+                tool_invocations: Vec::new(),
+                status: "completed".to_string(),
+                task_id: None,
+                error: None,
+                created_at: 202,
+                duration_ms: None,
+                usage: None,
+            },
+            true,
+        )
+        .expect("put post-handoff");
         drop(db);
 
         let messages = assemble_agent_messages(&state, &session).expect("assemble");
@@ -1853,7 +1879,7 @@ Prefer deterministic test scaffolding.
             .collect::<Vec<_>>();
 
         assert!(non_system.iter().any(|message| {
-            message.role == "system"
+            message.role == "user"
                 && message
                     .content
                     .as_ref()
@@ -1861,7 +1887,7 @@ Prefer deterministic test scaffolding.
                     .is_some_and(|text| text.contains("compacted context"))
         }));
         assert!(non_system.iter().any(|message| {
-            message.role == "user"
+            message.role == "assistant"
                 && message
                     .content
                     .as_ref()
@@ -1890,7 +1916,7 @@ Prefer deterministic test scaffolding.
             &MessageRecord {
                 id: kept_id.clone(),
                 session_id: session.id.clone(),
-                role: "user".to_string(),
+                role: "assistant".to_string(),
                 message_kind: None,
                 content: "continue from here".to_string(),
                 images: None,
@@ -1915,7 +1941,7 @@ Prefer deterministic test scaffolding.
                 session_id: session.id.clone(),
                 role: "assistant".to_string(),
                 message_kind: Some(crate::db::records::MESSAGE_KIND_COMPACT.to_string()),
-                content: "## Context Compaction Summary\n\ncompacted context".to_string(),
+                content: "# Handoff\n\ncompacted context".to_string(),
                 images: None,
                 referenced_skills: None,
                 thinking: String::new(),
