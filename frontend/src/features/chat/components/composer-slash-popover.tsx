@@ -174,7 +174,7 @@ export function ComposerSlashPopover({
                     >
                       <Icon className="size-4 shrink-0 opacity-70" />
                       <span className="min-w-0 truncate font-medium">
-                        {item.skill.name}
+                        /{item.skill.slug}
                       </span>
                       <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs">
                         {item.skill.description}
