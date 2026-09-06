@@ -167,6 +167,9 @@ export const enMessages = {
     skillNoResults: "No enabled skills found",
     slashCommandsHeading: "Commands",
     slashSkillsHeading: "Skills",
+    slashNewDescription: "Start a new conversation",
+    slashCompactDescription:
+      "Manual context compaction — summarize conversation to free token space",
     removeSkillReference: "Remove skill reference",
     skillNotFound: "Skill /{slug} was not found.",
     attachmentErrorAccept:

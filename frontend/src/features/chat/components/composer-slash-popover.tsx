@@ -147,7 +147,7 @@ export function ComposerSlashPopover({
                         /{item.command.slug}
                       </span>
                       <span className="min-w-0 truncate text-muted-foreground text-xs">
-                        {item.command.description}
+                        {t(item.command.descriptionKey)}
                       </span>
                     </CommandItem>
                   );

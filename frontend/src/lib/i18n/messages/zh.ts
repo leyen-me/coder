@@ -166,6 +166,8 @@ export const zhMessages = {
     skillNoResults: "没有已启用的技能",
     slashCommandsHeading: "命令",
     slashSkillsHeading: "技能",
+    slashNewDescription: "开始新对话",
+    slashCompactDescription: "手动压缩上下文——总结对话以释放 token 空间",
     removeSkillReference: "移除技能引用",
     skillNotFound: "未找到技能 /{slug}。",
     attachmentErrorAccept: "当前仅支持图片文件。非图片文件请直接输入路径，或先将文件放入工作区后再引用",

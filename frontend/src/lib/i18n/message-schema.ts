@@ -160,6 +160,8 @@ export type Messages = {
     skillNoResults: string;
     slashCommandsHeading: string;
     slashSkillsHeading: string;
+    slashNewDescription: string;
+    slashCompactDescription: string;
     removeSkillReference: string;
     skillNotFound: string;
     attachmentErrorAccept: string;
