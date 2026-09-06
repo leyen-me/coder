@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-import { Switch } from "@/components/ui/switch";
 import {
   formatSessionThresholdPercent,
   MAX_AGENT_SESSION_THRESHOLD,
@@ -22,19 +21,19 @@ export function GeneralSettingsPanel() {
   const [sessionThresholdInput, setSessionThresholdInput] = useState(() =>
     formatSessionThresholdPercent(readAgentSessionThreshold())
   );
-  const [autoGenerateTitles, setAutoGenerateTitles] = useState(
-    readAutoGenerateTitles
+  const [titleSource, setTitleSource] = useState<"firstMessage" | "model">(
+    readAutoGenerateTitles() ? "model" : "firstMessage"
   );
-
-  const handleAutoGenerateTitlesChange = (checked: boolean) => {
-    writeAutoGenerateTitles(checked);
-    setAutoGenerateTitles(checked);
-  };
 
   const localeOptions = LOCALE_VALUES.map((value) => ({
     value,
     label: t(`locale.${value}`),
   }));
+
+  const titleSourceOptions = [
+    { value: "firstMessage", label: t("settings.general.titleSourceFirstMessage") },
+    { value: "model", label: t("settings.general.titleSourceModel") },
+  ] as const;
 
   const minPercent = MIN_AGENT_SESSION_THRESHOLD * 100;
   const maxPercent = MAX_AGENT_SESSION_THRESHOLD * 100;
@@ -72,13 +71,17 @@ export function GeneralSettingsPanel() {
       />
 
       <SettingRow
-        label={t("settings.general.autoGenerateTitlesLabel")}
-        description={t("settings.general.autoGenerateTitlesDescription")}
+        label={t("settings.general.titleSourceLabel")}
+        description={t("settings.general.titleSourceDescription")}
         control={
-          <Switch
-            checked={autoGenerateTitles}
-            onCheckedChange={handleAutoGenerateTitlesChange}
-            aria-label={t("settings.general.autoGenerateTitlesAriaLabel")}
+          <SettingSelect
+            value={titleSource}
+            options={titleSourceOptions}
+            onValueChange={(value) => {
+              writeAutoGenerateTitles(value === "model");
+              setTitleSource(value);
+            }}
+            aria-label={t("settings.general.titleSourceAriaLabel")}
           />
         }
       />

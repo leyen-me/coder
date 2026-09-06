@@ -350,9 +350,11 @@ export type Messages = {
       languageLabel: string;
       languageDescription: string;
       languageAriaLabel: string;
-      autoGenerateTitlesLabel: string;
-      autoGenerateTitlesDescription: string;
-      autoGenerateTitlesAriaLabel: string;
+      titleSourceLabel: string;
+      titleSourceDescription: string;
+      titleSourceAriaLabel: string;
+      titleSourceFirstMessage: string;
+      titleSourceModel: string;
       contextSessionThresholdLabel: string;
       contextSessionThresholdDescription: string;
       contextSessionThresholdAriaLabel: string;
