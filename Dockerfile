@@ -47,8 +47,8 @@ FROM node:20-slim AS frontend-builder
 
 WORKDIR /app
 
-# pnpm 激活
-RUN npm i -g pnpm
+# pnpm 激活（固定 v10：v11 会因未批准的依赖构建脚本直接报错）
+RUN npm i -g pnpm@10
 
 # 先复制依赖清单，利用 Docker 层缓存
 COPY package.json pnpm-lock.yaml ./
@@ -113,7 +113,7 @@ RUN apt-get update -qq && apt-get install -y -qq \
     openssh-client \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y -qq nodejs \
-    && npm i -g pnpm \
+    && npm i -g pnpm@10 \
     && apt-get remove -y gnupg \
     && rm -rf /var/lib/apt/lists/*
 
